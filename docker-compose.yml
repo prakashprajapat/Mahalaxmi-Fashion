@@ -1,0 +1,62 @@
+version: '3.9'
+
+services:
+  # ── PostgreSQL ──────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: mfh_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: mahalaxmi_fashionhub
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── .NET Backend ───────────────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: mfh_backend
+    restart: unless-stopped
+    environment:
+      ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=mahalaxmi_fashionhub;Username=postgres;Password=${DB_PASSWORD:-changeme}"
+      Jwt__Key: ${JWT_KEY:-CHANGE_THIS_IN_PRODUCTION_USE_LONG_RANDOM_STRING}
+      Jwt__Issuer: MahalaxmiApi
+      Jwt__Audience: MahalaxmiFashionHub
+      Admin__Email: ${ADMIN_EMAIL:-admin@mahalaxmifashionhub.com}
+      Admin__PasswordHash: ${ADMIN_PASSWORD_HASH}
+      Razorpay__KeyId: ${RAZORPAY_KEY_ID}
+      Razorpay__KeySecret: ${RAZORPAY_KEY_SECRET}
+      ASPNETCORE_ENVIRONMENT: Production
+    ports:
+      - "5000:5000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # ── Next.js Frontend ───────────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: mfh_frontend
+    restart: unless-stopped
+    environment:
+      NEXT_PUBLIC_API_URL: http://backend:5000/api
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:

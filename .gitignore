@@ -1,0 +1,46 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+.npm/
+
+# Output/Download folders
+download-output/
+outputs/
+
+# Next.js
+frontend/.next/
+frontend/out/
+frontend/.pnpm-store/
+
+# .NET / Build outputs
+backend/bin/
+backend/obj/
+*.user
+
+# Environment files
+.env
+.env.local
+.env.*.local
+frontend/.env.local
+backend/.env
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+/tmp/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Secrets & server-only configs — never commit (public repo)
+backend/appsettings.json
+backend/appsettings.Production.json
+backend/out/
+import_products.py
