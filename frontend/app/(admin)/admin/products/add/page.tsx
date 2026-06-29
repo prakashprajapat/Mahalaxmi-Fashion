@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { productsApi } from '@/lib/api';
 import { getAdminToken } from '@/lib/auth';
 import { getTaxonomy } from '@/lib/womenTaxonomy';
+import TaxonomyCombo from '@/components/admin/TaxonomyCombo';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const CATEGORIES = ['Women','Men','Kids','Beauty','Fabrics','More'];
@@ -711,20 +712,29 @@ export default function AddProductPage() {
 
           {getTaxonomy(category).length > 0 ? (
           <>
-          <div>
-            <label style={lbl}>Subcategory</label>
-            <select value={sub} onChange={e => { setSub(e.target.value); setTaxVariant(''); }} style={inp}>
-              <option value="">Select subcategory…</option>
-              {getTaxonomy(category).map(g => <option key={g.name} value={g.name}>{g.name}</option>)}
-            </select>
-          </div>
-          <div>
-            <label style={lbl}>Variant</label>
-            <select value={taxVariant} onChange={e => setTaxVariant(e.target.value)} style={inp} disabled={!sub}>
-              <option value="">{sub ? 'Select variant…' : 'Select a subcategory first'}</option>
-              {(getTaxonomy(category).find(g => g.name === sub)?.variants ?? []).map(v => <option key={v} value={v}>{v}</option>)}
-            </select>
-          </div>
+          <TaxonomyCombo
+            label="Subcategory"
+            value={sub}
+            onChange={(v) => { setSub(v); setTaxVariant(''); }}
+            baseOptions={getTaxonomy(category).map(g => g.name)}
+            storageKey={`sub_${category.toLowerCase()}`}
+            canDelete={(name) => (getTaxonomy(category).find(g => g.name === name)?.variants.length ?? 0) === 0}
+            placeholder="Type or select subcategory…"
+            inpStyle={inp}
+            labelStyle={lbl}
+          />
+          <TaxonomyCombo
+            label="Variant"
+            value={taxVariant}
+            onChange={setTaxVariant}
+            baseOptions={getTaxonomy(category).find(g => g.name === sub)?.variants ?? []}
+            storageKey={`var_${category.toLowerCase()}_${sub.toLowerCase()}`}
+            canDelete={() => true}
+            disabled={!sub}
+            placeholder={sub ? 'Type or select variant…' : 'Select a subcategory first'}
+            inpStyle={inp}
+            labelStyle={lbl}
+          />
           </>
           ) : (
           <div style={{ position:'relative' }}>

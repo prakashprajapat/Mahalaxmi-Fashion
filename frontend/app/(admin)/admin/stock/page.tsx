@@ -8,6 +8,10 @@ type StockStatus = 'In Stock' | 'Out of Stock' | 'Limited Stock';
 
 const STOCK_OPTIONS: StockStatus[] = ['In Stock', 'Out of Stock', 'Limited Stock'];
 
+const productVariant = (p: any): string => {
+  try { return JSON.parse(p.extraJson ?? '{}').variant ?? ''; } catch { return ''; }
+};
+
 export default function AdminStockPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -17,6 +21,7 @@ export default function AdminStockPage() {
   // Filters
   const [filterCategory, setFilterCategory]   = useState('');
   const [filterSubcat, setFilterSubcat]       = useState('');
+  const [filterVariant, setFilterVariant]     = useState('');
   const [filterSku, setFilterSku]             = useState('');
   const [filterStock, setFilterStock]         = useState('');
 
@@ -45,10 +50,23 @@ export default function AdminStockPage() {
     ).sort() as string[];
   }, [products, filterCategory]);
 
-  // Reset subcategory when category changes
+  // Variants filtered by selected category + subcategory
+  const variants = useMemo(() => {
+    let source = products;
+    if (filterCategory) source = source.filter(p => (p.category ?? '').toLowerCase() === filterCategory.toLowerCase());
+    if (filterSubcat) source = source.filter(p => ((p as any).subcategory ?? '').toLowerCase() === filterSubcat.toLowerCase());
+    return Array.from(new Set(source.map(productVariant).filter(Boolean))).sort() as string[];
+  }, [products, filterCategory, filterSubcat]);
+
+  // Reset child filters when a parent filter changes
   const handleCategoryChange = (cat: string) => {
     setFilterCategory(cat);
     setFilterSubcat('');
+    setFilterVariant('');
+  };
+  const handleSubcatChange = (sub: string) => {
+    setFilterSubcat(sub);
+    setFilterVariant('');
   };
 
   // Filtered product list
@@ -62,6 +80,9 @@ export default function AdminStockPage() {
         ((p as any).subcategory ?? '').toLowerCase() === filterSubcat.toLowerCase()
       );
     }
+    if (filterVariant) {
+      list = list.filter(p => productVariant(p).toLowerCase() === filterVariant.toLowerCase());
+    }
     if (filterSku.trim()) {
       const q = filterSku.trim().toLowerCase();
       list = list.filter(p =>
@@ -73,7 +94,7 @@ export default function AdminStockPage() {
       list = list.filter(p => (p.stock ?? 'In Stock') === filterStock);
     }
     return list;
-  }, [products, filterCategory, filterSubcat, filterSku, filterStock]);
+  }, [products, filterCategory, filterSubcat, filterVariant, filterSku, filterStock]);
 
   const toggleStock = async (product: Product, newStatus: StockStatus) => {
     const token = getAdminToken() ?? '';
@@ -110,7 +131,7 @@ export default function AdminStockPage() {
         done++;
       } catch { /* skip */ }
     }
-    setMessage({ text: `✅ ${done} / ${toUpdate.length} products "${status}" set kiye`, ok: true });
+    setMessage({ text: `✅ ${done} / ${toUpdate.length} products set to "${status}"`, ok: true });
     setTimeout(() => setMessage(null), 4000);
   };
 
@@ -130,12 +151,12 @@ export default function AdminStockPage() {
           <button
             onClick={() => bulkSet('In Stock')}
             style={{ background: '#1b5e20', color: '#fff', border: 'none', borderRadius: '8px', padding: '.45rem 1rem', fontSize: '.83rem', fontWeight: 600, cursor: 'pointer' }}>
-            ✅ Saare In Stock ({filtered.length})
+            ✅ All In Stock ({filtered.length})
           </button>
           <button
             onClick={() => bulkSet('Out of Stock')}
             style={{ background: '#b71c1c', color: '#fff', border: 'none', borderRadius: '8px', padding: '.45rem 1rem', fontSize: '.83rem', fontWeight: 600, cursor: 'pointer' }}>
-            ❌ Saare Out of Stock ({filtered.length})
+            ❌ All Out of Stock ({filtered.length})
           </button>
         </div>
       </div>
@@ -165,7 +186,7 @@ export default function AdminStockPage() {
               value={filterCategory}
               onChange={e => handleCategoryChange(e.target.value)}
               style={{ width: '100%', border: '1.5px solid #ddd', borderRadius: '8px', padding: '.4rem .65rem', fontSize: '.86rem' }}>
-              <option value="">— Sabhi Categories —</option>
+              <option value="">— All Categories —</option>
               {categories.map(c => (
                 <option key={c} value={c}>{c}</option>
               ))}
@@ -179,12 +200,29 @@ export default function AdminStockPage() {
             </label>
             <select
               value={filterSubcat}
-              onChange={e => setFilterSubcat(e.target.value)}
+              onChange={e => handleSubcatChange(e.target.value)}
               disabled={subcategories.length === 0}
               style={{ width: '100%', border: '1.5px solid #ddd', borderRadius: '8px', padding: '.4rem .65rem', fontSize: '.86rem', opacity: subcategories.length === 0 ? .5 : 1 }}>
-              <option value="">— Sabhi Subcategories —</option>
+              <option value="">— All Subcategories —</option>
               {subcategories.map(s => (
                 <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Variant */}
+          <div>
+            <label style={{ fontSize: '.75rem', fontWeight: 600, color: '#555', display: 'block', marginBottom: '.25rem' }}>
+              Variant
+            </label>
+            <select
+              value={filterVariant}
+              onChange={e => setFilterVariant(e.target.value)}
+              disabled={variants.length === 0}
+              style={{ width: '100%', border: '1.5px solid #ddd', borderRadius: '8px', padding: '.4rem .65rem', fontSize: '.86rem', opacity: variants.length === 0 ? .5 : 1 }}>
+              <option value="">— All Variants —</option>
+              {variants.map(v => (
+                <option key={v} value={v}>{v}</option>
               ))}
             </select>
           </div>
@@ -211,7 +249,7 @@ export default function AdminStockPage() {
               value={filterStock}
               onChange={e => setFilterStock(e.target.value)}
               style={{ width: '100%', border: '1.5px solid #ddd', borderRadius: '8px', padding: '.4rem .65rem', fontSize: '.86rem' }}>
-              <option value="">— Sabhi —</option>
+              <option value="">— All —</option>
               {STOCK_OPTIONS.map(s => (
                 <option key={s} value={s}>{s}</option>
               ))}
@@ -251,6 +289,7 @@ export default function AdminStockPage() {
                 <th style={thStyle}>Product Name</th>
                 <th style={thStyle}>Category</th>
                 <th style={thStyle}>Subcategory</th>
+                <th style={thStyle}>Variant</th>
                 <th style={{ ...thStyle, textAlign: 'center' }}>Current Status</th>
                 <th style={{ ...thStyle, textAlign: 'center' }}>Change To</th>
               </tr>
@@ -268,6 +307,7 @@ export default function AdminStockPage() {
                     </td>
                     <td style={{ ...tdStyle, color: '#666' }}>{p.category ?? '—'}</td>
                     <td style={{ ...tdStyle, color: '#444' }}>{(p as any).subcategory ?? '—'}</td>
+                    <td style={{ ...tdStyle, color: '#777' }}>{productVariant(p) || '—'}</td>
                     <td style={{ ...tdStyle, textAlign: 'center' }}>
                       <span style={{
                         display: 'inline-block',
