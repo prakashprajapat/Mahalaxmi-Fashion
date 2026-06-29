@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { productsApi } from '@/lib/api';
 import CategoryPageContent from '@/components/product/CategoryPageContent';
+import CategoryMenu from '@/components/layout/CategoryMenu';
 
 export const revalidate = 60;
 
@@ -19,6 +20,7 @@ export default async function KidsPage() {
         <h1>👶 Kids</h1>
         <p>Cute &amp; comfortable kids clothing</p>
       </section>
+      <CategoryMenu category="kids" heading="Shop Kids by Category" />
       <CategoryPageContent products={products as any} category="Kids" icon="👶" desc="Cute & comfortable kids clothing" allHref="/products?category=kids" />
     </>
   );
