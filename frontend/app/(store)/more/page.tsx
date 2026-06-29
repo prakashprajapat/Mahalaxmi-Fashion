@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
 import { productsApi } from '@/lib/api';
 import CategoryPageContent from '@/components/product/CategoryPageContent';
-import CategoryMenu from '@/components/layout/CategoryMenu';
 
 export const revalidate = 60;
 
@@ -20,7 +19,6 @@ export default async function MoreProductsPage() {
         <h1>🛍️ More Products</h1>
         <p>Explore all our products & collections</p>
       </section>
-      <CategoryMenu category="more" heading="Shop More by Category" />
       <CategoryPageContent products={products as any} category="More Products" icon="🛍️" desc="Explore all our products & collections" allHref="/products" />
     </>
   );

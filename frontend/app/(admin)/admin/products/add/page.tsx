@@ -496,6 +496,13 @@ export default function AddProductPage() {
     // Restore last-used HSN code from localStorage
     const lastHsn = typeof window !== 'undefined' ? localStorage.getItem('mfh_lastHsnCode') ?? '' : '';
     setHsnCode(lastHsn);
+    // Restore last-used Category / Subcategory / Variant from localStorage
+    if (typeof window !== 'undefined') {
+      const lastCat = localStorage.getItem('mfh_lastCategory');
+      if (lastCat) setCategory(lastCat);
+      setSub(localStorage.getItem('mfh_lastSub') ?? '');
+      setTaxVariant(localStorage.getItem('mfh_lastVariant') ?? '');
+    }
     // Fetch all products to build subcategory suggestions
     productsApi.getAll({ pageSize: 1000 })
       .then(r => {
@@ -603,8 +610,11 @@ export default function AddProductPage() {
         packOf: packValue >= 2 ? packValue : undefined,
         extraJson,
       }], getAdminToken() ?? '');
-      // Remember last used HSN code
+      // Remember last used HSN code, Category, Subcategory and Variant
       if (finalHsn) localStorage.setItem('mfh_lastHsnCode', finalHsn);
+      localStorage.setItem('mfh_lastCategory', category);
+      localStorage.setItem('mfh_lastSub', sub);
+      localStorage.setItem('mfh_lastVariant', taxVariant);
       alert('✅ Product added successfully!');
       router.push('/admin/products');
     } catch (e) { alert('❌ ' + (e as Error).message); }
