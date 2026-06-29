@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { productsApi } from '@/lib/api';
 import CategoryPageContent from '@/components/product/CategoryPageContent';
-import WomenCategoryMenu from '@/components/layout/WomenCategoryMenu';
+import CategoryMenu from '@/components/layout/CategoryMenu';
 
 export const revalidate = 60;
 
@@ -20,7 +20,7 @@ export default async function WomenPage() {
         <h1>👩 Women</h1>
         <p>Women&apos;s ethnic wear and fashion essentials</p>
       </section>
-      <WomenCategoryMenu />
+      <CategoryMenu category="women" heading="Shop Women by Category" />
       <CategoryPageContent products={products as any} category="Women" icon="👩" desc="Women's ethnic wear and fashion essentials" allHref="/products?category=women" />
     </>
   );

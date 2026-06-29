@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { productsApi } from '@/lib/api';
 import { getAdminToken } from '@/lib/auth';
-import { WOMEN_TAXONOMY } from '@/lib/womenTaxonomy';
+import { getTaxonomy } from '@/lib/womenTaxonomy';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const CATEGORIES = ['Women','Men','Kids','Beauty','Fabrics','More'];
@@ -583,7 +583,7 @@ export default function AddProductPage() {
         productPhotos: mainPhotos,
         addOns: addOns.filter(a => a.name.trim()),
         variants: variants.filter(v => v.name.trim()),
-        variant: category === 'Women' && taxVariant ? taxVariant : undefined,
+        variant: getTaxonomy(category).length > 0 && taxVariant ? taxVariant : undefined,
       });
       const finalHsn = hsnCode.trim();
       await productsApi.bulkSave([{
@@ -699,20 +699,20 @@ export default function AddProductPage() {
             </select>
           </div>
 
-          {category === 'Women' ? (
+          {getTaxonomy(category).length > 0 ? (
           <>
           <div>
             <label style={lbl}>Subcategory</label>
             <select value={sub} onChange={e => { setSub(e.target.value); setTaxVariant(''); }} style={inp}>
               <option value="">Select subcategory…</option>
-              {WOMEN_TAXONOMY.map(g => <option key={g.name} value={g.name}>{g.name}</option>)}
+              {getTaxonomy(category).map(g => <option key={g.name} value={g.name}>{g.name}</option>)}
             </select>
           </div>
           <div>
             <label style={lbl}>Variant</label>
             <select value={taxVariant} onChange={e => setTaxVariant(e.target.value)} style={inp} disabled={!sub}>
               <option value="">{sub ? 'Select variant…' : 'Pehle subcategory chunein'}</option>
-              {(WOMEN_TAXONOMY.find(g => g.name === sub)?.variants ?? []).map(v => <option key={v} value={v}>{v}</option>)}
+              {(getTaxonomy(category).find(g => g.name === sub)?.variants ?? []).map(v => <option key={v} value={v}>{v}</option>)}
             </select>
           </div>
           </>

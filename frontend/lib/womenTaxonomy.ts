@@ -1,5 +1,5 @@
-// Women category taxonomy: subcategories and their variants.
-// Single source of truth for the admin subcategory picker and the storefront Women menu.
+// Category taxonomy: subcategories and their variants.
+// Single source of truth for the admin subcategory/variant pickers and the storefront menus.
 
 export type Subcategory = { name: string; variants: string[] };
 
@@ -23,11 +23,32 @@ export const WOMEN_TAXONOMY: Subcategory[] = [
   { name: 'Maternity Wear', variants: ['Kurti & Topwear', 'Feeding Bras', 'Briefs & Bottomwear'] },
 ];
 
-// Flat list of subcategory + variant names, used to populate the admin subcategory suggestions.
+export const MEN_TAXONOMY: Subcategory[] = [
+  { name: 'Top Wear', variants: ['Summer T-Shirts', 'Shirts', 'T-Shirts Combos'] },
+  { name: 'Bottom Wear', variants: ['Jeans', 'Cargos/Trousers', 'Dhotis/Lungis'] },
+  { name: 'Ethnic Wear', variants: ['Kurtas', 'Kurta Sets', 'Nehru Jacket'] },
+  { name: 'Innerwear', variants: ['Vests', 'Briefs', 'Boxers'] },
+  { name: 'Sports Wear', variants: ['Trackpants', 'Tracksuits', 'Gym Tshirts'] },
+  { name: 'Night Wear', variants: ['Pyjamas', 'Night Shorts', 'Nightsuits'] },
+  { name: 'Winter Wear', variants: ['Shrugs', 'Jackets', 'Sweatshirts'] },
+  { name: 'Combo Store', variants: ['Rakhi Specials', 'Shirts Combo', 'Innerwear Combo'] },
+  { name: 'Accessories', variants: ['All Accessories', 'Watches', 'Wallets', 'Jewellery', 'Sunglasses & Spectacle Frames', 'Belts'] },
+  { name: 'Footwear', variants: ['Men Footwear', 'Men Casual Shoes', 'Men Sports Shoes', 'Men Flip Flops and Sandals', 'Men Formal Shoes', 'Loafers'] },
+];
+
+// Returns the taxonomy for a given top-level category (empty if none defined).
+export function getTaxonomy(category: string): Subcategory[] {
+  switch (category.toLowerCase()) {
+    case 'women': return WOMEN_TAXONOMY;
+    case 'men':   return MEN_TAXONOMY;
+    default:      return [];
+  }
+}
+
+// Flat list of subcategory + variant names — used to populate admin subcategory suggestions.
 export function taxonomySuggestions(category: string): string[] {
-  if (category.toLowerCase() !== 'women') return [];
   const out: string[] = [];
-  for (const s of WOMEN_TAXONOMY) {
+  for (const s of getTaxonomy(category)) {
     out.push(s.name);
     for (const v of s.variants) out.push(v);
   }
