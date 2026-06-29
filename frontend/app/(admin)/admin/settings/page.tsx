@@ -230,15 +230,15 @@ export default function AdminSettingsPage() {
               </div>
             </div>
           ))}
-        </div>
 
-        {/* Bottom save bar */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '1.5rem', flexWrap: 'wrap' }}>
-          <button onClick={handleSave} disabled={saving || loading}
-            style={{ background: '#a7354d', color: '#fff', border: 'none', borderRadius: 8, padding: '.7rem 1.6rem', fontSize: '.95rem', fontWeight: 700, cursor: saving || loading ? 'not-allowed' : 'pointer' }}>
-            {saving ? 'Saving…' : '💾 Save All Settings'}
-          </button>
-          {msg && <span style={{ fontSize: '.9rem', fontWeight: 600 }}>{msg}</span>}
+          {/* Bottom save bar */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '.25rem', flexWrap: 'wrap' }}>
+            <button onClick={handleSave} disabled={saving || loading}
+              style={{ background: '#a7354d', color: '#fff', border: 'none', borderRadius: 8, padding: '.7rem 1.6rem', fontSize: '.95rem', fontWeight: 700, cursor: saving || loading ? 'not-allowed' : 'pointer' }}>
+              {saving ? 'Saving…' : '💾 Save All Settings'}
+            </button>
+            {msg && <span style={{ fontSize: '.9rem', fontWeight: 600 }}>{msg}</span>}
+          </div>
         </div>
       )}
     </div>
