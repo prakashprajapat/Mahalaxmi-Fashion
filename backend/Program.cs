@@ -127,6 +127,46 @@ using (var scope = app.Services.CreateScope())
             created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
         ALTER TABLE popup_leads ADD COLUMN IF NOT EXISTS name VARCHAR(255);
+        CREATE TABLE IF NOT EXISTS coupons (
+            id          SERIAL PRIMARY KEY,
+            code        VARCHAR(50)   NOT NULL,
+            type        VARCHAR(20)   NOT NULL DEFAULT 'flat',
+            value       NUMERIC(12,2) NOT NULL DEFAULT 0,
+            min_order   NUMERIC(12,2) NOT NULL DEFAULT 0,
+            max_uses    INT,
+            used_count  INT           NOT NULL DEFAULT 0,
+            expires_at  TIMESTAMPTZ,
+            is_active   BOOLEAN       NOT NULL DEFAULT TRUE,
+            created_at  TIMESTAMPTZ   NOT NULL DEFAULT NOW()
+        );
+        CREATE TABLE IF NOT EXISTS staff_members (
+            id            SERIAL PRIMARY KEY,
+            name          VARCHAR(255) NOT NULL,
+            username      VARCHAR(255) NOT NULL,
+            email         VARCHAR(255),
+            password_hash TEXT         NOT NULL,
+            role          VARCHAR(50)  NOT NULL DEFAULT 'staff',
+            is_active     BOOLEAN      NOT NULL DEFAULT TRUE,
+            last_login    TIMESTAMPTZ,
+            created_at    TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+        );
+        CREATE TABLE IF NOT EXISTS influencers (
+            id              SERIAL PRIMARY KEY,
+            name            VARCHAR(255) NOT NULL,
+            email           VARCHAR(255) NOT NULL,
+            phone           VARCHAR(20),
+            social_handle   VARCHAR(255),
+            platform        VARCHAR(50)  NOT NULL DEFAULT 'Instagram',
+            followers_count VARCHAR(50),
+            category        VARCHAR(100),
+            niche           TEXT,
+            status          VARCHAR(50)  NOT NULL DEFAULT 'pending',
+            coupon_code     VARCHAR(50),
+            commission_rate NUMERIC(5,2) NOT NULL DEFAULT 3,
+            admin_notes     TEXT,
+            created_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+            updated_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+        );
     ");
 }
 

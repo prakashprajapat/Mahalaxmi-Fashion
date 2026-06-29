@@ -6,15 +6,19 @@ import { exportOrders } from '@/lib/exportExcel';
 import type { Order } from '@/types';
 
 const ORDER_STATUS_TABS = [
-  { key: 'all',                label: 'All Orders' },
-  { key: 'On Hold',            label: 'On Hold' },
-  { key: 'Pending',            label: 'Pending' },
-  { key: 'Ready for Shipping', label: 'Ready to Ship' },
-  { key: 'Shipped',            label: 'Shipped' },
-  { key: 'Transit',            label: 'Transit' },
-  { key: 'Delivered',          label: 'Delivered' },
-  { key: 'Cancel Requested',   label: 'Cancel Req.' },
-  { key: 'Cancelled',          label: 'Cancelled' },
+  { key: 'all',                  label: 'All Orders' },
+  { key: 'Order Received',       label: 'Order Received' },
+  { key: 'Pending confirmation', label: 'Pending Confirmation' },
+  { key: 'Pending',              label: 'Pending' },
+  { key: 'Paid',                 label: 'Paid' },
+  { key: 'On Hold',              label: 'On Hold' },
+  { key: 'Order Packed',         label: 'Order Packed' },
+  { key: 'Ready for Shipping',   label: 'Ready to Ship' },
+  { key: 'Shipped',              label: 'Shipped' },
+  { key: 'Transit',              label: 'Transit' },
+  { key: 'Delivered',            label: 'Delivered' },
+  { key: 'Cancel Requested',     label: 'Cancel Req.' },
+  { key: 'Cancelled',            label: 'Cancelled' },
 ];
 
 const RETURN_STATUS_TABS = [

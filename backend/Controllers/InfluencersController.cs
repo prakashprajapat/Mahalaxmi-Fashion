@@ -153,7 +153,8 @@ public class InfluencersController : ControllerBase
         if (influencer is null) return NotFound();
 
         influencer.Status         = req.Status ?? influencer.Status;
-        influencer.CommissionRate = req.CommissionRate ?? influencer.CommissionRate;
+        // Commission is capped at 3% — influencers can never get more than 3%.
+        influencer.CommissionRate = Math.Min(req.CommissionRate ?? influencer.CommissionRate, 3m);
         influencer.AdminNotes     = req.AdminNotes ?? influencer.AdminNotes;
         influencer.UpdatedAt      = DateTimeOffset.UtcNow;
 

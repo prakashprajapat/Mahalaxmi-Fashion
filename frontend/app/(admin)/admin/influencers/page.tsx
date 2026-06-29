@@ -44,9 +44,10 @@ export default function InfluencersAdminPage() {
   const save = async () => {
     if (!selected) return; setSaving(true);
     try {
-      await fetch(`${API}/api/influencers/${selected.id}`, { method:'PUT', headers, body:JSON.stringify({ status:editStatus, couponCode:editCode||null, commissionRate:parseFloat(editComm)||10, couponDiscountPct:parseFloat(editDisc)||10, adminNotes:editNotes||null }) });
+      const cappedComm = Math.min(parseFloat(editComm) || 3, 3);
+      await fetch(`${API}/api/influencers/${selected.id}`, { method:'PUT', headers, body:JSON.stringify({ status:editStatus, couponCode:editCode||null, commissionRate:cappedComm, couponDiscountPct:parseFloat(editDisc)||10, adminNotes:editNotes||null }) });
       await load();
-      setSelected({...selected, status:editStatus, couponCode:editCode||undefined, commissionRate:parseFloat(editComm)||10});
+      setSelected({...selected, status:editStatus, couponCode:editCode||undefined, commissionRate:cappedComm});
     } finally { setSaving(false); }
   };
 
@@ -166,8 +167,8 @@ export default function InfluencersAdminPage() {
                 </div>
               </div>
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'.75rem'}}>
-                <div><label style={{fontWeight:700,fontSize:'.82rem',display:'block',marginBottom:'.3rem'}}>Commission % (you pay)</label>
-                  <input type="number" value={editComm} onChange={e=>setEditComm(e.target.value)} min="0" max="50" step="0.5" style={{width:'100%',padding:'.55rem .75rem',borderRadius:'8px',border:'1.5px solid #ddd',fontSize:'.88rem',boxSizing:'border-box'}} />
+                <div><label style={{fontWeight:700,fontSize:'.82rem',display:'block',marginBottom:'.3rem'}}>Commission % (you pay) <span style={{fontWeight:400,color:'#888'}}>(max 3%)</span></label>
+                  <input type="number" value={editComm} onChange={e=>{ const n=parseFloat(e.target.value); setEditComm(isNaN(n)?e.target.value:String(Math.min(n,3))); }} min="0" max="3" step="0.5" style={{width:'100%',padding:'.55rem .75rem',borderRadius:'8px',border:'1.5px solid #ddd',fontSize:'.88rem',boxSizing:'border-box'}} />
                 </div>
                 <div><label style={{fontWeight:700,fontSize:'.82rem',display:'block',marginBottom:'.3rem'}}>Coupon Discount %</label>
                   <input type="number" value={editDisc} onChange={e=>setEditDisc(e.target.value)} min="0" max="50" step="1" style={{width:'100%',padding:'.55rem .75rem',borderRadius:'8px',border:'1.5px solid #ddd',fontSize:'.88rem',boxSizing:'border-box'}} />

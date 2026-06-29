@@ -25,6 +25,14 @@ export default function BirthdayPage() {
   const [tab, setTab]           = useState<'all' | 'birthday' | 'anniversary'>('all');
   const [sending, setSending]   = useState<Record<string, boolean>>({});
   const [result, setResult]     = useState<Record<string, string>>({});
+  // Dedup: remember who was already messaged this year so they are not messaged again
+  const [sent, setSent]         = useState<Record<string, string>>({});
+  const yearNow = new Date().getFullYear();
+  const sentKey = (id: number, type: string) => `${id}-${type}-${yearNow}`;
+
+  useEffect(() => {
+    try { setSent(JSON.parse(localStorage.getItem('mfh_celeb_sent') ?? '{}')); } catch { /* ignore */ }
+  }, []);
 
   const token = getAdminToken() ?? '';
 
@@ -53,6 +61,13 @@ export default function BirthdayPage() {
       });
       const json = await res.json();
       setResult(r => ({ ...r, [key]: res.ok ? '✅ SMS Sent!' : `❌ ${json.message}` }));
+      if (res.ok) {
+        setSent(prev => {
+          const next = { ...prev, [sentKey(entry.customer.id, type)]: new Date().toISOString().slice(0, 10) };
+          try { localStorage.setItem('mfh_celeb_sent', JSON.stringify(next)); } catch { /* ignore */ }
+          return next;
+        });
+      }
     } catch (e) {
       setResult(r => ({ ...r, [key]: '❌ Network error' }));
     } finally {
@@ -61,6 +76,7 @@ export default function BirthdayPage() {
   };
 
   const filtered = data.filter(e => {
+    if (days === 0 && e.birthdayIn !== 0 && e.anniversaryIn !== 0) return false; // Today: only those celebrating today
     if (tab === 'birthday')    return e.birthdayIn != null;
     if (tab === 'anniversary') return e.anniversaryIn != null;
     return true;
@@ -107,9 +123,10 @@ export default function BirthdayPage() {
           ))}
         </div>
         <label style={{ display: 'flex', alignItems: 'center', gap: '.5rem', fontSize: '.88rem', fontWeight: 600, color: '#444' }}>
-          Next
+          Window
           <select value={days} onChange={e => setDays(Number(e.target.value))} style={{ ...inp, padding: '.4rem .6rem' }}>
-            {[7, 15, 30].map(d => <option key={d} value={d}>{d} days</option>)}
+            <option value={0}>Today</option>
+            {[7, 15, 30].map(d => <option key={d} value={d}>Next {d} days</option>)}
           </select>
         </label>
         <button onClick={load} style={{ ...inp, background: '#fff', cursor: 'pointer', fontWeight: 600, color: '#555' }}>
@@ -139,6 +156,8 @@ export default function BirthdayPage() {
                 const c = entry.customer;
                 const bKey = `${c.id}-birthday`;
                 const aKey = `${c.id}-anniversary`;
+                const bSent = sent[sentKey(c.id, 'birthday')];
+                const aSent = sent[sentKey(c.id, 'anniversary')];
                 return (
                   <tr key={c.id} style={{ borderTop: i > 0 ? '1px solid #f0f0f0' : undefined }}>
                     <td style={{ padding: '.75rem 1rem', fontWeight: 600 }}>
@@ -158,9 +177,10 @@ export default function BirthdayPage() {
                         <div>
                           <button
                             onClick={() => sendSms(entry, 'birthday')}
-                            disabled={sending[bKey]}
-                            style={{ background: '#a7354d', color: '#fff', border: 'none', borderRadius: '6px', padding: '.35rem .85rem', fontSize: '.8rem', fontWeight: 700, cursor: sending[bKey] ? 'not-allowed' : 'pointer', opacity: sending[bKey] ? .7 : 1 }}>
-                            {sending[bKey] ? 'Sending…' : 'Send SMS'}
+                            disabled={sending[bKey] || !!bSent}
+                            title={bSent ? `Already sent on ${bSent}` : ''}
+                            style={{ background: bSent ? '#e8f5e9' : '#a7354d', color: bSent ? '#2e7d32' : '#fff', border: 'none', borderRadius: '6px', padding: '.35rem .85rem', fontSize: '.8rem', fontWeight: 700, cursor: (sending[bKey] || bSent) ? 'not-allowed' : 'pointer', opacity: sending[bKey] ? .7 : 1 }}>
+                            {bSent ? '✓ Sent' : sending[bKey] ? 'Sending…' : 'Send SMS'}
                           </button>
                           {result[bKey] && <div style={{ fontSize: '.75rem', marginTop: '.25rem', color: result[bKey].startsWith('✅') ? '#27ae60' : '#e74c3c' }}>{result[bKey]}</div>}
                         </div>
@@ -171,9 +191,10 @@ export default function BirthdayPage() {
                         <div>
                           <button
                             onClick={() => sendSms(entry, 'anniversary')}
-                            disabled={sending[aKey]}
-                            style={{ background: '#6c3d8f', color: '#fff', border: 'none', borderRadius: '6px', padding: '.35rem .85rem', fontSize: '.8rem', fontWeight: 700, cursor: sending[aKey] ? 'not-allowed' : 'pointer', opacity: sending[aKey] ? .7 : 1 }}>
-                            {sending[aKey] ? 'Sending…' : 'Send SMS'}
+                            disabled={sending[aKey] || !!aSent}
+                            title={aSent ? `Already sent on ${aSent}` : ''}
+                            style={{ background: aSent ? '#e8f5e9' : '#6c3d8f', color: aSent ? '#2e7d32' : '#fff', border: 'none', borderRadius: '6px', padding: '.35rem .85rem', fontSize: '.8rem', fontWeight: 700, cursor: (sending[aKey] || aSent) ? 'not-allowed' : 'pointer', opacity: sending[aKey] ? .7 : 1 }}>
+                            {aSent ? '✓ Sent' : sending[aKey] ? 'Sending…' : 'Send SMS'}
                           </button>
                           {result[aKey] && <div style={{ fontSize: '.75rem', marginTop: '.25rem', color: result[aKey].startsWith('✅') ? '#27ae60' : '#e74c3c' }}>{result[aKey]}</div>}
                         </div>
@@ -187,10 +208,14 @@ export default function BirthdayPage() {
         )}
       </div>
 
-      <p style={{ marginTop: '1rem', fontSize: '.82rem', color: '#999' }}>
-        Showing {filtered.length} customer{filtered.length !== 1 ? 's' : ''} with upcoming celebrations in the next {days} days.
-        SMS uses MSG91 template configured in Settings.
-      </p>
+      <div style={{ marginTop: '1rem', display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
+        <span style={{ fontSize: '.82rem', color: '#999' }}>
+          Showing {filtered.length} customer{filtered.length !== 1 ? 's' : ''} {days === 0 ? 'celebrating today' : `with celebrations in the next ${days} days`}. SMS uses the MSG91 template from Settings.
+        </span>
+        <span style={{ fontSize: '.82rem', fontWeight: 700, color: '#2e7d32', background: '#e8f5e9', padding: '.25rem .7rem', borderRadius: 8 }}>
+          📨 Sent this year: {Object.keys(sent).filter(k => k.endsWith(`-${yearNow}`)).length} (these won&apos;t be messaged again)
+        </span>
+      </div>
     </div>
   );
 }
