@@ -379,7 +379,7 @@ function CustomColourModal({
         <div style={{ background:'#f9f9f9', borderRadius:'10px', padding:'1rem', marginBottom:'1rem' }}>
           <div style={{ display:'flex', alignItems:'center', gap:'.5rem', marginBottom:'.75rem' }}>
             <span style={{ fontSize:'.85rem', fontWeight:700 }}>🎯 Colour Code</span>
-            <span style={{ fontSize:'.72rem', color:'#888' }}>(circle ke liye)</span>
+            <span style={{ fontSize:'.72rem', color:'#888' }}>(for the circle)</span>
           </div>
 
           {/* Circle + hex + swatch + RGB */}
@@ -395,7 +395,7 @@ function CustomColourModal({
           {/* Eyedropper from uploaded photo */}
           <button onClick={() => eyeFileRef.current?.click()}
             style={{ width:'100%', background:'#fdecea', color:'#a7354d', border:'1.5px solid #f5c6cb', borderRadius:'8px', padding:'.45rem', fontSize:'.8rem', fontWeight:600, cursor:'pointer', marginBottom:'.4rem' }}>
-            📷 Photo Upload karke Colour Pick karo
+            📷 Upload a photo and pick the colour
           </button>
           <input ref={eyeFileRef} type="file" accept="image/*" hidden
             onChange={e => { if (e.target.files?.[0]) { readFile(e.target.files[0], setEyedropSrc); setLocked(false); } }} />
@@ -403,7 +403,7 @@ function CustomColourModal({
           {eyedropSrc && (
             <>
               <p style={{ fontSize:'.7rem', color:'#888', margin:'.2rem 0 .3rem' }}>
-                📌 Photo hover karo to colour preview. <strong>Click</strong> to {locked ? 'unlock 🔓' : 'lock 🔒'}
+                📌 Hover over a photo to preview the colour. <strong>Click</strong> to {locked ? 'unlock 🔓' : 'lock 🔒'}
               </p>
               <canvas ref={canvasRef}
                 onMouseMove={pickColour}
@@ -711,7 +711,7 @@ export default function AddProductPage() {
           <div>
             <label style={lbl}>Variant</label>
             <select value={taxVariant} onChange={e => setTaxVariant(e.target.value)} style={inp} disabled={!sub}>
-              <option value="">{sub ? 'Select variant…' : 'Pehle subcategory chunein'}</option>
+              <option value="">{sub ? 'Select variant…' : 'Select a subcategory first'}</option>
               {(getTaxonomy(category).find(g => g.name === sub)?.variants ?? []).map(v => <option key={v} value={v}>{v}</option>)}
             </select>
           </div>
@@ -726,7 +726,7 @@ export default function AddProductPage() {
                   onChange={e => { setSub(e.target.value); setSubcatOpen(true); }}
                   onFocus={() => setSubcatOpen(true)}
                   onBlur={() => setTimeout(() => setSubcatOpen(false), 180)}
-                  placeholder="Subcategory likhein..."
+                  placeholder="Type a subcategory..."
                   style={{ ...inp, width:'100%', boxSizing:'border-box' }}
                 />
                 {/* Filtered dropdown */}
@@ -755,7 +755,7 @@ export default function AddProductPage() {
               </div>
               <button
                 onMouseDown={e => { e.preventDefault(); const v = sub.trim(); if (v && !localSubcats.includes(v)) { setLocalSubcats(p => [...p, v]); } }}
-                title="List mein save karo"
+                title="Save to list"
                 style={{ background:'#a7354d', color:'#fff', border:'none', borderRadius:'8px', padding:'.6rem .95rem', fontSize:'1.15rem', fontWeight:700, cursor:'pointer', flexShrink:0, lineHeight:1 }}>
                 +
               </button>
@@ -766,7 +766,7 @@ export default function AddProductPage() {
               ...localSubcats,
             ])].filter(s => !hiddenSubcats.has(s)).some(s => s.toLowerCase() === sub.trim().toLowerCase()) && (
               <span style={{ fontSize:'.75rem', color:'#e67e22', fontWeight:600, marginTop:'.25rem', display:'block' }}>
-                ⚠️ Yeh subcategory already list mein hai
+                ⚠️ This subcategory is already in the list
               </span>
             )}
           </div>
@@ -774,11 +774,11 @@ export default function AddProductPage() {
 
           {/* ── Variants ── */}
           <div style={{ gridColumn:'1 / -1', marginTop:'.25rem' }}>
-            <label style={lbl}>Variants <span style={{ fontWeight:400, color:'#888', fontSize:'.75rem' }}>Optional — alag options ke naam (e.g. Single, Double Set, 6 Pcs)</span></label>
+            <label style={lbl}>Variants <span style={{ fontWeight:400, color:'#888', fontSize:'.75rem' }}>Optional — names of different options (e.g. Single, Double Set, 6 Pcs)</span></label>
             {variants.map((v, i) => (
               <div key={i} style={{ display:'flex', gap:'.5rem', marginBottom:'.4rem', alignItems:'center' }}>
                 <input value={v.name} onChange={e => setVariants(p => p.map((x,j) => j===i ? {...x, name:e.target.value} : x))}
-                  placeholder="Variant naam (e.g. Small Pack, Premium, 6 Pcs Set)" style={{ ...inp, flex:1 }} />
+                  placeholder="Variant name (e.g. Small Pack, Premium, 6 Pcs Set)" style={{ ...inp, flex:1 }} />
                 <button onClick={() => setVariants(p => p.filter((_,j) => j!==i))}
                   style={{ background:'none', border:'none', cursor:'pointer', color:'#c62828', fontSize:'1.1rem', flexShrink:0 }}>✕</button>
               </div>
@@ -834,7 +834,7 @@ export default function AddProductPage() {
               PACK COLUMN PHOTOS
             </p>
             <p style={{ fontSize:'.8rem', color:'#888', marginBottom:'1.25rem' }}>
-              Har item ke liye Front, Side, Back, Zoomed photos Pack of ke hisab se automatic generate hote hain. Pack of {getPackOfNumber(packOf)} = {packCols.map(c=>c.letter).join(', ')}
+              For each item, Front, Side, Back and Zoomed photos are generated automatically based on the Pack of value. Pack of {getPackOfNumber(packOf)} = {packCols.map(c=>c.letter).join(', ')}
             </p>
             <div style={{ display:'flex', flexDirection:'column', gap:'1.5rem' }}>
               {packCols.map((col, idx) => (
@@ -860,7 +860,7 @@ export default function AddProductPage() {
         {/* ── Size & Colour Stock ── */}
         <div style={{ marginTop:'1.5rem', borderTop:'1px solid #f0f0f0', paddingTop:'1.5rem' }}>
           <p style={{ fontSize:'.82rem', fontWeight:600, color:'#444', marginBottom:'.25rem' }}>
-            Size & Colour Stock <span style={{ fontWeight:400, color:'#888' }}>{getPackOfNumber(packOf) >= 2 ? 'Pack products ke catalogue me sirf Size dikhegi' : 'Select sizes and/or colours'}</span>
+            Size & Colour Stock <span style={{ fontWeight:400, color:'#888' }}>{getPackOfNumber(packOf) >= 2 ? 'Pack products: only Size is shown in the catalogue' : 'Select sizes and/or colours'}</span>
           </p>
 
           {/* Sizes row */}

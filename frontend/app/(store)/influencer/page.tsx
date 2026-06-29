@@ -129,16 +129,16 @@ export default function InfluencerPage() {
       }}>
         <div style={{ fontSize: '3rem', marginBottom: '.75rem' }}>🌟</div>
         <h1 style={{ fontSize: 'clamp(1.8rem, 5vw, 2.8rem)', fontWeight: 900, margin: '0 0 1rem', lineHeight: 1.2 }}>
-          Apna Style Share Karo,<br />Paise Kamao!
+          Share Your Style,<br />Earn Money!
         </h1>
         <p style={{ fontSize: 'clamp(.95rem, 2vw, 1.15rem)', opacity: .9, maxWidth: '560px', margin: '0 auto 2rem', lineHeight: 1.6 }}>
-          Mahalaxmi Fashion Hub ka Creator Program join karo. Apna unique link share karo aur har sale pe commission pao.
+          Join the Mahalaxmi Fashion Hub Creator Program. Share your unique link and earn commission on every sale.
         </p>
         <div style={{ display: 'flex', gap: '.75rem', justifyContent: 'center', flexWrap: 'wrap' }}>
           <button onClick={() => setTab('apply')} style={{
             background: '#fff', color: BRAND, border: 'none', borderRadius: '30px',
             padding: '.85rem 2rem', fontWeight: 800, fontSize: '1rem', cursor: 'pointer',
-          }}>🚀 Creator Bano — Free</button>
+          }}>🚀 Become a Creator — Free</button>
           <button onClick={() => setTab('login')} style={{
             background: 'rgba(255,255,255,.15)', color: '#fff',
             border: '2px solid rgba(255,255,255,.5)', borderRadius: '30px',
@@ -147,7 +147,7 @@ export default function InfluencerPage() {
           }}>Login Dashboard</button>
         </div>
         <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap', marginTop: '2.5rem' }}>
-          {[['💸', 'Commission Har Sale Pe'], ['🎁', 'Exclusive Coupon Code'], ['📊', 'Live Sales Dashboard'], ['🤝', 'Brand Partnership']].map(([icon, text]) => (
+          {[['💸', 'Commission on Every Sale'], ['🎁', 'Exclusive Coupon Code'], ['📊', 'Live Sales Dashboard'], ['🤝', 'Brand Partnership']].map(([icon, text]) => (
             <div key={text} style={{
               background: 'rgba(255,255,255,.12)', borderRadius: '20px',
               padding: '.4rem 1rem', fontSize: '.82rem', fontWeight: 600,
@@ -173,13 +173,13 @@ export default function InfluencerPage() {
 
       {/* How it works */}
       <div style={{ padding: '4rem 1.5rem', textAlign: 'center' }}>
-        <h2 style={{ fontSize: '1.6rem', fontWeight: 800, color: '#1a1a1a', marginBottom: '.5rem' }}>Kaise Kaam Karta Hai?</h2>
-        <p style={{ color: '#888', marginBottom: '3rem', fontSize: '.9rem' }}>Sirf 3 aasaan steps mein shuru karo</p>
+        <h2 style={{ fontSize: '1.6rem', fontWeight: 800, color: '#1a1a1a', marginBottom: '.5rem' }}>How Does It Work?</h2>
+        <p style={{ color: '#888', marginBottom: '3rem', fontSize: '.9rem' }}>Get started in just 3 easy steps</p>
         <div style={{ display: 'flex', gap: '2rem', justifyContent: 'center', flexWrap: 'wrap', maxWidth: '900px', margin: '0 auto' }}>
           {[
-            ['1', '📝', 'Apply Karo', 'Neeche form bharo apni social details ke saath. Free hai, koi charge nahi.'],
-            ['2', '✅', 'Approve Ho', 'Hamare team 2-3 din mein review karegi aur tumhara unique coupon code degi.'],
-            ['3', '💰', 'Share & Kamao', 'Apna link aur code social media pe share karo. Har successful sale pe commission milegi.'],
+            ['1', '📝', 'Apply', 'Fill the form below with your social details. It\'s free, no charge.'],
+            ['2', '✅', 'Get Approved', 'Our team reviews within 2-3 days and gives you a unique coupon code.'],
+            ['3', '💰', 'Share & Earn', 'Share your link and code on social media. Earn commission on every successful sale.'],
           ].map(([step, icon, title, desc]) => (
             <div key={step} style={{
               flex: '1 1 220px', background: '#fff', borderRadius: '20px',
@@ -203,8 +203,8 @@ export default function InfluencerPage() {
 
       {/* Earnings calculator */}
       <div style={{ background: BRAND_LIGHT, padding: '4rem 1.5rem', textAlign: 'center' }}>
-        <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#1a1a1a', marginBottom: '.5rem' }}>Kitna Kama Sakte Ho?</h2>
-        <p style={{ color: '#888', marginBottom: '2rem', fontSize: '.9rem' }}>10% commission per sale — jitna zyada share karoge, utna zyada kamao</p>
+        <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#1a1a1a', marginBottom: '.5rem' }}>How Much Can You Earn?</h2>
+        <p style={{ color: '#888', marginBottom: '2rem', fontSize: '.9rem' }}>10% commission per sale — the more you share, the more you earn</p>
         <div style={{ display: 'flex', gap: '1.5rem', justifyContent: 'center', flexWrap: 'wrap', maxWidth: '700px', margin: '0 auto' }}>
           {[
             ['5 sales/month', '₹500 avg/order', '₹250/month'],
@@ -226,15 +226,15 @@ export default function InfluencerPage() {
 
       {/* CTA */}
       <div style={{ padding: '4rem 1.5rem', textAlign: 'center' }}>
-        <h2 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '1rem' }}>Tayyar Ho? Shuru Karo! 🚀</h2>
-        <p style={{ color: '#888', marginBottom: '2rem' }}>Abhi apply karo aur 48 ghante mein approve ho jao</p>
+        <h2 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '1rem' }}>Ready? Let&apos;s Get Started! 🚀</h2>
+        <p style={{ color: '#888', marginBottom: '2rem' }}>Apply now and get approved within 48 hours</p>
         <button onClick={() => setTab('apply')} style={{
           background: `linear-gradient(135deg, ${BRAND}, ${BRAND_DARK})`,
           color: '#fff', border: 'none', borderRadius: '30px',
           padding: '1rem 2.5rem', fontWeight: 800, fontSize: '1.05rem',
           cursor: 'pointer', boxShadow: '0 6px 20px rgba(167,53,77,.35)',
         }}>
-          🌟 Creator Program Join Karo
+          🌟 Join the Creator Program
         </button>
       </div>
     </div>
@@ -248,7 +248,7 @@ export default function InfluencerPage() {
         <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
           <div style={{ fontSize: '2.5rem', marginBottom: '.5rem' }}>🔐</div>
           <h1 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#1a1a1a', margin: '0 0 .5rem' }}>Creator Login</h1>
-          <p style={{ color: '#888', fontSize: '.9rem' }}>Apna dashboard access karo</p>
+          <p style={{ color: '#888', fontSize: '.9rem' }}>Access your dashboard</p>
         </div>
         <div style={{
           background: '#fff', borderRadius: '20px', padding: '2rem',
@@ -260,7 +260,7 @@ export default function InfluencerPage() {
                 Registered Email
               </label>
               <input type="email" value={loginEmail} onChange={e => setLoginEmail(e.target.value)}
-                placeholder="aapka@email.com" required
+                placeholder="you@email.com" required
                 style={{ width: '100%', padding: '.75rem 1rem', border: '1.5px solid #e0e0e0', borderRadius: '12px', fontSize: '.9rem', boxSizing: 'border-box', outline: 'none' }}
               />
             </div>
@@ -288,14 +288,14 @@ export default function InfluencerPage() {
               cursor: loginLoading ? 'not-allowed' : 'pointer',
               boxShadow: loginLoading ? 'none' : '0 4px 14px rgba(167,53,77,.3)',
             }}>
-              {loginLoading ? '⏳ Checking…' : '🚀 Dashboard Kholein'}
+              {loginLoading ? '⏳ Checking…' : '🚀 Open Dashboard'}
             </button>
           </form>
         </div>
         <p style={{ textAlign: 'center', color: '#888', fontSize: '.82rem', marginTop: '1.5rem' }}>
-          Abhi creator nahi hain?{' '}
+          Not a creator yet?{' '}
           <button onClick={() => setTab('apply')} style={{ background: 'none', border: 'none', color: BRAND, fontWeight: 700, cursor: 'pointer', fontSize: '.82rem' }}>
-            Apply karo
+            Apply now
           </button>
         </p>
       </div>
@@ -321,7 +321,7 @@ export default function InfluencerPage() {
             Welcome, {dashData.name}!
           </h1>
           <p style={{ opacity: .85, fontSize: '.9rem' }}>
-            Aapka {dashData.commissionRate}% commission rate active hai • {dashData.platform} Creator
+            Your {dashData.commissionRate}% commission rate is active • {dashData.platform} Creator
           </p>
         </div>
       </div>
@@ -347,7 +347,7 @@ export default function InfluencerPage() {
         {/* Affiliate Link & Code */}
         <div style={{ background: '#fff', borderRadius: '20px', padding: '1.5rem', boxShadow: '0 2px 10px rgba(0,0,0,.06)', marginBottom: '1.5rem' }}>
           <h2 style={{ fontSize: '1rem', fontWeight: 800, marginBottom: '1.25rem', color: '#1a1a1a' }}>
-            🔗 Tumhara Affiliate Link & Code
+            🔗 Your Affiliate Link & Code
           </h2>
 
           {/* Coupon Code */}
@@ -398,10 +398,10 @@ export default function InfluencerPage() {
 
           {/* Share Buttons */}
           <div>
-            <div style={{ fontSize: '.72rem', color: '#888', fontWeight: 700, marginBottom: '.5rem', textTransform: 'uppercase' }}>Share Karo</div>
+            <div style={{ fontSize: '.72rem', color: '#888', fontWeight: 700, marginBottom: '.5rem', textTransform: 'uppercase' }}>Share</div>
             <div style={{ display: 'flex', gap: '.5rem', flexWrap: 'wrap' }}>
               <a
-                href={`https://wa.me/?text=${encodeURIComponent(`👗 Mahalaxmi Fashion Hub se shopping karo!\n\n🛍️ Click karo: ${affLink}\n\n💥 Discount code: ${dashData.couponCode}\n\n✨ Ethnic, western aur trendy fashion sab milega!`)}`}
+                href={`https://wa.me/?text=${encodeURIComponent(`👗 Shop at Mahalaxmi Fashion Hub!\n\n🛍️ Click here: ${affLink}\n\n💥 Discount code: ${dashData.couponCode}\n\n✨ Ethnic, western and trendy fashion — all in one place!`)}`}
                 target="_blank" rel="noopener noreferrer"
                 style={{
                   background: '#25D366', color: '#fff', textDecoration: 'none',
@@ -412,7 +412,7 @@ export default function InfluencerPage() {
                 📱 WhatsApp Share
               </a>
               <button onClick={() => {
-                copy(`👗 Mahalaxmi Fashion Hub se shopping karo!\n\nMera code use karo: ${dashData.couponCode} 💥 for discount\n\n🛍️ Link: ${affLink}`, 'caption');
+                copy(`👗 Shop at Mahalaxmi Fashion Hub!\n\nUse my code: ${dashData.couponCode} 💥 for a discount\n\n🛍️ Link: ${affLink}`, 'caption');
               }} style={{
                 background: copied === 'caption' ? '#e8f5e9' : '#f5f0ff',
                 color: copied === 'caption' ? '#2e7d32' : '#6b21a8',
@@ -420,7 +420,7 @@ export default function InfluencerPage() {
                 borderRadius: '10px', padding: '.55rem 1rem', fontWeight: 700,
                 fontSize: '.82rem', cursor: 'pointer',
               }}>
-                {copied === 'caption' ? '✅ Copied!' : '📸 Insta Caption Copy'}
+                {copied === 'caption' ? '✅ Copied!' : '📸 Copy Insta Caption'}
               </button>
               <a
                 href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(affLink)}`}
@@ -440,31 +440,31 @@ export default function InfluencerPage() {
         {/* How to Share Tips */}
         <div style={{ background: '#fff', borderRadius: '20px', padding: '1.5rem', boxShadow: '0 2px 10px rgba(0,0,0,.06)', marginBottom: '1.5rem' }}>
           <h2 style={{ fontSize: '1rem', fontWeight: 800, marginBottom: '1.25rem', color: '#1a1a1a' }}>
-            💡 Kaise Share Karo — Tips
+            💡 How to Share — Tips
           </h2>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
             {[
               {
                 icon: '📸', title: 'Instagram Reels / Stories',
                 tips: [
-                  'Product ka photo/video banao',
-                  'Caption mein code: ' + dashData.couponCode + ' mention karo',
-                  'Bio mein affiliate link lagao',
+                  'Create a photo/video of the product',
+                  'Mention the code: ' + dashData.couponCode + ' in the caption',
+                  'Add your affiliate link in the bio',
                 ],
               },
               {
                 icon: '📱', title: 'WhatsApp Status / Groups',
                 tips: [
-                  'Product photo share karo',
-                  '"Code use karo: ' + dashData.couponCode + '" caption mein',
-                  'Direct link share karo upar se',
+                  'Share the product photo',
+                  '"Use code: ' + dashData.couponCode + '" in the caption',
+                  'Share the direct link from above',
                 ],
               },
               {
                 icon: '▶️', title: 'YouTube / Facebook Video',
                 tips: [
-                  'Haul ya try-on video banao',
-                  'Description mein link daalo',
+                  'Make a haul or try-on video',
+                  'Add the link in the description',
                   'Pinned comment: "Code: ' + dashData.couponCode + '"',
                 ],
               },
@@ -483,13 +483,13 @@ export default function InfluencerPage() {
         {/* Order History */}
         <div style={{ background: '#fff', borderRadius: '20px', padding: '1.5rem', boxShadow: '0 2px 10px rgba(0,0,0,.06)' }}>
           <h2 style={{ fontSize: '1rem', fontWeight: 800, marginBottom: '1.25rem', color: '#1a1a1a' }}>
-            📋 Orders — Tumhare Code Se Aaye
+            📋 Orders — Placed With Your Code
           </h2>
           {dashData.orders.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '3rem 1rem', color: '#aaa' }}>
               <div style={{ fontSize: '2.5rem', marginBottom: '.5rem' }}>📦</div>
-              <div style={{ fontWeight: 600, marginBottom: '.3rem', color: '#999' }}>Abhi koi order nahi</div>
-              <div style={{ fontSize: '.82rem' }}>Link share karo — jab koi order karega to yahan dikhega</div>
+              <div style={{ fontWeight: 600, marginBottom: '.3rem', color: '#999' }}>No orders yet</div>
+              <div style={{ fontSize: '.82rem' }}>Share your link — orders will appear here when someone buys</div>
             </div>
           ) : (
             <div style={{ overflowX: 'auto' }}>
@@ -527,8 +527,8 @@ export default function InfluencerPage() {
 
         {/* Help Section */}
         <div style={{ marginTop: '1.5rem', background: BRAND_LIGHT, borderRadius: '16px', padding: '1.25rem', textAlign: 'center', border: `1px solid #f0d0d9` }}>
-          <div style={{ fontWeight: 700, marginBottom: '.3rem', color: '#1a1a1a' }}>💬 Help Chahiye?</div>
-          <p style={{ color: '#666', fontSize: '.85rem', margin: '0 0 .75rem' }}>Commission payment, orders ya koi bhi sawaal ke liye WhatsApp karo</p>
+          <div style={{ fontWeight: 700, marginBottom: '.3rem', color: '#1a1a1a' }}>💬 Need Help?</div>
+          <p style={{ color: '#666', fontSize: '.85rem', margin: '0 0 .75rem' }}>WhatsApp us for commission payments, orders, or any questions</p>
           <a href="https://wa.me/919876543210" target="_blank" rel="noopener noreferrer"
             style={{ background: '#25D366', color: '#fff', textDecoration: 'none', borderRadius: '20px', padding: '.5rem 1.2rem', fontWeight: 700, fontSize: '.85rem' }}>
             📱 WhatsApp Support
@@ -593,8 +593,8 @@ function ApplyForm({ onBack }: { onBack: () => void }) {
       <div style={{ maxWidth: '620px', margin: '0 auto', padding: '2.5rem 1.5rem' }}>
         <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
           <div style={{ fontSize: '2.5rem', marginBottom: '.5rem' }}>📝</div>
-          <h1 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#1a1a1a', margin: '0 0 .5rem' }}>Creator Bano</h1>
-          <p style={{ color: '#888', fontSize: '.9rem' }}>Apni details bharo — hamare team 2-3 din mein contact karegi</p>
+          <h1 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#1a1a1a', margin: '0 0 .5rem' }}>Become a Creator</h1>
+          <p style={{ color: '#888', fontSize: '.9rem' }}>Fill in your details — our team will contact you within 2-3 days</p>
         </div>
 
         {result ? (
@@ -605,19 +605,19 @@ function ApplyForm({ onBack }: { onBack: () => void }) {
           }}>
             <div style={{ fontSize: '2.5rem', marginBottom: '.75rem' }}>{result.ok ? '🎉' : '❌'}</div>
             <p style={{ fontWeight: 700, color: result.ok ? '#166534' : '#991b1b', margin: '0 0 .5rem', fontSize: '1.1rem' }}>
-              {result.ok ? 'Application Submit Ho Gayi!' : 'Kuch Galat Hua'}
+              {result.ok ? 'Application Submitted!' : 'Something Went Wrong'}
             </p>
             <p style={{ color: '#555', fontSize: '.88rem', margin: '0 0 1.5rem' }}>{result.msg}</p>
             {result.ok && (
               <p style={{ color: '#555', fontSize: '.85rem', marginBottom: '1.5rem' }}>
-                📧 2-3 business days mein email ya WhatsApp pe contact karenge.
+                📧 We&apos;ll contact you by email or WhatsApp within 2-3 business days.
               </p>
             )}
             <button onClick={onBack} style={{
               background: BRAND, color: '#fff', border: 'none', borderRadius: '20px',
               padding: '.65rem 1.5rem', fontWeight: 700, cursor: 'pointer',
             }}>
-              ← Home pe Jaao
+              ← Back to Home
             </button>
           </div>
         ) : (
@@ -629,7 +629,7 @@ function ApplyForm({ onBack }: { onBack: () => void }) {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <div>
                   <label style={lbl}>Full Name <span style={{ color: BRAND }}>*</span></label>
-                  <input style={inp} placeholder="Tumhara naam" value={form.name}
+                  <input style={inp} placeholder="Your name" value={form.name}
                     onChange={e => set('name', e.target.value)} required />
                 </div>
                 <div>
@@ -656,7 +656,7 @@ function ApplyForm({ onBack }: { onBack: () => void }) {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <div>
                   <label style={lbl}>Social Handle / URL</label>
-                  <input style={inp} placeholder="@tumhara_handle" value={form.socialHandle}
+                  <input style={inp} placeholder="@your_handle" value={form.socialHandle}
                     onChange={e => set('socialHandle', e.target.value)} />
                 </div>
                 <div>
@@ -672,16 +672,16 @@ function ApplyForm({ onBack }: { onBack: () => void }) {
               <div>
                 <label style={lbl}>Content Category</label>
                 <select style={inp} value={form.category} onChange={e => set('category', e.target.value)}>
-                  <option value="">Category chuno</option>
+                  <option value="">Select a category</option>
                   {['Fashion & Style', 'Ethnic Wear', 'Beauty & Makeup', 'Lifestyle', 'Saree Lover', 'Mom & Family', 'Other'].map(c => (
                     <option key={c} value={c}>{c}</option>
                   ))}
                 </select>
               </div>
               <div>
-                <label style={lbl}>Apne content ke baare mein batao</label>
+                <label style={lbl}>Tell us about your content</label>
                 <textarea style={{ ...inp, minHeight: '90px', resize: 'vertical' }}
-                  placeholder="Kaunsa content banate ho? Audience kaisi hai? Kyon Mahalaxmi ke saath kaam karna chahte ho?"
+                  placeholder="What content do you create? Who is your audience? Why do you want to work with Mahalaxmi?"
                   value={form.niche} onChange={e => set('niche', e.target.value)} />
               </div>
               <button type="submit" disabled={submitting} style={{
@@ -692,7 +692,7 @@ function ApplyForm({ onBack }: { onBack: () => void }) {
                 boxShadow: submitting ? 'none' : '0 4px 14px rgba(167,53,77,.35)',
                 marginTop: '.5rem',
               }}>
-                {submitting ? '⏳ Submit ho raha hai…' : '🚀 Apply Karo'}
+                {submitting ? '⏳ Submitting…' : '🚀 Apply Now'}
               </button>
             </form>
           </div>

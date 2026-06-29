@@ -26,7 +26,7 @@ function offerLink(customer: Customer) {
   const phone = digits.length === 10 ? `91${digits}` : digits;
   const name = [customer.firstName, customer.lastName].filter(Boolean).join(' ') || 'Customer';
   const message = encodeURIComponent(
-    `Namaste ${name}, Mahalaxmi Fashion Hub ki taraf se aapke special day ke liye exclusive offer ready hai.`
+    `Hello ${name}, Mahalaxmi Fashion Hub has an exclusive offer ready for your special day.`
   );
   return `https://wa.me/${phone}?text=${message}`;
 }
@@ -139,7 +139,7 @@ export default function AdminCustomersPage() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-sm font-semibold text-gray-800">Add Customer</p>
-            <p className="text-xs text-gray-500">Admin se customer add karo, birthday/anniversary offer dates ke saath.</p>
+            <p className="text-xs text-gray-500">Add a customer from admin, along with birthday/anniversary offer dates.</p>
           </div>
           <button type="button" onClick={() => setAddOpen(v => !v)}
             className="px-4 py-2 rounded-lg bg-pink-700 text-white text-sm font-semibold">
@@ -186,7 +186,7 @@ export default function AdminCustomersPage() {
         <div>
           <p className="text-sm font-semibold text-gray-800">Birthday / Anniversary Offers</p>
           <p className="text-xs text-gray-500">
-            Aaj ke due customers: {specialToday.length}. Register page se dates yahan auto show hoti hain.
+            Customers due today: {specialToday.length}. Dates from the register page show here automatically.
           </p>
         </div>
         {specialToday.length > 0 && (

@@ -210,7 +210,7 @@ function CustomColourModal({ nextLetter, onAdd, onClose }: { nextLetter: string;
         <div style={{ background:'#f9f9f9', borderRadius:'10px', padding:'1rem', marginBottom:'1rem' }}>
           <div style={{ display:'flex', alignItems:'center', gap:'.5rem', marginBottom:'.75rem' }}>
             <span style={{ fontSize:'.85rem', fontWeight:700 }}>🎯 Colour Code</span>
-            <span style={{ fontSize:'.72rem', color:'#888' }}>(circle ke liye)</span>
+            <span style={{ fontSize:'.72rem', color:'#888' }}>(for the circle)</span>
           </div>
           <div style={{ display:'flex', alignItems:'center', gap:'.6rem', marginBottom:'.75rem', flexWrap:'wrap' }}>
             <div style={{ width:'36px', height:'36px', borderRadius:'50%', background:code, border:'2px solid #ddd', flexShrink:0, transition:'background .15s' }} />
@@ -221,12 +221,12 @@ function CustomColourModal({ nextLetter, onAdd, onClose }: { nextLetter: string;
           </div>
           <button onClick={() => eyeFileRef.current?.click()}
             style={{ width:'100%', background:'#fdecea', color:'#a7354d', border:'1.5px solid #f5c6cb', borderRadius:'8px', padding:'.45rem', fontSize:'.8rem', fontWeight:600, cursor:'pointer', marginBottom:'.4rem' }}>
-            📷 Photo Upload karke Colour Pick karo
+            📷 Upload a photo and pick the colour
           </button>
           <input ref={eyeFileRef} type="file" accept="image/*" hidden onChange={e => { if (e.target.files?.[0]) { readFile(e.target.files[0], setEyedropSrc); setLocked(false); } }} />
           {eyedropSrc && (
             <>
-              <p style={{ fontSize:'.7rem', color:'#888', margin:'.2rem 0 .3rem' }}>📌 Photo hover karo to colour preview. <strong>Click</strong> to {locked ? 'unlock 🔓' : 'lock 🔒'}</p>
+              <p style={{ fontSize:'.7rem', color:'#888', margin:'.2rem 0 .3rem' }}>📌 Hover over a photo to preview the colour. <strong>Click</strong> to {locked ? 'unlock 🔓' : 'lock 🔒'}</p>
               <canvas ref={canvasRef} onMouseMove={pickColour} onClick={() => setLocked(l=>!l)}
                 style={{ width:'100%', borderRadius:'8px', cursor: locked ? 'default' : 'crosshair', border:'1.5px solid #ddd', display:'block' }} />
             </>
@@ -405,7 +405,7 @@ export default function AdminProductsPage() {
   };
 
   const handleInactive = async (id: number, sku: string) => {
-    if (!confirm(`Product SKU ${sku} ko Inactive mark karein?\nYe product website se hat jayega lekin delete nahi hoga.`)) return;
+    if (!confirm(`Mark product SKU ${sku} as Inactive?\nThis product will be removed from the website but not deleted.`)) return;
     const token = getAdminToken() ?? '';
     await productsApi.update(id, { stock: 'Inactive' }, token).catch(e => alert(e.message));
     await fetchProducts();
@@ -673,7 +673,7 @@ export default function AdminProductsPage() {
                   <td style={{ padding: '.65rem 1rem', fontWeight: 500, maxWidth: '200px' }}>
                     <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
                     {p.subcategory && <div style={{ fontSize: '.72rem', color: '#aaa' }}>{p.subcategory}</div>}
-                    {isInactive && <div style={{ fontSize: '.68rem', color: '#e65100', fontWeight: 700 }}>🚫 INACTIVE — Website pe nahi dikhega</div>}
+                    {isInactive && <div style={{ fontSize: '.68rem', color: '#e65100', fontWeight: 700 }}>🚫 INACTIVE — Won&apos;t show on the website</div>}
                   </td>
                   <td style={{ padding: '.65rem 1rem', fontSize: '.8rem' }}>{p.category}</td>
                   <td style={{ padding: '.65rem 1rem', fontWeight: 600 }}>₹{p.price.toLocaleString('en-IN')}</td>
@@ -696,7 +696,7 @@ export default function AdminProductsPage() {
                         style={{ color: '#1565c0', background: 'none', border: 'none', cursor: 'pointer', fontSize: '.82rem', fontWeight: 600, textDecoration: 'none' }}>Edit</Link>
                       {isInactive ? (
                         <button onClick={async () => {
-                          if (!confirm(`${p.sku ?? p.name} ko wapas Active karein?`)) return;
+                          if (!confirm(`Set ${p.sku ?? p.name} back to Active?`)) return;
                           await productsApi.update(p.dbId, { stock: 'In Stock' }, getAdminToken() ?? '').catch(e => alert(e.message));
                           await fetchProducts();
                         }} style={{ color: '#2e7d32', background: 'none', border: 'none', cursor: 'pointer', fontSize: '.82rem', fontWeight: 600 }}>Activate</button>

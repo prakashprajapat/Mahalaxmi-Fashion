@@ -98,8 +98,8 @@ export default function AdminStockPage() {
     const token = getAdminToken() ?? '';
     const toUpdate = filtered.filter(p => (p.stock ?? 'In Stock') !== status);
     if (!toUpdate.length) return;
-    if (!confirm(`${toUpdate.length} products ko "${status}" karo?`)) return;
-    setMessage({ text: `⏳ ${toUpdate.length} products update ho rahe hain...`, ok: true });
+    if (!confirm(`Mark ${toUpdate.length} products as "${status}"?`)) return;
+    setMessage({ text: `⏳ Updating ${toUpdate.length} products...`, ok: true });
     let done = 0;
     for (const p of toUpdate) {
       try {
@@ -195,7 +195,7 @@ export default function AdminStockPage() {
               SKU / Product Name
             </label>
             <input
-              placeholder="SKU ya naam search karo..."
+              placeholder="Search by SKU or name..."
               value={filterSku}
               onChange={e => setFilterSku(e.target.value)}
               style={{ width: '100%', border: '1.5px solid #ddd', borderRadius: '8px', padding: '.4rem .65rem', fontSize: '.86rem' }}
@@ -239,9 +239,9 @@ export default function AdminStockPage() {
       {/* Products table */}
       <div className="bg-white rounded-xl shadow-sm overflow-hidden">
         {loading ? (
-          <div style={{ textAlign: 'center', padding: '3rem', color: '#999' }}>Products load ho rahe hain...</div>
+          <div style={{ textAlign: 'center', padding: '3rem', color: '#999' }}>Loading products...</div>
         ) : filtered.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '3rem', color: '#999' }}>Koi product nahi mila. Filters clear karo.</div>
+          <div style={{ textAlign: 'center', padding: '3rem', color: '#999' }}>No products found. Clear the filters.</div>
         ) : (
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '.86rem' }}>
             <thead style={{ background: '#f5f5f5', borderBottom: '2px solid #eee' }}>
@@ -314,7 +314,7 @@ export default function AdminStockPage() {
       </div>
 
       <p style={{ color: '#aaa', fontSize: '.78rem', marginTop: '.75rem', textAlign: 'right' }}>
-        {filtered.length} products shown · Changes live hote hain website par
+        {filtered.length} products shown · Changes go live on the website
       </p>
     </div>
   );

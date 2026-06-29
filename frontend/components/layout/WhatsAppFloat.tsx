@@ -10,32 +10,32 @@ function buildMessage(pathname: string, sp: URLSearchParams): string {
     const title = typeof document !== 'undefined'
       ? document.title.replace(' | Mahalaxmi Fashion Hub', '').trim()
       : 'a product';
-    return `Namaste! Main "${title}" mein interested hoon. Kya aap mujhe iske baare mein aur jaankari de sakte hain? 🙏`;
+    return `Hello! I'm interested in "${title}". Could you please share more information about it? 🙏`;
   }
 
   const category = sp.get('category');
   const q = sp.get('q');
   const bestSeller = sp.get('bestSeller');
 
-  if (q) return `Namaste! Main "${q}" search kar raha/rahi hoon aapki website par. Kya yeh available hai? 🙏`;
-  if (bestSeller === 'true') return `Namaste! Main aapke Best Seller products dekhna chahta/chahti hoon. Please recommend karein! 🙏`;
+  if (q) return `Hello! I'm looking for "${q}" on your website. Is this available? 🙏`;
+  if (bestSeller === 'true') return `Hello! I'd like to see your Best Seller products. Please recommend some! 🙏`;
   if (category) {
     const cat = category.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-    return `Namaste! Main aapke ${cat} collection browse kar raha/rahi hoon. Kya koi special offer hai? 🙏`;
+    return `Hello! I'm browsing your ${cat} collection. Is there any special offer? 🙏`;
   }
-  if (pathname === '/') return `Namaste! Main Mahalaxmi Fashion Hub ki website par hoon. Aapke collections ke baare mein jaanna chahta/chahti hoon. 🙏`;
-  if (pathname === '/cart') return `Namaste! Mera cart mein kuch items hain. Order place karne mein help chahiye. 🙏`;
-  if (pathname.startsWith('/orders')) return `Namaste! Mujhe apne order ke baare mein kuch puchna tha. Please help karein. 🙏`;
-  if (pathname === '/tracking') return `Namaste! Main apna order track karna chahta/chahti hoon. Kya aap help kar sakte hain? 🙏`;
-  if (pathname === '/wishlist') return `Namaste! Main apni wishlist dekh raha/rahi hoon. Kya inpe koi offer mil sakta hai? 🙏`;
-  if (pathname.startsWith('/account')) return `Namaste! Mujhe apne account se related kuch madad chahiye. 🙏`;
-  if (pathname === '/contact') return `Namaste! Main Mahalaxmi Fashion Hub se contact karna chahta/chahti hoon. 🙏`;
+  if (pathname === '/') return `Hello! I'm on the Mahalaxmi Fashion Hub website. I'd like to know more about your collections. 🙏`;
+  if (pathname === '/cart') return `Hello! I have a few items in my cart. I need help placing the order. 🙏`;
+  if (pathname.startsWith('/orders')) return `Hello! I wanted to ask something about my order. Please help. 🙏`;
+  if (pathname === '/tracking') return `Hello! I'd like to track my order. Can you help me? 🙏`;
+  if (pathname === '/wishlist') return `Hello! I'm looking at my wishlist. Is there any offer available on these? 🙏`;
+  if (pathname.startsWith('/account')) return `Hello! I need some help related to my account. 🙏`;
+  if (pathname === '/contact') return `Hello! I'd like to get in touch with Mahalaxmi Fashion Hub. 🙏`;
 
   // Category shortcut pages like /saree, /women etc.
   const page = pathname.replace('/', '').replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-  if (page) return `Namaste! Main aapke ${page} collection mein interested hoon. Please details share karein. 🙏`;
+  if (page) return `Hello! I'm interested in your ${page} collection. Please share the details. 🙏`;
 
-  return `Namaste! Main Mahalaxmi Fashion Hub ki website par hoon. Please help karein. 🙏`;
+  return `Hello! I'm on the Mahalaxmi Fashion Hub website. Please help. 🙏`;
 }
 
 function FloatButton() {
