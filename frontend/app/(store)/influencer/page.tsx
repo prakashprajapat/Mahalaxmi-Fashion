@@ -123,120 +123,91 @@ export default function InfluencerPage() {
       <Nav />
 
       {/* Hero */}
-      <div style={{
-        background: `linear-gradient(135deg, ${BRAND} 0%, ${BRAND_DARK} 100%)`,
-        padding: '5rem 1.5rem 4rem', textAlign: 'center', color: '#fff',
-      }}>
-        <div style={{ fontSize: '3rem', marginBottom: '.75rem' }}>🌟</div>
-        <h1 style={{ fontSize: 'clamp(1.8rem, 5vw, 2.8rem)', fontWeight: 900, margin: '0 0 1rem', lineHeight: 1.2 }}>
-          Share Your Style,<br />Earn Money!
-        </h1>
-        <p style={{ fontSize: 'clamp(.95rem, 2vw, 1.15rem)', opacity: .9, maxWidth: '560px', margin: '0 auto 2rem', lineHeight: 1.6 }}>
-          Join the Mahalaxmi Fashion Hub Creator Program. Share your unique link and earn commission on every sale.
+      <section style={{ background: 'linear-gradient(180deg, #ffffff 0%, #f7f8fa 100%)', padding: '4.5rem 1.5rem 3.5rem', textAlign: 'center' }}>
+        <div style={{ maxWidth: 820, margin: '0 auto' }}>
+          <span style={{ display: 'inline-block', background: BRAND_LIGHT, color: BRAND, fontWeight: 700, fontSize: '.72rem', letterSpacing: '.08em', textTransform: 'uppercase', padding: '.35rem .9rem', borderRadius: 999, marginBottom: '1.25rem' }}>
+            Mahalaxmi Creator Program
+          </span>
+          <h1 style={{ fontSize: 'clamp(2rem, 5vw, 3rem)', fontWeight: 800, color: '#1a1f36', lineHeight: 1.15, margin: '0 0 1.1rem' }}>
+            Earn money by sharing the<br />styles you love
+          </h1>
+          <p style={{ fontSize: 'clamp(1rem, 2vw, 1.15rem)', color: '#5b6472', maxWidth: 600, margin: '0 auto 2rem', lineHeight: 1.6 }}>
+            Recommend Mahalaxmi Fashion Hub products to your audience and earn commission on every sale you refer. Free to join, easy to start.
+          </p>
+          <div style={{ display: 'flex', gap: '.85rem', justifyContent: 'center', flexWrap: 'wrap', alignItems: 'center' }}>
+            <button onClick={() => setTab('apply')} style={{ background: BRAND, color: '#fff', border: 'none', borderRadius: 8, padding: '.95rem 2.25rem', fontWeight: 700, fontSize: '1.02rem', cursor: 'pointer', boxShadow: '0 6px 18px rgba(167,53,77,.25)' }}>
+              Sign up for free
+            </button>
+            <button onClick={() => setTab('login')} style={{ background: 'none', color: BRAND, border: 'none', fontWeight: 700, fontSize: '.95rem', cursor: 'pointer', textDecoration: 'underline' }}>
+              Already a creator? Sign in
+            </button>
+          </div>
+          <div style={{ display: 'flex', gap: '1.5rem', justifyContent: 'center', flexWrap: 'wrap', marginTop: '2.25rem', color: '#6b7280', fontSize: '.85rem', fontWeight: 600 }}>
+            <span>✓ Free to join</span>
+            <span>✓ Up to 3% commission</span>
+            <span>✓ Approved within 48 hours</span>
+          </div>
+        </div>
+      </section>
+
+      {/* Steps */}
+      <section style={{ padding: '4rem 1.5rem', maxWidth: 1000, margin: '0 auto' }}>
+        <h2 style={{ fontSize: 'clamp(1.5rem, 3vw, 1.9rem)', fontWeight: 800, color: '#1a1f36', textAlign: 'center', margin: '0 0 .5rem' }}>
+          Start earning in 3 simple steps
+        </h2>
+        <p style={{ color: '#6b7280', textAlign: 'center', margin: '0 0 3rem', fontSize: '.95rem' }}>
+          It only takes a few minutes to get started.
         </p>
-        <div style={{ display: 'flex', gap: '.75rem', justifyContent: 'center', flexWrap: 'wrap' }}>
-          <button onClick={() => setTab('apply')} style={{
-            background: '#fff', color: BRAND, border: 'none', borderRadius: '30px',
-            padding: '.85rem 2rem', fontWeight: 800, fontSize: '1rem', cursor: 'pointer',
-          }}>🚀 Become a Creator — Free</button>
-          <button onClick={() => setTab('login')} style={{
-            background: 'rgba(255,255,255,.15)', color: '#fff',
-            border: '2px solid rgba(255,255,255,.5)', borderRadius: '30px',
-            padding: '.85rem 2rem', fontWeight: 700, fontSize: '1rem',
-            cursor: 'pointer', backdropFilter: 'blur(6px)',
-          }}>Login Dashboard</button>
-        </div>
-        <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap', marginTop: '2.5rem' }}>
-          {[['💸', 'Commission on Every Sale'], ['🎁', 'Exclusive Coupon Code'], ['📊', 'Live Sales Dashboard'], ['🤝', 'Brand Partnership']].map(([icon, text]) => (
-            <div key={text} style={{
-              background: 'rgba(255,255,255,.12)', borderRadius: '20px',
-              padding: '.4rem 1rem', fontSize: '.82rem', fontWeight: 600,
-              backdropFilter: 'blur(6px)',
-            }}>
-              {icon} {text}
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Stats */}
-      <div style={{ background: BRAND_LIGHT, padding: '2.5rem 1.5rem' }}>
-        <div style={{ maxWidth: '900px', margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '1.5rem', textAlign: 'center' }}>
-          {[['500+', 'Happy Creators'], ['₹2L+', 'Commission Paid Out'], ['10%', 'Commission Rate'], ['48hr', 'Approval Time']].map(([num, label]) => (
-            <div key={label}>
-              <div style={{ fontSize: '1.8rem', fontWeight: 900, color: BRAND }}>{num}</div>
-              <div style={{ fontSize: '.82rem', color: '#777', marginTop: '.2rem' }}>{label}</div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* How it works */}
-      <div style={{ padding: '4rem 1.5rem', textAlign: 'center' }}>
-        <h2 style={{ fontSize: '1.6rem', fontWeight: 800, color: '#1a1a1a', marginBottom: '.5rem' }}>How Does It Work?</h2>
-        <p style={{ color: '#888', marginBottom: '3rem', fontSize: '.9rem' }}>Get started in just 3 easy steps</p>
-        <div style={{ display: 'flex', gap: '2rem', justifyContent: 'center', flexWrap: 'wrap', maxWidth: '900px', margin: '0 auto' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1.5rem' }}>
           {[
-            ['1', '📝', 'Apply', 'Fill the form below with your social details. It\'s free, no charge.'],
-            ['2', '✅', 'Get Approved', 'Our team reviews within 2-3 days and gives you a unique coupon code.'],
-            ['3', '💰', 'Share & Earn', 'Share your link and code on social media. Earn commission on every successful sale.'],
-          ].map(([step, icon, title, desc]) => (
-            <div key={step} style={{
-              flex: '1 1 220px', background: '#fff', borderRadius: '20px',
-              padding: '2rem 1.5rem', boxShadow: '0 4px 20px rgba(0,0,0,.06)',
-              border: '1px solid #f0e0e5',
-            }}>
-              <div style={{
-                width: '48px', height: '48px', borderRadius: '50%',
-                background: `linear-gradient(135deg, ${BRAND}, ${BRAND_DARK})`,
-                color: '#fff', fontWeight: 900, fontSize: '1.2rem',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                margin: '0 auto .75rem', boxShadow: '0 4px 12px rgba(167,53,77,.3)',
-              }}>{step}</div>
-              <div style={{ fontSize: '2rem', marginBottom: '.5rem' }}>{icon}</div>
-              <div style={{ fontWeight: 700, fontSize: '1rem', marginBottom: '.4rem' }}>{title}</div>
-              <div style={{ fontSize: '.82rem', color: '#777', lineHeight: 1.5 }}>{desc}</div>
+            ['1', 'Sign up', 'Create your free creator account by filling a short application — no fees, no commitment.'],
+            ['2', 'Share your link', 'Get a unique coupon code and referral link. Share it on Instagram, WhatsApp, YouTube and more.'],
+            ['3', 'Earn commission', 'Earn commission on every order placed with your code. Track everything in your dashboard.'],
+          ].map(([n, title, desc]) => (
+            <div key={n} style={{ background: '#fff', border: '1px solid #e8eaed', borderRadius: 14, padding: '2rem 1.5rem' }}>
+              <div style={{ width: 44, height: 44, borderRadius: '50%', background: BRAND, color: '#fff', fontWeight: 800, fontSize: '1.15rem', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1.1rem' }}>{n}</div>
+              <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: '#1a1f36', margin: '0 0 .5rem' }}>{title}</h3>
+              <p style={{ fontSize: '.9rem', color: '#5b6472', lineHeight: 1.55, margin: 0 }}>{desc}</p>
             </div>
           ))}
         </div>
-      </div>
+      </section>
 
-      {/* Earnings calculator */}
-      <div style={{ background: BRAND_LIGHT, padding: '4rem 1.5rem', textAlign: 'center' }}>
-        <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#1a1a1a', marginBottom: '.5rem' }}>How Much Can You Earn?</h2>
-        <p style={{ color: '#888', marginBottom: '2rem', fontSize: '.9rem' }}>10% commission per sale — the more you share, the more you earn</p>
-        <div style={{ display: 'flex', gap: '1.5rem', justifyContent: 'center', flexWrap: 'wrap', maxWidth: '700px', margin: '0 auto' }}>
-          {[
-            ['5 sales/month', '₹500 avg/order', '₹250/month'],
-            ['20 sales/month', '₹800 avg/order', '₹1,600/month'],
-            ['50 sales/month', '₹1,000 avg/order', '₹5,000/month'],
-          ].map(([sales, avg, earn]) => (
-            <div key={sales} style={{
-              flex: '1 1 180px', background: '#fff', borderRadius: '16px',
-              padding: '1.5rem 1rem', boxShadow: '0 2px 12px rgba(0,0,0,.06)',
-            }}>
-              <div style={{ fontSize: '.8rem', color: '#888', marginBottom: '.25rem' }}>{sales}</div>
-              <div style={{ fontSize: '.75rem', color: '#aaa', marginBottom: '.75rem' }}>{avg}</div>
-              <div style={{ fontSize: '1.4rem', fontWeight: 900, color: BRAND }}>{earn}</div>
-              <div style={{ fontSize: '.72rem', color: '#bbb', marginTop: '.2rem' }}>commission</div>
-            </div>
-          ))}
+      {/* Benefits */}
+      <section style={{ background: '#f7f8fa', padding: '4rem 1.5rem' }}>
+        <div style={{ maxWidth: 1000, margin: '0 auto' }}>
+          <h2 style={{ fontSize: 'clamp(1.5rem, 3vw, 1.9rem)', fontWeight: 800, color: '#1a1f36', textAlign: 'center', margin: '0 0 3rem' }}>
+            Why join the Creator Program?
+          </h2>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.5rem' }}>
+            {[
+              ['💸', 'Commission on every sale', 'Earn a commission for every order made using your referral code.'],
+              ['🎁', 'Exclusive coupon code', 'Your followers get a special discount — a win for everyone.'],
+              ['📊', 'Real-time dashboard', 'Track your orders, sales and earnings live, anytime.'],
+              ['🤝', 'Dedicated support', 'Our team helps you grow with tips and quick WhatsApp support.'],
+            ].map(([icon, title, desc]) => (
+              <div key={title} style={{ background: '#fff', borderRadius: 14, padding: '1.75rem 1.5rem', border: '1px solid #e8eaed' }}>
+                <div style={{ fontSize: '1.8rem', marginBottom: '.75rem' }}>{icon}</div>
+                <h3 style={{ fontSize: '1.02rem', fontWeight: 700, color: '#1a1f36', margin: '0 0 .4rem' }}>{title}</h3>
+                <p style={{ fontSize: '.86rem', color: '#5b6472', lineHeight: 1.5, margin: 0 }}>{desc}</p>
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
+      </section>
 
-      {/* CTA */}
-      <div style={{ padding: '4rem 1.5rem', textAlign: 'center' }}>
-        <h2 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '1rem' }}>Ready? Let&apos;s Get Started! 🚀</h2>
-        <p style={{ color: '#888', marginBottom: '2rem' }}>Apply now and get approved within 48 hours</p>
-        <button onClick={() => setTab('apply')} style={{
-          background: `linear-gradient(135deg, ${BRAND}, ${BRAND_DARK})`,
-          color: '#fff', border: 'none', borderRadius: '30px',
-          padding: '1rem 2.5rem', fontWeight: 800, fontSize: '1.05rem',
-          cursor: 'pointer', boxShadow: '0 6px 20px rgba(167,53,77,.35)',
-        }}>
-          🌟 Join the Creator Program
+      {/* Final CTA */}
+      <section style={{ background: BRAND, color: '#fff', padding: '4rem 1.5rem', textAlign: 'center' }}>
+        <h2 style={{ fontSize: 'clamp(1.6rem, 3vw, 2.1rem)', fontWeight: 800, margin: '0 0 .75rem' }}>
+          Ready to start earning?
+        </h2>
+        <p style={{ opacity: .9, fontSize: '1.02rem', margin: '0 0 2rem' }}>
+          Join hundreds of creators already earning with Mahalaxmi Fashion Hub.
+        </p>
+        <button onClick={() => setTab('apply')} style={{ background: '#fff', color: BRAND, border: 'none', borderRadius: 8, padding: '.95rem 2.5rem', fontWeight: 800, fontSize: '1.05rem', cursor: 'pointer' }}>
+          Sign up for free
         </button>
-      </div>
+      </section>
     </div>
   );
 
