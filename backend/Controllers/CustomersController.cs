@@ -325,17 +325,20 @@ public class CustomersController : ControllerBase
         var c = await _db.Customers.FindAsync(id);
         if (c is null) return NotFound();
 
-        c.FirstName  = req.FirstName.Trim();
-        c.LastName   = req.LastName.Trim();
-        c.Gender     = req.Gender ?? "";
-        c.DateOfBirth = ParseDate(req.DateOfBirth);
-        c.MarriageDate = ParseDate(req.MarriageDate);
-        c.AddrLine1  = req.AddrLine1 ?? "";
-        c.AddrLine2  = req.AddrLine2 ?? "";
-        c.Pincode    = req.Pincode ?? "";
-        c.PostOffice = req.PostOffice ?? "";
-        c.State      = req.State ?? "";
-        c.District   = req.District ?? "";
+        // Partial update: only change fields that were actually provided (non-null),
+        // so a partial request (e.g. only birthday dates) does not wipe other fields.
+        if (req.FirstName    != null) c.FirstName    = req.FirstName.Trim();
+        if (req.LastName     != null) c.LastName     = req.LastName.Trim();
+        if (req.Gender       != null) c.Gender       = req.Gender;
+        if (req.Phone        != null) c.Phone        = req.Phone.Trim();
+        if (req.DateOfBirth  != null) c.DateOfBirth  = ParseDate(req.DateOfBirth);
+        if (req.MarriageDate != null) c.MarriageDate = ParseDate(req.MarriageDate);
+        if (req.AddrLine1    != null) c.AddrLine1    = req.AddrLine1;
+        if (req.AddrLine2    != null) c.AddrLine2    = req.AddrLine2;
+        if (req.Pincode      != null) c.Pincode      = req.Pincode;
+        if (req.PostOffice   != null) c.PostOffice   = req.PostOffice;
+        if (req.State        != null) c.State        = req.State;
+        if (req.District     != null) c.District     = req.District;
         if (req.MarketingConsent.HasValue)
             c.MarketingConsent = req.MarketingConsent.Value;
         if (req.PanNumber is not null)

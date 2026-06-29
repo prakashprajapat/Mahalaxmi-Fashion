@@ -20,7 +20,7 @@ export default function AccountEditPage() {
   const router = useRouter();
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [form, setForm] = useState({
-    firstName: '', lastName: '', gender: '', email: '',
+    firstName: '', lastName: '', gender: '', email: '', phone: '',
     dateOfBirth: '', marriageDate: '',
     addrLine1: '', addrLine2: '', pincode: '', postOffice: '', state: '', district: '',
     marketingConsent: false,
@@ -38,6 +38,7 @@ export default function AccountEditPage() {
       lastName: c.lastName ?? '',
       gender: c.gender ?? '',
       email: c.email ?? '',
+      phone: c.phone ?? '',
       dateOfBirth: c.dateOfBirth ?? '',
       marriageDate: c.marriageDate ?? '',
       addrLine1: c.addrLine1 ?? '',
@@ -62,7 +63,6 @@ export default function AccountEditPage() {
     try {
       const updated = await customersApi.updateProfile(customer.id, {
         ...form,
-        phone: customer.phone,
       }, getToken() ?? '');
       saveCustomer({ ...customer, ...form });
       window.dispatchEvent(new Event('auth-changed'));
@@ -116,8 +116,8 @@ export default function AccountEditPage() {
                 <input type="date" value={form.marriageDate} onChange={set('marriageDate')} />
               </label>
               <label className="full-field">
-                Phone (read-only)
-                <input value={customer.phone} readOnly style={{ background: '#f9f9f9', color: '#888' }} />
+                Mobile Number
+                <input type="tel" value={form.phone} onChange={set('phone')} placeholder="e.g. 9876543210" maxLength={15} inputMode="numeric" />
               </label>
             </div>
 

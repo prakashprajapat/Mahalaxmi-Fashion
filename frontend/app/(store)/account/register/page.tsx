@@ -94,7 +94,7 @@ export default function RegisterPage() {
   };
 
   const handleSaveBirthday = async () => {
-    if (!savedCustomer || !savedToken) { router.push('/account'); return; }
+    if (!savedCustomer || !savedToken) { router.push('/'); return; }
     setLoading(true);
     try {
       await customersApi.updateProfile(savedCustomer.id, {
@@ -104,7 +104,7 @@ export default function RegisterPage() {
         marriageDate: birthdayForm.anniv || undefined,
       }, savedToken);
     } catch { /* not critical */ }
-    finally { setLoading(false); router.push('/account'); }
+    finally { setLoading(false); router.push('/'); }
   };
 
   return (
@@ -278,7 +278,7 @@ export default function RegisterPage() {
                   <button onClick={handleSaveBirthday} disabled={loading} className="button primary">
                     {loading ? 'Saving…' : '🎉 Save & Go to Account'}
                   </button>
-                  <button onClick={() => router.push('/account')} className="button secondary">
+                  <button onClick={() => router.push('/')} className="button secondary">
                     Skip for Now
                   </button>
                 </div>
