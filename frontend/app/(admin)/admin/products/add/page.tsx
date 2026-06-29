@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { productsApi } from '@/lib/api';
 import { getAdminToken } from '@/lib/auth';
+import { taxonomySuggestions } from '@/lib/womenTaxonomy';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const CATEGORIES = ['Women','Men','Kids','Beauty','Fabrics','More'];
@@ -713,6 +714,7 @@ export default function AddProductPage() {
                   const all = [...new Set([
                     ...allSubcats.filter(s => s.cat === category.toLowerCase()).map(s => s.sub),
                     ...localSubcats,
+                    ...taxonomySuggestions(category),
                   ])].filter(s => !hiddenSubcats.has(s));
                   const filtered = sub.trim()
                     ? all.filter(s => s.toLowerCase().includes(sub.toLowerCase()))
@@ -743,6 +745,7 @@ export default function AddProductPage() {
             {sub.trim() && [...new Set([
               ...allSubcats.filter(s => s.cat === category.toLowerCase()).map(s => s.sub),
               ...localSubcats,
+              ...taxonomySuggestions(category),
             ])].filter(s => !hiddenSubcats.has(s)).some(s => s.toLowerCase() === sub.trim().toLowerCase()) && (
               <span style={{ fontSize:'.75rem', color:'#e67e22', fontWeight:600, marginTop:'.25rem', display:'block' }}>
                 ⚠️ Yeh subcategory already list mein hai
