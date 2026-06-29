@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { productsApi } from '@/lib/api';
 import { getAdminToken } from '@/lib/auth';
-import { taxonomySuggestions } from '@/lib/womenTaxonomy';
+import { WOMEN_TAXONOMY } from '@/lib/womenTaxonomy';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const CATEGORIES = ['Women','Men','Kids','Beauty','Fabrics','More'];
@@ -450,6 +450,7 @@ export default function AddProductPage() {
   const [name, setName]         = useState('');
   const [category, setCategory] = useState('Women');
   const [sub, setSub]           = useState('');
+  const [taxVariant, setTaxVariant] = useState('');
   const [price, setPrice]       = useState('');
   const [discPct, setDiscPct]   = useState('');
   const [discPrice, setDiscPrice] = useState('');
@@ -582,6 +583,7 @@ export default function AddProductPage() {
         productPhotos: mainPhotos,
         addOns: addOns.filter(a => a.name.trim()),
         variants: variants.filter(v => v.name.trim()),
+        variant: category === 'Women' && taxVariant ? taxVariant : undefined,
       });
       const finalHsn = hsnCode.trim();
       await productsApi.bulkSave([{
@@ -615,7 +617,7 @@ export default function AddProductPage() {
     setVariantStock({});
     setMainPhotos({ front:'', side:'', back:'', zoomed:'' });
     setPackOf(''); setPackCols([]);
-    setAddOns([]); setVariants([]); setSub(''); setLocalSubcats([]); setHiddenSubcats(new Set());
+    setAddOns([]); setVariants([]); setSub(''); setTaxVariant(''); setLocalSubcats([]); setHiddenSubcats(new Set());
     setAvailColours(''); setBestSeller(false); setTotalQty('');
   };
 
@@ -692,11 +694,29 @@ export default function AddProductPage() {
 
           <div>
             <label style={lbl}>Category</label>
-            <select value={category} onChange={e => setCategory(e.target.value)} style={inp}>
+            <select value={category} onChange={e => { setCategory(e.target.value); setSub(''); setTaxVariant(''); }} style={inp}>
               {CATEGORIES.map(c => <option key={c}>{c}</option>)}
             </select>
           </div>
 
+          {category === 'Women' ? (
+          <>
+          <div>
+            <label style={lbl}>Subcategory</label>
+            <select value={sub} onChange={e => { setSub(e.target.value); setTaxVariant(''); }} style={inp}>
+              <option value="">Select subcategory…</option>
+              {WOMEN_TAXONOMY.map(g => <option key={g.name} value={g.name}>{g.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label style={lbl}>Variant</label>
+            <select value={taxVariant} onChange={e => setTaxVariant(e.target.value)} style={inp} disabled={!sub}>
+              <option value="">{sub ? 'Select variant…' : 'Pehle subcategory chunein'}</option>
+              {(WOMEN_TAXONOMY.find(g => g.name === sub)?.variants ?? []).map(v => <option key={v} value={v}>{v}</option>)}
+            </select>
+          </div>
+          </>
+          ) : (
           <div style={{ position:'relative' }}>
             <label style={lbl}>Subcategory</label>
             <div style={{ display:'flex', gap:'.4rem', alignItems:'center' }}>
@@ -714,7 +734,6 @@ export default function AddProductPage() {
                   const all = [...new Set([
                     ...allSubcats.filter(s => s.cat === category.toLowerCase()).map(s => s.sub),
                     ...localSubcats,
-                    ...taxonomySuggestions(category),
                   ])].filter(s => !hiddenSubcats.has(s));
                   const filtered = sub.trim()
                     ? all.filter(s => s.toLowerCase().includes(sub.toLowerCase()))
@@ -745,13 +764,13 @@ export default function AddProductPage() {
             {sub.trim() && [...new Set([
               ...allSubcats.filter(s => s.cat === category.toLowerCase()).map(s => s.sub),
               ...localSubcats,
-              ...taxonomySuggestions(category),
             ])].filter(s => !hiddenSubcats.has(s)).some(s => s.toLowerCase() === sub.trim().toLowerCase()) && (
               <span style={{ fontSize:'.75rem', color:'#e67e22', fontWeight:600, marginTop:'.25rem', display:'block' }}>
                 ⚠️ Yeh subcategory already list mein hai
               </span>
             )}
           </div>
+          )}
 
           {/* ── Variants ── */}
           <div style={{ gridColumn:'1 / -1', marginTop:'.25rem' }}>
