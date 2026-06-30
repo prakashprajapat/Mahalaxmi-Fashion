@@ -122,31 +122,33 @@ export default function InfluencerPage() {
     <div style={{ minHeight: '100vh', background: '#fff' }}>
       <Nav />
 
-      {/* Hero */}
-      <section style={{ background: 'linear-gradient(180deg, #ffffff 0%, #f7f8fa 100%)', padding: '4.5rem 1.5rem 3.5rem', textAlign: 'center' }}>
-        <div style={{ maxWidth: 820, margin: '0 auto' }}>
-          <span style={{ display: 'inline-block', background: BRAND_LIGHT, color: BRAND, fontWeight: 700, fontSize: '.72rem', letterSpacing: '.08em', textTransform: 'uppercase', padding: '.35rem .9rem', borderRadius: 999, marginBottom: '1.25rem' }}>
-            Mahalaxmi Creator Program
-          </span>
-          <h1 style={{ fontSize: 'clamp(2rem, 5vw, 3rem)', fontWeight: 800, color: '#1a1f36', lineHeight: 1.15, margin: '0 0 1.1rem' }}>
-            Earn money by sharing the<br />styles you love
+      {/* Hero — photo banner */}
+      <section style={{ position: 'relative', minHeight: 380, display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', color: '#fff', padding: '4rem 1.5rem', backgroundImage: 'linear-gradient(rgba(18,16,20,.62), rgba(18,16,20,.62)), url(/hero-banner.webp)', backgroundSize: 'cover', backgroundPosition: 'center' }}>
+        <div style={{ maxWidth: 760 }}>
+          <h1 style={{ fontSize: 'clamp(1.9rem, 5vw, 3rem)', fontWeight: 800, lineHeight: 1.15, margin: '0 0 1.9rem', textShadow: '0 2px 14px rgba(0,0,0,.45)' }}>
+            Recommend Products.<br />Earn Commission.
           </h1>
-          <p style={{ fontSize: 'clamp(1rem, 2vw, 1.15rem)', color: '#5b6472', maxWidth: 600, margin: '0 auto 2rem', lineHeight: 1.6 }}>
-            Recommend Mahalaxmi Fashion Hub products to your audience and earn commission on every sale you refer. Free to join, easy to start.
-          </p>
-          <div style={{ display: 'flex', gap: '.85rem', justifyContent: 'center', flexWrap: 'wrap', alignItems: 'center' }}>
-            <button onClick={() => setTab('apply')} style={{ background: BRAND, color: '#fff', border: 'none', borderRadius: 8, padding: '.95rem 2.25rem', fontWeight: 700, fontSize: '1.02rem', cursor: 'pointer', boxShadow: '0 6px 18px rgba(167,53,77,.25)' }}>
-              Sign up for free
-            </button>
-            <button onClick={() => setTab('login')} style={{ background: 'none', color: BRAND, border: 'none', fontWeight: 700, fontSize: '.95rem', cursor: 'pointer', textDecoration: 'underline' }}>
-              Already a creator? Sign in
-            </button>
-          </div>
-          <div style={{ display: 'flex', gap: '1.5rem', justifyContent: 'center', flexWrap: 'wrap', marginTop: '2.25rem', color: '#6b7280', fontSize: '.85rem', fontWeight: 600 }}>
-            <span>✓ Free to join</span>
-            <span>✓ Up to 3% commission</span>
-            <span>✓ Approved within 48 hours</span>
-          </div>
+          <button onClick={() => setTab('apply')} style={{ background: '#ffd814', color: '#1a1f36', border: '1px solid #e0a800', borderRadius: 8, padding: '.9rem 3rem', fontWeight: 700, fontSize: '1.08rem', cursor: 'pointer', boxShadow: '0 6px 18px rgba(0,0,0,.28)' }}>
+            Sign up
+          </button>
+        </div>
+      </section>
+
+      {/* Intro */}
+      <section style={{ maxWidth: 1100, margin: '0 auto', padding: '3.5rem 1.5rem 1.5rem' }}>
+        <h2 style={{ fontSize: 'clamp(1.5rem, 3vw, 2rem)', fontWeight: 700, color: '#232f3e', margin: '0 0 1.1rem' }}>
+          Mahalaxmi Creator Program — earn by recommending what you love
+        </h2>
+        <p style={{ fontSize: '1.02rem', color: '#444', lineHeight: 1.75, maxWidth: 920, margin: 0 }}>
+          Welcome to the Mahalaxmi Fashion Hub Creator Program. We help creators, influencers and shoppers earn by recommending the products they love. Get your own referral code and link, share it with your audience, and earn a commission on every qualifying order — all tracked live in your personal dashboard. Free to join, with approval within 48 hours.
+        </p>
+        <div style={{ marginTop: '1.75rem', display: 'flex', gap: '1.25rem', alignItems: 'center', flexWrap: 'wrap' }}>
+          <button onClick={() => setTab('apply')} style={{ background: '#ffd814', color: '#1a1f36', border: '1px solid #e0a800', borderRadius: 8, padding: '.7rem 2rem', fontWeight: 700, fontSize: '.95rem', cursor: 'pointer' }}>
+            Sign up for free
+          </button>
+          <button onClick={() => setTab('login')} style={{ background: 'none', color: BRAND, border: 'none', fontWeight: 700, fontSize: '.92rem', cursor: 'pointer', textDecoration: 'underline' }}>
+            Already a creator? Sign in
+          </button>
         </div>
       </section>
 
@@ -165,7 +167,7 @@ export default function InfluencerPage() {
             ['3', 'Earn commission', 'Earn commission on every order placed with your code. Track everything in your dashboard.'],
           ].map(([n, title, desc]) => (
             <div key={n} style={{ background: '#fff', border: '1px solid #e8eaed', borderRadius: 14, padding: '2rem 1.5rem' }}>
-              <div style={{ width: 44, height: 44, borderRadius: '50%', background: BRAND, color: '#fff', fontWeight: 800, fontSize: '1.15rem', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1.1rem' }}>{n}</div>
+              <div style={{ width: 44, height: 44, borderRadius: '50%', background: '#ff9900', color: '#fff', fontWeight: 800, fontSize: '1.15rem', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1.1rem' }}>{n}</div>
               <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: '#1a1f36', margin: '0 0 .5rem' }}>{title}</h3>
               <p style={{ fontSize: '.9rem', color: '#5b6472', lineHeight: 1.55, margin: 0 }}>{desc}</p>
             </div>
@@ -204,7 +206,7 @@ export default function InfluencerPage() {
         <p style={{ opacity: .9, fontSize: '1.02rem', margin: '0 0 2rem' }}>
           Join hundreds of creators already earning with Mahalaxmi Fashion Hub.
         </p>
-        <button onClick={() => setTab('apply')} style={{ background: '#fff', color: BRAND, border: 'none', borderRadius: 8, padding: '.95rem 2.5rem', fontWeight: 800, fontSize: '1.05rem', cursor: 'pointer' }}>
+        <button onClick={() => setTab('apply')} style={{ background: '#ffd814', color: '#1a1f36', border: '1px solid #e0a800', borderRadius: 8, padding: '.95rem 2.75rem', fontWeight: 800, fontSize: '1.05rem', cursor: 'pointer' }}>
           Sign up for free
         </button>
       </section>
