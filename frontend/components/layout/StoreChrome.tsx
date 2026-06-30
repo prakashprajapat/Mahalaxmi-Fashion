@@ -10,7 +10,11 @@ import WhatsAppFloat from './WhatsAppFloat';
 // header/footer and should NOT show the shop navbar, sidebar, footer or popups.
 export default function StoreChrome({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const bare = pathname?.startsWith('/influencer') ?? false;
+  // Bare (no shop chrome) on the /influencer route AND on the affiliate.* subdomain.
+  // The affiliate subdomain serves /influencer via an internal nginx rewrite, so the
+  // browser URL stays "/" — we detect it by hostname on the client.
+  const isAffiliateHost = typeof window !== 'undefined' && window.location.hostname.startsWith('affiliate.');
+  const bare = (pathname?.startsWith('/influencer') ?? false) || isAffiliateHost;
 
   if (bare) {
     return (
