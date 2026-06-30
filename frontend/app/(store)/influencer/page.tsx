@@ -210,6 +210,20 @@ export default function InfluencerPage() {
           Sign up for free
         </button>
       </section>
+
+      {/* Creator footer */}
+      <footer style={{ background: '#fff', borderTop: '1px solid #e8eaed', padding: '2rem 1.5rem' }}>
+        <div style={{ maxWidth: 1100, margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+          <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap', fontSize: '.85rem' }}>
+            <button onClick={() => setTab('apply')} style={{ background: 'none', border: 'none', color: '#555', cursor: 'pointer', fontSize: '.85rem', padding: 0 }}>Become a Creator</button>
+            <button onClick={() => setTab('login')} style={{ background: 'none', border: 'none', color: '#555', cursor: 'pointer', fontSize: '.85rem', padding: 0 }}>Creator Login</button>
+            <Link href="/terms-conditions" style={{ color: '#555', textDecoration: 'none' }}>Terms &amp; Conditions</Link>
+            <Link href="/privacy-policy" style={{ color: '#555', textDecoration: 'none' }}>Privacy Policy</Link>
+            <Link href="/contact" style={{ color: '#555', textDecoration: 'none' }}>Contact Us</Link>
+          </div>
+          <div style={{ fontSize: '.82rem', color: '#999' }}>© {new Date().getFullYear()} Mahalaxmi Fashion Hub</div>
+        </div>
+      </footer>
     </div>
   );
 
