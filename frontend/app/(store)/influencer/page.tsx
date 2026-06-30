@@ -122,16 +122,13 @@ export default function InfluencerPage() {
     <div style={{ minHeight: '100vh', background: '#fff' }}>
       <Nav />
 
-      {/* Hero — photo banner */}
-      <section style={{ position: 'relative', minHeight: 380, display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', color: '#fff', padding: '4rem 1.5rem', backgroundImage: 'linear-gradient(rgba(18,16,20,.62), rgba(18,16,20,.62)), url(/hero-banner.webp)', backgroundSize: 'cover', backgroundPosition: 'center' }}>
-        <div style={{ maxWidth: 760 }}>
-          <h1 style={{ fontSize: 'clamp(1.9rem, 5vw, 3rem)', fontWeight: 800, lineHeight: 1.15, margin: '0 0 1.9rem', textShadow: '0 2px 14px rgba(0,0,0,.45)' }}>
-            Recommend Products.<br />Earn Commission.
-          </h1>
-          <button onClick={() => setTab('apply')} style={{ background: '#ffd814', color: '#1a1f36', border: '1px solid #e0a800', borderRadius: 8, padding: '.9rem 3rem', fontWeight: 700, fontSize: '1.08rem', cursor: 'pointer', boxShadow: '0 6px 18px rgba(0,0,0,.28)' }}>
-            Sign up
-          </button>
-        </div>
+      {/* Hero — creator banner image */}
+      <section style={{ width: '100%', lineHeight: 0 }}>
+        <button onClick={() => setTab('login')} aria-label="Login to Creator Dashboard"
+          style={{ display: 'block', width: '100%', padding: 0, margin: 0, border: 'none', background: 'none', cursor: 'pointer' }}>
+          <img src="/creator-banner.webp" alt="Mahalaxmi Creator Program — earn by recommending what you love"
+            style={{ width: '100%', height: 'auto', display: 'block' }} />
+        </button>
       </section>
 
       {/* Intro */}
