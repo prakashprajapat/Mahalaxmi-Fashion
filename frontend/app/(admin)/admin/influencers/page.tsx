@@ -18,6 +18,12 @@ export default function InfluencersAdminPage() {
   const [editDisc, setEditDisc] = useState('10');
   const [editNotes, setEditNotes] = useState('');
   const [saving, setSaving] = useState(false);
+  // Performance report / analytics
+  const [view, setView] = useState('apps');         // 'apps' | 'report'
+  const [report, setReport] = useState(null);
+  const [reportLoading, setReportLoading] = useState(false);
+  const [rSort, setRSort] = useState('totalSales');
+  const [rDir, setRDir] = useState('desc');
 
   const token = typeof window !== 'undefined' ? getAdminToken() : '';
   const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
@@ -31,6 +37,40 @@ export default function InfluencersAdminPage() {
   }, [filter]);
 
   useEffect(() => { load(); }, [load]);
+
+  const loadReport = useCallback(async () => {
+    setReportLoading(true);
+    try {
+      const res = await fetch(`${API}/api/influencers/report`, { headers });
+      if (res.ok) setReport(await res.json());
+    } finally { setReportLoading(false); }
+  }, []);
+
+  useEffect(() => { loadReport(); }, [loadReport]);
+
+  const toggleSort = (key) => {
+    if (rSort === key) setRDir(d => d === 'desc' ? 'asc' : 'desc');
+    else { setRSort(key); setRDir('desc'); }
+  };
+
+  const sortedCreators = report
+    ? [...report.creators].sort((a, b) => {
+        const av = Number(a[rSort] ?? 0), bv = Number(b[rSort] ?? 0);
+        return rDir === 'desc' ? bv - av : av - bv;
+      })
+    : [];
+
+  const downloadCsv = () => {
+    if (!report) return;
+    const rows = [['Creator','Email','Platform','Coupon','Status','Commission Rate %','Orders','Sales','Commission','AOV']];
+    report.creators.forEach(c => rows.push([c.name, c.email, c.platform, c.couponCode ?? '', c.status, c.commissionRate, c.totalOrders, c.totalSales, c.commissionEarned, c.avgOrderValue]));
+    const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `creator-report-${new Date().toISOString().slice(0,10)}.csv`;
+    a.click(); URL.revokeObjectURL(url);
+  };
 
   const openDetail = async (inf) => {
     setSelected(inf); setEditStatus(inf.status); setEditCode(inf.couponCode??'');
@@ -47,6 +87,7 @@ export default function InfluencersAdminPage() {
       const cappedComm = Math.min(parseFloat(editComm) || 3, 3);
       await fetch(`${API}/api/influencers/${selected.id}`, { method:'PUT', headers, body:JSON.stringify({ status:editStatus, couponCode:editCode||null, commissionRate:cappedComm, couponDiscountPct:parseFloat(editDisc)||10, adminNotes:editNotes||null }) });
       await load();
+      loadReport();
       setSelected({...selected, status:editStatus, couponCode:editCode||undefined, commissionRate:cappedComm});
     } finally { setSaving(false); }
   };
@@ -76,6 +117,13 @@ export default function InfluencersAdminPage() {
         </a>
       </div>
 
+      <div style={{display:'flex',gap:'.5rem',marginBottom:'1.25rem'}}>
+        {[['apps','📋 Applications'],['report','📊 Performance Report']].map(([v,label]) => (
+          <button key={v} onClick={()=>setView(v)} style={{padding:'.5rem 1.1rem',borderRadius:'10px',border:'none',cursor:'pointer',fontWeight:700,fontSize:'.85rem',background:view===v?'#a7354d':'#f0f0f0',color:view===v?'#fff':'#555'}}>{label}</button>
+        ))}
+      </div>
+
+      {view === 'apps' && (<>
       <div style={{display:'flex',gap:'1rem',marginBottom:'1.5rem',flexWrap:'wrap'}}>
         {[['Total',list.length,'#6366f1'],['Pending',pending,'#f59e0b'],['Approved',list.filter(i=>i.status==='approved').length,'#22c55e'],['Rejected',list.filter(i=>i.status==='rejected').length,'#ef4444']].map(([label,count,color]) => (
           <div key={label} style={{flex:'1 1 100px',background:'#fff',borderRadius:'12px',padding:'1rem',boxShadow:'0 1px 6px rgba(0,0,0,.08)',borderLeft:`4px solid ${color}`}}>
@@ -135,6 +183,68 @@ export default function InfluencersAdminPage() {
           </div>
         )}
       </div>
+      </>)}
+
+      {view === 'report' && (
+        reportLoading || !report
+        ? <div style={{padding:'3rem',textAlign:'center',color:'#999'}}>Loading report…</div>
+        : (
+        <div>
+          <div style={{display:'flex',gap:'1rem',marginBottom:'1.25rem',flexWrap:'wrap'}}>
+            {[['Total Orders',report.totals.totalOrders,'#6366f1'],['Revenue (Sales)',`₹${report.totals.totalSales.toLocaleString('en-IN')}`,'#22c55e'],['Commission Owed',`₹${report.totals.totalCommission.toLocaleString('en-IN')}`,'#a7354d'],['Active Creators',report.totals.activeWithCode,'#0ea5e9']].map(([label,val,color]) => (
+              <div key={label} style={{flex:'1 1 140px',background:'#fff',borderRadius:'12px',padding:'1rem',boxShadow:'0 1px 6px rgba(0,0,0,.08)',borderLeft:`4px solid ${color}`}}>
+                <div style={{fontSize:'1.4rem',fontWeight:800,color}}>{val}</div>
+                <div style={{fontSize:'.8rem',color:'#888',fontWeight:600}}>{label}</div>
+              </div>
+            ))}
+          </div>
+
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'.75rem',flexWrap:'wrap',gap:'.5rem'}}>
+            <h3 style={{margin:0,fontWeight:700,fontSize:'1rem'}}>Creator Performance <span style={{fontWeight:400,color:'#999',fontSize:'.8rem'}}>(click a column to sort)</span></h3>
+            <button onClick={downloadCsv} style={{padding:'.4rem .9rem',borderRadius:'8px',border:'1.5px solid #a7354d',background:'#fff',color:'#a7354d',cursor:'pointer',fontWeight:600,fontSize:'.82rem'}}>⬇ Download CSV</button>
+          </div>
+
+          <div style={{background:'#fff',borderRadius:'12px',boxShadow:'0 1px 6px rgba(0,0,0,.08)',overflowX:'auto'}}>
+            <table style={{width:'100%',borderCollapse:'collapse',fontSize:'.85rem'}}>
+              <thead>
+                <tr style={{background:'#fdf0f3',borderBottom:'2px solid #f0d0d8'}}>
+                  <th style={{padding:'.7rem 1rem',textAlign:'left',fontWeight:700,color:'#555'}}>#</th>
+                  <th style={{padding:'.7rem 1rem',textAlign:'left',fontWeight:700,color:'#555'}}>Creator</th>
+                  <th style={{padding:'.7rem 1rem',textAlign:'left',fontWeight:700,color:'#555'}}>Coupon</th>
+                  <th style={{padding:'.7rem 1rem',textAlign:'left',fontWeight:700,color:'#555'}}>Status</th>
+                  {[['commissionRate','Rate'],['totalOrders','Orders'],['totalSales','Sales'],['commissionEarned','Commission'],['avgOrderValue','AOV']].map(([key,label]) => (
+                    <th key={key} onClick={()=>toggleSort(key)} style={{padding:'.7rem 1rem',textAlign:'right',fontWeight:700,color:'#555',cursor:'pointer',whiteSpace:'nowrap',userSelect:'none'}}>
+                      {label}{rSort===key?(rDir==='desc'?' ▼':' ▲'):''}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {sortedCreators.length===0 ? (
+                  <tr><td colSpan={9} style={{padding:'2.5rem',textAlign:'center',color:'#999'}}>No creators yet.</td></tr>
+                ) : sortedCreators.map((c,i) => {
+                  const sc = SC[c.status] ?? SC.pending;
+                  return (
+                    <tr key={c.id} style={{borderBottom:'1px solid #f5f5f5',background:i%2===0?'#fff':'#fafafa'}}>
+                      <td style={{padding:'.6rem 1rem',color:'#999',fontWeight:700}}>{i+1}</td>
+                      <td style={{padding:'.6rem 1rem',fontWeight:600}}><div>{c.name}</div><div style={{fontSize:'.73rem',color:'#999'}}>{c.platform}</div></td>
+                      <td style={{padding:'.6rem 1rem'}}>{c.couponCode?<code style={{background:'#f0f0f0',padding:'.1rem .4rem',borderRadius:'4px',color:'#a7354d',fontWeight:700}}>{c.couponCode}</code>:<span style={{color:'#bbb'}}>—</span>}</td>
+                      <td style={{padding:'.6rem 1rem'}}><span style={{background:sc.bg,color:sc.color,padding:'.15rem .55rem',borderRadius:'20px',fontWeight:700,fontSize:'.72rem',textTransform:'capitalize'}}>{c.status}</span></td>
+                      <td style={{padding:'.6rem 1rem',textAlign:'right',color:'#555'}}>{c.commissionRate}%</td>
+                      <td style={{padding:'.6rem 1rem',textAlign:'right',fontWeight:700}}>{c.totalOrders}</td>
+                      <td style={{padding:'.6rem 1rem',textAlign:'right',color:'#16a34a',fontWeight:700}}>₹{c.totalSales.toLocaleString('en-IN')}</td>
+                      <td style={{padding:'.6rem 1rem',textAlign:'right',color:'#a7354d',fontWeight:700}}>₹{c.commissionEarned.toLocaleString('en-IN')}</td>
+                      <td style={{padding:'.6rem 1rem',textAlign:'right',color:'#777'}}>₹{c.avgOrderValue.toLocaleString('en-IN')}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <p style={{fontSize:'.78rem',color:'#999',marginTop:'.75rem'}}>Commission = Sales × each creator&apos;s rate. &quot;Commission Owed&quot; is the total you currently owe creators. AOV = average order value.</p>
+        </div>
+        )
+      )}
 
       {selected && (
         <div style={{position:'fixed',inset:0,zIndex:500,display:'flex'}}>

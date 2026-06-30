@@ -102,6 +102,65 @@ public class InfluencersController : ControllerBase
         return Ok(list);
     }
 
+    // ── GET /api/influencers/report  (admin) — aggregated analytics ──────────
+    [HttpGet("report")]
+    public async Task<IActionResult> Report()
+    {
+        if (!await IsAdmin()) return Unauthorized();
+
+        var influencers = await _db.Influencers
+            .OrderByDescending(i => i.CreatedAt)
+            .ToListAsync();
+
+        // All non-cancelled orders that carry a coupon code, grouped by lower-cased code.
+        var orders = await _db.SiteOrders
+            .Where(o => o.CouponCode != null && o.Status != "Cancelled")
+            .Select(o => new { Code = o.CouponCode!.ToLower(), o.Total })
+            .ToListAsync();
+
+        var byCode = orders
+            .GroupBy(o => o.Code)
+            .ToDictionary(g => g.Key, g => new { Count = g.Count(), Sales = g.Sum(o => o.Total) });
+
+        var creators = influencers.Select(i =>
+        {
+            var code  = i.CouponCode?.ToLower();
+            var has   = code != null && byCode.ContainsKey(code);
+            var count = has ? byCode[code!].Count : 0;
+            var sales = has ? byCode[code!].Sales : 0m;
+            var commission = Math.Round(sales * i.CommissionRate / 100, 2);
+            return new
+            {
+                id               = i.Id,
+                name             = i.Name,
+                email            = i.Email,
+                platform         = i.Platform,
+                couponCode       = i.CouponCode,
+                status           = i.Status,
+                commissionRate   = i.CommissionRate,
+                totalOrders      = count,
+                totalSales       = sales,
+                commissionEarned = commission,
+                avgOrderValue    = count > 0 ? Math.Round(sales / count, 2) : 0m,
+            };
+        }).ToList();
+
+        return Ok(new
+        {
+            creators,
+            totals = new
+            {
+                creators        = influencers.Count,
+                approved        = influencers.Count(i => i.Status == "approved"),
+                pending         = influencers.Count(i => i.Status == "pending"),
+                activeWithCode  = influencers.Count(i => !string.IsNullOrWhiteSpace(i.CouponCode)),
+                totalOrders     = creators.Sum(c => c.totalOrders),
+                totalSales      = creators.Sum(c => c.totalSales),
+                totalCommission = creators.Sum(c => c.commissionEarned),
+            }
+        });
+    }
+
     // ── GET /api/influencers/{id}/stats  (admin) ─────────────────────────────
     [HttpGet("{id:int}/stats")]
     public async Task<IActionResult> Stats(int id)
