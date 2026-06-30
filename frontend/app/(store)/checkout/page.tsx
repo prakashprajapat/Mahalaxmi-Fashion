@@ -131,6 +131,18 @@ export default function CheckoutPage() {
     setCouponApplied(null); setCouponCode(''); setCouponError('');
   };
 
+  // The coupon code the order is attributed to: a coupon the customer applied,
+  // or — failing that — the creator referral code captured from a ?ref= link.
+  // This credits the creator even when the coupon discount itself didn't apply.
+  const attributionCode = (): string | undefined => {
+    if (couponApplied?.code) return couponApplied.code;
+    try {
+      const s = JSON.parse(localStorage.getItem('mfh_ref') ?? '{}');
+      if (s.code && (!s.ts || Date.now() - s.ts <= 30 * 24 * 60 * 60 * 1000)) return s.code;
+    } catch { /* ignore */ }
+    return undefined;
+  };
+
   const buildCartLines = () => cart.map(i => ({
     id: String(i.dbId),
     name: i.name,
@@ -192,7 +204,7 @@ export default function CheckoutPage() {
         customerPhone: shipping.phone,
         panNumber: requiresPan ? panData.panNumber : undefined,
         panName: requiresPan ? panData.panName : undefined,
-        couponCode: couponApplied?.code,
+        couponCode: attributionCode(),
         discountAmount: couponApplied?.discount ?? 0,
         shippingName: shipping.name,
         shippingAddress: shipping.address,
@@ -257,7 +269,7 @@ export default function CheckoutPage() {
             customerPhone: shipping.phone,
             panNumber: requiresPan ? panData.panNumber : undefined,
             panName: requiresPan ? panData.panName : undefined,
-            couponCode: couponApplied?.code,
+            couponCode: attributionCode(),
             discountAmount: couponApplied?.discount ?? 0,
             shippingName: shipping.name,
             shippingAddress: shipping.address,
