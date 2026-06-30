@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { getCart, cartTotal, clearCart } from '@/lib/cart';
 import { getCustomer, getToken } from '@/lib/auth';
@@ -88,6 +88,27 @@ export default function CheckoutPage() {
   }, [router]);
 
   const subtotal = cartTotal(cart);
+
+  // Auto-apply a creator referral code (captured from a ?ref= link) so the order
+  // is credited to the creator who shared it. Runs once after the cart is ready,
+  // and only if the customer hasn't already applied a coupon themselves.
+  const refTried = useRef(false);
+  useEffect(() => {
+    if (refTried.current || couponApplied || subtotal <= 0) return;
+    let stored: { code?: string; ts?: number } = {};
+    try { stored = JSON.parse(localStorage.getItem('mfh_ref') ?? '{}'); } catch {}
+    if (!stored.code) return;
+    // Referral expires after 30 days
+    if (stored.ts && Date.now() - stored.ts > 30 * 24 * 60 * 60 * 1000) return;
+    refTried.current = true;
+    (async () => {
+      try {
+        const res = await couponsApi.validate(stored.code!, subtotal);
+        setCouponApplied({ code: res.code, discount: res.discount, message: res.message });
+      } catch { /* code not valid for this order — ignore */ }
+    })();
+  }, [subtotal, couponApplied]);
+
   const discount = couponApplied?.discount ?? 0;
   const shippingCost = subtotal >= 999 ? 0 : 60;
   const total = Math.max(0, subtotal - discount + shippingCost);

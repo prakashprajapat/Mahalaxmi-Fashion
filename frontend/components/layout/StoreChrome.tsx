@@ -5,6 +5,7 @@ import Footer from './Footer';
 import FloatingCart from './FloatingCart';
 import WelcomePopup from './WelcomePopup';
 import WhatsAppFloat from './WhatsAppFloat';
+import RefCapture from '../RefCapture';
 
 // The /influencer (affiliate creator portal) is a standalone page — it has its own
 // header/footer and should NOT show the shop navbar, sidebar, footer or popups.
@@ -19,6 +20,7 @@ export default function StoreChrome({ children }: { children: React.ReactNode })
   if (bare) {
     return (
       <>
+        <RefCapture />
         {children}
         <WhatsAppFloat />
       </>
@@ -27,6 +29,7 @@ export default function StoreChrome({ children }: { children: React.ReactNode })
 
   return (
     <>
+      <RefCapture />
       <Navbar />
       {children}
       <Footer />
