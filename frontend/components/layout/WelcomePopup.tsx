@@ -57,7 +57,7 @@ export default function WelcomePopup() {
           animation: popupIn .35s ease;
           width: 100%; max-width: 720px;
           background: #fff; border-radius: 20px;
-          display: grid; grid-template-columns: 240px 1fr;
+          display: grid; grid-template-columns: 260px 1fr;
           overflow: hidden; position: relative;
           box-shadow: 0 28px 80px rgba(0,0,0,.35);
         }
@@ -88,7 +88,7 @@ export default function WelcomePopup() {
           padding: '2rem 1.25rem', textAlign: 'center', gap: '1rem',
         }}>
           <img src="/logo.webp?v=4" alt="Mahalaxmi Fashion Hub"
-            style={{ width: 130, height: 130, borderRadius: '50%', border: '3px solid rgba(255,255,255,.7)', background: '#fff', objectFit: 'contain', padding: 6 }} />
+            style={{ width: 200, height: 150, borderRadius: 16, border: '3px solid rgba(255,255,255,.7)', background: '#fff', objectFit: 'contain', padding: 10 }} />
           <div>
             <p style={{ margin: 0, color: '#fff', fontWeight: 800, fontSize: '1.1rem', lineHeight: 1.3 }}>
               Mahalaxmi<br />Fashion Hub
