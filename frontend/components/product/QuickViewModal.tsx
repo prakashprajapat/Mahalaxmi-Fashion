@@ -221,7 +221,7 @@ export default function QuickViewModal({ product, onClose }: Props) {
 
             {/* Thumbnails */}
             {images.length > 1 && (
-              <div style={{ display: 'flex', gap: '.5rem', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: '.5rem', flexWrap: 'nowrap', overflowX: 'auto', paddingBottom: '.35rem' }}>
                 {images.map((img, i) => (
                   <button key={i} onClick={() => setActiveImg(img)}
                     style={{
