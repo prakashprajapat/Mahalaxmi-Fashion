@@ -62,8 +62,8 @@ export default function InfluencersAdminPage() {
 
   const downloadCsv = () => {
     if (!report) return;
-    const rows = [['Creator','Email','Platform','Coupon','Status','Commission Rate %','Orders','Sales','Commission','AOV']];
-    report.creators.forEach(c => rows.push([c.name, c.email, c.platform, c.couponCode ?? '', c.status, c.commissionRate, c.totalOrders, c.totalSales, c.commissionEarned, c.avgOrderValue]));
+    const rows = [['Creator','Email','Platform','Coupon','Status','Commission Rate %','Orders','Returns','Return %','Sales','Net Sales','Commission (net)','AOV']];
+    report.creators.forEach(c => rows.push([c.name, c.email, c.platform, c.couponCode ?? '', c.status, c.commissionRate, c.totalOrders, c.returnedOrders, c.returnRate, c.totalSales, c.netSales, c.netCommission, c.avgOrderValue]));
     const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -191,7 +191,7 @@ export default function InfluencersAdminPage() {
         : (
         <div>
           <div style={{display:'flex',gap:'1rem',marginBottom:'1.25rem',flexWrap:'wrap'}}>
-            {[['Total Orders',report.totals.totalOrders,'#6366f1'],['Revenue (Sales)',`₹${report.totals.totalSales.toLocaleString('en-IN')}`,'#22c55e'],['Commission Owed',`₹${report.totals.totalCommission.toLocaleString('en-IN')}`,'#a7354d'],['Active Creators',report.totals.activeWithCode,'#0ea5e9']].map(([label,val,color]) => (
+            {[['Total Orders',report.totals.totalOrders,'#6366f1'],['Revenue (Sales)',`₹${report.totals.totalSales.toLocaleString('en-IN')}`,'#22c55e'],['Commission Owed',`₹${report.totals.netCommission.toLocaleString('en-IN')}`,'#a7354d'],['Returns',`${report.totals.totalReturns} (${report.totals.returnRate}%)`,'#ef4444'],['Active Creators',report.totals.activeWithCode,'#0ea5e9']].map(([label,val,color]) => (
               <div key={label} style={{flex:'1 1 140px',background:'#fff',borderRadius:'12px',padding:'1rem',boxShadow:'0 1px 6px rgba(0,0,0,.08)',borderLeft:`4px solid ${color}`}}>
                 <div style={{fontSize:'1.4rem',fontWeight:800,color}}>{val}</div>
                 <div style={{fontSize:'.8rem',color:'#888',fontWeight:600}}>{label}</div>
@@ -212,7 +212,7 @@ export default function InfluencersAdminPage() {
                   <th style={{padding:'.7rem 1rem',textAlign:'left',fontWeight:700,color:'#555'}}>Creator</th>
                   <th style={{padding:'.7rem 1rem',textAlign:'left',fontWeight:700,color:'#555'}}>Coupon</th>
                   <th style={{padding:'.7rem 1rem',textAlign:'left',fontWeight:700,color:'#555'}}>Status</th>
-                  {[['commissionRate','Rate'],['totalOrders','Orders'],['totalSales','Sales'],['commissionEarned','Commission'],['avgOrderValue','AOV']].map(([key,label]) => (
+                  {[['commissionRate','Rate'],['totalOrders','Orders'],['returnedOrders','Returns'],['returnRate','Return %'],['totalSales','Sales'],['netCommission','Commission'],['avgOrderValue','AOV']].map(([key,label]) => (
                     <th key={key} onClick={()=>toggleSort(key)} style={{padding:'.7rem 1rem',textAlign:'right',fontWeight:700,color:'#555',cursor:'pointer',whiteSpace:'nowrap',userSelect:'none'}}>
                       {label}{rSort===key?(rDir==='desc'?' ▼':' ▲'):''}
                     </th>
@@ -221,7 +221,7 @@ export default function InfluencersAdminPage() {
               </thead>
               <tbody>
                 {sortedCreators.length===0 ? (
-                  <tr><td colSpan={9} style={{padding:'2.5rem',textAlign:'center',color:'#999'}}>No creators yet.</td></tr>
+                  <tr><td colSpan={11} style={{padding:'2.5rem',textAlign:'center',color:'#999'}}>No creators yet.</td></tr>
                 ) : sortedCreators.map((c,i) => {
                   const sc = SC[c.status] ?? SC.pending;
                   return (
@@ -232,8 +232,10 @@ export default function InfluencersAdminPage() {
                       <td style={{padding:'.6rem 1rem'}}><span style={{background:sc.bg,color:sc.color,padding:'.15rem .55rem',borderRadius:'20px',fontWeight:700,fontSize:'.72rem',textTransform:'capitalize'}}>{c.status}</span></td>
                       <td style={{padding:'.6rem 1rem',textAlign:'right',color:'#555'}}>{c.commissionRate}%</td>
                       <td style={{padding:'.6rem 1rem',textAlign:'right',fontWeight:700}}>{c.totalOrders}</td>
+                      <td style={{padding:'.6rem 1rem',textAlign:'right',color:c.returnedOrders>0?'#ef4444':'#999',fontWeight:600}}>{c.returnedOrders}</td>
+                      <td style={{padding:'.6rem 1rem',textAlign:'right',color:c.returnRate>0?'#ef4444':'#999'}}>{c.returnRate}%</td>
                       <td style={{padding:'.6rem 1rem',textAlign:'right',color:'#16a34a',fontWeight:700}}>₹{c.totalSales.toLocaleString('en-IN')}</td>
-                      <td style={{padding:'.6rem 1rem',textAlign:'right',color:'#a7354d',fontWeight:700}}>₹{c.commissionEarned.toLocaleString('en-IN')}</td>
+                      <td style={{padding:'.6rem 1rem',textAlign:'right',color:'#a7354d',fontWeight:700}}>₹{c.netCommission.toLocaleString('en-IN')}</td>
                       <td style={{padding:'.6rem 1rem',textAlign:'right',color:'#777'}}>₹{c.avgOrderValue.toLocaleString('en-IN')}</td>
                     </tr>
                   );
@@ -241,7 +243,7 @@ export default function InfluencersAdminPage() {
               </tbody>
             </table>
           </div>
-          <p style={{fontSize:'.78rem',color:'#999',marginTop:'.75rem'}}>Commission = Sales × each creator&apos;s rate. &quot;Commission Owed&quot; is the total you currently owe creators. AOV = average order value.</p>
+          <p style={{fontSize:'.78rem',color:'#999',marginTop:'.75rem'}}>Returns count orders in status Return Requested / Return Transit / Return. Commission shown is on <b>net</b> sales (returns excluded) — this is what you actually owe. AOV = average order value. Cancelled orders are excluded everywhere.</p>
         </div>
         )
       )}

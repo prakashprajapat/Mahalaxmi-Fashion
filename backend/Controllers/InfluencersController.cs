@@ -80,14 +80,50 @@ public class InfluencersController : ControllerBase
 
         return Ok(new {
             name           = inf.Name,
+            email          = inf.Email,
             couponCode     = inf.CouponCode,
             commissionRate = inf.CommissionRate,
             platform       = inf.Platform,
+            phone          = inf.Phone,
+            socialHandle   = inf.SocialHandle,
+            followersCount = inf.FollowersCount,
+            niche          = inf.Niche,
+            category       = inf.Category,
             totalOrders    = orders.Count,
             totalSales,
             commissionEarned = commission,
             orders
         });
+    }
+
+    // ── PUT /api/influencers/profile  (public — creator self-edit) ───────────
+    // Authenticated the same way as the dashboard: email + coupon code of an
+    // approved creator. Only lets them edit their own profile details — never
+    // the coupon code, commission rate or status (those stay admin-controlled).
+    [HttpPut("profile")]
+    public async Task<IActionResult> UpdateProfile([FromBody] InfluencerProfileRequest req)
+    {
+        if (string.IsNullOrWhiteSpace(req.Email) || string.IsNullOrWhiteSpace(req.Code))
+            return Unauthorized(new { success = false, message = "Email and coupon code required." });
+
+        var inf = await _db.Influencers.FirstOrDefaultAsync(i =>
+            i.Email.ToLower() == req.Email.Trim().ToLower() &&
+            i.CouponCode != null &&
+            i.CouponCode.ToLower() == req.Code.Trim().ToLower() &&
+            i.Status == "approved");
+
+        if (inf is null)
+            return Unauthorized(new { success = false, message = "Invalid email or coupon code." });
+
+        if (!string.IsNullOrWhiteSpace(req.Name)) inf.Name = req.Name.Trim();
+        if (req.Phone          != null) inf.Phone          = req.Phone.Trim();
+        if (req.SocialHandle   != null) inf.SocialHandle   = req.SocialHandle.Trim();
+        if (req.FollowersCount != null) inf.FollowersCount = req.FollowersCount.Trim();
+        if (req.Niche          != null) inf.Niche          = req.Niche.Trim();
+        inf.UpdatedAt = DateTimeOffset.UtcNow;
+
+        await _db.SaveChangesAsync();
+        return Ok(new { success = true, message = "Profile updated." });
     }
 
     // ── GET /api/influencers  (admin) ─────────────────────────────────────────
@@ -115,20 +151,32 @@ public class InfluencersController : ControllerBase
         // All non-cancelled orders that carry a coupon code, grouped by lower-cased code.
         var orders = await _db.SiteOrders
             .Where(o => o.CouponCode != null && o.Status != "Cancelled")
-            .Select(o => new { Code = o.CouponCode!.ToLower(), o.Total })
+            .Select(o => new { Code = o.CouponCode!.ToLower(), o.Total, o.Status })
             .ToListAsync();
+
+        // Order statuses that count as a return.
+        var returnStatuses = new HashSet<string> { "return requested", "return transit", "return" };
+        bool IsReturn(string s) => returnStatuses.Contains((s ?? "").ToLower());
 
         var byCode = orders
             .GroupBy(o => o.Code)
-            .ToDictionary(g => g.Key, g => new { Count = g.Count(), Sales = g.Sum(o => o.Total) });
+            .ToDictionary(g => g.Key, g => new
+            {
+                Count         = g.Count(),
+                Sales         = g.Sum(o => o.Total),
+                Returns       = g.Count(o => IsReturn(o.Status)),
+                ReturnedSales = g.Where(o => IsReturn(o.Status)).Sum(o => o.Total),
+            });
 
         var creators = influencers.Select(i =>
         {
-            var code  = i.CouponCode?.ToLower();
-            var has   = code != null && byCode.ContainsKey(code);
-            var count = has ? byCode[code!].Count : 0;
-            var sales = has ? byCode[code!].Sales : 0m;
-            var commission = Math.Round(sales * i.CommissionRate / 100, 2);
+            var code    = i.CouponCode?.ToLower();
+            var has     = code != null && byCode.ContainsKey(code);
+            var count   = has ? byCode[code!].Count : 0;
+            var sales   = has ? byCode[code!].Sales : 0m;
+            var returns = has ? byCode[code!].Returns : 0;
+            var retSales = has ? byCode[code!].ReturnedSales : 0m;
+            var netSales = sales - retSales;
             return new
             {
                 id               = i.Id,
@@ -140,10 +188,17 @@ public class InfluencersController : ControllerBase
                 commissionRate   = i.CommissionRate,
                 totalOrders      = count,
                 totalSales       = sales,
-                commissionEarned = commission,
+                returnedOrders   = returns,
+                returnRate       = count > 0 ? Math.Round((decimal)returns / count * 100, 1) : 0m,
+                netSales         = netSales,
+                commissionEarned = Math.Round(sales * i.CommissionRate / 100, 2),
+                netCommission    = Math.Round(netSales * i.CommissionRate / 100, 2),
                 avgOrderValue    = count > 0 ? Math.Round(sales / count, 2) : 0m,
             };
         }).ToList();
+
+        var totalOrders  = creators.Sum(c => c.totalOrders);
+        var totalReturns = creators.Sum(c => c.returnedOrders);
 
         return Ok(new
         {
@@ -154,9 +209,12 @@ public class InfluencersController : ControllerBase
                 approved        = influencers.Count(i => i.Status == "approved"),
                 pending         = influencers.Count(i => i.Status == "pending"),
                 activeWithCode  = influencers.Count(i => !string.IsNullOrWhiteSpace(i.CouponCode)),
-                totalOrders     = creators.Sum(c => c.totalOrders),
+                totalOrders,
+                totalReturns,
+                returnRate      = totalOrders > 0 ? Math.Round((decimal)totalReturns / totalOrders * 100, 1) : 0m,
                 totalSales      = creators.Sum(c => c.totalSales),
                 totalCommission = creators.Sum(c => c.commissionEarned),
+                netCommission   = creators.Sum(c => c.netCommission),
             }
         });
     }
@@ -256,3 +314,7 @@ public record InfluencerApplyRequest(
 public record InfluencerUpdateRequest(
     string? Status, string? CouponCode, decimal? CommissionRate,
     decimal? CouponDiscountPct, string? AdminNotes);
+
+public record InfluencerProfileRequest(
+    string Email, string Code, string? Name, string? Phone,
+    string? SocialHandle, string? FollowersCount, string? Niche);

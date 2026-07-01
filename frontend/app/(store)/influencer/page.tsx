@@ -8,9 +8,15 @@ const SITE = 'https://mahalaxmifashionhub.com';
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface DashboardData {
   name: string;
+  email?: string;
   couponCode: string;
   commissionRate: number;
   platform: string;
+  phone?: string;
+  socialHandle?: string;
+  followersCount?: string;
+  niche?: string;
+  category?: string;
   totalOrders: number;
   totalSales: number;
   commissionEarned: number;
@@ -33,12 +39,61 @@ export default function InfluencerPage() {
   const [loginError, setLoginError] = useState('');
   const [loginLoading, setLoginLoading] = useState(false);
   const [copied, setCopied] = useState('');
+  const [editingProfile, setEditingProfile] = useState(false);
+  const [profileForm, setProfileForm] = useState({ name: '', phone: '', socialHandle: '', followersCount: '', niche: '' });
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileMsg, setProfileMsg] = useState('');
 
-  // Restore session from localStorage
+  const openProfileEdit = () => {
+    if (!dashData) return;
+    setProfileForm({
+      name: dashData.name ?? '',
+      phone: dashData.phone ?? '',
+      socialHandle: dashData.socialHandle ?? '',
+      followersCount: dashData.followersCount ?? '',
+      niche: dashData.niche ?? '',
+    });
+    setProfileMsg('');
+    setEditingProfile(true);
+  };
+
+  const saveProfile = async () => {
+    setProfileSaving(true); setProfileMsg('');
+    try {
+      const creds = JSON.parse(localStorage.getItem('inf_creds') ?? '{}');
+      if (!creds.email || !creds.code) { setProfileMsg('Please log out and log in again to edit your profile.'); return; }
+      const res = await fetch(`${API}/api/influencers/profile`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: creds.email, code: creds.code, ...profileForm }),
+      });
+      const d = await res.json();
+      if (!res.ok) { setProfileMsg(d.message ?? 'Update failed.'); return; }
+      const updated = { ...dashData, ...profileForm } as DashboardData;
+      setDashData(updated);
+      localStorage.setItem('inf_session', JSON.stringify(updated));
+      setEditingProfile(false);
+    } catch { setProfileMsg('Network error. Try again.'); }
+    finally { setProfileSaving(false); }
+  };
+
+  // Restore session from localStorage, then re-fetch fresh data so the
+  // dashboard (orders / sales / earnings) is always up to date — not the stale
+  // snapshot saved at login time.
   useEffect(() => {
     const saved = localStorage.getItem('inf_session');
     if (saved) {
       try { const d = JSON.parse(saved); setDashData(d); setTab('dashboard'); } catch { /**/ }
+    }
+    const creds = localStorage.getItem('inf_creds');
+    if (creds) {
+      try {
+        const { email, code } = JSON.parse(creds);
+        fetch(`${API}/api/influencers/dashboard?email=${encodeURIComponent(email)}&code=${encodeURIComponent(code)}`)
+          .then(r => (r.ok ? r.json() : null))
+          .then(d => { if (d) { setDashData(d); localStorage.setItem('inf_session', JSON.stringify(d)); } })
+          .catch(() => {});
+      } catch { /**/ }
     }
   }, []);
 
@@ -53,6 +108,7 @@ export default function InfluencerPage() {
       if (!res.ok) { const d = await res.json(); setLoginError(d.message ?? 'Login failed'); return; }
       const data = await res.json();
       localStorage.setItem('inf_session', JSON.stringify(data));
+      localStorage.setItem('inf_creds', JSON.stringify({ email: loginEmail, code: loginCode }));
       setDashData(data);
       setTab('dashboard');
     } catch { setLoginError('Network error. Try again.'); }
@@ -61,6 +117,7 @@ export default function InfluencerPage() {
 
   const handleLogout = () => {
     localStorage.removeItem('inf_session');
+    localStorage.removeItem('inf_creds');
     setDashData(null);
     setTab('home');
     setLoginEmail('');
@@ -326,6 +383,62 @@ export default function InfluencerPage() {
               <div style={{ fontSize: '1.35rem', fontWeight: 800, color: s.textColor }}>{s.value}</div>
             </div>
           ))}
+        </div>
+
+        {/* My Profile */}
+        <div style={{ background: '#fff', borderRadius: '20px', padding: '1.5rem', boxShadow: '0 2px 10px rgba(0,0,0,.06)', marginBottom: '1.5rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h2 style={{ fontSize: '1rem', fontWeight: 800, margin: 0, color: '#1a1a1a' }}>👤 My Profile</h2>
+            {!editingProfile && (
+              <button onClick={openProfileEdit} style={{ background: BRAND_LIGHT, color: BRAND, border: `1.5px solid ${BRAND}`, borderRadius: '10px', padding: '.5rem 1rem', fontWeight: 700, fontSize: '.85rem', cursor: 'pointer' }}>✏️ Edit Profile</button>
+            )}
+          </div>
+
+          {!editingProfile ? (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '.85rem', marginTop: '1.1rem', fontSize: '.85rem' }}>
+              <div><div style={{ color: '#999', fontSize: '.72rem', fontWeight: 700 }}>Name</div><div style={{ fontWeight: 600 }}>{dashData.name}</div></div>
+              <div><div style={{ color: '#999', fontSize: '.72rem', fontWeight: 700 }}>Email</div><div style={{ fontWeight: 600, wordBreak: 'break-all' }}>{dashData.email ?? '—'}</div></div>
+              <div><div style={{ color: '#999', fontSize: '.72rem', fontWeight: 700 }}>Phone</div><div style={{ fontWeight: 600 }}>{dashData.phone ?? '—'}</div></div>
+              <div><div style={{ color: '#999', fontSize: '.72rem', fontWeight: 700 }}>Platform</div><div style={{ fontWeight: 600 }}>{dashData.platform}</div></div>
+              <div><div style={{ color: '#999', fontSize: '.72rem', fontWeight: 700 }}>Handle</div><div style={{ fontWeight: 600, wordBreak: 'break-all' }}>{dashData.socialHandle ?? '—'}</div></div>
+              <div><div style={{ color: '#999', fontSize: '.72rem', fontWeight: 700 }}>Followers</div><div style={{ fontWeight: 600 }}>{dashData.followersCount ?? '—'}</div></div>
+              <div style={{ gridColumn: '1 / -1' }}><div style={{ color: '#999', fontSize: '.72rem', fontWeight: 700 }}>About / Niche</div><div style={{ fontWeight: 600 }}>{dashData.niche ?? '—'}</div></div>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '.85rem', marginTop: '1.1rem' }}>
+              <div>
+                <label style={{ fontSize: '.78rem', fontWeight: 700, display: 'block', marginBottom: '.3rem', color: '#555' }}>Name</label>
+                <input value={profileForm.name} onChange={e => setProfileForm(f => ({ ...f, name: e.target.value }))}
+                  style={{ width: '100%', padding: '.6rem .8rem', borderRadius: '10px', border: '1.5px solid #ddd', fontSize: '.9rem', boxSizing: 'border-box' }} />
+              </div>
+              <div>
+                <label style={{ fontSize: '.78rem', fontWeight: 700, display: 'block', marginBottom: '.3rem', color: '#555' }}>Phone</label>
+                <input value={profileForm.phone} onChange={e => setProfileForm(f => ({ ...f, phone: e.target.value }))}
+                  style={{ width: '100%', padding: '.6rem .8rem', borderRadius: '10px', border: '1.5px solid #ddd', fontSize: '.9rem', boxSizing: 'border-box' }} />
+              </div>
+              <div>
+                <label style={{ fontSize: '.78rem', fontWeight: 700, display: 'block', marginBottom: '.3rem', color: '#555' }}>Social Handle</label>
+                <input value={profileForm.socialHandle} onChange={e => setProfileForm(f => ({ ...f, socialHandle: e.target.value }))}
+                  style={{ width: '100%', padding: '.6rem .8rem', borderRadius: '10px', border: '1.5px solid #ddd', fontSize: '.9rem', boxSizing: 'border-box' }} />
+              </div>
+              <div>
+                <label style={{ fontSize: '.78rem', fontWeight: 700, display: 'block', marginBottom: '.3rem', color: '#555' }}>Followers</label>
+                <input value={profileForm.followersCount} onChange={e => setProfileForm(f => ({ ...f, followersCount: e.target.value }))}
+                  style={{ width: '100%', padding: '.6rem .8rem', borderRadius: '10px', border: '1.5px solid #ddd', fontSize: '.9rem', boxSizing: 'border-box' }} />
+              </div>
+              <div>
+                <label style={{ fontSize: '.78rem', fontWeight: 700, display: 'block', marginBottom: '.3rem', color: '#555' }}>About / Niche</label>
+                <textarea value={profileForm.niche} onChange={e => setProfileForm(f => ({ ...f, niche: e.target.value }))} rows={2}
+                  style={{ width: '100%', padding: '.6rem .8rem', borderRadius: '10px', border: '1.5px solid #ddd', fontSize: '.9rem', boxSizing: 'border-box', resize: 'vertical', fontFamily: 'inherit' }} />
+              </div>
+              <p style={{ fontSize: '.75rem', color: '#999', margin: 0 }}>Email, coupon code and commission rate are managed by admin and can&apos;t be changed here.</p>
+              {profileMsg && <p style={{ fontSize: '.82rem', margin: 0, color: '#c0392b' }}>{profileMsg}</p>}
+              <div style={{ display: 'flex', gap: '.6rem' }}>
+                <button onClick={saveProfile} disabled={profileSaving} style={{ flex: 1, background: profileSaving ? '#ccc' : BRAND, color: '#fff', border: 'none', borderRadius: '10px', padding: '.7rem', fontWeight: 700, cursor: profileSaving ? 'not-allowed' : 'pointer' }}>{profileSaving ? 'Saving…' : '💾 Save Profile'}</button>
+                <button onClick={() => setEditingProfile(false)} style={{ background: '#f0f0f0', color: '#555', border: 'none', borderRadius: '10px', padding: '.7rem 1.2rem', fontWeight: 700, cursor: 'pointer' }}>Cancel</button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Affiliate Link & Code */}
