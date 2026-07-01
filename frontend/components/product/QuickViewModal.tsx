@@ -69,15 +69,23 @@ export default function QuickViewModal({ product, onClose }: Props) {
       seen.add(key);
       imgs.push(src);
     };
-    addImage(product.image);
     const hasProductPhotos = Object.values(extra.productPhotos ?? {}).some(v => v);
     if (hasProductPhotos) {
+      // productPhotos.front IS the main image — don't also add product.image
+      // separately, that can show the main photo twice when file names differ.
       ['front', 'side', 'back', 'zoomed'].forEach(key => addImage(extra.productPhotos?.[key]));
     } else {
+      addImage(product.image);
       (extra.images ?? []).forEach(addImage);
     }
-    // Pack-column (per-item) photos are intentionally NOT added to the customer
-    // gallery — only the main product photos uploaded in the Photos section show.
+    // For a pack, also show each pack item's (column) photos.
+    if (isPackProduct) {
+      const packPhotos = extra.packImages ?? extra.packColumnPhotos ?? extra.variantColumns ?? [];
+      packPhotos.forEach(item => {
+        if (typeof item === 'string') addImage(item);
+        else ['front', 'side', 'back', 'zoomed', 'url'].forEach(key => addImage(item[key]));
+      });
+    }
     return imgs;
   })();
 

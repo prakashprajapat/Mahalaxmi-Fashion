@@ -170,11 +170,22 @@ export default function ProductPage({ params }: { params: { id: string } }) {
       gallery.push(image);
     }
   };
-  addGalleryImage(product.image);
-  ['front', 'side', 'back', 'zoomed'].forEach(key => addGalleryImage(extra.productPhotos?.[key]));
-  (extra.images ?? []).forEach(addGalleryImage);
-  // Pack-column (per-item) photos are intentionally NOT added to the customer
-  // gallery — only the main product photos uploaded in the Photos section show.
+  const hasProductPhotos = Object.values(extra.productPhotos ?? {}).some(v => v);
+  if (hasProductPhotos) {
+    // productPhotos.front IS the main image — don't also add product.image
+    // separately, that can show the main photo twice when file names differ.
+    ['front', 'side', 'back', 'zoomed'].forEach(key => addGalleryImage(extra.productPhotos?.[key]));
+  } else {
+    addGalleryImage(product.image);
+    (extra.images ?? []).forEach(addGalleryImage);
+  }
+  // For a pack, also show each pack item's (column) photos.
+  if (isPackProduct) {
+    [...(extra.packImages ?? []), ...(extra.packColumnPhotos ?? []), ...(extra.variantColumns ?? [])].forEach(item => {
+      if (typeof item === 'string') addGalleryImage(item);
+      else ['front', 'side', 'back', 'zoomed', 'url'].forEach(key => addGalleryImage(item[key]));
+    });
+  }
 
   const sizes: string[] = [...new Set(extra.sizes ?? (extra.variantMatrix ? [...new Set(Object.keys(extra.variantMatrix).map(k => k.split('|')[0]))] : []))];
   const normalColors = extra.colors ?? (extra.variantMatrix ? [...new Set(Object.keys(extra.variantMatrix).map(k => k.split('|')[1]).filter(Boolean))] : []);
