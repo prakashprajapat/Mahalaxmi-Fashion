@@ -359,7 +359,7 @@ function CustomColourModal({
                 🔗 Use URL
               </button>
               <input ref={colFileRef} type="file" accept="image/*" hidden
-                onChange={e => { if (e.target.files?.[0]) { setColConverting(true); convertToAvif(e.target.files[0]).then(r => setColPhoto(r.dataUrl)).finally(() => setColConverting(false)); } }} />
+                onChange={e => { if (e.target.files?.[0]) { setColConverting(true); convertToAvif(e.target.files[0]).then(r => setColPhoto(r.dataUrl)).catch(() => alert('Could not read this image. Please try a JPG, PNG or WebP file (a phone HEIC photo may not work — save it as JPG first).')).finally(() => setColConverting(false)); } }} />
             </div>
           </div>
 
