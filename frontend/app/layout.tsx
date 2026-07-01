@@ -51,12 +51,11 @@ export const metadata: Metadata = {
   // ── Favicon ────────────────────────────────────────────────────────────────
   icons: {
     icon: [
+      { url: '/logo.webp',   type: 'image/webp' },
       { url: '/favicon.ico', type: 'image/x-icon', sizes: '32x32' },
-      { url: '/Logo.png',    type: 'image/png',     sizes: '192x192' },
-      { url: '/logo1.webp',  type: 'image/webp' },
     ],
-    apple: '/Logo.png',
-    shortcut: '/favicon.ico',
+    apple: '/logo.webp',
+    shortcut: '/logo.webp',
   },
 
   // ── Robots ─────────────────────────────────────────────────────────────────
