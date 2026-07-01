@@ -73,6 +73,29 @@ export default function InfluencersAdminPage() {
     a.click(); URL.revokeObjectURL(url);
   };
 
+  // Per-creator order-level report (Order ID, Amount, Commission, Status, Date) → CSV/Excel.
+  const downloadCreatorReport = () => {
+    if (!selected || !stats) return;
+    const rate = Number(selected.commissionRate) || 0;
+    const rows = [
+      [`Creator: ${selected.name}`, `Coupon: ${selected.couponCode ?? '-'}`, `Rate: ${rate}%`],
+      [],
+      ['Order ID', 'Amount', 'Commission', 'Status', 'Date'],
+    ];
+    stats.orders.forEach(o => {
+      rows.push([o.orderId, o.total, Math.round(o.total * rate) / 100, o.status, o.placedAt]);
+    });
+    rows.push([]);
+    rows.push(['TOTAL', stats.totalSales, stats.commissionEarned, `${stats.totalOrders} orders`, '']);
+    const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${String(selected.name).replace(/[^a-z0-9]+/gi, '-')}-orders-${new Date().toISOString().slice(0,10)}.csv`;
+    a.click(); URL.revokeObjectURL(url);
+  };
+
   const openDetail = async (inf) => {
     setSelected(inf); setEditStatus(inf.status); setEditCode(inf.couponCode??'');
     setEditComm(String(inf.commissionRate)); setEditNotes(inf.adminNotes??''); setEditPassword(''); setStats(null); setStatsLoading(true);
@@ -305,7 +328,12 @@ export default function InfluencersAdminPage() {
               </div>
             </div>
             <div style={{borderTop:'1.5px solid #f0f0f0',paddingTop:'1rem'}}>
-              <h4 style={{margin:'0 0 .75rem',fontWeight:700}}>Performance Stats</h4>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'.75rem'}}>
+                <h4 style={{margin:0,fontWeight:700}}>Order Report</h4>
+                {stats && stats.orders.length>0 && (
+                  <button onClick={downloadCreatorReport} style={{padding:'.35rem .8rem',borderRadius:'8px',border:'1.5px solid #16a34a',background:'#fff',color:'#16a34a',cursor:'pointer',fontWeight:700,fontSize:'.78rem'}}>⬇ Export to Excel</button>
+                )}
+              </div>
               {statsLoading ? <p style={{color:'#999',fontSize:'.85rem'}}>Loading stats...</p>
               : !stats ? <p style={{color:'#bbb',fontSize:'.85rem'}}>No coupon code assigned yet.</p>
               : (
@@ -318,16 +346,31 @@ export default function InfluencersAdminPage() {
                       </div>
                     ))}
                   </div>
-                  {stats.orders.length>0 && (
-                    <div style={{maxHeight:'200px',overflowY:'auto',borderRadius:'8px',border:'1px solid #f0f0f0'}}>
-                      {stats.orders.map(o=>(
-                        <div key={o.orderId} style={{display:'flex',justifyContent:'space-between',padding:'.5rem .75rem',borderBottom:'1px solid #f5f5f5',fontSize:'.8rem'}}>
-                          <span style={{fontWeight:600,color:'#a7354d'}}>{o.orderId}</span>
-                          <span style={{color:'#555'}}>₹{o.total.toLocaleString('en-IN')}</span>
-                          <span style={{color:'#888'}}>{o.placedAt}</span>
-                        </div>
-                      ))}
+                  {stats.orders.length>0 ? (
+                    <div style={{maxHeight:'260px',overflowY:'auto',borderRadius:'8px',border:'1px solid #f0f0f0'}}>
+                      <table style={{width:'100%',borderCollapse:'collapse',fontSize:'.78rem'}}>
+                        <thead>
+                          <tr style={{background:'#fdf0f3'}}>
+                            {['Order ID','Amount','Commission','Status','Date'].map(h=>(
+                              <th key={h} style={{padding:'.5rem .6rem',textAlign:(h==='Order ID'||h==='Status')?'left':'right',fontWeight:700,color:'#666',whiteSpace:'nowrap',position:'sticky',top:0,background:'#fdf0f3'}}>{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {stats.orders.map(o=>(
+                            <tr key={o.orderId} style={{borderBottom:'1px solid #f5f5f5'}}>
+                              <td style={{padding:'.45rem .6rem',fontWeight:600,color:'#a7354d',whiteSpace:'nowrap'}}>{o.orderId}</td>
+                              <td style={{padding:'.45rem .6rem',textAlign:'right',color:'#555'}}>₹{o.total.toLocaleString('en-IN')}</td>
+                              <td style={{padding:'.45rem .6rem',textAlign:'right',color:'#16a34a',fontWeight:600}}>₹{(o.total*(Number(selected.commissionRate)||0)/100).toFixed(2)}</td>
+                              <td style={{padding:'.45rem .6rem',color:'#666'}}>{o.status}</td>
+                              <td style={{padding:'.45rem .6rem',textAlign:'right',color:'#888',whiteSpace:'nowrap'}}>{o.placedAt}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
+                  ) : (
+                    <p style={{color:'#bbb',fontSize:'.83rem',textAlign:'center',padding:'1rem'}}>No orders yet for this creator.</p>
                   )}
                 </>
               )}
