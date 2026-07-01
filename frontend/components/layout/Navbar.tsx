@@ -136,11 +136,7 @@ export default function Navbar() {
         <div className="brand-row">
           <Link href="/" className="brand" aria-label="Mahalaxmi Fashion Hub home">
             <span className="brand-mark">
-              <img src="/logo.webp?v=4" alt="Mahalaxmi Fashion Hub logo" width="48" height="48" loading="eager" />
-            </span>
-            <span>
-              <strong>Mahalaxmi <span style={{ color: '#111' }}>Fashion Hub</span></strong>
-              <span className="brand-tagline">Every Look, A New Experience</span>
+              <img src="/logo.webp?v=4" alt="Mahalaxmi Fashion Hub logo" loading="eager" />
             </span>
           </Link>
 

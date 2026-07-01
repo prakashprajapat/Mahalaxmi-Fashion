@@ -106,7 +106,7 @@ button { cursor: pointer; font-family: inherit; }
 }
 .brand strong { display: block; font-size: 1.05rem; color: var(--brand); line-height: 1.2; }
 .brand-tagline { font-size: .7rem; color: var(--muted); }
-.brand-mark img { width: 120px; height: 96px; border-radius: 8px; object-fit: contain; }
+.brand-mark img { width: auto; height: 68px; max-width: 260px; object-fit: contain; }
 
 .search {
   flex: 1;
@@ -901,8 +901,9 @@ button { cursor: pointer; font-family: inherit; }
   }
 
   .brand-mark img {
-    width: 42px;
-    height: 42px;
+    width: auto;
+    height: 52px;
+    max-width: 190px;
   }
 
   .brand strong {
@@ -1004,8 +1005,9 @@ button { cursor: pointer; font-family: inherit; }
   }
 
   .brand-mark img {
-    width: 38px;
-    height: 38px;
+    width: auto;
+    height: 46px;
+    max-width: 170px;
   }
 
   .brand strong {
