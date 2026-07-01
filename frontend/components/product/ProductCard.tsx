@@ -54,7 +54,7 @@ export default function ProductCard({ product, priority = false }: { product: Pr
 
   return (
     <>
-      <div className="product-card" style={{ cursor: 'pointer' }} onClick={openQuickView}>
+      <div className="product-card" style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', height: '100%' }} onClick={openQuickView}>
         {/* Image */}
         <div className="product-card-img">
           <div onClick={openQuickView}>
@@ -102,7 +102,7 @@ export default function ProductCard({ product, priority = false }: { product: Pr
         </div>
 
         {/* Body */}
-        <div className="product-card-body">
+        <div className="product-card-body" style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
           {(product.subcategory || product.category) && (
             <p className="product-card-cat">
               {(product.subcategory || product.category).toUpperCase()}
@@ -129,8 +129,8 @@ export default function ProductCard({ product, priority = false }: { product: Pr
             {saving > 0 && <span className="price-orig">₹{product.price.toLocaleString('en-IN')}</span>}
           </div>
 
-          {/* Buttons — side by side */}
-          <div style={{ display: 'flex', gap: '.5rem', marginTop: '.5rem' }}>
+          {/* Buttons — side by side, always pinned to the bottom of the card */}
+          <div style={{ display: 'flex', gap: '.5rem', marginTop: 'auto', paddingTop: '.6rem' }}>
             <button onClick={handleAdd} className="btn-add-cart" style={{ flex: 1, margin: 0 }}>
               {added ? '✓ Added!' : 'Add to Cart'}
             </button>
