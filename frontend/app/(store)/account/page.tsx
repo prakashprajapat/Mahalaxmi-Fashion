@@ -117,11 +117,12 @@ function AccountContent() {
           gap: .75rem;
         }
         .mfh-account-login-logo img {
-          width: 90px; height: 90px;
+          width: 150px; height: 150px;
           border-radius: 50%;
           border: 3px solid rgba(255,255,255,.7);
           background: #fff;
           object-fit: contain;
+          padding: 12px;
         }
         .mfh-account-login-logo p { margin:0; color:#fff; font-weight:800; font-size:1rem; line-height:1.3; }
         .mfh-account-login-logo small { color:rgba(255,255,255,.7); font-size:.75rem; margin-top:.25rem; display:block; }
@@ -142,10 +143,6 @@ function AccountContent() {
           {/* Left — branding */}
           <div className="mfh-account-login-logo">
             <img src="/logo.webp?v=4" alt="Mahalaxmi Fashion Hub" />
-            <div>
-              <p>Mahalaxmi<br />Fashion Hub</p>
-              <small>Every Look, A New Experience</small>
-            </div>
           </div>
 
           {/* Right — form */}

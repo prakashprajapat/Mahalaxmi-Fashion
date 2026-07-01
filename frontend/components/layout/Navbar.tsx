@@ -345,7 +345,7 @@ export default function Navbar() {
               justify-content: center; padding: 2rem 1.25rem; text-align: center; gap: .75rem;
             }
             .mfh-login-logo img {
-              width: 200px; height: 150px; border-radius: 16px; padding: 10px;
+              width: 180px; height: 180px; border-radius: 50%; padding: 14px;
               border: 3px solid rgba(255,255,255,.7); background: #fff; object-fit: contain;
             }
             .mfh-login-logo p {
@@ -377,10 +377,6 @@ export default function Navbar() {
             </button>
             <div className="mfh-login-logo">
               <img src="/logo.webp?v=4" alt="Mahalaxmi Fashion Hub" />
-              <div>
-                <p>Mahalaxmi<br />Fashion Hub</p>
-                <small>Every Look, A New Experience</small>
-              </div>
             </div>
             <form onSubmit={handleLogin} className="mfh-login-form" style={{ display: 'flex', flexDirection: 'column', gap: '.9rem' }}>
               <h2 style={{ margin: 0, fontSize: '1.6rem', fontWeight: 800, color: '#1a1a1a' }}>Welcome Back</h2>
