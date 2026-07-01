@@ -179,12 +179,12 @@ export default function ProductPage({ params }: { params: { id: string } }) {
     addGalleryImage(product.image);
     (extra.images ?? []).forEach(addGalleryImage);
   }
-  // For a pack, show one representative photo per pack item (its front), so a
-  // "Pack of 4" shows ~4 photos — not front/side/back/zoomed of every column.
+  // For a pack, show every photo the merchant filled for each item (column):
+  // front/side/back/zoomed. Duplicates are removed by file name above.
   if (isPackProduct) {
     (extra.packImages ?? extra.packColumnPhotos ?? extra.variantColumns ?? []).forEach(item => {
       if (typeof item === 'string') addGalleryImage(item);
-      else addGalleryImage(item.front ?? item.url);
+      else ['front', 'side', 'back', 'zoomed'].forEach(key => addGalleryImage(item[key]));
     });
   }
 

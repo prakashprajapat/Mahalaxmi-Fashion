@@ -80,12 +80,12 @@ export default function QuickViewModal({ product, onClose }: Props) {
     }
     // For a pack, also show each pack item's (column) photos.
     if (isPackProduct) {
+      // Show every photo the merchant filled for each pack item (column):
+      // front/side/back/zoomed. Duplicates are removed by file name above.
       const packPhotos = extra.packImages ?? extra.packColumnPhotos ?? extra.variantColumns ?? [];
       packPhotos.forEach(item => {
-        // One representative photo per pack item (its front), so a "Pack of 4"
-        // shows ~4 photos — not front/side/back/zoomed of every column.
         if (typeof item === 'string') addImage(item);
-        else addImage(item.front ?? item.url);
+        else ['front', 'side', 'back', 'zoomed'].forEach(key => addImage(item[key]));
       });
     }
     return imgs;
