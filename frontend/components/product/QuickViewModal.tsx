@@ -221,7 +221,7 @@ export default function QuickViewModal({ product, onClose }: Props) {
 
             {/* Thumbnails */}
             {images.length > 1 && (
-              <div style={{ display: 'flex', gap: '.5rem', flexWrap: 'nowrap', overflowX: 'auto', paddingBottom: '.35rem' }}>
+              <div className="qv-thumbs" style={{ display: 'flex', gap: '.5rem', flexWrap: 'nowrap', overflowX: 'auto', paddingBottom: '.35rem' }}>
                 {images.map((img, i) => (
                   <button key={i} onClick={() => setActiveImg(img)}
                     style={{
@@ -475,6 +475,11 @@ export default function QuickViewModal({ product, onClose }: Props) {
           @media (max-width: 600px) {
             .qv-grid { grid-template-columns: 1fr !important; }
           }
+          /* Thin horizontal scrollbar that sits just under the thumbnail strip */
+          .qv-thumbs { scrollbar-width: thin; scrollbar-color: #a7354d #f0e6ea; }
+          .qv-thumbs::-webkit-scrollbar { height: 6px; }
+          .qv-thumbs::-webkit-scrollbar-track { background: #f0e6ea; border-radius: 3px; }
+          .qv-thumbs::-webkit-scrollbar-thumb { background: #a7354d; border-radius: 3px; }
         `}</style>
       </div>
     </div>
