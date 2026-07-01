@@ -82,8 +82,10 @@ export default function QuickViewModal({ product, onClose }: Props) {
     if (isPackProduct) {
       const packPhotos = extra.packImages ?? extra.packColumnPhotos ?? extra.variantColumns ?? [];
       packPhotos.forEach(item => {
+        // One representative photo per pack item (its front), so a "Pack of 4"
+        // shows ~4 photos — not front/side/back/zoomed of every column.
         if (typeof item === 'string') addImage(item);
-        else ['front', 'side', 'back', 'zoomed', 'url'].forEach(key => addImage(item[key]));
+        else addImage(item.front ?? item.url);
       });
     }
     return imgs;
