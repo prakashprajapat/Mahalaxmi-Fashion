@@ -169,6 +169,8 @@ using (var scope = app.Services.CreateScope())
         );
         ALTER TABLE influencers ADD COLUMN IF NOT EXISTS password_hash VARCHAR(255);
         ALTER TABLE influencers ADD COLUMN IF NOT EXISTS reset_requested_at TIMESTAMPTZ;
+        UPDATE site_orders SET status = 'Pending'
+            WHERE status IN ('Order Received', 'Pending confirmation', 'Paid', 'Order Packed');
     ");
 }
 

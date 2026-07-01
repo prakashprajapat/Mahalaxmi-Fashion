@@ -5,14 +5,10 @@ import { getAdminToken } from '@/lib/auth';
 import { exportOrders } from '@/lib/exportExcel';
 import type { Order } from '@/types';
 
-const ORDER_STATUS_TABS = [
+const ORDER_STATUS_TABS: { key: string; label: string; hidden?: boolean }[] = [
   { key: 'all',                  label: 'All Orders' },
-  { key: 'Order Received',       label: 'Order Received' },
-  { key: 'Pending confirmation', label: 'Pending Confirmation' },
   { key: 'Pending',              label: 'Pending' },
-  { key: 'Paid',                 label: 'Paid' },
   { key: 'On Hold',              label: 'On Hold' },
-  { key: 'Order Packed',         label: 'Order Packed' },
   { key: 'Ready for Shipping',   label: 'Ready to Ship' },
   { key: 'Shipped',              label: 'Shipped' },
   { key: 'Transit',              label: 'Transit' },
@@ -21,7 +17,7 @@ const ORDER_STATUS_TABS = [
   { key: 'Cancelled',            label: 'Cancelled' },
 ];
 
-const RETURN_STATUS_TABS = [
+const RETURN_STATUS_TABS: { key: string; label: string; hidden?: boolean }[] = [
   { key: 'all',              label: 'All Returns' },
   { key: 'Return Requested', label: 'Return Requested' },
   { key: 'Return Transit',   label: 'Return Transit' },
@@ -215,7 +211,7 @@ export default function AdminOrdersPage() {
 
       {/* Sub-status Tabs */}
       <div style={{ display: 'flex', gap: '.35rem', flexWrap: 'wrap', marginBottom: '1rem', borderBottom: '1px solid #eee', paddingBottom: '.5rem' }}>
-        {currentStatusTabs.map(tab => {
+        {currentStatusTabs.filter(tab => !tab.hidden).map(tab => {
           const cnt = countFor(tab.key);
           return (
             <button key={tab.key} onClick={() => setActiveTab(tab.key)}
@@ -249,7 +245,7 @@ export default function AdminOrdersPage() {
       {selectedIds.size > 0 && (
         <div style={{ background: '#fff3cd', borderRadius: '8px', padding: '.6rem 1rem', marginBottom: '1rem', display: 'flex', gap: '.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
           <strong style={{ fontSize: '.85rem' }}>{selectedIds.size} selected</strong>
-          <button onClick={() => bulkUpdateStatus('Order Packed')} style={{ background: '#1565c0', color: '#fff', border: 'none', borderRadius: '6px', padding: '.35rem .75rem', fontSize: '.8rem', cursor: 'pointer' }}>Accept (Pack)</button>
+          <button onClick={() => bulkUpdateStatus('Ready for Shipping')} style={{ background: '#1565c0', color: '#fff', border: 'none', borderRadius: '6px', padding: '.35rem .75rem', fontSize: '.8rem', cursor: 'pointer' }}>Accept (Ready to Ship)</button>
           <button onClick={() => bulkUpdateStatus('Ready for Shipping')} style={{ background: '#27ae60', color: '#fff', border: 'none', borderRadius: '6px', padding: '.35rem .75rem', fontSize: '.8rem', cursor: 'pointer' }}>Ready to Ship</button>
           <button onClick={() => bulkUpdateStatus('Shipped')} style={{ background: '#7b1fa2', color: '#fff', border: 'none', borderRadius: '6px', padding: '.35rem .75rem', fontSize: '.8rem', cursor: 'pointer' }}>Mark Shipped</button>
           <button onClick={() => bulkUpdateStatus('Cancelled')} style={{ background: '#c62828', color: '#fff', border: 'none', borderRadius: '6px', padding: '.35rem .75rem', fontSize: '.8rem', cursor: 'pointer' }}>Cancel</button>

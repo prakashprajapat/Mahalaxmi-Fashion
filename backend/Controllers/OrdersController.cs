@@ -97,7 +97,7 @@ public class OrdersController : ControllerBase
         var method = req.Method.ToLower().Trim();
         var status = !string.IsNullOrWhiteSpace(req.Status)
             ? req.Status
-            : method == "cod" ? "Pending confirmation" : "Paid";
+            : "Pending";
 
         // BUG-6: Prefer JWT sub claim over client-supplied customerId — must happen BEFORE building customerJson
         var jwtCustomerId = User.FindFirstValue("sub");

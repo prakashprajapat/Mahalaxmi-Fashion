@@ -192,7 +192,7 @@ export default function CheckoutPage() {
       await ordersApi.place({
         id: oid,
         method: 'cod',
-        status: 'Order Received',
+        status: 'Pending',
         cart: cartLines,
         subtotal,
         shippingCost,
@@ -256,7 +256,7 @@ export default function CheckoutPage() {
           await ordersApi.place({
             id: res.localOrderId,
             method: 'razorpay',
-            status: 'Paid',
+            status: 'Pending',
             paymentId: response.razorpay_payment_id,
             cart: cartLines,
             subtotal,
