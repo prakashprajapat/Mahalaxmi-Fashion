@@ -102,14 +102,15 @@ button { cursor: pointer; font-family: inherit; }
   gap: .65rem;
   text-decoration: none;
   color: inherit;
-  flex-shrink: 0;
+  flex: 1 1 0;
+  min-width: 0;
 }
 .brand strong { display: block; font-size: 1.05rem; color: var(--brand); line-height: 1.2; }
 .brand-tagline { font-size: .7rem; color: var(--muted); }
 .brand-mark img { width: auto; height: 68px; max-width: 260px; object-fit: contain; }
 
 .search {
-  flex: 1;
+  flex: 0 1 480px;
   display: flex;
   max-width: 480px;
 }
@@ -135,7 +136,7 @@ button { cursor: pointer; font-family: inherit; }
 }
 .search button:hover { background: var(--brand-dark); }
 
-.brand-actions { display: flex; align-items: center; gap: .75rem; margin-left: auto; }
+.brand-actions { display: flex; align-items: center; gap: .75rem; flex: 1 1 0; justify-content: flex-end; }
 .cart-link {
   background: var(--brand);
   color: #fff;
