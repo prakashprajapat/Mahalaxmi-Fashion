@@ -370,7 +370,7 @@ function CustomColourModal({
               style={{ width:'100%', marginTop:'.5rem', border:'1.5px solid #ddd', borderRadius:'8px', padding:'.45rem .65rem', fontSize:'.8rem', boxSizing:'border-box' }} />
           )}
 
-          <button
+          <button onClick={handleAdd}
             style={{ width:'100%', marginTop:'.75rem', background:'#a7354d', color:'#fff', border:'none', borderRadius:'8px', padding:'.5rem', fontSize:'.82rem', fontWeight:700, cursor:'pointer' }}>
             ✓ Add Column {nextLetter}
           </button>
@@ -927,11 +927,12 @@ export default function AddProductPage() {
           {customColours.length > 0 && (
             <div style={{ display:'flex', flexWrap:'wrap', gap:'.4rem', paddingLeft:'68px', marginBottom:'.5rem' }}>
               {customColours.map((c, i) => (
-                <div key={i} style={{ display:'flex', alignItems:'center', gap:'.3rem', background:'#f9f9f9', border:'1.5px solid #eee', borderRadius:'20px', padding:'.2rem .55rem .2rem .35rem' }}>
-                  <div style={{ width:'14px', height:'14px', borderRadius:'50%', background:c.code, border:'1.5px solid #ddd', flexShrink:0 }} />
-                  <span style={{ fontSize:'.78rem', fontWeight:600 }}>{c.name}</span>
+                <div key={i} title={c.name} style={{ display:'flex', alignItems:'center', gap:'.25rem', background:'#f9f9f9', border:'1.5px solid #eee', borderRadius:'20px', padding:'.2rem .35rem' }}>
+                  {c.photo
+                    ? <img src={c.photo} alt={c.name} style={{ width:'22px', height:'22px', borderRadius:'50%', objectFit:'cover', border:'1.5px solid #ddd', flexShrink:0 }} />
+                    : <div style={{ width:'22px', height:'22px', borderRadius:'50%', background:c.code, border:'1.5px solid #ddd', flexShrink:0 }} />}
                   <button onClick={() => setCustomColours(p => p.filter((_,j) => j !== i))}
-                    style={{ background:'none', border:'none', cursor:'pointer', color:'#c62828', fontSize:'.8rem', padding:0, lineHeight:1, marginLeft:'.1rem' }}>✕</button>
+                    style={{ background:'none', border:'none', cursor:'pointer', color:'#c62828', fontSize:'.8rem', padding:'0 .15rem', lineHeight:1 }}>✕</button>
                 </div>
               ))}
             </div>
