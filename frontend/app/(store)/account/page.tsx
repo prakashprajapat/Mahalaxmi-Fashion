@@ -141,7 +141,7 @@ function AccountContent() {
 
           {/* Left — branding */}
           <div className="mfh-account-login-logo">
-            <img src="/logo.webp" alt="Mahalaxmi Fashion Hub" />
+            <img src="/logo.webp?v=4" alt="Mahalaxmi Fashion Hub" />
             <div>
               <p>Mahalaxmi<br />Fashion Hub</p>
               <small>Every Look, A New Experience</small>
