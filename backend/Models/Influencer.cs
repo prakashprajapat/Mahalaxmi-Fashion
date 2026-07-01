@@ -15,6 +15,7 @@ public class Influencer {
     [Column("status")] public string Status { get; set; } = "pending";
     [Column("coupon_code")] public string? CouponCode { get; set; }
     [Column("password_hash")] public string? PasswordHash { get; set; }
+    [Column("reset_requested_at")] public DateTimeOffset? ResetRequestedAt { get; set; }
     [Column("commission_rate")] public decimal CommissionRate { get; set; } = 3m;
     [Column("admin_notes")] public string? AdminNotes { get; set; }
     [Column("created_at")] public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;

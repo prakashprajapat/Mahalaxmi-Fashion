@@ -49,6 +49,26 @@ public class InfluencersController : ControllerBase
         return Ok(new { success = true, message = "Application submitted! We'll review and contact you within 2–3 business days." });
     }
 
+    // ── POST /api/influencers/forgot-password  (public) ──────────────────────
+    // Records a password-reset request so the admin can reset it and contact the
+    // creator (no auto email/SMS provider is wired up, so it's admin-mediated).
+    [HttpPost("forgot-password")]
+    public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest req)
+    {
+        if (!string.IsNullOrWhiteSpace(req.Email))
+        {
+            var inf = await _db.Influencers
+                .FirstOrDefaultAsync(i => i.Email.ToLower() == req.Email.Trim().ToLower());
+            if (inf is not null)
+            {
+                inf.ResetRequestedAt = DateTimeOffset.UtcNow;
+                await _db.SaveChangesAsync();
+            }
+        }
+        // Always generic — don't reveal whether the email is registered.
+        return Ok(new { success = true, message = "Request received. We'll reset your password and contact you on WhatsApp shortly." });
+    }
+
     // ── POST /api/influencers/login  (public — creator self) ─────────────────
     // Creators log in with email + password. The coupon code is public (shared
     // with followers) so it is no longer used as a login credential.
@@ -274,7 +294,10 @@ public class InfluencersController : ControllerBase
         influencer.AdminNotes     = req.AdminNotes ?? influencer.AdminNotes;
         // Admin can set / reset the creator's login password.
         if (!string.IsNullOrWhiteSpace(req.NewPassword))
+        {
             influencer.PasswordHash = BCrypt.Net.BCrypt.HashPassword(req.NewPassword, workFactor: 12);
+            influencer.ResetRequestedAt = null; // reset request handled
+        }
         influencer.UpdatedAt      = DateTimeOffset.UtcNow;
 
         // If approving and coupon code provided → create/ensure coupon exists
@@ -324,6 +347,8 @@ public record InfluencerApplyRequest(
     string? Password);
 
 public record InfluencerLoginRequest(string Email, string Password);
+
+public record ForgotPasswordRequest(string Email);
 
 public record InfluencerUpdateRequest(
     string? Status, string? CouponCode, decimal? CommissionRate,

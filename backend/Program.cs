@@ -168,6 +168,7 @@ using (var scope = app.Services.CreateScope())
             updated_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW()
         );
         ALTER TABLE influencers ADD COLUMN IF NOT EXISTS password_hash VARCHAR(255);
+        ALTER TABLE influencers ADD COLUMN IF NOT EXISTS reset_requested_at TIMESTAMPTZ;
     ");
 }
 

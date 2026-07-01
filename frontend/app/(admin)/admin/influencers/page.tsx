@@ -90,7 +90,7 @@ export default function InfluencersAdminPage() {
       await load();
       loadReport();
       setEditPassword('');
-      setSelected({...selected, status:editStatus, couponCode:editCode||undefined, commissionRate:cappedComm});
+      setSelected({...selected, status:editStatus, couponCode:editCode||undefined, commissionRate:cappedComm, resetRequestedAt: editPassword ? null : selected.resetRequestedAt});
     } finally { setSaving(false); }
   };
 
@@ -163,6 +163,7 @@ export default function InfluencersAdminPage() {
                     <tr key={inf.id} style={{borderBottom:'1px solid #f5f5f5',background:i%2===0?'#fff':'#fafafa'}}>
                       <td style={{padding:'.7rem 1rem',fontWeight:600}}>
                         <div>{inf.name}</div><div style={{fontSize:'.75rem',color:'#888'}}>{inf.email}</div>
+                        {inf.resetRequestedAt && <div style={{marginTop:'.3rem',display:'inline-block',background:'#fff3e0',color:'#e65100',fontSize:'.68rem',fontWeight:700,padding:'.12rem .5rem',borderRadius:'10px'}}>🔔 Password reset requested</div>}
                       </td>
                       <td style={{padding:'.7rem 1rem'}}><div style={{fontWeight:600}}>{inf.platform}</div><div style={{fontSize:'.75rem',color:'#888'}}>{inf.socialHandle??'—'}</div></td>
                       <td style={{padding:'.7rem 1rem',color:'#555'}}>{inf.followersCount??'—'}</td>
@@ -292,6 +293,7 @@ export default function InfluencersAdminPage() {
                 <textarea value={editNotes} onChange={e=>setEditNotes(e.target.value)} rows={2} placeholder="Internal notes..." style={{width:'100%',padding:'.55rem .75rem',borderRadius:'8px',border:'1.5px solid #ddd',fontSize:'.85rem',resize:'vertical',fontFamily:'inherit',boxSizing:'border-box'}} />
               </div>
               <div><label style={{fontWeight:700,fontSize:'.82rem',display:'block',marginBottom:'.3rem'}}>Set / Reset Login Password <span style={{fontWeight:400,color:'#888'}}>(leave blank to keep)</span></label>
+                {selected.resetRequestedAt && <div style={{background:'#fff3e0',color:'#e65100',fontSize:'.78rem',fontWeight:600,padding:'.5rem .7rem',borderRadius:'8px',marginBottom:'.5rem'}}>🔔 This creator requested a password reset. Set a new password below and share it with them.</div>}
                 <input type="text" value={editPassword} onChange={e=>setEditPassword(e.target.value)} placeholder="New password for this creator" style={{width:'100%',padding:'.55rem .75rem',borderRadius:'8px',border:'1.5px solid #ddd',fontSize:'.88rem',boxSizing:'border-box'}} />
                 <p style={{fontSize:'.72rem',color:'#999',margin:'.3rem 0 0'}}>The creator logs in with their email + this password. Share it with them securely.</p>
               </div>

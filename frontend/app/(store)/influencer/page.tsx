@@ -38,6 +38,8 @@ export default function InfluencerPage() {
   const [loginPassword, setLoginPassword] = useState('');
   const [loginError, setLoginError] = useState('');
   const [loginLoading, setLoginLoading] = useState(false);
+  const [forgotMsg, setForgotMsg] = useState('');
+  const [forgotLoading, setForgotLoading] = useState(false);
   const [copied, setCopied] = useState('');
   const [editingProfile, setEditingProfile] = useState(false);
   const [profileForm, setProfileForm] = useState({ name: '', phone: '', socialHandle: '', followersCount: '', niche: '' });
@@ -121,6 +123,21 @@ export default function InfluencerPage() {
       setTab('dashboard');
     } catch { setLoginError('Network error. Try again.'); }
     finally { setLoginLoading(false); }
+  };
+
+  const handleForgot = async () => {
+    if (!loginEmail.trim()) { setForgotMsg('Please enter your registered email above first.'); return; }
+    setForgotLoading(true); setForgotMsg('');
+    try {
+      const res = await fetch(`${API}/api/influencers/forgot-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: loginEmail }),
+      });
+      const d = await res.json();
+      setForgotMsg(d.message ?? 'Request received. We will reset your password and contact you on WhatsApp shortly.');
+    } catch { setForgotMsg('Network error. Try again.'); }
+    finally { setForgotLoading(false); }
   };
 
   const handleLogout = () => {
@@ -322,8 +339,17 @@ export default function InfluencerPage() {
                 style={{ width: '100%', padding: '.75rem 1rem', border: '1.5px solid #e0e0e0', borderRadius: '12px', fontSize: '.9rem', boxSizing: 'border-box', outline: 'none' }}
               />
               <p style={{ fontSize: '.75rem', color: '#aaa', margin: '.3rem 0 0' }}>
-                The password you set when applying. Forgot it? Contact us on WhatsApp.
+                The password you set when applying.
               </p>
+              <button type="button" onClick={handleForgot} disabled={forgotLoading}
+                style={{ background: 'none', border: 'none', color: BRAND, fontWeight: 700, fontSize: '.78rem', cursor: forgotLoading ? 'default' : 'pointer', padding: 0, marginTop: '.45rem' }}>
+                {forgotLoading ? 'Sending…' : 'Forgot password?'}
+              </button>
+              {forgotMsg && (
+                <p style={{ fontSize: '.78rem', margin: '.4rem 0 0', fontWeight: 600, color: forgotMsg.startsWith('Request') ? '#2e7d32' : '#c0392b' }}>
+                  {forgotMsg}
+                </p>
+              )}
             </div>
             {loginError && (
               <div style={{ background: '#fce4ec', border: '1px solid #f48fb1', borderRadius: '10px', padding: '.65rem .9rem', fontSize: '.85rem', color: '#c62828', fontWeight: 600 }}>
