@@ -5,20 +5,12 @@ export default function Footer() {
     <footer className="site-footer">
       <div className="site-footer-grid">
         <div className="site-footer-brand">
-          <Link className="brand footer-brand" href="/">
-            <span className="brand-mark">
-              <img
-                src="/logo-color.webp"
-                alt="Mahalaxmi Fashion Hub logo"
-                width="48"
-                height="48"
-                style={{ borderRadius: '8px' }}
-              />
-            </span>
-            <span>
-              <strong>Mahalaxmi Fashion Hub</strong>
-              <span className="brand-tagline">Every Look, A New Experience</span>
-            </span>
+          <Link className="brand footer-brand" href="/" style={{ display: 'inline-block' }}>
+            <img
+              src="/logo-color.webp"
+              alt="Mahalaxmi Fashion Hub"
+              style={{ width: '210px', maxWidth: '100%', height: 'auto' }}
+            />
           </Link>
           <p>Designer sarees, daily nightwear, petticoats and fabric essentials - curated with a boutique touch.</p>
           <p className="site-footer-contact">Ward No. 45, Near Mahadev Temple, Balotra, Rajasthan</p>

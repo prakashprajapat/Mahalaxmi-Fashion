@@ -18,6 +18,9 @@ export interface Product {
   qty?: number;
   stockQty?: number;
   packOf?: number;
+  reviewCount?: number;
+  avgRating?: number;
+  soldCount?: number;
 }
 
 export interface CartItem extends Product {

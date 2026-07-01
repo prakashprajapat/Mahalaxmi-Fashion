@@ -18,7 +18,10 @@ public record ProductDto(
     string? HsnCode,
     decimal? GstRate,
     int?    Qty,
-    int?    PackOf
+    int?    PackOf,
+    int     ReviewCount = 0,
+    double  AvgRating = 0,
+    int     SoldCount = 0
 );
 
 public record ProductCreateRequest(

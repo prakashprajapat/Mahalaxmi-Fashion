@@ -139,7 +139,7 @@ export default function Navbar() {
               <img src="/logo.webp" alt="Mahalaxmi Fashion Hub logo" width="48" height="48" loading="eager" />
             </span>
             <span>
-              <strong>Mahalaxmi Fashion Hub</strong>
+              <strong>Mahalaxmi <span style={{ color: '#111' }}>Fashion Hub</span></strong>
               <span className="brand-tagline">Every Look, A New Experience</span>
             </span>
           </Link>

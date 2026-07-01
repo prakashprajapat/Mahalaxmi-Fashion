@@ -113,15 +113,19 @@ export default function ProductCard({ product, priority = false }: { product: Pr
             {product.stock || 'In Stock'}
           </span>
 
-          <span className="product-card-name" style={{ display: 'block', fontWeight: 600, color: '#1a1a1a', fontSize: '.9rem', margin: '.25rem 0' }}>
+          <span className="product-card-name" title={product.name} style={{ display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden', fontWeight: 600, color: '#1a1a1a', fontSize: '.9rem', margin: '.25rem 0', lineHeight: 1.3 }}>
             {product.name}
           </span>
 
-          {/* Rating */}
-          <div className="product-rating">
-            <span className="stars">★★★★★</span>
-            <span className="rating-val">4.8</span>
-          </div>
+          {/* Rating — real reviews, or a "New" tag when there are none yet */}
+          {(product.reviewCount ?? 0) > 0 ? (
+            <div className="product-rating">
+              <span className="stars">★★★★★</span>
+              <span className="rating-val">{product.avgRating} ({product.reviewCount})</span>
+            </div>
+          ) : (
+            <span style={{ display: 'inline-block', background: '#e8f5e9', color: '#2e7d32', fontSize: '.72rem', fontWeight: 700, padding: '.15rem .55rem', borderRadius: '12px' }}>✨ New</span>
+          )}
 
           {/* Price */}
           <div className="product-price-row">

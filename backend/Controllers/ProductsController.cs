@@ -57,17 +57,42 @@ public class ProductsController : ControllerBase
                 }
             if (!string.IsNullOrWhiteSpace(subcategory))
                 query = query.Where(p => EF.Functions.ILike(p.Subcategory, subcategory));
-            if (bestSeller.HasValue)
-                query = query.Where(p => p.BestSeller == bestSeller.Value);
 
-            var total = await query.CountAsync();
-            var products = await query
-                .OrderByDescending(p => p.Newest)
-                .ThenByDescending(p => p.Id)
-                .Skip((page - 1) * pageSize)
-                .Take(pageSize)
-                .Select(p => ToDto(p))
-                .ToListAsync();
+            var sales = await GetSalesCountsAsync();
+
+            List<Product> pageItems;
+            int total;
+            if (bestSeller == true)
+            {
+                // Best Sellers = automatically the top-selling products (by quantity
+                // sold, from orders) — not a manual flag.
+                var ranked = (await query.ToListAsync())
+                    .Where(p => sales.GetValueOrDefault(p.Id) > 0)
+                    .OrderByDescending(p => sales.GetValueOrDefault(p.Id))
+                    .ThenByDescending(p => p.Id)
+                    .ToList();
+                total = ranked.Count;
+                pageItems = ranked.Skip((page - 1) * pageSize).Take(pageSize).ToList();
+            }
+            else
+            {
+                total = await query.CountAsync();
+                pageItems = await query
+                    .OrderByDescending(p => p.Newest)
+                    .ThenByDescending(p => p.Id)
+                    .Skip((page - 1) * pageSize)
+                    .Take(pageSize)
+                    .ToListAsync();
+            }
+
+            var reviews = await GetReviewAggAsync(pageItems.Select(p => p.Id).ToList());
+            var products = pageItems.Select(p =>
+            {
+                var dto = ToDto(p);
+                int rc = 0; double ar = 0;
+                if (reviews.TryGetValue(p.Id, out var r)) { rc = r.Count; ar = Math.Round(r.Avg, 1); }
+                return dto with { ReviewCount = rc, AvgRating = ar, SoldCount = sales.GetValueOrDefault(p.Id) };
+            }).ToList();
 
             var result = new { success = true, products, total, page, pageSize };
             _cache.Set(cacheKey, (object)result, TimeSpan.FromSeconds(60));
@@ -446,6 +471,48 @@ public class ProductsController : ControllerBase
     {
         var value = ExtraString(extra, key);
         return int.TryParse(value, out var n) ? n : null;
+    }
+
+    // Approved-review count + average rating per product.
+    private async Task<Dictionary<int, (int Count, double Avg)>> GetReviewAggAsync(List<int> ids)
+    {
+        if (ids.Count == 0) return new();
+        var agg = await _db.Reviews
+            .Where(r => ids.Contains(r.ProductId) && r.Status == "approved")
+            .GroupBy(r => r.ProductId)
+            .Select(g => new { Pid = g.Key, Count = g.Count(), Avg = g.Average(x => (double)x.Rating) })
+            .ToListAsync();
+        return agg.ToDictionary(x => x.Pid, x => (x.Count, x.Avg));
+    }
+
+    // Quantity sold per product, parsed from non-cancelled orders' cart JSON.
+    private async Task<Dictionary<int, int>> GetSalesCountsAsync()
+    {
+        var carts = await _db.SiteOrders
+            .Where(o => o.Status != "Cancelled" && o.CartJson != null)
+            .Select(o => o.CartJson!)
+            .ToListAsync();
+        var counts = new Dictionary<int, int>();
+        foreach (var cj in carts)
+        {
+            try
+            {
+                using var doc = JsonDocument.Parse(cj);
+                if (doc.RootElement.ValueKind != JsonValueKind.Array) continue;
+                foreach (var item in doc.RootElement.EnumerateArray())
+                {
+                    if (!item.TryGetProperty("id", out var idEl)) continue;
+                    int pid;
+                    if (idEl.ValueKind == JsonValueKind.String) { if (!int.TryParse(idEl.GetString(), out pid)) continue; }
+                    else if (idEl.ValueKind == JsonValueKind.Number) { if (!idEl.TryGetInt32(out pid)) continue; }
+                    else continue;
+                    int qty = item.TryGetProperty("quantity", out var qEl) && qEl.ValueKind == JsonValueKind.Number && qEl.TryGetInt32(out var q) ? q : 1;
+                    counts[pid] = counts.GetValueOrDefault(pid) + qty;
+                }
+            }
+            catch { /* ignore malformed cart json */ }
+        }
+        return counts;
     }
 
     private static ProductDto ToDto(Product p)
