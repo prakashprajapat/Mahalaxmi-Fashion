@@ -156,10 +156,18 @@ export default function ProductPage({ params }: { params: { id: string } }) {
   const isPackProduct = Boolean(product.packOf && product.packOf > 1);
 
   const gallery: string[] = [];
+  const seenGallery = new Set<string>();
+  // Dedupe by file name so the same photo referenced via different paths/objects
+  // (e.g. main gallery + a pack column) only appears once.
+  const galleryKey = (s: string) => s.split('/').pop()!.split('?')[0].toLowerCase();
   const addGalleryImage = (src?: unknown) => {
     if (typeof src === 'string') {
       const image = productImageSrc(src);
-      if (image && !gallery.includes(image)) gallery.push(image);
+      if (!image) return;
+      const key = galleryKey(image);
+      if (seenGallery.has(key)) return;
+      seenGallery.add(key);
+      gallery.push(image);
     }
   };
   addGalleryImage(product.image);

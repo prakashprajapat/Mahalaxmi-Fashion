@@ -56,10 +56,18 @@ export default function QuickViewModal({ product, onClose }: Props) {
   const customColourMap = new Map((extra.customColors ?? []).filter(c => c.name).map(c => [c.name!, c]));
   const images: string[] = (() => {
     const imgs: string[] = [];
+    const seen = new Set<string>();
+    // Dedupe by file name (basename) so the same photo referenced via different
+    // paths/objects (e.g. main gallery + a pack column) only appears once.
+    const baseName = (s: string) => s.split('/').pop()!.split('?')[0].toLowerCase();
     const addImage = (img?: unknown) => {
       if (typeof img !== 'string') return;
       const src = productImageSrc(img);
-      if (src && !imgs.includes(src)) imgs.push(src);
+      if (!src) return;
+      const key = baseName(src);
+      if (seen.has(key)) return;
+      seen.add(key);
+      imgs.push(src);
     };
     addImage(product.image);
     const hasProductPhotos = Object.values(extra.productPhotos ?? {}).some(v => v);
