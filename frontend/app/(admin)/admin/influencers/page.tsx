@@ -17,6 +17,7 @@ export default function InfluencersAdminPage() {
   const [editComm, setEditComm] = useState('');
   const [editDisc, setEditDisc] = useState('10');
   const [editNotes, setEditNotes] = useState('');
+  const [editPassword, setEditPassword] = useState('');
   const [saving, setSaving] = useState(false);
   // Performance report / analytics
   const [view, setView] = useState('apps');         // 'apps' | 'report'
@@ -74,7 +75,7 @@ export default function InfluencersAdminPage() {
 
   const openDetail = async (inf) => {
     setSelected(inf); setEditStatus(inf.status); setEditCode(inf.couponCode??'');
-    setEditComm(String(inf.commissionRate)); setEditNotes(inf.adminNotes??''); setStats(null); setStatsLoading(true);
+    setEditComm(String(inf.commissionRate)); setEditNotes(inf.adminNotes??''); setEditPassword(''); setStats(null); setStatsLoading(true);
     try {
       const res = await fetch(`${API}/api/influencers/${inf.id}/stats`, { headers });
       if (res.ok) setStats(await res.json());
@@ -85,9 +86,10 @@ export default function InfluencersAdminPage() {
     if (!selected) return; setSaving(true);
     try {
       const cappedComm = Math.min(parseFloat(editComm) || 3, 3);
-      await fetch(`${API}/api/influencers/${selected.id}`, { method:'PUT', headers, body:JSON.stringify({ status:editStatus, couponCode:editCode||null, commissionRate:cappedComm, couponDiscountPct:parseFloat(editDisc)||10, adminNotes:editNotes||null }) });
+      await fetch(`${API}/api/influencers/${selected.id}`, { method:'PUT', headers, body:JSON.stringify({ status:editStatus, couponCode:editCode||null, commissionRate:cappedComm, couponDiscountPct:parseFloat(editDisc)||10, adminNotes:editNotes||null, newPassword:editPassword||null }) });
       await load();
       loadReport();
+      setEditPassword('');
       setSelected({...selected, status:editStatus, couponCode:editCode||undefined, commissionRate:cappedComm});
     } finally { setSaving(false); }
   };
@@ -288,6 +290,10 @@ export default function InfluencersAdminPage() {
               </div>
               <div><label style={{fontWeight:700,fontSize:'.82rem',display:'block',marginBottom:'.3rem'}}>Admin Notes</label>
                 <textarea value={editNotes} onChange={e=>setEditNotes(e.target.value)} rows={2} placeholder="Internal notes..." style={{width:'100%',padding:'.55rem .75rem',borderRadius:'8px',border:'1.5px solid #ddd',fontSize:'.85rem',resize:'vertical',fontFamily:'inherit',boxSizing:'border-box'}} />
+              </div>
+              <div><label style={{fontWeight:700,fontSize:'.82rem',display:'block',marginBottom:'.3rem'}}>Set / Reset Login Password <span style={{fontWeight:400,color:'#888'}}>(leave blank to keep)</span></label>
+                <input type="text" value={editPassword} onChange={e=>setEditPassword(e.target.value)} placeholder="New password for this creator" style={{width:'100%',padding:'.55rem .75rem',borderRadius:'8px',border:'1.5px solid #ddd',fontSize:'.88rem',boxSizing:'border-box'}} />
+                <p style={{fontSize:'.72rem',color:'#999',margin:'.3rem 0 0'}}>The creator logs in with their email + this password. Share it with them securely.</p>
               </div>
               <div style={{display:'flex',gap:'.5rem'}}>
                 <button onClick={save} disabled={saving} style={{flex:1,padding:'.65rem',borderRadius:'8px',border:'none',background:saving?'#ccc':'#a7354d',color:'#fff',fontWeight:700,cursor:saving?'not-allowed':'pointer'}}>

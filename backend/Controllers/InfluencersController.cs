@@ -39,6 +39,7 @@ public class InfluencersController : ControllerBase
             FollowersCount = req.FollowersCount?.Trim(),
             Category       = req.Category?.Trim(),
             Niche          = req.Niche?.Trim(),
+            PasswordHash   = string.IsNullOrWhiteSpace(req.Password) ? null : BCrypt.Net.BCrypt.HashPassword(req.Password, workFactor: 12),
             Status         = "pending",
             CreatedAt      = DateTimeOffset.UtcNow,
             UpdatedAt      = DateTimeOffset.UtcNow,
@@ -48,25 +49,33 @@ public class InfluencersController : ControllerBase
         return Ok(new { success = true, message = "Application submitted! We'll review and contact you within 2–3 business days." });
     }
 
-    // ── GET /api/influencers/dashboard?email=&code=  (public — influencer self) ─
-    [HttpGet("dashboard")]
-    public async Task<IActionResult> Dashboard([FromQuery] string email, [FromQuery] string code)
+    // ── POST /api/influencers/login  (public — creator self) ─────────────────
+    // Creators log in with email + password. The coupon code is public (shared
+    // with followers) so it is no longer used as a login credential.
+    [HttpPost("login")]
+    public async Task<IActionResult> Login([FromBody] InfluencerLoginRequest req)
     {
-        if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(code))
-            return BadRequest(new { message = "Email and coupon code required." });
+        if (string.IsNullOrWhiteSpace(req.Email) || string.IsNullOrWhiteSpace(req.Password))
+            return BadRequest(new { message = "Email and password are required." });
 
         var inf = await _db.Influencers.FirstOrDefaultAsync(i =>
-            i.Email.ToLower() == email.Trim().ToLower() &&
-            i.CouponCode != null &&
-            i.CouponCode.ToLower() == code.Trim().ToLower() &&
+            i.Email.ToLower() == req.Email.Trim().ToLower() &&
             i.Status == "approved");
 
-        if (inf is null)
-            return Unauthorized(new { message = "Invalid email or coupon code." });
+        if (inf is null || string.IsNullOrEmpty(inf.PasswordHash) ||
+            !BCrypt.Net.BCrypt.Verify(req.Password, inf.PasswordHash))
+            return Unauthorized(new { message = "Invalid email or password. If you haven't set a password, contact us." });
 
+        return Ok(await BuildDashboardAsync(inf));
+    }
+
+    // Shared dashboard payload (stats + profile) for an approved creator.
+    private async Task<object> BuildDashboardAsync(Influencer inf)
+    {
+        var code = inf.CouponCode == null ? null : inf.CouponCode.ToLower();
         var orders = await _db.SiteOrders
             .Where(o => o.CouponCode != null &&
-                        o.CouponCode.ToLower() == inf.CouponCode!.ToLower() &&
+                        o.CouponCode.ToLower() == code &&
                         o.Status != "Cancelled")
             .OrderByDescending(o => o.PlacedAt)
             .Select(o => new {
@@ -75,10 +84,10 @@ public class InfluencersController : ControllerBase
             })
             .ToListAsync();
 
-        var totalSales   = orders.Sum(o => o.Total);
-        var commission   = Math.Round(totalSales * inf.CommissionRate / 100, 2);
+        var totalSales = orders.Sum(o => o.Total);
+        var commission = Math.Round(totalSales * inf.CommissionRate / 100, 2);
 
-        return Ok(new {
+        return new {
             name           = inf.Name,
             email          = inf.Email,
             couponCode     = inf.CouponCode,
@@ -93,7 +102,7 @@ public class InfluencersController : ControllerBase
             totalSales,
             commissionEarned = commission,
             orders
-        });
+        };
     }
 
     // ── PUT /api/influencers/profile  (public — creator self-edit) ───────────
@@ -103,17 +112,16 @@ public class InfluencersController : ControllerBase
     [HttpPut("profile")]
     public async Task<IActionResult> UpdateProfile([FromBody] InfluencerProfileRequest req)
     {
-        if (string.IsNullOrWhiteSpace(req.Email) || string.IsNullOrWhiteSpace(req.Code))
-            return Unauthorized(new { success = false, message = "Email and coupon code required." });
+        if (string.IsNullOrWhiteSpace(req.Email) || string.IsNullOrWhiteSpace(req.Password))
+            return Unauthorized(new { success = false, message = "Email and password required." });
 
         var inf = await _db.Influencers.FirstOrDefaultAsync(i =>
             i.Email.ToLower() == req.Email.Trim().ToLower() &&
-            i.CouponCode != null &&
-            i.CouponCode.ToLower() == req.Code.Trim().ToLower() &&
             i.Status == "approved");
 
-        if (inf is null)
-            return Unauthorized(new { success = false, message = "Invalid email or coupon code." });
+        if (inf is null || string.IsNullOrEmpty(inf.PasswordHash) ||
+            !BCrypt.Net.BCrypt.Verify(req.Password, inf.PasswordHash))
+            return Unauthorized(new { success = false, message = "Invalid email or password." });
 
         if (!string.IsNullOrWhiteSpace(req.Name)) inf.Name = req.Name.Trim();
         if (req.Phone          != null) inf.Phone          = req.Phone.Trim();
@@ -264,6 +272,9 @@ public class InfluencersController : ControllerBase
         // Commission is capped at 3% — influencers can never get more than 3%.
         influencer.CommissionRate = Math.Min(req.CommissionRate ?? influencer.CommissionRate, 3m);
         influencer.AdminNotes     = req.AdminNotes ?? influencer.AdminNotes;
+        // Admin can set / reset the creator's login password.
+        if (!string.IsNullOrWhiteSpace(req.NewPassword))
+            influencer.PasswordHash = BCrypt.Net.BCrypt.HashPassword(req.NewPassword, workFactor: 12);
         influencer.UpdatedAt      = DateTimeOffset.UtcNow;
 
         // If approving and coupon code provided → create/ensure coupon exists
@@ -309,12 +320,15 @@ public class InfluencersController : ControllerBase
 
 public record InfluencerApplyRequest(
     string Name, string Email, string? Phone, string? SocialHandle,
-    string? Platform, string? FollowersCount, string? Category, string? Niche);
+    string? Platform, string? FollowersCount, string? Category, string? Niche,
+    string? Password);
+
+public record InfluencerLoginRequest(string Email, string Password);
 
 public record InfluencerUpdateRequest(
     string? Status, string? CouponCode, decimal? CommissionRate,
-    decimal? CouponDiscountPct, string? AdminNotes);
+    decimal? CouponDiscountPct, string? AdminNotes, string? NewPassword);
 
 public record InfluencerProfileRequest(
-    string Email, string Code, string? Name, string? Phone,
+    string Email, string Password, string? Name, string? Phone,
     string? SocialHandle, string? FollowersCount, string? Niche);

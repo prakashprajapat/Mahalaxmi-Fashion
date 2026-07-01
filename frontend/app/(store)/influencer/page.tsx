@@ -35,7 +35,7 @@ export default function InfluencerPage() {
   const [tab, setTab] = useState<'home' | 'login' | 'apply' | 'dashboard'>('home');
   const [dashData, setDashData] = useState<DashboardData | null>(null);
   const [loginEmail, setLoginEmail] = useState('');
-  const [loginCode, setLoginCode] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
   const [loginError, setLoginError] = useState('');
   const [loginLoading, setLoginLoading] = useState(false);
   const [copied, setCopied] = useState('');
@@ -61,11 +61,11 @@ export default function InfluencerPage() {
     setProfileSaving(true); setProfileMsg('');
     try {
       const creds = JSON.parse(localStorage.getItem('inf_creds') ?? '{}');
-      if (!creds.email || !creds.code) { setProfileMsg('Please log out and log in again to edit your profile.'); return; }
+      if (!creds.email || !creds.password) { setProfileMsg('Please log out and log in again to edit your profile.'); return; }
       const res = await fetch(`${API}/api/influencers/profile`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: creds.email, code: creds.code, ...profileForm }),
+        body: JSON.stringify({ email: creds.email, password: creds.password, ...profileForm }),
       });
       const d = await res.json();
       if (!res.ok) { setProfileMsg(d.message ?? 'Update failed.'); return; }
@@ -88,11 +88,17 @@ export default function InfluencerPage() {
     const creds = localStorage.getItem('inf_creds');
     if (creds) {
       try {
-        const { email, code } = JSON.parse(creds);
-        fetch(`${API}/api/influencers/dashboard?email=${encodeURIComponent(email)}&code=${encodeURIComponent(code)}`)
-          .then(r => (r.ok ? r.json() : null))
-          .then(d => { if (d) { setDashData(d); localStorage.setItem('inf_session', JSON.stringify(d)); } })
-          .catch(() => {});
+        const { email, password } = JSON.parse(creds);
+        if (email && password) {
+          fetch(`${API}/api/influencers/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password }),
+          })
+            .then(r => (r.ok ? r.json() : null))
+            .then(d => { if (d) { setDashData(d); localStorage.setItem('inf_session', JSON.stringify(d)); } })
+            .catch(() => {});
+        }
       } catch { /**/ }
     }
   }, []);
@@ -102,13 +108,15 @@ export default function InfluencerPage() {
     setLoginError('');
     setLoginLoading(true);
     try {
-      const res = await fetch(
-        `${API}/api/influencers/dashboard?email=${encodeURIComponent(loginEmail)}&code=${encodeURIComponent(loginCode)}`
-      );
+      const res = await fetch(`${API}/api/influencers/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: loginEmail, password: loginPassword }),
+      });
       if (!res.ok) { const d = await res.json(); setLoginError(d.message ?? 'Login failed'); return; }
       const data = await res.json();
       localStorage.setItem('inf_session', JSON.stringify(data));
-      localStorage.setItem('inf_creds', JSON.stringify({ email: loginEmail, code: loginCode }));
+      localStorage.setItem('inf_creds', JSON.stringify({ email: loginEmail, password: loginPassword }));
       setDashData(data);
       setTab('dashboard');
     } catch { setLoginError('Network error. Try again.'); }
@@ -121,7 +129,7 @@ export default function InfluencerPage() {
     setDashData(null);
     setTab('home');
     setLoginEmail('');
-    setLoginCode('');
+    setLoginPassword('');
   };
 
   const copy = (text: string, key: string) => {
@@ -307,14 +315,14 @@ export default function InfluencerPage() {
             </div>
             <div>
               <label style={{ fontSize: '.85rem', fontWeight: 700, color: '#333', display: 'block', marginBottom: '.35rem' }}>
-                Coupon Code
+                Password
               </label>
-              <input value={loginCode} onChange={e => setLoginCode(e.target.value.toUpperCase())}
-                placeholder="e.g. PRIYA10" required
-                style={{ width: '100%', padding: '.75rem 1rem', border: '1.5px solid #e0e0e0', borderRadius: '12px', fontSize: '.9rem', boxSizing: 'border-box', outline: 'none', fontFamily: 'monospace', letterSpacing: '2px' }}
+              <input type="password" value={loginPassword} onChange={e => setLoginPassword(e.target.value)}
+                placeholder="Your password" required
+                style={{ width: '100%', padding: '.75rem 1rem', border: '1.5px solid #e0e0e0', borderRadius: '12px', fontSize: '.9rem', boxSizing: 'border-box', outline: 'none' }}
               />
               <p style={{ fontSize: '.75rem', color: '#aaa', margin: '.3rem 0 0' }}>
-                Wahi code jo admin ne approve karte waqt diya tha
+                The password you set when applying. Forgot it? Contact us on WhatsApp.
               </p>
             </div>
             {loginError && (
@@ -644,7 +652,7 @@ export default function InfluencerPage() {
 function ApplyForm({ onBack }: { onBack: () => void }) {
   const [form, setForm] = useState({
     name: '', email: '', phone: '', socialHandle: '',
-    platform: 'Instagram', followersCount: '', category: '', niche: '',
+    platform: 'Instagram', followersCount: '', category: '', niche: '', password: '',
   });
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<{ ok: boolean; msg: string } | null>(null);
@@ -780,6 +788,14 @@ function ApplyForm({ onBack }: { onBack: () => void }) {
                 <textarea style={{ ...inp, minHeight: '90px', resize: 'vertical' }}
                   placeholder="What content do you create? Who is your audience? Why do you want to work with Mahalaxmi?"
                   value={form.niche} onChange={e => set('niche', e.target.value)} />
+              </div>
+              <div>
+                <label style={lbl}>Create a Password <span style={{ color: BRAND }}>*</span></label>
+                <input type="password" style={inp} placeholder="Choose a password for your dashboard login"
+                  value={form.password} onChange={e => set('password', e.target.value)} required minLength={6} />
+                <p style={{ fontSize: '.72rem', color: '#aaa', margin: '.3rem 0 0' }}>
+                  You&apos;ll log in to your creator dashboard with your email + this password.
+                </p>
               </div>
               <button type="submit" disabled={submitting} style={{
                 padding: '.9rem', borderRadius: '14px', border: 'none',
