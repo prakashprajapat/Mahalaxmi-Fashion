@@ -191,11 +191,17 @@ export default function ProductPage({ params }: { params: { id: string } }) {
   const sizes: string[] = [...new Set(extra.sizes ?? (extra.variantMatrix ? [...new Set(Object.keys(extra.variantMatrix).map(k => k.split('|')[0]))] : []))];
   const normalColors = extra.colors ?? (extra.variantMatrix ? [...new Set(Object.keys(extra.variantMatrix).map(k => k.split('|')[1]).filter(Boolean))] : []);
   const colors: string[] = isPackProduct ? [] : [...new Set([...normalColors, ...((extra.customColors ?? []).map(c => c.name ?? '').filter(Boolean))])];
-  const customColorMap = new Map((extra.customColors ?? []).filter(c => c.name).map(c => [c.name!, c]));
   const colorCodes: Record<string, string> = {
     ...(extra.colorCodes ?? {}),
     ...Object.fromEntries((extra.customColors ?? []).filter(c => c.name && c.code).map(c => [c.name!, c.code!])),
   };
+  // One swatch per colour (preset = circle, custom = photo) so ALL custom
+  // colours show, even if they share a name, and without a text label.
+  const customNames = new Set((extra.customColors ?? []).map(c => c.name));
+  const swatchList: { key: string; name: string; photo?: string; code: string }[] = isPackProduct ? [] : [
+    ...normalColors.filter((n: string) => !customNames.has(n)).map((name: string, i: number) => ({ key: 'p' + i, name, code: colorCodes[name] || '#ddd' })),
+    ...((extra.customColors ?? []).map((cc, i) => ({ key: 'c' + i, name: cc.name ?? '', photo: cc.photo, code: cc.code || '#ddd' }))),
+  ];
 
   const variantKey = colors.length > 0 ? `${size}|${color}` : size;
   const variantStock = extra.variantMatrix ? (extra.variantMatrix[variantKey] ?? null) : null;
@@ -395,33 +401,28 @@ export default function ProductPage({ params }: { params: { id: string } }) {
               )}
             </div>
 
-            {/* Colors */}
-            {colors.length > 0 && (
+            {/* Colour / Design — every colour is its own swatch, no name label */}
+            {swatchList.length > 0 && (
               <div>
-                <p style={{ fontWeight: 600, fontSize: '.9rem', marginBottom: '.5rem' }}>
-                  Select Color {color && <span style={{ fontWeight: 400, color: '#888' }}>— {color}</span>}
-                </p>
+                <p style={{ fontWeight: 600, fontSize: '.9rem', marginBottom: '.5rem' }}>Colour / Design</p>
                 <div style={{ display: 'flex', gap: '.5rem', flexWrap: 'wrap' }}>
-                  {colors.map(c => {
-                    const custom = customColorMap.get(c);
-                    return (
-                      <button key={c} onClick={() => { setColor(c); setActiveImg(custom?.photo ? (productImageSrc(custom.photo) || custom.photo) : productImageSrc(product.image)); }} title={c} style={{
-                        minHeight: '38px', borderRadius: '8px',
-                        background: color === c ? '#fdf0f3' : '#fff',
-                        border: color === c ? '2px solid #a7354d' : '1.5px solid #ddd',
-                        cursor: 'pointer', color: color === c ? '#a7354d' : '#333',
-                        padding: custom?.photo ? '.2rem .65rem .2rem .25rem' : '.35rem .75rem',
-                        display: 'flex', alignItems: 'center', gap: '.35rem', fontWeight: 600,
+                  {swatchList.map(s => (
+                    <button key={s.key} onClick={() => { setColor(s.name); setActiveImg(s.photo ? (productImageSrc(s.photo) || s.photo) : productImageSrc(product.image)); }}
+                      title={s.name}
+                      style={{
+                        padding: 0, overflow: 'hidden',
+                        borderRadius: s.photo ? '8px' : '50%',
+                        border: color === s.name ? '2.5px solid #a7354d' : '1.5px solid #ddd',
+                        background: '#fff', cursor: 'pointer', flexShrink: 0,
+                        width: s.photo ? '44px' : '36px',
+                        height: s.photo ? '44px' : '36px',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
                       }}>
-                        {custom?.photo ? (
-                          <img src={productImageSrc(custom.photo) || custom.photo} alt="" style={{ width: 26, height: 26, borderRadius: '5px', objectFit: 'cover' }} />
-                        ) : (
-                          <span style={{ width: 16, height: 16, borderRadius: '50%', background: colorCodes[c] ?? '#ccc', border: '1px solid #bbb', display: 'inline-block' }} />
-                        )}
-                        {c}
-                      </button>
-                    );
-                  })}
+                      {s.photo
+                        ? <img src={productImageSrc(s.photo) || s.photo} alt={s.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        : <span style={{ width: 16, height: 16, borderRadius: '50%', background: s.code, border: '1px solid #bbb', display: 'inline-block' }} />}
+                    </button>
+                  ))}
                 </div>
               </div>
             )}

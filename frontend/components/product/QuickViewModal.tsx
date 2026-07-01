@@ -53,7 +53,12 @@ export default function QuickViewModal({ product, onClose }: Props) {
   const colours = isPackProduct
     ? []
     : [...new Set([...(extra.colors ?? []), ...((extra.customColors ?? []).map(c => c.name ?? '').filter(Boolean))])];
-  const customColourMap = new Map((extra.customColors ?? []).filter(c => c.name).map(c => [c.name!, c]));
+  // One swatch per colour (preset = circle, custom = photo) so ALL custom
+  // colours show — even if they share a name — and without a text label.
+  const swatchList: { key: string; name: string; photo?: string; code: string }[] = isPackProduct ? [] : [
+    ...((extra.colors ?? []).map((name, i) => ({ key: 'p' + i, name, code: (extra.colorCodes?.[name]) || '#ddd' }))),
+    ...((extra.customColors ?? []).map((cc, i) => ({ key: 'c' + i, name: cc.name ?? '', photo: cc.photo, code: cc.code || '#ddd' }))),
+  ];
   const images: string[] = (() => {
     const imgs: string[] = [];
     const seen = new Set<string>();
@@ -282,41 +287,28 @@ export default function QuickViewModal({ product, onClose }: Props) {
               {inStock ? '✓ In Stock' : '✗ Out of Stock'}
             </p>
 
-            {/* Colour / design selector */}
-            {colours.length > 0 && !isPackProduct && (
+            {/* Colour / design selector — every colour is its own swatch, no name label */}
+            {swatchList.length > 0 && (
               <div>
                 <p style={{ fontSize: '.85rem', fontWeight: 700, color: '#333', margin: '0 0 .4rem' }}>Colour / Design</p>
                 <div style={{ display: 'flex', gap: '.4rem', flexWrap: 'wrap' }}>
-                  {colours.map(c => {
-                    const custom = customColourMap.get(c);
-                    const swatch = custom?.code || extra.colorCodes?.[c] || '#ddd';
-                    return (
-                      <button key={c} onClick={() => { setColour(c); if (custom?.photo) setActiveImg(productImageSrc(custom.photo) || custom.photo); }}
-                        title={c}
-                        style={{
-                          minHeight: '34px',
-                          padding: custom?.photo ? '.2rem .55rem .2rem .25rem' : '.3rem',
-                          borderRadius: custom?.photo ? '8px' : '50%',
-                          fontSize: '.82rem', fontWeight: 600,
-                          border: colour === c ? '2.5px solid #a7354d' : '1.5px solid #ddd',
-                          background: colour === c ? '#fdf0f3' : '#fff',
-                          color: colour === c ? '#a7354d' : '#555',
-                          cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '.35rem',
-                          width: custom?.photo ? undefined : '36px',
-                          height: custom?.photo ? undefined : '36px',
-                          justifyContent: 'center',
-                        }}>
-                        {custom?.photo ? (
-                          <>
-                            <img src={productImageSrc(custom.photo) || custom.photo} alt="" style={{ width: 24, height: 24, borderRadius: '5px', objectFit: 'cover' }} />
-                            {c}
-                          </>
-                        ) : (
-                          <span style={{ width: 18, height: 18, borderRadius: '50%', background: swatch, border: '1px solid rgba(0,0,0,.15)', display: 'inline-block', flexShrink: 0 }} />
-                        )}
-                      </button>
-                    );
-                  })}
+                  {swatchList.map(s => (
+                    <button key={s.key} onClick={() => { setColour(s.name); if (s.photo) setActiveImg(productImageSrc(s.photo) || s.photo); }}
+                      title={s.name}
+                      style={{
+                        padding: 0, overflow: 'hidden',
+                        borderRadius: s.photo ? '8px' : '50%',
+                        border: colour === s.name ? '2.5px solid #a7354d' : '1.5px solid #ddd',
+                        background: '#fff', cursor: 'pointer', flexShrink: 0,
+                        width: s.photo ? '42px' : '34px',
+                        height: s.photo ? '42px' : '34px',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      }}>
+                      {s.photo
+                        ? <img src={productImageSrc(s.photo) || s.photo} alt={s.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        : <span style={{ width: 18, height: 18, borderRadius: '50%', background: s.code, border: '1px solid rgba(0,0,0,.15)', display: 'inline-block' }} />}
+                    </button>
+                  ))}
                 </div>
               </div>
             )}
