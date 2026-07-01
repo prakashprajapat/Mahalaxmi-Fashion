@@ -28,7 +28,7 @@ export default function InfluencersAdminPage() {
   // Fraud & misuse
   const [fraud, setFraud] = useState(null);
   const [fraudLoading, setFraudLoading] = useState(false);
-  const [expanded, setExpanded] = useState(null);
+  const [fraudCreator, setFraudCreator] = useState('all');
 
   const token = typeof window !== 'undefined' ? getAdminToken() : '';
   const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
@@ -65,15 +65,17 @@ export default function InfluencersAdminPage() {
 
   const downloadFraudCsv = () => {
     if (!fraud) return;
-    const rows = [['Creator','Coupon','Risk','Order ID','Customer','Phone','Amount','Status','Flags']];
-    fraud.creators.forEach(c => c.orders.filter(o => o.flags.length > 0).forEach(o => {
-      rows.push([c.name, c.couponCode ?? '', c.risk, o.orderId, o.customerName, o.customerPhone, o.total, o.status, o.flags.join(' | ')]);
+    const list = fraudCreator !== 'all' ? fraud.creators.filter(c => String(c.id) === fraudCreator) : fraud.creators;
+    const rows = [['Creator','Coupon','Order ID','Customer','Phone','Amount','Status','Date','Flags']];
+    list.forEach(c => c.orders.forEach(o => {
+      rows.push([c.name, c.couponCode ?? '', o.orderId, o.customerName, o.customerPhone, o.total, o.status, o.date, o.flags.join(' | ')]);
     }));
     const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url; a.download = `fraud-flagged-orders-${new Date().toISOString().slice(0,10)}.csv`;
+    const who = fraudCreator !== 'all' ? String(list[0]?.name || 'creator').replace(/[^a-z0-9]+/gi,'-') : 'all-creators';
+    a.href = url; a.download = `${who}-order-report-${new Date().toISOString().slice(0,10)}.csv`;
     a.click(); URL.revokeObjectURL(url);
   };
 
@@ -171,7 +173,7 @@ export default function InfluencersAdminPage() {
       </div>
 
       <div style={{display:'flex',gap:'.5rem',marginBottom:'1.25rem'}}>
-        {[['apps','📋 Applications'],['report','📊 Performance Report'],['fraud','🚩 Fraud & Misuse']].map(([v,label]) => (
+        {[['apps','📋 Applications'],['report','📊 Performance Report'],['fraud','📋 Influencer Order Report']].map(([v,label]) => (
           <button key={v} onClick={()=>setView(v)} style={{padding:'.5rem 1.1rem',borderRadius:'10px',border:'none',cursor:'pointer',fontWeight:700,fontSize:'.85rem',background:view===v?'#a7354d':'#f0f0f0',color:view===v?'#fff':'#555'}}>{label}</button>
         ))}
       </div>
@@ -304,74 +306,82 @@ export default function InfluencersAdminPage() {
 
       {view === 'fraud' && (
         fraudLoading || !fraud
-        ? <div style={{padding:'3rem',textAlign:'center',color:'#999'}}>Loading fraud report…</div>
-        : (
-        <div>
-          <div style={{display:'flex',gap:'1rem',marginBottom:'1.25rem',flexWrap:'wrap'}}>
-            {[['High-risk Creators',fraud.totals.highRisk,'#ef4444'],['Flagged Orders',fraud.totals.flaggedOrders,'#f59e0b'],['Self-orders',fraud.totals.selfOrders,'#a7354d'],['Creators',fraud.totals.creators,'#6366f1']].map(([label,val,color]) => (
-              <div key={label} style={{flex:'1 1 140px',background:'#fff',borderRadius:'12px',padding:'1rem',boxShadow:'0 1px 6px rgba(0,0,0,.08)',borderLeft:`4px solid ${color}`}}>
-                <div style={{fontSize:'1.4rem',fontWeight:800,color}}>{val}</div>
-                <div style={{fontSize:'.8rem',color:'#888',fontWeight:600}}>{label}</div>
-              </div>
-            ))}
-          </div>
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'.75rem',flexWrap:'wrap',gap:'.5rem'}}>
-            <h3 style={{margin:0,fontWeight:700,fontSize:'1rem'}}>Risk by Creator <span style={{fontWeight:400,color:'#999',fontSize:'.8rem'}}>(high risk first — click a creator to see orders)</span></h3>
-            <button onClick={downloadFraudCsv} style={{padding:'.4rem .9rem',borderRadius:'8px',border:'1.5px solid #a7354d',background:'#fff',color:'#a7354d',cursor:'pointer',fontWeight:600,fontSize:'.82rem'}}>⬇ Export flagged orders</button>
-          </div>
-          {fraud.creators.length===0 ? (
-            <div style={{padding:'2.5rem',textAlign:'center',color:'#999',background:'#fff',borderRadius:'12px'}}>No creators with coupons yet.</div>
-          ) : fraud.creators.map(c => {
-            const rc = c.risk==='high'?{bd:'#ef4444',bg:'#fef2f2',txt:'#b91c1c',label:'🔴 High risk'}:c.risk==='medium'?{bd:'#f59e0b',bg:'#fffbeb',txt:'#b45309',label:'🟡 Medium'}:{bd:'#22c55e',bg:'#f0fdf4',txt:'#15803d',label:'🟢 Low'};
-            const open = expanded===c.id;
-            return (
-              <div key={c.id} style={{background:'#fff',borderRadius:'12px',boxShadow:'0 1px 6px rgba(0,0,0,.08)',borderLeft:`4px solid ${rc.bd}`,marginBottom:'.75rem',overflow:'hidden'}}>
-                <div onClick={()=>setExpanded(open?null:c.id)} style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:'1rem',padding:'.9rem 1rem',cursor:'pointer',flexWrap:'wrap'}}>
-                  <div>
-                    <div style={{fontWeight:700}}>{c.name} <code style={{background:'#f0f0f0',padding:'.1rem .4rem',borderRadius:'4px',color:'#a7354d',fontSize:'.78rem'}}>{c.couponCode}</code></div>
-                    <div style={{fontSize:'.78rem',color:'#777',marginTop:'.2rem'}}>Orders {c.totalOrders} · Returns {c.returnedOrders} ({c.returnRate}%) · Cancels {c.cancelledOrders} ({c.cancelRate}%) · Self-orders {c.selfOrders} · Repeat customers {c.repeatCustomers}</div>
-                  </div>
-                  <div style={{display:'flex',alignItems:'center',gap:'.6rem'}}>
-                    <span style={{background:rc.bg,color:rc.txt,padding:'.25rem .7rem',borderRadius:'20px',fontWeight:700,fontSize:'.78rem',whiteSpace:'nowrap'}}>{rc.label}</span>
-                    <span style={{color:'#999',fontSize:'.8rem'}}>{open?'▲':'▼'}</span>
-                  </div>
+        ? <div style={{padding:'3rem',textAlign:'center',color:'#999'}}>Loading report…</div>
+        : (() => {
+          const sel = fraudCreator !== 'all' ? fraud.creators.find(c => String(c.id) === fraudCreator) : null;
+          const orders = sel
+            ? sel.orders.map(o => ({ ...o, creatorName: sel.name }))
+            : fraud.creators.flatMap(c => c.orders.map(o => ({ ...o, creatorName: c.name })));
+          const rc = sel ? (sel.risk==='high'?{bg:'#fef2f2',txt:'#b91c1c',label:'🔴 High risk'}:sel.risk==='medium'?{bg:'#fffbeb',txt:'#b45309',label:'🟡 Medium'}:{bg:'#f0fdf4',txt:'#15803d',label:'🟢 Low'}) : null;
+          return (
+          <div>
+            <div style={{display:'flex',gap:'1rem',marginBottom:'1.25rem',flexWrap:'wrap'}}>
+              {[['Total Creators',fraud.totals.creators,'#6366f1'],['Flagged Orders',fraud.totals.flaggedOrders,'#f59e0b'],['Self-orders',fraud.totals.selfOrders,'#a7354d'],['High-risk',fraud.totals.highRisk,'#ef4444']].map(([label,val,color]) => (
+                <div key={label} style={{flex:'1 1 140px',background:'#fff',borderRadius:'12px',padding:'1rem',boxShadow:'0 1px 6px rgba(0,0,0,.08)',borderLeft:`4px solid ${color}`}}>
+                  <div style={{fontSize:'1.4rem',fontWeight:800,color}}>{val}</div>
+                  <div style={{fontSize:'.8rem',color:'#888',fontWeight:600}}>{label}</div>
                 </div>
-                {open && (
-                  c.orders.length===0 ? <div style={{padding:'0 1rem 1rem',color:'#999',fontSize:'.83rem'}}>No orders for this creator.</div>
-                  : <div style={{overflowX:'auto',borderTop:'1px solid #f0f0f0'}}>
-                    <table style={{width:'100%',borderCollapse:'collapse',fontSize:'.8rem'}}>
-                      <thead><tr style={{background:'#fafafa'}}>
-                        {['Order ID','Customer','Phone','Amount','Status','Flags'].map(h=>(
-                          <th key={h} style={{padding:'.5rem .7rem',textAlign:'left',fontWeight:700,color:'#666',whiteSpace:'nowrap'}}>{h}</th>
-                        ))}
-                      </tr></thead>
-                      <tbody>
-                        {c.orders.map(o=>{
-                          const flagged=o.flags.length>0;
-                          return (
-                          <tr key={o.orderId} style={{borderBottom:'1px solid #f5f5f5',background:flagged?'#fffdf5':undefined}}>
-                            <td style={{padding:'.45rem .7rem',fontWeight:600,color:'#a7354d',whiteSpace:'nowrap'}}>{o.orderId}</td>
-                            <td style={{padding:'.45rem .7rem'}}>{o.customerName||'—'}</td>
-                            <td style={{padding:'.45rem .7rem',whiteSpace:'nowrap'}}>{o.customerPhone||'—'}</td>
-                            <td style={{padding:'.45rem .7rem'}}>₹{o.total.toLocaleString('en-IN')}</td>
-                            <td style={{padding:'.45rem .7rem'}}>{o.status}</td>
-                            <td style={{padding:'.45rem .7rem'}}>
-                              {o.flags.length===0?<span style={{color:'#bbb'}}>—</span>:o.flags.map(f=>(
-                                <span key={f} style={{display:'inline-block',background:f.startsWith('Self')?'#fee2e2':f==='Returned'?'#fef3c7':f==='Cancelled'?'#e5e7eb':'#e0e7ff',color:f.startsWith('Self')?'#b91c1c':f==='Returned'?'#b45309':f==='Cancelled'?'#374151':'#3730a3',padding:'.1rem .45rem',borderRadius:'8px',fontSize:'.7rem',fontWeight:700,marginRight:'.25rem'}}>{f}</span>
-                              ))}
-                            </td>
-                          </tr>
-                        );})}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
+              ))}
+            </div>
+
+            {/* Filter + Export */}
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:'.75rem',marginBottom:'1rem',flexWrap:'wrap'}}>
+              <div style={{display:'flex',alignItems:'center',gap:'.5rem'}}>
+                <label style={{fontSize:'.82rem',fontWeight:600,color:'#555'}}>Creator:</label>
+                <select value={fraudCreator} onChange={e=>setFraudCreator(e.target.value)}
+                  style={{padding:'.45rem .8rem',borderRadius:'8px',border:'1.5px solid #ddd',fontSize:'.85rem',minWidth:'230px',background:'#fff'}}>
+                  <option value="all">All creators</option>
+                  {fraud.creators.map(c => <option key={c.id} value={String(c.id)}>{c.name} ({c.couponCode})</option>)}
+                </select>
               </div>
-            );
-          })}
-          <p style={{fontSize:'.78rem',color:'#999',marginTop:'.75rem'}}>Signals: <b>Self-order</b> = order&apos;s customer phone/email matches the creator&apos;s own. <b>Repeat</b> = same phone used on multiple orders under this code. High return/cancel rates or self-orders suggest coupon misuse or return fraud — review before paying commission.</p>
-        </div>
-        )
+              <button onClick={downloadFraudCsv} style={{padding:'.45rem 1rem',borderRadius:'8px',border:'none',background:'#16a34a',color:'#fff',cursor:'pointer',fontWeight:700,fontSize:'.83rem'}}>⬇ Export to Excel</button>
+            </div>
+
+            {sel && rc && (
+              <div style={{background:'#fff',borderRadius:'12px',boxShadow:'0 1px 6px rgba(0,0,0,.08)',padding:'.9rem 1rem',marginBottom:'.75rem',display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:'.5rem'}}>
+                <div>
+                  <div style={{fontWeight:700}}>{sel.name} <code style={{background:'#f0f0f0',padding:'.1rem .4rem',borderRadius:'4px',color:'#a7354d',fontSize:'.78rem'}}>{sel.couponCode}</code></div>
+                  <div style={{fontSize:'.78rem',color:'#777',marginTop:'.2rem'}}>Orders {sel.totalOrders} · Returns {sel.returnedOrders} ({sel.returnRate}%) · Cancels {sel.cancelledOrders} ({sel.cancelRate}%) · Self-orders {sel.selfOrders} · Repeat customers {sel.repeatCustomers}</div>
+                </div>
+                <span style={{background:rc.bg,color:rc.txt,padding:'.25rem .7rem',borderRadius:'20px',fontWeight:700,fontSize:'.78rem',whiteSpace:'nowrap'}}>{rc.label}</span>
+              </div>
+            )}
+
+            <div style={{background:'#fff',borderRadius:'12px',boxShadow:'0 1px 6px rgba(0,0,0,.08)',overflowX:'auto'}}>
+              <table style={{width:'100%',borderCollapse:'collapse',fontSize:'.82rem'}}>
+                <thead><tr style={{background:'#fdf0f3',borderBottom:'2px solid #f0d0d8'}}>
+                  {['Creator','Order ID','Customer','Phone','Amount','Status','Date','Flags'].map(h=>(
+                    <th key={h} style={{padding:'.6rem .7rem',textAlign:'left',fontWeight:700,color:'#555',whiteSpace:'nowrap'}}>{h}</th>
+                  ))}
+                </tr></thead>
+                <tbody>
+                  {orders.length===0 ? (
+                    <tr><td colSpan={8} style={{padding:'2.5rem',textAlign:'center',color:'#999'}}>No orders yet.</td></tr>
+                  ) : orders.map((o,i)=>{
+                    const flagged=o.flags.length>0;
+                    return (
+                    <tr key={o.orderId+'-'+i} style={{borderBottom:'1px solid #f5f5f5',background:flagged?'#fffdf5':(i%2===0?'#fff':'#fafafa')}}>
+                      <td style={{padding:'.5rem .7rem',fontWeight:600,whiteSpace:'nowrap'}}>{o.creatorName}</td>
+                      <td style={{padding:'.5rem .7rem',fontWeight:600,color:'#a7354d',whiteSpace:'nowrap'}}>{o.orderId}</td>
+                      <td style={{padding:'.5rem .7rem'}}>{o.customerName||'—'}</td>
+                      <td style={{padding:'.5rem .7rem',whiteSpace:'nowrap'}}>{o.customerPhone||'—'}</td>
+                      <td style={{padding:'.5rem .7rem'}}>₹{o.total.toLocaleString('en-IN')}</td>
+                      <td style={{padding:'.5rem .7rem'}}>{o.status}</td>
+                      <td style={{padding:'.5rem .7rem',whiteSpace:'nowrap',color:'#888'}}>{o.date}</td>
+                      <td style={{padding:'.5rem .7rem'}}>
+                        {o.flags.length===0?<span style={{color:'#bbb'}}>—</span>:o.flags.map(f=>(
+                          <span key={f} style={{display:'inline-block',background:f.startsWith('Self')?'#fee2e2':f==='Returned'?'#fef3c7':f==='Cancelled'?'#e5e7eb':'#e0e7ff',color:f.startsWith('Self')?'#b91c1c':f==='Returned'?'#b45309':f==='Cancelled'?'#374151':'#3730a3',padding:'.1rem .45rem',borderRadius:'8px',fontSize:'.7rem',fontWeight:700,marginRight:'.25rem'}}>{f}</span>
+                        ))}
+                      </td>
+                    </tr>
+                  );})}
+                </tbody>
+              </table>
+            </div>
+            <p style={{fontSize:'.78rem',color:'#999',marginTop:'.75rem'}}>Creator चुनकर सिर्फ़ उसके orders देखें, फिर Export to Excel। <b>Self-order</b> = customer का phone/email creator के अपने से match। <b>Repeat</b> = एक ही phone कई orders पर। ज़्यादा return/cancel या self-orders = coupon misuse का संकेत — commission देने से पहले review करें।</p>
+          </div>
+          );
+        })()
       )}
 
       {selected && (
