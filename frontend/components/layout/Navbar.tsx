@@ -198,8 +198,8 @@ export default function Navbar() {
           style={{
             display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
             gap: '.08rem', padding: '.6rem .75rem', background: 'none', border: 'none',
-            cursor: 'pointer', color: 'var(--brand)', flexShrink: 0,
-            borderRight: '1px solid var(--border)', marginRight: '.25rem',
+            cursor: 'pointer', color: '#fff', flexShrink: 0,
+            borderRight: '1px solid rgba(255,255,255,.15)', marginRight: '.25rem',
             minWidth: 52,
           }}>
           <span style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>

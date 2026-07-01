@@ -72,21 +72,21 @@ button { cursor: pointer; font-family: inherit; }
 
 /* ─── Site Header ─── */
 .site-header {
-  background: #fff;
-  box-shadow: 0 1px 4px rgba(0,0,0,.08);
+  background: #6b1c30; /* wine */
+  box-shadow: 0 1px 4px rgba(0,0,0,.15);
 }
 .policy-nav {
   display: flex;
   gap: 1rem;
   padding: .35rem 1.5rem;
   font-size: .75rem;
-  background: #fafafa;
-  border-bottom: 1px solid var(--border);
+  background: rgba(0,0,0,.15);
+  border-bottom: 1px solid rgba(255,255,255,.12);
   flex-wrap: wrap;
   overflow-x: auto;
 }
-.policy-nav a { color: var(--muted); white-space: nowrap; }
-.policy-nav a:hover { color: var(--brand); }
+.policy-nav a { color: rgba(255,255,255,.72); white-space: nowrap; }
+.policy-nav a:hover { color: #f1bd79; }
 
 .brand-row {
   display: flex;
@@ -104,8 +104,8 @@ button { cursor: pointer; font-family: inherit; }
   color: inherit;
   flex-shrink: 0;
 }
-.brand strong { display: block; font-size: 1.05rem; color: var(--brand); line-height: 1.2; }
-.brand-tagline { font-size: .7rem; color: var(--muted); }
+.brand strong { display: block; font-size: 1.05rem; color: #fff; line-height: 1.2; }
+.brand-tagline { font-size: .7rem; color: #f1bd79; }
 .brand-mark img { width: 48px; height: 48px; border-radius: 8px; }
 
 .search {
@@ -124,31 +124,31 @@ button { cursor: pointer; font-family: inherit; }
 }
 .search input:focus { border-color: var(--brand); }
 .search button {
-  background: var(--brand);
-  color: #fff;
+  background: #e8b04b;
+  color: #6b1c30;
   border: none;
   border-radius: 0 var(--radius) var(--radius) 0;
   padding: .55rem 1.1rem;
   font-size: .9rem;
-  font-weight: 600;
+  font-weight: 700;
   transition: background .2s;
 }
-.search button:hover { background: var(--brand-dark); }
+.search button:hover { background: #f1bd79; }
 
 .brand-actions { display: flex; align-items: center; gap: .75rem; margin-left: auto; }
 .cart-link {
-  background: var(--brand);
-  color: #fff;
+  background: #e8b04b;
+  color: #6b1c30;
   padding: .45rem .9rem;
   border-radius: 20px;
   font-size: .88rem;
-  font-weight: 600;
+  font-weight: 700;
   text-decoration: none;
   white-space: nowrap;
 }
 .account-cta {
-  border: 2px solid var(--brand);
-  color: var(--brand);
+  border: 2px solid #f1bd79;
+  color: #fff;
   padding: .4rem .85rem;
   border-radius: 20px;
   font-size: .85rem;
@@ -156,19 +156,19 @@ button { cursor: pointer; font-family: inherit; }
   text-decoration: none;
   white-space: nowrap;
 }
-.account-cta:hover { background: var(--brand); color: #fff; }
+.account-cta:hover { background: #f1bd79; color: #6b1c30; }
 
 .department-nav {
   display: flex;
   gap: 0;
   padding: 0 1.5rem;
-  border-top: 1px solid var(--border);
-  background: #fff;
+  border-top: 1px solid rgba(255,255,255,.12);
+  background: #6b1c30;
   overflow-x: auto;
   position: sticky;
   top: 0;
   z-index: 100;
-  box-shadow: 0 2px 6px rgba(0,0,0,.07);
+  box-shadow: 0 2px 6px rgba(0,0,0,.18);
 }
 .department-nav a {
   display: flex;
@@ -177,9 +177,9 @@ button { cursor: pointer; font-family: inherit; }
   justify-content: center;
   text-align: center;
   text-decoration: none;
-  color: #444;
+  color: rgba(255,255,255,.88);
   font-size: .72rem;
-  font-weight: 500;
+  font-weight: 600;
   padding: .4rem .5rem;
   gap: .2rem;
   min-width: 56px;
@@ -187,7 +187,7 @@ button { cursor: pointer; font-family: inherit; }
   border-bottom: 2px solid transparent;
   transition: color .2s, border-color .2s;
 }
-.department-nav a:hover { color: var(--brand); border-bottom-color: var(--brand); }
+.department-nav a:hover { color: #f1bd79; border-bottom-color: #f1bd79; }
 .department-icon { width: 38px; height: 38px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 
 /* ─── Hamburger Menu ─── */
@@ -540,7 +540,7 @@ button { cursor: pointer; font-family: inherit; }
 .badge-gray { background: #f3f4f6; color: #374151; }
 
 /* ─── Footer ─── */
-.site-footer { background: var(--brand); color: #f4eadf; padding-top: 3rem; }
+.site-footer { background: #6b1c30; color: #f4eadf; padding-top: 3rem; }
 .site-footer-grid { max-width: 1400px; margin: 0 auto; padding: 0 1.5rem 2.5rem; display: grid; grid-template-columns: 1.7fr .85fr .95fr 1fr 1.1fr; gap: 2rem; }
 .site-footer-brand .brand strong { color: #fff; }
 .site-footer-brand .brand-tagline { color: #f1bd79; font-weight: 800; text-transform: uppercase; }
