@@ -336,7 +336,7 @@ export default function Navbar() {
             .mfh-login-modal {
               width: 100%; max-width: 640px; background: #fff; border-radius: 20px;
               box-shadow: 0 24px 80px rgba(0,0,0,.3); padding: 0;
-              position: relative; display: grid; grid-template-columns: 170px 1fr;
+              position: relative; display: grid; grid-template-columns: 240px 1fr;
               gap: 0; align-items: stretch; overflow: hidden;
             }
             .mfh-login-logo {
@@ -345,7 +345,8 @@ export default function Navbar() {
               justify-content: center; padding: 2rem 1.25rem; text-align: center; gap: .75rem;
             }
             .mfh-login-logo img {
-              width: 180px; height: 180px; border-radius: 50%; padding: 14px;
+              width: 170px; height: 170px; min-width: 170px; max-width: none;
+              border-radius: 50%; padding: 14px; box-sizing: border-box; flex-shrink: 0;
               border: 3px solid rgba(255,255,255,.7); background: #fff; object-fit: contain;
             }
             .mfh-login-logo p {

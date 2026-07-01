@@ -117,7 +117,8 @@ function AccountContent() {
           gap: .75rem;
         }
         .mfh-account-login-logo img {
-          width: 150px; height: 150px;
+          width: 150px; height: 150px; min-width: 150px; max-width: none;
+          box-sizing: border-box; flex-shrink: 0;
           border-radius: 50%;
           border: 3px solid rgba(255,255,255,.7);
           background: #fff;
