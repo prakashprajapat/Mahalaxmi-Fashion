@@ -136,7 +136,7 @@ export default function Navbar() {
         <div className="brand-row">
           <Link href="/" className="brand" aria-label="Mahalaxmi Fashion Hub home">
             <span className="brand-mark">
-              <img src="/logo.webp?v=2" alt="Mahalaxmi Fashion Hub logo" width="48" height="48" loading="eager" />
+              <img src="/logo-color.webp" alt="Mahalaxmi Fashion Hub logo" width="48" height="48" loading="eager" />
             </span>
             <span>
               <strong>Mahalaxmi Fashion Hub</strong>
@@ -198,8 +198,8 @@ export default function Navbar() {
           style={{
             display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
             gap: '.08rem', padding: '.6rem .75rem', background: 'none', border: 'none',
-            cursor: 'pointer', color: '#fff', flexShrink: 0,
-            borderRight: '1px solid rgba(255,255,255,.15)', marginRight: '.25rem',
+            cursor: 'pointer', color: 'var(--brand)', flexShrink: 0,
+            borderRight: '1px solid var(--border)', marginRight: '.25rem',
             minWidth: 52,
           }}>
           <span style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -380,7 +380,7 @@ export default function Navbar() {
               ×
             </button>
             <div className="mfh-login-logo">
-              <img src="/logo.webp?v=2" alt="Mahalaxmi Fashion Hub" />
+              <img src="/logo-color.webp" alt="Mahalaxmi Fashion Hub" />
               <div>
                 <p>Mahalaxmi<br />Fashion Hub</p>
                 <small>Every Look, A New Experience</small>
