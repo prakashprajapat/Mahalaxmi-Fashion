@@ -285,7 +285,9 @@ function CustomColourModal({
 
   const handleAdd = () => {
     if (!colName.trim()) { alert('Colour Name required'); return; }
-    onAdd({ name: colName.trim(), code, photo: colPhoto, columnLetter: nextLetter });
+    // A custom colour is EITHER a photo (column) OR a colour code — not both.
+    // If a photo is uploaded, ignore the colour code; otherwise use the code.
+    onAdd({ name: colName.trim(), code: colPhoto ? '' : code, photo: colPhoto, columnLetter: nextLetter });
     onClose();
   };
 
