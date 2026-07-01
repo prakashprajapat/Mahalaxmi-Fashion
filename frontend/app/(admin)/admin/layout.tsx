@@ -4,20 +4,22 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { getAdminToken, adminLogout } from '@/lib/auth';
 
-// All nav items (admin sees everything)
-const ALL_NAV = [
+// All nav items (admin sees everything). Items with `heading` render as a
+// non-clickable group label.
+const ALL_NAV: { href?: string; label?: string; exact?: boolean; heading?: string }[] = [
   { href: '/admin',             label: '📊 Dashboard',       exact: true },
-  { href: '/admin/products',    label: '👗 Products' },
-  { href: '/admin/products/add',label: '➕ Add Product' },
   { href: '/admin/orders',      label: '📦 Orders' },
+  { heading: 'Inventory' },
+  { href: '/admin/products',    label: '👗 Products' },
+  { href: '/admin/products/add',label: '➕ Add / Edit Product' },
   { href: '/admin/stock',       label: '🔄 Stock Manager' },
   { href: '/admin/customers',   label: '👥 Customers' },
   { href: '/admin/reports',     label: '📈 Reports & GSTR-1' },
   { href: '/admin/reviews',     label: '⭐ Reviews' },
-  { href: '/admin/staff',       label: '👤 Staff' },
-  { href: '/admin/birthday',    label: '🎂 Birthdays & Anniversaries' },
-  { href: '/admin/coupons',      label: '🎟️ Coupons & Discounts' },
-  { href: '/admin/influencers',  label: '🌟 Influencer Marketing' },
+  { href: '/admin/staff',       label: '👤 Staff Management' },
+  { href: '/admin/birthday',    label: '🎂 Birthday & Anniversary Offers' },
+  { href: '/admin/coupons',     label: '🎟️ Coupons & Discounts' },
+  { href: '/admin/influencers', label: '🌟 Influencer Marketing' },
   { href: '/admin/popup-leads', label: '📋 Popup Leads' },
   { href: '/admin/settings',    label: '⚙️ Settings' },
 ];
@@ -64,11 +66,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   // Filter nav based on role
   const navItems = role === 'staff'
-    ? ALL_NAV.filter(n => STAFF_NAV_HREFS.includes(n.href))
+    ? ALL_NAV.filter(n => n.href && STAFF_NAV_HREFS.includes(n.href))
     : ALL_NAV;
 
-  const isActive = (item: typeof ALL_NAV[0]) =>
-    item.exact ? pathname === item.href : pathname.startsWith(item.href);
+  const isActive = (item: { href?: string; exact?: boolean }) =>
+    !!item.href && (item.exact ? pathname === item.href : pathname.startsWith(item.href));
 
   const currentLabel = ALL_NAV.find(n => isActive(n))?.label?.replace(/^[^\s]+\s/, '') || 'Admin Panel';
 
@@ -86,11 +88,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </span>
         </div>
         <nav className="admin-nav">
-          {navItems.map(item => (
-            <Link key={item.href} href={item.href}
-              className={isActive(item) ? 'active' : ''}>
-              {item.label}
-            </Link>
+          {navItems.map((item, i) => (
+            item.heading ? (
+              <div key={'h' + i} style={{ padding: '.9rem 1.25rem .3rem', fontSize: '.68rem', fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: '.5px' }}>
+                {item.heading}
+              </div>
+            ) : (
+              <Link key={item.href} href={item.href!}
+                className={isActive(item) ? 'active' : ''}>
+                {item.label}
+              </Link>
+            )
           ))}
         </nav>
         <div style={{ padding: '1rem', borderTop: '1px solid rgba(255,255,255,.1)', marginTop: 'auto' }}>
@@ -134,17 +142,23 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               <strong style={{ color: '#fff', fontSize: '.95rem' }}>Mahalaxmi Fashion Hub</strong>
               <span style={{ display: 'block', color: '#aaa', fontSize: '.75rem' }}>Admin Panel</span>
             </div>
-            {navItems.map(item => (
-              <Link key={item.href} href={item.href}
-                onClick={() => setMobileNavOpen(false)}
-                style={{
-                  display: 'block', padding: '.7rem 1.25rem', fontSize: '.9rem',
-                  color: isActive(item) ? '#fff' : '#aaa',
-                  background: isActive(item) ? 'rgba(167,53,77,.4)' : 'transparent',
-                  textDecoration: 'none',
-                }}>
-                {item.label}
-              </Link>
+            {navItems.map((item, i) => (
+              item.heading ? (
+                <div key={'mh' + i} style={{ padding: '.8rem 1.25rem .3rem', fontSize: '.68rem', fontWeight: 700, color: 'rgba(255,255,255,.4)', textTransform: 'uppercase', letterSpacing: '.5px' }}>
+                  {item.heading}
+                </div>
+              ) : (
+                <Link key={item.href} href={item.href!}
+                  onClick={() => setMobileNavOpen(false)}
+                  style={{
+                    display: 'block', padding: '.7rem 1.25rem', fontSize: '.9rem',
+                    color: isActive(item) ? '#fff' : '#aaa',
+                    background: isActive(item) ? 'rgba(167,53,77,.4)' : 'transparent',
+                    textDecoration: 'none',
+                  }}>
+                  {item.label}
+                </Link>
+              )
             ))}
           </div>
         </div>
