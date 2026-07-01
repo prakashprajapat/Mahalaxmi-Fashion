@@ -136,7 +136,7 @@ export default function Navbar() {
         <div className="brand-row">
           <Link href="/" className="brand" aria-label="Mahalaxmi Fashion Hub home">
             <span className="brand-mark">
-              <img src="/logo-color.webp" alt="Mahalaxmi Fashion Hub logo" width="48" height="48" loading="eager" />
+              <img src="/logo.webp" alt="Mahalaxmi Fashion Hub logo" width="48" height="48" loading="eager" />
             </span>
             <span>
               <strong>Mahalaxmi Fashion Hub</strong>
@@ -380,7 +380,7 @@ export default function Navbar() {
               ×
             </button>
             <div className="mfh-login-logo">
-              <img src="/logo-color.webp" alt="Mahalaxmi Fashion Hub" />
+              <img src="/logo.webp" alt="Mahalaxmi Fashion Hub" />
               <div>
                 <p>Mahalaxmi<br />Fashion Hub</p>
                 <small>Every Look, A New Experience</small>

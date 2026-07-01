@@ -8,7 +8,7 @@ export default function Footer() {
           <Link className="brand footer-brand" href="/">
             <span className="brand-mark">
               <img
-                src="/logo.webp?v=2"
+                src="/logo-color.webp"
                 alt="Mahalaxmi Fashion Hub logo"
                 width="48"
                 height="48"
