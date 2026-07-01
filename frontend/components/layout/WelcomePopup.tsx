@@ -88,7 +88,7 @@ export default function WelcomePopup() {
           padding: '2rem 1.25rem', textAlign: 'center', gap: '1rem',
         }}>
           <img src="/logo.webp" alt="Mahalaxmi Fashion Hub"
-            style={{ width: 90, height: 90, borderRadius: '50%', border: '3px solid rgba(255,255,255,.7)', background: '#fff', objectFit: 'contain' }} />
+            style={{ width: 130, height: 130, borderRadius: '50%', border: '3px solid rgba(255,255,255,.7)', background: '#fff', objectFit: 'contain', padding: 6 }} />
           <div>
             <p style={{ margin: 0, color: '#fff', fontWeight: 800, fontSize: '1.1rem', lineHeight: 1.3 }}>
               Mahalaxmi<br />Fashion Hub

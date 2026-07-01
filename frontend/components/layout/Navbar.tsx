@@ -349,7 +349,7 @@ export default function Navbar() {
               justify-content: center; padding: 2rem 1.25rem; text-align: center; gap: .75rem;
             }
             .mfh-login-logo img {
-              width: 90px; height: 90px; border-radius: 50%;
+              width: 130px; height: 130px; border-radius: 50%; padding: 6px;
               border: 3px solid rgba(255,255,255,.7); background: #fff; object-fit: contain;
             }
             .mfh-login-logo p {
