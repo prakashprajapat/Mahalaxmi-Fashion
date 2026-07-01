@@ -894,15 +894,13 @@ export default function EditProductPage() {
           <div style={{ display:'flex', alignItems:'center', gap:'.4rem', flexWrap:'wrap', marginBottom:'.5rem' }}>
             <span style={{ fontSize:'.82rem', fontWeight:600, color:'#555', minWidth:'96px' }}>Colour/Design:</span>
             {COLORS_PRESET.map(c => (
-              <button key={c} onClick={() => toggleColor(c)}
+              <button key={c} onClick={() => toggleColor(c)} title={c} aria-label={c}
                 style={{
-                  border:`1.5px solid ${selColors.includes(c) ? '#a7354d' : '#ddd'}`,
-                  background: selColors.includes(c) ? '#fdf0f3' : '#fff',
-                  color: selColors.includes(c) ? '#a7354d' : '#555',
-                  borderRadius:'20px', padding:'.28rem .7rem', fontSize:'.8rem', fontWeight:600, cursor:'pointer',
-                }}>
-                {c}
-              </button>
+                  width:'32px', height:'32px', borderRadius:'50%', padding:0, flexShrink:0, cursor:'pointer',
+                  background: c.toLowerCase(),
+                  border: selColors.includes(c) ? '3px solid #a7354d' : '1.5px solid #ccc',
+                  boxShadow: selColors.includes(c) ? '0 0 0 2px #fdf0f3' : 'none',
+                }} />
             ))}
             <button onClick={() => setShowColModal(true)}
               style={{ border:'1.5px dashed #ddd', background:'#fff', color:'#888', borderRadius:'20px', padding:'.28rem .7rem', fontSize:'.8rem', cursor:'pointer' }}>
