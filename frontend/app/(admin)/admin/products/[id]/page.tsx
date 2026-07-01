@@ -284,10 +284,12 @@ function CustomColourModal({
   };
 
   const handleAdd = () => {
-    if (!colName.trim()) { alert('Colour Name required'); return; }
+    // Colour Name is required only when NOT using a photo (i.e. a colour-code
+    // colour). With a photo, auto-name from the column letter if left blank.
+    const name = colName.trim() || (colPhoto ? `Design ${nextLetter}` : '');
+    if (!name) { alert('Colour Name is required when using a colour code.'); return; }
     // A custom colour is EITHER a photo (column) OR a colour code — not both.
-    // If a photo is uploaded, ignore the colour code; otherwise use the code.
-    onAdd({ name: colName.trim(), code: colPhoto ? '' : code, photo: colPhoto, columnLetter: nextLetter });
+    onAdd({ name, code: colPhoto ? '' : code, photo: colPhoto, columnLetter: nextLetter });
     onClose();
   };
 
@@ -326,6 +328,10 @@ function CustomColourModal({
               placeholder="https://..."
               style={{ width:'100%', marginTop:'.5rem', border:'1.5px solid #ddd', borderRadius:'8px', padding:'.45rem .65rem', fontSize:'.8rem', boxSizing:'border-box' }} />
           )}
+          <button onClick={handleAdd}
+            style={{ width:'100%', marginTop:'.75rem', background:'#a7354d', color:'#fff', border:'none', borderRadius:'8px', padding:'.5rem', fontSize:'.82rem', fontWeight:700, cursor:'pointer' }}>
+            ✓ Add Column {nextLetter}
+          </button>
         </div>
 
         <div style={{ background:'#f9f9f9', borderRadius:'10px', padding:'1rem', marginBottom:'1rem' }}>
@@ -359,7 +365,9 @@ function CustomColourModal({
 
         <div style={{ marginBottom:'1rem' }}>
           <label style={{ fontSize:'.82rem', fontWeight:700, display:'block', marginBottom:'.3rem' }}>
-            Colour Name <span style={{ color:'#c62828' }}>*</span>
+            Colour Name {colPhoto
+              ? <span style={{ fontWeight:400, color:'#888', fontSize:'.72rem' }}>(optional — photo added)</span>
+              : <span style={{ color:'#c62828' }}>*</span>}
           </label>
           <input value={colName}
             onChange={e => { setColName(e.target.value); setNameEdited(true); }}
