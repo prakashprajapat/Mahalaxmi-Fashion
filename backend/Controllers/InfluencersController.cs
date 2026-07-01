@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MahalaxmiApi.Data;
@@ -246,6 +247,135 @@ public class InfluencersController : ControllerBase
             }
         });
     }
+
+    // ── GET /api/influencers/fraud-report  (admin) — misuse / return-fraud ───
+    [HttpGet("fraud-report")]
+    public async Task<IActionResult> FraudReport()
+    {
+        if (!await IsAdmin()) return Unauthorized();
+
+        var influencers = await _db.Influencers
+            .Where(i => i.CouponCode != null)
+            .ToListAsync();
+
+        var raw = await _db.SiteOrders
+            .Where(o => o.CouponCode != null)
+            .Select(o => new { o.OrderId, o.CouponCode, o.Total, o.Status, o.PlacedAt, o.CustomerJson })
+            .ToListAsync();
+        var emptyLike = raw.Take(0).ToList(); // empty list of the same anonymous type
+
+        var byCode = raw
+            .GroupBy(o => o.CouponCode!.ToLower())
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        var returnStatuses = new HashSet<string> { "return requested", "return transit", "return" };
+        var cancelStatuses = new HashSet<string> { "cancel requested", "cancelled" };
+
+        var creators = influencers.Select(inf =>
+        {
+            var code = inf.CouponCode!.ToLower();
+            var list = byCode.TryGetValue(code, out var l) ? l : emptyLike;
+
+            var infPhone = NormalizePhone(inf.Phone);
+            var infEmail = (inf.Email ?? "").Trim().ToLower();
+
+            var parsed = list.Select(o =>
+            {
+                var st = (o.Status ?? "").ToLower();
+                return new
+                {
+                    o.OrderId, o.Total, o.Status, o.PlacedAt,
+                    name  = JsonStr(o.CustomerJson, "name"),
+                    phone = NormalizePhone(JsonStr(o.CustomerJson, "phone")),
+                    email = JsonStr(o.CustomerJson, "email").Trim().ToLower(),
+                    isReturn = returnStatuses.Contains(st),
+                    isCancel = cancelStatuses.Contains(st),
+                };
+            }).ToList();
+
+            var phoneCounts = parsed.Where(p => p.phone != "")
+                .GroupBy(p => p.phone).ToDictionary(g => g.Key, g => g.Count());
+
+            var orders = parsed.OrderByDescending(p => p.PlacedAt).Select(p =>
+            {
+                var flags = new List<string>();
+                if (p.isReturn) flags.Add("Returned");
+                if (p.isCancel) flags.Add("Cancelled");
+                var isSelf = (p.phone != "" && p.phone == infPhone) || (p.email != "" && p.email == infEmail);
+                if (isSelf) flags.Add("Self-order");
+                if (p.phone != "" && phoneCounts.TryGetValue(p.phone, out var c) && c > 1) flags.Add($"Repeat ×{c}");
+                return new
+                {
+                    orderId = p.OrderId,
+                    customerName = p.name,
+                    customerPhone = p.phone,
+                    total = p.Total,
+                    status = p.Status,
+                    date = p.PlacedAt.HasValue ? p.PlacedAt.Value.ToString("dd MMM yyyy") : "-",
+                    flags,
+                };
+            }).ToList();
+
+            var total     = parsed.Count;
+            var returned  = parsed.Count(p => p.isReturn);
+            var cancelled = parsed.Count(p => p.isCancel);
+            var selfCount = orders.Count(o => o.flags.Contains("Self-order"));
+            var repeatCustomers = phoneCounts.Count(kv => kv.Value > 1);
+            var returnRate = total > 0 ? Math.Round((decimal)returned / total * 100, 1) : 0m;
+            var cancelRate = total > 0 ? Math.Round((decimal)cancelled / total * 100, 1) : 0m;
+
+            var risk = "low";
+            if (selfCount > 0 || (total >= 2 && returnRate >= 40) || (total >= 2 && cancelRate >= 40))
+                risk = "high";
+            else if (repeatCustomers > 0 || returnRate >= 20 || cancelRate >= 20)
+                risk = "medium";
+
+            return new
+            {
+                id = inf.Id, name = inf.Name, email = inf.Email, couponCode = inf.CouponCode,
+                status = inf.Status, commissionRate = inf.CommissionRate,
+                totalOrders = total, returnedOrders = returned, cancelledOrders = cancelled,
+                returnRate, cancelRate, selfOrders = selfCount, repeatCustomers,
+                flaggedOrders = orders.Count(o => o.flags.Count > 0),
+                risk, orders,
+            };
+        })
+        .OrderByDescending(c => c.risk == "high" ? 2 : c.risk == "medium" ? 1 : 0)
+        .ThenByDescending(c => c.flaggedOrders)
+        .ToList();
+
+        return Ok(new
+        {
+            creators,
+            totals = new
+            {
+                creators      = creators.Count,
+                highRisk      = creators.Count(c => c.risk == "high"),
+                flaggedOrders = creators.Sum(c => c.flaggedOrders),
+                selfOrders    = creators.Sum(c => c.selfOrders),
+            }
+        });
+    }
+
+    // Safely read a string property out of a stored JSON blob (customer_json etc.).
+    private static string JsonStr(string? json, string prop)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return "";
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            if (doc.RootElement.ValueKind == JsonValueKind.Object &&
+                doc.RootElement.TryGetProperty(prop, out var el) &&
+                el.ValueKind == JsonValueKind.String)
+                return el.GetString() ?? "";
+        }
+        catch { /* ignore malformed json */ }
+        return "";
+    }
+
+    // Reduce a phone to digits only so formatting differences don't hide matches.
+    private static string NormalizePhone(string? p) =>
+        new string((p ?? "").Where(char.IsDigit).ToArray());
 
     // ── GET /api/influencers/{id}/stats  (admin) ─────────────────────────────
     [HttpGet("{id:int}/stats")]
