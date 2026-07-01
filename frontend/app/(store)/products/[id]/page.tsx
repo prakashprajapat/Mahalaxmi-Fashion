@@ -173,12 +173,8 @@ export default function ProductPage({ params }: { params: { id: string } }) {
   addGalleryImage(product.image);
   ['front', 'side', 'back', 'zoomed'].forEach(key => addGalleryImage(extra.productPhotos?.[key]));
   (extra.images ?? []).forEach(addGalleryImage);
-  if (isPackProduct) {
-    [...(extra.packImages ?? []), ...(extra.packColumnPhotos ?? []), ...(extra.variantColumns ?? [])].forEach(item => {
-      if (typeof item === 'string') addGalleryImage(item);
-      else ['url', 'front', 'side', 'back', 'zoomed'].forEach(key => addGalleryImage(item[key]));
-    });
-  }
+  // Pack-column (per-item) photos are intentionally NOT added to the customer
+  // gallery — only the main product photos uploaded in the Photos section show.
 
   const sizes: string[] = [...new Set(extra.sizes ?? (extra.variantMatrix ? [...new Set(Object.keys(extra.variantMatrix).map(k => k.split('|')[0]))] : []))];
   const normalColors = extra.colors ?? (extra.variantMatrix ? [...new Set(Object.keys(extra.variantMatrix).map(k => k.split('|')[1]).filter(Boolean))] : []);
@@ -322,7 +318,7 @@ export default function ProductPage({ params }: { params: { id: string } }) {
               {/* Inner: overflow:hidden clips the image only */}
               <div style={{ position: 'absolute', inset: 0, borderRadius: '12px', overflow: 'hidden', background: '#f5f5f5' }}>
                 {activeImg
-                  ? <img src={activeImg} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ? <img src={activeImg} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                   : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '5rem', color: '#ddd' }}>👗</div>}
                 {product.bestSeller && <span className="badge badge-yellow" style={{ position: 'absolute', top: 12, left: 12 }}>Best Seller</span>}
                 {saving > 0 && <span className="badge badge-red" style={{ position: 'absolute', top: product.bestSeller ? 44 : 12, left: 12 }}>{saving}% off</span>}

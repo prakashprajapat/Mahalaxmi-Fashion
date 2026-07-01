@@ -76,13 +76,8 @@ export default function QuickViewModal({ product, onClose }: Props) {
     } else {
       (extra.images ?? []).forEach(addImage);
     }
-    if (isPackProduct) {
-      const packPhotos = extra.packImages ?? extra.packColumnPhotos ?? extra.variantColumns ?? [];
-      packPhotos.forEach(item => {
-        if (typeof item === 'string') addImage(item);
-        else ['url', 'front', 'side', 'back', 'zoomed'].forEach(key => addImage(item[key]));
-      });
-    }
+    // Pack-column (per-item) photos are intentionally NOT added to the customer
+    // gallery — only the main product photos uploaded in the Photos section show.
     return imgs;
   })();
 
@@ -190,7 +185,7 @@ export default function QuickViewModal({ product, onClose }: Props) {
               {/* Inner: overflow:hidden clips image only */}
               <div style={{ position: 'absolute', inset: 0, borderRadius: '12px', overflow: 'hidden', background: '#f8f8f8' }}>
                 {activeImg
-                  ? <img src={activeImg} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ? <img src={activeImg} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                   : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '3rem', color: '#ddd' }}>👗</div>
                 }
               </div>
