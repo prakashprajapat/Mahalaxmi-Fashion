@@ -18,13 +18,15 @@ public class AuthController : ControllerBase
     private readonly AuthService _auth;
     private readonly IConfiguration _config;
     private readonly IWebHostEnvironment _env;
+    private readonly EmailService _email;
 
-    public AuthController(AppDbContext db, AuthService auth, IConfiguration config, IWebHostEnvironment env)
+    public AuthController(AppDbContext db, AuthService auth, IConfiguration config, IWebHostEnvironment env, EmailService email)
     {
         _db = db;
         _auth = auth;
         _config = config;
         _env = env;
+        _email = email;
     }
 
     // POST /api/auth/admin-login
@@ -166,7 +168,17 @@ public class AuthController : ControllerBase
         });
         await _db.SaveChangesAsync();
 
-        // Show OTP on screen (no email service configured — admin copies from this screen)
+        // Try to email the OTP. If SMTP is configured and the send succeeds,
+        // do NOT expose the code in the response.
+        var emailed = await _email.SendAsync(
+            req.Email.Trim(),
+            "Your Mahalaxmi Fashion Hub password reset code",
+            EmailService.BuildOtpEmail(otp, "admin password reset", 15));
+
+        if (emailed)
+            return Ok(new { success = true, message = "OTP sent to your email." });
+
+        // Fallback (email not configured / send failed) — show on screen so the admin isn't locked out.
         return Ok(new { success = true, message = "OTP generated.", devOtp = otp });
     }
 

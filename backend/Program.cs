@@ -16,6 +16,7 @@ builder.Services.AddDbContext<AppDbContext>(opt =>
 
 // ── Services ──────────────────────────────────────────────────────────────────
 builder.Services.AddScoped<AuthService>();
+builder.Services.AddScoped<EmailService>();
 builder.Services.AddHttpClient("razorpay");
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
