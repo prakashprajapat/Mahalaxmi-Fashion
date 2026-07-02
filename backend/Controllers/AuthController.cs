@@ -32,6 +32,8 @@ public class AuthController : ControllerBase
     [EnableRateLimiting("auth")]  // SEC-8: brute-force protection
     public async Task<IActionResult> AdminLogin([FromBody] AdminLoginRequest req)
     {
+        var loginId = (req.Email ?? "").Trim();
+
         var adminEmail = await _db.SiteSettings
             .Where(s => s.Key == "admin_email")
             .Select(s => s.Value)
@@ -41,31 +43,54 @@ public class AuthController : ControllerBase
             .Select(s => s.Value)
             .FirstOrDefaultAsync() ?? _config["Admin:PasswordHash"] ?? "";
 
-        if (!string.Equals(req.Email, adminEmail, StringComparison.OrdinalIgnoreCase))
-            return Unauthorized(new { success = false, message = "Invalid credentials." });
+        // ── 1) Owner / full admin login (matched by email) ──────────────────────
+        var isOwner = !string.IsNullOrEmpty(adminPassHash)
+            && string.Equals(loginId, adminEmail, StringComparison.OrdinalIgnoreCase)
+            && BCrypt.Net.BCrypt.Verify(req.Password, adminPassHash);
 
-        // Compare with bcrypt hash stored in config
-        if (!BCrypt.Net.BCrypt.Verify(req.Password, adminPassHash))
-            return Unauthorized(new { success = false, message = "Invalid credentials." });
+        if (isOwner)
+        {
+            var jwtOwner = await IssueAdminSessionAsync(loginId, "0", "admin");
+            return Ok(new { success = true, token = jwtOwner, role = "admin" });
+        }
 
-        // Generate a secure token and store hash in DB
+        // ── 2) Staff login (matched by username or email) ───────────────────────
+        var uname = loginId.ToLower();
+        var staff = await _db.StaffMembers.FirstOrDefaultAsync(s =>
+            s.Username == uname || (s.Email != null && s.Email.ToLower() == uname));
+
+        if (staff != null
+            && staff.IsActive
+            && !string.IsNullOrEmpty(staff.PasswordHash)
+            && BCrypt.Net.BCrypt.Verify(req.Password, staff.PasswordHash))
+        {
+            staff.LastLogin = DateTimeOffset.UtcNow;
+            var role = string.IsNullOrWhiteSpace(staff.Role) ? "staff" : staff.Role;
+            var jwtStaff = await IssueAdminSessionAsync(staff.Username, staff.Id.ToString(), role);
+            return Ok(new { success = true, token = jwtStaff, role });
+        }
+
+        return Unauthorized(new { success = false, message = "Invalid credentials." });
+    }
+
+    // Creates an admin-panel session (opaque token hash stored in DB) and returns a JWT.
+    private async Task<string> IssueAdminSessionAsync(string email, string userId, string role)
+    {
         var rawToken = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
         var tokenHash = Convert.ToHexString(SHA256.HashData(
             System.Text.Encoding.UTF8.GetBytes(rawToken)));
 
         _db.AdminTokens.Add(new AdminToken
         {
-            Email     = req.Email,
+            Email     = email,
             TokenHash = tokenHash,
-            Role      = "admin",
-            ExpiresAt = DateTimeOffset.UtcNow.AddDays(7),
+            Role      = role,
+            ExpiresAt = DateTimeOffset.UtcNow.AddDays(role == "admin" ? 7 : 30),
         });
         await _db.SaveChangesAsync();
 
-        var jwt = _auth.GenerateJwt("0", req.Email, "admin");
-
         // SEC-2: rawToken removed from response — only JWT returned
-        return Ok(new { success = true, token = jwt });
+        return _auth.GenerateJwt(userId, email, role);
     }
 
     // POST /api/auth/admin-change-password

@@ -178,7 +178,7 @@ public class OrdersController : ControllerBase
 
     // PATCH /api/orders/status  (Admin only)
     [HttpPatch("status")]
-    [Authorize(Policy = "AdminOnly")]
+    [Authorize(Policy = "AdminOrStaff")]
     public async Task<IActionResult> UpdateStatus([FromBody] AdminUpdateOrderRequest req)
     {
         if (!AllowedStatuses.Contains(req.Status))

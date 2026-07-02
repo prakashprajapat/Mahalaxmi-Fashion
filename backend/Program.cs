@@ -60,6 +60,9 @@ builder.Services.AddAuthorization(opt =>
 {
     opt.AddPolicy("AdminOnly", policy =>
         policy.RequireClaim("role", "admin"));
+    // Owner (admin) OR staff — for daily work: add/edit products, stock, order status.
+    opt.AddPolicy("AdminOrStaff", policy =>
+        policy.RequireClaim("role", "admin", "staff"));
 });
 
 // ── CORS ──────────────────────────────────────────────────────────────────────

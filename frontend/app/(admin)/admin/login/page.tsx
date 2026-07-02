@@ -38,7 +38,7 @@ export default function AdminLoginPage() {
             <div className="form-grid">
               <label className="full-field">
                 Email / Username
-                <input type="email" autoComplete="username" placeholder="admin@mahalaxmifashionhub.com"
+                <input type="text" autoComplete="username" placeholder="admin@mahalaxmifashionhub.com  or  staff username"
                   value={email} onChange={e => setEmail(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && handleLogin()} required />
               </label>
