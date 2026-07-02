@@ -157,7 +157,7 @@ export default function QuickViewModal({ product, onClose }: Props) {
           background: '#fff', borderRadius: expanded ? '12px' : '16px',
           width: '100%', maxWidth: expanded ? '98vw' : '860px',
           maxHeight: expanded ? '97vh' : '90vh',
-          overflowY: 'auto', position: 'relative',
+          overflowX: 'hidden', overflowY: 'auto', position: 'relative',
           boxShadow: '0 24px 80px rgba(0,0,0,.3)',
           display: 'flex', flexDirection: 'column',
           transition: 'max-width .25s, max-height .25s',
@@ -175,10 +175,10 @@ export default function QuickViewModal({ product, onClose }: Props) {
           aria-label="Close"
         >✕</button>
 
-        <div className="qv-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0 }}>
+        <div className="qv-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0, minWidth: 0, width: '100%' }}>
 
           {/* Left: Image gallery */}
-          <div style={{ padding: '1.5rem', borderRight: '1px solid #f0f0f0' }}>
+          <div style={{ padding: '1.5rem', borderRight: '1px solid #f0f0f0', minWidth: 0 }}>
             {/* Main image — outer: no overflow:hidden so lens can spill out */}
             <div style={{
               width: '100%', aspectRatio: '1/1', marginBottom: '.75rem',
@@ -242,7 +242,7 @@ export default function QuickViewModal({ product, onClose }: Props) {
           </div>
 
           {/* Right: Product info */}
-          <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '.75rem' }}>
+          <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '.75rem', minWidth: 0 }}>
             {/* SKU + Category */}
             <div style={{ display: 'flex', gap: '.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
               {product.category && (
