@@ -109,22 +109,25 @@ export default function ProductCard({ product, priority = false }: { product: Pr
             </p>
           )}
 
-          <span className={`product-stock-badge ${product.stock === 'In Stock' ? 'in-stock' : product.stock === 'Limited Stock' ? 'limited-stock' : 'out-stock'}`}>
-            {product.stock || 'In Stock'}
-          </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '.4rem', flexWrap: 'wrap' }}>
+            <span className={`product-stock-badge ${product.stock === 'In Stock' ? 'in-stock' : product.stock === 'Limited Stock' ? 'limited-stock' : 'out-stock'}`}>
+              {product.stock || 'In Stock'}
+            </span>
+            {(product.reviewCount ?? 0) === 0 && (
+              <span style={{ display: 'inline-block', background: '#e8f5e9', color: '#2e7d32', fontSize: '.68rem', fontWeight: 700, padding: '.12rem .45rem', borderRadius: '10px', whiteSpace: 'nowrap', lineHeight: 1.4 }}>✨ New</span>
+            )}
+          </div>
 
           <span className="product-card-name" title={product.name} style={{ display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden', fontWeight: 600, color: '#1a1a1a', fontSize: '.9rem', margin: '.25rem 0', lineHeight: 1.3 }}>
             {product.name}
           </span>
 
-          {/* Rating — real reviews, or a "New" tag when there are none yet */}
-          {(product.reviewCount ?? 0) > 0 ? (
+          {/* Rating — real reviews only ("New" tag now sits next to the stock badge) */}
+          {(product.reviewCount ?? 0) > 0 && (
             <div className="product-rating">
               <span className="stars">★★★★★</span>
               <span className="rating-val">{product.avgRating} ({product.reviewCount})</span>
             </div>
-          ) : (
-            <span style={{ display: 'inline-block', background: '#e8f5e9', color: '#2e7d32', fontSize: '.72rem', fontWeight: 700, padding: '.15rem .55rem', borderRadius: '12px' }}>✨ New</span>
           )}
 
           {/* Price */}
