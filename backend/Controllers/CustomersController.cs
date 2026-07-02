@@ -25,6 +25,36 @@ public class CustomersController : ControllerBase
         _env = env;
     }
 
+    // Generates the next sequential customer code: MFHCUS1005, MFHCUS1006, ...
+    // Backed by a PostgreSQL sequence so a number is NEVER reused, even if a customer deletes their account.
+    private async Task<string> NextCustomerCodeAsync()
+    {
+        // Create the counter on first use, seeded to continue after the highest existing MFHCUS code
+        // (minimum 1004, so the very first issued code is MFHCUS1005).
+        await _db.Database.ExecuteSqlRawAsync(@"
+            DO $$
+            BEGIN
+                IF NOT EXISTS (SELECT 1 FROM pg_class WHERE relname = 'customer_code_seq' AND relkind = 'S') THEN
+                    CREATE SEQUENCE customer_code_seq;
+                    PERFORM setval(
+                        'customer_code_seq',
+                        GREATEST(
+                            1004,
+                            (SELECT COALESCE(MAX(CAST(SUBSTRING(customer_code FROM 'MFHCUS([0-9]+)$') AS INTEGER)), 1004)
+                             FROM customers)
+                        ),
+                        true
+                    );
+                END IF;
+            END $$;");
+
+        var next = await _db.Database
+            .SqlQueryRaw<long>("SELECT nextval('customer_code_seq') AS \"Value\"")
+            .FirstAsync();
+
+        return "MFHCUS" + next;
+    }
+
     // GET /api/customers  (Admin only)
     [HttpGet]
     [Authorize(Policy = "AdminOnly")]
@@ -157,7 +187,7 @@ public class CustomersController : ControllerBase
         }
 
         var (hash, salt) = _auth.HashPassword(req.Password);
-        var code = "MFH" + DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        var code = await NextCustomerCodeAsync();
 
         var customer = new Customer
         {
@@ -545,7 +575,7 @@ public class CustomersController : ControllerBase
         if (existing == null)
         {
             // Auto-register
-            var code = "CUS" + DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString()[^6..];
+            var code = await NextCustomerCodeAsync();
             existing = new Customer
             {
                 CustomerCode     = code,
