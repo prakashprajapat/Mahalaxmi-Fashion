@@ -19,14 +19,16 @@ public class AuthController : ControllerBase
     private readonly IConfiguration _config;
     private readonly IWebHostEnvironment _env;
     private readonly EmailService _email;
+    private readonly SmsService _sms;
 
-    public AuthController(AppDbContext db, AuthService auth, IConfiguration config, IWebHostEnvironment env, EmailService email)
+    public AuthController(AppDbContext db, AuthService auth, IConfiguration config, IWebHostEnvironment env, EmailService email, SmsService sms)
     {
         _db = db;
         _auth = auth;
         _config = config;
         _env = env;
         _email = email;
+        _sms = sms;
     }
 
     // POST /api/auth/admin-login
@@ -168,17 +170,30 @@ public class AuthController : ControllerBase
         });
         await _db.SaveChangesAsync();
 
-        // Try to email the OTP. If SMTP is configured and the send succeeds,
-        // do NOT expose the code in the response.
+        // Send the OTP over both channels: email + SMS (to the admin recovery mobile).
         var emailed = await _email.SendAsync(
             req.Email.Trim(),
             "Your Mahalaxmi Fashion Hub password reset code",
             EmailService.BuildOtpEmail(otp, "admin password reset", 15));
 
-        if (emailed)
-            return Ok(new { success = true, message = "OTP sent to your email." });
+        var adminPhone = await _db.SiteSettings
+            .Where(s => s.Key == "adminRecoveryPhone")
+            .Select(s => s.Value)
+            .FirstOrDefaultAsync();
 
-        // Fallback (email not configured / send failed) — show on screen so the admin isn't locked out.
+        var texted = false;
+        if (!string.IsNullOrWhiteSpace(adminPhone))
+            texted = await _sms.SendOtpAsync(adminPhone, otp);
+
+        if (emailed || texted)
+        {
+            var where = (emailed && texted) ? "email and mobile"
+                      : emailed ? "email"
+                      : "mobile";
+            return Ok(new { success = true, message = $"OTP sent to your {where}." });
+        }
+
+        // Fallback (no channel configured / all sends failed) — show on screen so the admin isn't locked out.
         return Ok(new { success = true, message = "OTP generated.", devOtp = otp });
     }
 

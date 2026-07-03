@@ -37,6 +37,8 @@ public class SettingsController : ControllerBase
         dict.Remove("whatsapp_api_key");
         dict.Remove("admin_password_hash");
         dict.Remove("admin_email");
+        dict.Remove("msg91AuthKey");        // secret — never expose publicly
+        dict.Remove("adminRecoveryPhone");  // owner's private mobile
 
         _cache.Set(PublicSettingsCacheKey, dict, TimeSpan.FromMinutes(5));
         return Ok(new { success = true, settings = dict });

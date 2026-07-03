@@ -82,6 +82,7 @@ const SECTIONS = [
       { key: 'msg91AuthKey',              label: 'MSG91 Auth Key', type: 'password' },
       { key: 'msg91WhatsappTemplateId',   label: 'WhatsApp OTP Template ID', type: 'text' },
       { key: 'msg91SmsTemplateId',        label: 'SMS OTP Template ID', type: 'text' },
+      { key: 'adminRecoveryPhone',        label: 'Admin Recovery Mobile (for password-reset OTP SMS, with 91)', type: 'text' },
     ]
   },
 ];
