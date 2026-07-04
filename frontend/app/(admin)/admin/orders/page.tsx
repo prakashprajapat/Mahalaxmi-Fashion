@@ -56,13 +56,6 @@ function exportCSV(orders: Order[]) {
   a.click(); URL.revokeObjectURL(url);
 }
 
-function statusColor(status: string) {
-  if (status === 'Delivered') return { bg: '#e8f5e9', color: '#2e7d32' };
-  if (status === 'Cancelled' || status === 'Cancel Requested') return { bg: '#fdecea', color: '#c62828' };
-  if (status === 'Return Requested' || status === 'Return Transit' || status === 'Return') return { bg: '#fff3e0', color: '#e65100' };
-  if (status === 'Shipped' || status === 'Transit') return { bg: '#e3f2fd', color: '#1565c0' };
-  return { bg: '#fff9c4', color: '#856404' };
-}
 
 export default function AdminOrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -103,6 +96,7 @@ export default function AdminOrdersPage() {
       o.id.toLowerCase().includes(search.toLowerCase()) ||
       (o.customerName ?? '').toLowerCase().includes(search.toLowerCase()) ||
       (o.customerPhone ?? '').includes(search) ||
+      (o.shippingPincode ?? '').includes(search) ||
       (o.awb ?? '').toLowerCase().includes(search.toLowerCase());
     const matchDate = !dateFilter || (o.placedAt ?? o.createdAt).startsWith(dateFilter);
     return matchSearch && matchDate;
@@ -246,7 +240,6 @@ export default function AdminOrdersPage() {
       {selectedIds.size > 0 && (
         <div style={{ background: '#fff3cd', borderRadius: '8px', padding: '.6rem 1rem', marginBottom: '1rem', display: 'flex', gap: '.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
           <strong style={{ fontSize: '.85rem' }}>{selectedIds.size} selected</strong>
-          <button onClick={() => bulkUpdateStatus('Ready for Shipping')} style={{ background: '#1565c0', color: '#fff', border: 'none', borderRadius: '6px', padding: '.35rem .75rem', fontSize: '.8rem', cursor: 'pointer' }}>Accept (Ready to Ship)</button>
           <button onClick={() => bulkUpdateStatus('Ready for Shipping')} style={{ background: '#27ae60', color: '#fff', border: 'none', borderRadius: '6px', padding: '.35rem .75rem', fontSize: '.8rem', cursor: 'pointer' }}>Ready to Ship</button>
           <button onClick={() => bulkUpdateStatus('Shipped')} style={{ background: '#7b1fa2', color: '#fff', border: 'none', borderRadius: '6px', padding: '.35rem .75rem', fontSize: '.8rem', cursor: 'pointer' }}>Mark Shipped</button>
           <button onClick={() => bulkUpdateStatus('Cancelled')} style={{ background: '#c62828', color: '#fff', border: 'none', borderRadius: '6px', padding: '.35rem .75rem', fontSize: '.8rem', cursor: 'pointer' }}>Cancel</button>
@@ -265,7 +258,7 @@ export default function AdminOrdersPage() {
                     checked={selectedIds.size === filtered.length && filtered.length > 0}
                     onChange={e => setSelectedIds(e.target.checked ? new Set(filtered.map(o => o.id)) : new Set())} />
                 </th>
-                {['Order ID','Date','Customer','Item(s)','Amount','Method','AWB','Status','Action'].map(h => (
+                {['Order ID','Date','Customer','Pincode','Item(s)','Amount','Method','AWB','Action'].map(h => (
                   <th key={h} style={{ padding: '.75rem 1rem', textAlign: 'left', fontWeight: 600, fontSize: '.72rem', color: '#888', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
@@ -276,7 +269,6 @@ export default function AdminOrdersPage() {
               ) : filtered.length === 0 ? (
                 <tr><td colSpan={10} style={{ textAlign: 'center', padding: '3rem', color: '#aaa' }}>No orders found.</td></tr>
               ) : filtered.map((o, i) => {
-                const sc = statusColor(o.status);
                 return (
                   <tr key={o.id} style={{ borderTop: i > 0 ? '1px solid #f5f5f5' : undefined, background: selectedIds.has(o.id) ? '#fdf0f3' : undefined }}>
                     <td style={{ padding: '.65rem 1rem' }}>
@@ -287,6 +279,7 @@ export default function AdminOrdersPage() {
                       {new Date(o.placedAt ?? o.createdAt).toLocaleDateString('en-IN')}
                     </td>
                     <td style={{ padding: '.65rem 1rem', fontWeight: 500 }}>{o.customerName || '—'}</td>
+                    <td style={{ padding: '.65rem 1rem', fontFamily: 'monospace', fontWeight: 700, fontSize: '.82rem', color: o.shippingPincode ? '#1a1a1a' : '#ccc', whiteSpace: 'nowrap' }}>{o.shippingPincode || '—'}</td>
                     <td style={{ padding: '.5rem 1rem', minWidth: '270px' }}>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '.45rem' }}>
                         {o.cart.map((c, ci) => {
@@ -325,18 +318,9 @@ export default function AdminOrdersPage() {
                       {o.awb || '—'}
                     </td>
                     <td style={{ padding: '.65rem 1rem' }}>
-                      <span style={{ fontSize: '.72rem', fontWeight: 700, padding: '.25rem .6rem', borderRadius: '12px', background: sc.bg, color: sc.color, whiteSpace: 'nowrap' }}>
-                        {o.status}
-                      </span>
-                    </td>
-                    <td style={{ padding: '.65rem 1rem' }}>
-                      <button onClick={() => { setSelected(o); setNewStatus(o.status); setAwb(o.awb ?? ''); }}
-                        style={{ color: '#a7354d', background: 'none', border: 'none', cursor: 'pointer', fontSize: '.82rem', fontWeight: 600 }}>
-                        Update
-                      </button>
                       <button onClick={() => downloadShippingLabel(o)}
-                        style={{ color: '#1565c0', background: 'none', border: 'none', cursor: 'pointer', fontSize: '.82rem', fontWeight: 600, marginLeft: '.5rem' }}>
-                        Label
+                        style={{ color: '#1565c0', background: 'none', border: 'none', cursor: 'pointer', fontSize: '.82rem', fontWeight: 600 }}>
+                        ⬇ Label
                       </button>
                     </td>
                   </tr>
