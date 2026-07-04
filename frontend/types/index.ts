@@ -101,6 +101,7 @@ export interface Order {
   cancelledAt?: string;
   createdAt: string;
   updatedAt: string;
+  invoiceNumber?: string;
 }
 
 export interface Review {

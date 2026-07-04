@@ -70,6 +70,10 @@ public class SiteOrder
     [Column("discount_amount")]
     public decimal DiscountAmount { get; set; }
 
+    // GST invoice number (e.g. M/26-27/001), assigned once when the order is marked Ready for Shipping
+    [Column("invoice_number")]
+    public string? InvoiceNumber { get; set; }
+
     [Column("created_at")]
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 

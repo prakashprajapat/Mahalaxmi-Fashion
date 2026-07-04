@@ -50,7 +50,8 @@ public record OrderDto(
     string? PanNumber = null,
     string? PanName = null,
     string? CouponCode = null,
-    decimal DiscountAmount = 0
+    decimal DiscountAmount = 0,
+    string? InvoiceNumber = null
 );
 
 public record PlaceOrderRequest(

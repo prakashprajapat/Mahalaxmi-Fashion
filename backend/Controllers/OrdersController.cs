@@ -206,10 +206,42 @@ public class OrdersController : ControllerBase
         // BUG-2: Record exact delivery time for accurate return window calculation
         if (string.Equals(req.Status, "Delivered", StringComparison.OrdinalIgnoreCase) && order.DeliveredAt is null)
             order.DeliveredAt = DateTimeOffset.UtcNow;
+
+        // Assign a GST invoice number the first time an order is marked Ready for Shipping.
+        if (string.Equals(req.Status, "Ready for Shipping", StringComparison.OrdinalIgnoreCase)
+            && string.IsNullOrEmpty(order.InvoiceNumber))
+        {
+            order.InvoiceNumber = await NextInvoiceNumberAsync();
+        }
+
         order.UpdatedAt = DateTimeOffset.UtcNow;
 
         await _db.SaveChangesAsync();
         return Ok(new { success = true, order = MapOrder(order) });
+    }
+
+    // Builds the next sequential GST invoice number, e.g. "M/26-27/001".
+    // The financial year runs 1 April → 31 March, so the counter resets each 1 April
+    // (an invoice generated on/after 01-04-2027 becomes M/27-28/001).
+    private async Task<string> NextInvoiceNumberAsync()
+    {
+        // Use India time so the 1-April boundary is correct locally.
+        var now = DateTimeOffset.UtcNow.ToOffset(TimeSpan.FromHours(5.5)).DateTime;
+        int startYear = now.Month >= 4 ? now.Year : now.Year - 1;
+        var fy = $"{startYear % 100:00}-{(startYear + 1) % 100:00}";   // e.g. "26-27"
+        var prefix = $"M/{fy}/";
+
+        var existing = await _db.SiteOrders
+            .Where(o => o.InvoiceNumber != null && o.InvoiceNumber.StartsWith(prefix))
+            .Select(o => o.InvoiceNumber!)
+            .ToListAsync();
+
+        var maxSeq = existing
+            .Select(s => int.TryParse(s.Substring(prefix.Length), out var n) ? n : 0)
+            .DefaultIfEmpty(0)
+            .Max();
+
+        return $"{prefix}{maxSeq + 1:000}";
     }
 
     // PATCH /api/orders/{orderId}/cancel  (Customer cancel request, allowed within 12 hours)
@@ -354,7 +386,8 @@ public class OrdersController : ControllerBase
             o.CreatedAt,
             o.UpdatedAt,
             o.PanNumber,
-            o.PanName
+            o.PanName,
+            InvoiceNumber: o.InvoiceNumber
         );
     }
 }

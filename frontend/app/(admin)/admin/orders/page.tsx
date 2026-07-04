@@ -230,7 +230,7 @@ export default function AdminOrdersPage() {
         <div class="left">
           <div class="lbl">TAX INVOICE</div>
           <div style="font-weight:800;font-size:9px;margin:1px 0">Invoice Type: Tax Invoice</div>
-          <div class="txt">Invoice No: INV-${esc(order.id)}</div>
+          <div class="txt">Invoice No: ${esc(order.invoiceNumber || 'Pending (mark Ready to Ship)')}</div>
           <div class="txt">Invoice Date: ${placed}</div>
           <div class="txt">HSN: ${esc(hsn)} | GST: ${gstRate}% | CGST + SGST</div>
         </div>
