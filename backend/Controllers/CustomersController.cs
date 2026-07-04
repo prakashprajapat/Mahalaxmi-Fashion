@@ -329,7 +329,7 @@ public class CustomersController : ControllerBase
             customer = new Customer
             {
                 CustomerCode     = await NextCustomerCodeAsync(),
-                FirstName        = isEmail ? phone.Split('@')[0] : "Customer",
+                FirstName        = isEmail ? phone.Split('@')[0] : "",
                 LastName         = "",
                 // Email is unique + required, so give phone-only signups a synthetic address.
                 Email            = isEmail ? phone.ToLower() : $"{phone}@mobile.mahalaxmifashionhub.com",

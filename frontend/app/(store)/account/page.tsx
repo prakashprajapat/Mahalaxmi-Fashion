@@ -56,7 +56,7 @@ function AccountContent() {
       <section className="page-hero">
         <p className="eyebrow">Customer Account</p>
         <h1>My Account</h1>
-        <p>Welcome back, {customer.firstName}!</p>
+        <p>Welcome back{customer.firstName ? `, ${customer.firstName}` : ''}!</p>
       </section>
 
       <main className="account-shell" style={{ display: 'block' }}>
@@ -64,7 +64,7 @@ function AccountContent() {
           <div className="form-card">
             <h2>Account Dashboard</h2>
             <div className="form-grid" style={{ pointerEvents: 'none' }}>
-              <label>Name<input value={`${customer.firstName} ${customer.lastName}`} readOnly /></label>
+              <label>Name<input value={`${customer.firstName} ${customer.lastName}`.trim() || '—'} readOnly /></label>
               <label>Customer ID<input value={customer.customerCode || '—'} readOnly /></label>
               <label>Email<input value={customer.email ?? '—'} readOnly /></label>
               <label>Phone<input value={customer.phone} readOnly /></label>
