@@ -102,6 +102,137 @@ public class InfluencersController : ControllerBase
         return Ok(await BuildDashboardAsync(inf));
     }
 
+    // ── POST /api/influencers/send-otp  (public — creator OTP login) ─────────
+    // Accepts an email OR mobile number, finds the approved creator, and sends
+    // the SAME OTP to every channel on file (email and/or mobile).
+    [HttpPost("send-otp")]
+    [EnableRateLimiting("auth")]
+    public async Task<IActionResult> SendLoginOtp([FromBody] InfluencerOtpRequest req)
+    {
+        var idf = (req.Identifier ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(idf))
+            return BadRequest(new { success = false, message = "Email or mobile number is required." });
+
+        var inf = await FindApprovedInfluencer(idf);
+        if (inf is null)
+            return NotFound(new { success = false, message = "No approved creator account found for this email or mobile." });
+
+        var accEmail = (inf.Email ?? "").Trim().ToLower();
+        var accPhone = (inf.Phone ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(accEmail) && string.IsNullOrWhiteSpace(accPhone))
+            return BadRequest(new { success = false, message = "This account has no email or mobile on file." });
+
+        var otp  = Random.Shared.Next(100000, 999999).ToString();
+        var hash = BCrypt.Net.BCrypt.HashPassword(otp, workFactor: 10);
+
+        var old = _db.OtpTokens.Where(t =>
+            t.Purpose == "creator-login" &&
+            (t.Used || t.ExpiresAt < DateTimeOffset.UtcNow ||
+             (accPhone != "" && t.Phone == accPhone) ||
+             (accEmail != "" && t.Email == accEmail)));
+        _db.OtpTokens.RemoveRange(old);
+
+        _db.OtpTokens.Add(new OtpToken
+        {
+            Phone     = accPhone,
+            Email     = accEmail,
+            OtpHash   = hash,
+            Purpose   = "creator-login",
+            ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(10),
+        });
+        await _db.SaveChangesAsync();
+
+        var emailed = false;
+        var texted  = false;
+        if (!string.IsNullOrWhiteSpace(accEmail))
+            emailed = await _email.SendAsync(accEmail,
+                "Your Mahalaxmi Fashion Hub creator login code",
+                EmailService.BuildOtpEmail(otp, "creator login", 10));
+        if (!string.IsNullOrWhiteSpace(accPhone))
+            texted = await _sms.SendOtpAsync(accPhone, otp);
+
+        var sentTo = new
+        {
+            email = emailed ? MaskEmail(accEmail) : null,
+            phone = texted  ? MaskPhone(accPhone) : null,
+        };
+
+        if (_env.IsDevelopment() || (!emailed && !texted))
+            return Ok(new { success = true, message = "OTP sent.", sentTo, devOtp = otp });
+        return Ok(new { success = true, message = "OTP sent.", sentTo });
+    }
+
+    // ── POST /api/influencers/verify-otp  (public — creator OTP login) ───────
+    [HttpPost("verify-otp")]
+    public async Task<IActionResult> VerifyLoginOtp([FromBody] InfluencerOtpVerifyRequest req)
+    {
+        var idf = (req.Identifier ?? "").Trim();
+        var otp = (req.Otp ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(idf) || string.IsNullOrWhiteSpace(otp))
+            return BadRequest(new { success = false, message = "Email/mobile and OTP are required." });
+
+        var inf = await FindApprovedInfluencer(idf);
+        if (inf is null)
+            return NotFound(new { success = false, message = "No approved creator account found." });
+
+        var accEmail = (inf.Email ?? "").Trim().ToLower();
+        var accPhone = (inf.Phone ?? "").Trim();
+
+        var record = await _db.OtpTokens
+            .Where(t => t.Purpose == "creator-login" && !t.Used && t.ExpiresAt > DateTimeOffset.UtcNow &&
+                ((accPhone != "" && t.Phone == accPhone) || (accEmail != "" && t.Email == accEmail)))
+            .OrderByDescending(t => t.CreatedAt)
+            .FirstOrDefaultAsync();
+
+        if (record is null || record.Attempts >= 5)
+            return BadRequest(new { success = false, message = "OTP expired or too many attempts. Please request a new one." });
+
+        if (!BCrypt.Net.BCrypt.Verify(otp, record.OtpHash))
+        {
+            record.Attempts++;
+            await _db.SaveChangesAsync();
+            return BadRequest(new { success = false, message = "Invalid OTP." });
+        }
+
+        record.Used = true;
+        await _db.SaveChangesAsync();
+        return Ok(await BuildDashboardAsync(inf));
+    }
+
+    // Finds an approved creator by email (contains '@') or mobile (last 10 digits).
+    private async Task<Influencer?> FindApprovedInfluencer(string identifier)
+    {
+        var idf = (identifier ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(idf)) return null;
+
+        if (idf.Contains('@'))
+            return await _db.Influencers.FirstOrDefaultAsync(i =>
+                i.Email.ToLower() == idf.ToLower() && i.Status == "approved");
+
+        var digits = new string(idf.Where(char.IsDigit).ToArray());
+        if (digits.Length < 10) return null;
+        var last10 = digits.Substring(digits.Length - 10);
+        return await _db.Influencers.FirstOrDefaultAsync(i =>
+            i.Status == "approved" && i.Phone != null &&
+            (i.Phone == idf || i.Phone == digits || i.Phone == last10 || i.Phone!.EndsWith(last10)));
+    }
+
+    private static string MaskEmail(string email)
+    {
+        var at = email.IndexOf('@');
+        if (at <= 0) return "***";
+        var name  = email.Substring(0, at);
+        var shown = name.Length <= 2 ? name.Substring(0, 1) : name.Substring(0, 2);
+        return shown + new string('*', Math.Max(1, name.Length - shown.Length)) + email.Substring(at);
+    }
+
+    private static string MaskPhone(string phone)
+    {
+        var digits = new string(phone.Where(char.IsDigit).ToArray());
+        if (digits.Length <= 4) return new string('*', digits.Length);
+        return new string('*', digits.Length - 4) + digits.Substring(digits.Length - 4);
+    }
+
     // Shared dashboard payload (stats + profile) for an approved creator.
     private async Task<object> BuildDashboardAsync(Influencer inf)
     {
@@ -489,6 +620,10 @@ public record InfluencerApplyRequest(
     string? Password);
 
 public record InfluencerLoginRequest(string Email, string Password);
+
+public record InfluencerOtpRequest(string Identifier);
+
+public record InfluencerOtpVerifyRequest(string Identifier, string Otp);
 
 public record ForgotPasswordRequest(string Email);
 

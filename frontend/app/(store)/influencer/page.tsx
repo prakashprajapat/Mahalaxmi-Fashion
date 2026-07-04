@@ -38,6 +38,13 @@ export default function InfluencerPage() {
   const [loginPassword, setLoginPassword] = useState('');
   const [loginError, setLoginError] = useState('');
   const [loginLoading, setLoginLoading] = useState(false);
+  // OTP login
+  const [loginMode, setLoginMode] = useState<'password' | 'otp'>('password');
+  const [otpId, setOtpId] = useState('');
+  const [otpCode, setOtpCode] = useState('');
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpMsg, setOtpMsg] = useState('');
+  const [otpLoading, setOtpLoading] = useState(false);
   const [forgotMsg, setForgotMsg] = useState('');
   const [forgotLoading, setForgotLoading] = useState(false);
   const [copied, setCopied] = useState('');
@@ -140,6 +147,43 @@ export default function InfluencerPage() {
     finally { setForgotLoading(false); }
   };
 
+  const handleSendCreatorOtp = async () => {
+    const id = otpId.trim();
+    if (!id) { setOtpMsg('Enter your registered email or mobile number.'); return; }
+    setOtpLoading(true); setOtpMsg('');
+    try {
+      const res = await fetch(`${API}/api/influencers/send-otp`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identifier: id }),
+      });
+      const d = await res.json();
+      if (!res.ok) { setOtpMsg(d.message ?? 'Could not send OTP.'); return; }
+      const dest: string[] = [];
+      if (d.sentTo?.email) dest.push(d.sentTo.email);
+      if (d.sentTo?.phone) dest.push(d.sentTo.phone);
+      setOtpSent(true);
+      setOtpMsg(`OTP sent to ${dest.length ? dest.join(' and ') : 'your registered email / mobile'}.`);
+    } catch { setOtpMsg('Network error. Try again.'); }
+    finally { setOtpLoading(false); }
+  };
+
+  const handleVerifyCreatorOtp = async () => {
+    if (otpCode.trim().length < 4) { setOtpMsg('Enter the OTP you received.'); return; }
+    setOtpLoading(true); setOtpMsg('');
+    try {
+      const res = await fetch(`${API}/api/influencers/verify-otp`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identifier: otpId.trim(), otp: otpCode.trim() }),
+      });
+      const d = await res.json();
+      if (!res.ok) { setOtpMsg(d.message ?? 'Invalid OTP.'); return; }
+      localStorage.setItem('inf_session', JSON.stringify(d));
+      setDashData(d);
+      setTab('dashboard');
+    } catch { setOtpMsg('Network error. Try again.'); }
+    finally { setOtpLoading(false); }
+  };
+
   const handleLogout = () => {
     localStorage.removeItem('inf_session');
     localStorage.removeItem('inf_creds');
@@ -147,6 +191,8 @@ export default function InfluencerPage() {
     setTab('home');
     setLoginEmail('');
     setLoginPassword('');
+    setLoginMode('password');
+    setOtpId(''); setOtpCode(''); setOtpSent(false); setOtpMsg('');
   };
 
   const copy = (text: string, key: string) => {
@@ -320,6 +366,21 @@ export default function InfluencerPage() {
           background: '#fff', borderRadius: '20px', padding: '2rem',
           boxShadow: '0 4px 24px rgba(0,0,0,.08)', border: '1px solid #f0e0e5',
         }}>
+          {/* Mode toggle: Password | OTP */}
+          <div style={{ display: 'flex', gap: '.5rem', background: '#f5f0f2', borderRadius: '12px', padding: '.3rem', marginBottom: '1.25rem' }}>
+            {(['password', 'otp'] as const).map(m => (
+              <button key={m} type="button" onClick={() => { setLoginMode(m); setLoginError(''); setOtpMsg(''); }}
+                style={{
+                  flex: 1, border: 'none', borderRadius: '9px', padding: '.55rem', fontWeight: 700, fontSize: '.85rem',
+                  cursor: 'pointer', background: loginMode === m ? '#fff' : 'transparent',
+                  color: loginMode === m ? BRAND : '#888', boxShadow: loginMode === m ? '0 1px 4px rgba(0,0,0,.1)' : 'none',
+                }}>
+                {m === 'password' ? '🔑 Password' : '📱 OTP'}
+              </button>
+            ))}
+          </div>
+
+          {loginMode === 'password' ? (
           <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
             <div>
               <label style={{ fontSize: '.85rem', fontWeight: 700, color: '#333', display: 'block', marginBottom: '.35rem' }}>
@@ -366,6 +427,72 @@ export default function InfluencerPage() {
               {loginLoading ? '⏳ Checking…' : '🚀 Open Dashboard'}
             </button>
           </form>
+          ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
+            <div>
+              <label style={{ fontSize: '.85rem', fontWeight: 700, color: '#333', display: 'block', marginBottom: '.35rem' }}>
+                Email or Mobile Number
+              </label>
+              <div style={{ display: 'flex', alignItems: 'stretch', border: '1.5px solid #e0e0e0', borderRadius: '12px', overflow: 'hidden', background: otpSent ? '#f7f7f7' : '#fff' }}>
+                {/^\d/.test(otpId.trim()) && (
+                  <span style={{ display: 'flex', alignItems: 'center', padding: '0 .5rem 0 .85rem', fontWeight: 600, color: '#333', background: '#fafafa', borderRight: '1px solid #eee' }}>+91</span>
+                )}
+                <input type="text" value={otpId}
+                  onChange={e => {
+                    const raw = e.target.value;
+                    const first = raw.trim()[0];
+                    if (first && /[0-9]/.test(first)) setOtpId(raw.replace(/\D/g, '').slice(0, 10));
+                    else setOtpId(raw);
+                  }}
+                  disabled={otpSent}
+                  placeholder="you@email.com  or  9876543210"
+                  style={{ flex: 1, padding: '.75rem 1rem', border: 'none', outline: 'none', fontSize: '.9rem', background: 'transparent', boxSizing: 'border-box' }}
+                />
+              </div>
+            </div>
+            {otpSent && (
+              <div>
+                <label style={{ fontSize: '.85rem', fontWeight: 700, color: '#333', display: 'block', marginBottom: '.35rem' }}>
+                  Enter OTP
+                </label>
+                <input type="text" inputMode="numeric" value={otpCode} autoFocus
+                  onChange={e => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleVerifyCreatorOtp(); } }}
+                  placeholder="6-digit code"
+                  style={{ width: '100%', padding: '.75rem 1rem', border: '1.5px solid #e0e0e0', borderRadius: '12px', fontSize: '1.1rem', letterSpacing: '.15em', textAlign: 'center', boxSizing: 'border-box', outline: 'none' }}
+                />
+              </div>
+            )}
+            {otpMsg && (
+              <p style={{ fontSize: '.82rem', margin: 0, fontWeight: 600, color: otpMsg.startsWith('OTP sent') ? '#2e7d32' : '#c0392b' }}>
+                {otpMsg}
+              </p>
+            )}
+            {!otpSent ? (
+              <button type="button" onClick={handleSendCreatorOtp} disabled={otpLoading} style={{
+                background: otpLoading ? '#ccc' : `linear-gradient(135deg, ${BRAND}, ${BRAND_DARK})`,
+                color: '#fff', border: 'none', borderRadius: '12px', padding: '.85rem', fontWeight: 700, fontSize: '1rem',
+                cursor: otpLoading ? 'not-allowed' : 'pointer',
+              }}>
+                {otpLoading ? '⏳ Sending…' : 'Send OTP →'}
+              </button>
+            ) : (
+              <>
+                <button type="button" onClick={handleVerifyCreatorOtp} disabled={otpLoading} style={{
+                  background: otpLoading ? '#ccc' : `linear-gradient(135deg, ${BRAND}, ${BRAND_DARK})`,
+                  color: '#fff', border: 'none', borderRadius: '12px', padding: '.85rem', fontWeight: 700, fontSize: '1rem',
+                  cursor: otpLoading ? 'not-allowed' : 'pointer',
+                }}>
+                  {otpLoading ? '⏳ Verifying…' : '🚀 Verify & Open Dashboard'}
+                </button>
+                <button type="button" onClick={handleSendCreatorOtp} disabled={otpLoading}
+                  style={{ background: 'none', border: 'none', color: BRAND, fontWeight: 700, fontSize: '.8rem', cursor: 'pointer', padding: 0 }}>
+                  Resend OTP
+                </button>
+              </>
+            )}
+          </div>
+          )}
         </div>
         <p style={{ textAlign: 'center', color: '#888', fontSize: '.82rem', marginTop: '1.5rem' }}>
           Not a creator yet?{' '}
