@@ -733,7 +733,7 @@ export default function AddProductPage() {
             label="Variant"
             value={taxVariant}
             onChange={setTaxVariant}
-            baseOptions={getTaxonomy(category).find(g => g.name === sub)?.variants ?? []}
+            baseOptions={getTaxonomy(category).find(g => g.name.toLowerCase() === sub.trim().toLowerCase())?.variants ?? []}
             storageKey={`var_${category.toLowerCase()}_${sub.toLowerCase()}`}
             canDelete={() => true}
             disabled={!sub}

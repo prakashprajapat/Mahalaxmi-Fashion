@@ -35,14 +35,17 @@ public record ProductCreateRequest(
     decimal? MaxPrice,
     string  Stock,
     string? Description,
-    int     Newest,
-    string? Image,
-    bool    BestSeller,
-    object? ExtraJson,
-    string? HsnCode,
-    decimal? GstRate,
-    int?    Qty,
-    int?    PackOf
+    // Optional from here on — the Add UI doesn't send every field. Defaults keep
+    // ASP.NET model validation from rejecting the request (e.g. missing "newest",
+    // which the server fills with a sort-order fallback anyway).
+    int     Newest = 0,
+    string? Image = null,
+    bool    BestSeller = false,
+    object? ExtraJson = null,
+    string? HsnCode = null,
+    decimal? GstRate = null,
+    int?    Qty = null,
+    int?    PackOf = null
 );
 
 public record BulkSaveRequest(List<ProductCreateRequest> Products, bool ReplaceAll = false);
