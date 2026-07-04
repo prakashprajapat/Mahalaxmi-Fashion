@@ -61,9 +61,9 @@ export default function AdminOrdersPage() {
   const [activeTab, setActiveTab] = useState('all');
   const [search, setSearch] = useState('');
   const [dateFilter, setDateFilter] = useState('');
-  const [selected, setSelected] = useState<Order | null>(null);
-  const [newStatus, setNewStatus] = useState('');
-  const [awb, setAwb] = useState('');
+  const [awbModal, setAwbModal] = useState(false);
+  const [newStatus, setNewStatus] = useState('');           // holds the chosen courier
+  const [awbMap, setAwbMap] = useState<Record<string, string>>({}); // per-order AWB
   const [updating, setUpdating] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
@@ -102,24 +102,32 @@ export default function AdminOrdersPage() {
   const countFor = (key: string) =>
     key === 'all' ? mainFiltered.length : mainFiltered.filter(o => o.status === key).length;
 
-  // Manual AWB / delivery-partner assignment. `newStatus` holds the chosen courier here.
+  // Manual AWB / delivery-partner assignment for one or many orders.
+  // `newStatus` holds the courier (same for all); `awbMap` holds each order's AWB.
   const handleUpdate = async () => {
-    if (!selected) return;
-    if (!awb.trim()) { alert('Enter the AWB / tracking / reference number.'); return; }
+    const sel = filtered.filter(o => selectedIds.has(o.id));
+    const targets = sel.filter(o => (awbMap[o.id] ?? '').trim());
+    if (targets.length === 0) { alert('Enter at least one AWB / tracking number.'); return; }
     setUpdating(true);
     try {
-      await ordersApi.updateStatus({ orderId: selected.id, status: 'Shipped', awb: awb.trim(), courier: newStatus || 'Manual' }, getAdminToken() ?? '');
+      for (const o of targets) {
+        // eslint-disable-next-line no-await-in-loop
+        await ordersApi.updateStatus({ orderId: o.id, status: 'Shipped', awb: (awbMap[o.id] || '').trim(), courier: newStatus || 'Manual' }, getAdminToken() ?? '');
+      }
+      setAwbModal(false); setAwbMap({});
       fetchOrders();
-      setSelected(null); setAwb('');
     } catch (e) { alert((e as Error).message); }
     finally { setUpdating(false); }
   };
 
   const openManualAwb = () => {
     const sel = filtered.filter(o => selectedIds.has(o.id));
-    if (sel.length !== 1) { alert('Select exactly ONE order to assign its AWB / tracking number.'); return; }
-    const o = sel[0];
-    setSelected(o); setAwb(o.awb ?? ''); setNewStatus(o.courier || 'Delhivery');
+    if (sel.length === 0) { alert('Select at least one order.'); return; }
+    const init: Record<string, string> = {};
+    sel.forEach(o => { init[o.id] = o.awb ?? ''; });
+    setAwbMap(init);
+    setNewStatus(sel[0].courier || 'Delhivery');
+    setAwbModal(true);
   };
 
   const toggleSelect = (id: string) => {
@@ -442,37 +450,39 @@ export default function AdminOrdersPage() {
         </div>
       </div>
 
-      {/* Update Modal */}
-      {selected && (
+      {/* Assign AWB / Delivery Partner Modal (one or many orders) */}
+      {awbModal && (() => {
+        const awbOrders = filtered.filter(o => selectedIds.has(o.id));
+        return (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 300, padding: '1rem' }}>
-          <div style={{ background: '#fff', borderRadius: '16px', padding: '1.5rem', width: '100%', maxWidth: '420px' }}>
+          <div style={{ background: '#fff', borderRadius: '16px', padding: '1.5rem', width: '100%', maxWidth: '460px', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
             <h3 style={{ fontWeight: 700, marginBottom: '.25rem' }}>Assign AWB / Delivery Partner</h3>
-            <p style={{ fontSize: '.82rem', color: '#888', marginBottom: '1.25rem', fontFamily: 'monospace' }}>{selected.id}</p>
+            <p style={{ fontSize: '.82rem', color: '#888', marginBottom: '1rem' }}>{awbOrders.length} order{awbOrders.length !== 1 ? 's' : ''} — enter each AWB, courier applies to all.</p>
 
-            <div style={{ background: '#f9f9f9', borderRadius: '8px', padding: '.75rem', marginBottom: '1rem', fontSize: '.82rem' }}>
-              <p style={{ margin: '0 0 .25rem' }}><strong>Customer:</strong> {selected.customerName}</p>
-              <p style={{ margin: '0 0 .25rem' }}><strong>Phone:</strong> {selected.customerPhone}</p>
-              <p style={{ margin: '0 0 .25rem' }}><strong>Amount:</strong> ₹{selected.total.toLocaleString('en-IN')} ({selected.method})</p>
-              <p style={{ margin: 0 }}><strong>Address:</strong> {[selected.shippingAddress, selected.shippingCity, selected.shippingState, selected.shippingPincode].filter(Boolean).join(', ')}</p>
+            <div style={{ marginBottom: '.85rem' }}>
+              <label style={{ fontSize: '.85rem', color: '#555', display: 'block', marginBottom: '.3rem' }}>Delivery Partner (all)</label>
+              <select value={newStatus} onChange={e => setNewStatus(e.target.value)}
+                style={{ width: '100%', border: '1.5px solid #ddd', borderRadius: '8px', padding: '.6rem .75rem', fontSize: '.9rem' }}>
+                {['Delhivery', 'India Post', 'DTDC', 'Other / Manual'].map(s => <option key={s}>{s}</option>)}
+              </select>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '.75rem' }}>
-              <div>
-                <label style={{ fontSize: '.85rem', color: '#555', display: 'block', marginBottom: '.3rem' }}>Delivery Partner</label>
-                <select value={newStatus} onChange={e => setNewStatus(e.target.value)}
-                  style={{ width: '100%', border: '1.5px solid #ddd', borderRadius: '8px', padding: '.6rem .75rem', fontSize: '.9rem' }}>
-                  {['Delhivery', 'India Post', 'DTDC', 'Other / Manual'].map(s => <option key={s}>{s}</option>)}
-                </select>
-              </div>
-              <div>
-                <label style={{ fontSize: '.85rem', color: '#555', display: 'block', marginBottom: '.3rem' }}>AWB / Tracking Number</label>
-                <input value={awb} onChange={e => setAwb(e.target.value)}
-                  placeholder="Enter AWB from Delhivery / courier"
-                  style={{ width: '100%', border: '1.5px solid #ddd', borderRadius: '8px', padding: '.6rem .75rem', fontSize: '.9rem', boxSizing: 'border-box' }} />
-              </div>
+            <div style={{ overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '.6rem', flex: 1 }}>
+              {awbOrders.map(o => (
+                <div key={o.id} style={{ display: 'flex', alignItems: 'center', gap: '.6rem' }}>
+                  <div style={{ flex: '0 0 155px', fontSize: '.75rem' }}>
+                    <div style={{ fontFamily: 'monospace', fontWeight: 600 }}>{o.id}</div>
+                    <div style={{ color: '#888' }}>{o.shippingName || o.customerName} · {o.shippingPincode || ''}</div>
+                  </div>
+                  <input value={awbMap[o.id] ?? ''} onChange={e => setAwbMap(m => ({ ...m, [o.id]: e.target.value }))}
+                    placeholder="AWB / tracking no."
+                    style={{ flex: 1, border: '1.5px solid #ddd', borderRadius: '8px', padding: '.5rem .65rem', fontSize: '.85rem', boxSizing: 'border-box' }} />
+                </div>
+              ))}
             </div>
+
             <div style={{ display: 'flex', gap: '.75rem', marginTop: '1.25rem' }}>
-              <button onClick={() => setSelected(null)}
+              <button onClick={() => setAwbModal(false)}
                 style={{ flex: 1, background: '#f5f5f5', color: '#555', border: 'none', borderRadius: '8px', padding: '.65rem', cursor: 'pointer', fontWeight: 600 }}>
                 Cancel
               </button>
@@ -483,7 +493,8 @@ export default function AdminOrdersPage() {
             </div>
           </div>
         </div>
-      )}
+        );
+      })()}
     </div>
   );
 }
