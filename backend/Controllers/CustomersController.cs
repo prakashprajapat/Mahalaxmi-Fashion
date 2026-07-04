@@ -348,19 +348,86 @@ public class CustomersController : ControllerBase
         return Ok(new { success = true, token, customer = ToDto(customer) });
     }
 
+    // POST /api/customers/forgot-password/send-otp
+    // Accepts an email OR a mobile number, finds the account, and sends the SAME
+    // OTP to every channel the account has registered (email and/or mobile).
+    [HttpPost("forgot-password/send-otp")]
+    [EnableRateLimiting("auth")]
+    public async Task<IActionResult> ForgotPasswordSendOtp([FromBody] ForgotPasswordOtpRequest req)
+    {
+        var idf = (req.Identifier ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(idf))
+            return BadRequest(new { success = false, message = "Email or mobile number is required." });
+
+        var customer = await FindCustomerByIdentifier(idf);
+        if (customer is null)
+            return NotFound(new { success = false, message = "No account found for this email or mobile number." });
+
+        var accEmail = (customer.Email ?? "").Trim().ToLower();
+        var accPhone = (customer.Phone ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(accEmail) && string.IsNullOrWhiteSpace(accPhone))
+            return BadRequest(new { success = false, message = "This account has no email or mobile on file to send an OTP to." });
+
+        var otp = Random.Shared.Next(100000, 999999).ToString();
+        var (hash, _) = _auth.HashPassword(otp);
+
+        // Purge old reset OTPs for this account's contacts.
+        var old = _db.OtpTokens.Where(t =>
+            t.Used || t.ExpiresAt < DateTimeOffset.UtcNow ||
+            (accPhone != "" && t.Phone == accPhone) ||
+            (accEmail != "" && t.Email == accEmail));
+        _db.OtpTokens.RemoveRange(old);
+
+        // One token carrying BOTH contacts, so verification by either works.
+        _db.OtpTokens.Add(new OtpToken
+        {
+            Phone     = accPhone,
+            Email     = accEmail,
+            OtpHash   = hash,
+            Purpose   = "reset",
+            ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(10),
+        });
+        await _db.SaveChangesAsync();
+
+        // Send the SAME OTP to every channel the account has.
+        var emailed = false;
+        var texted  = false;
+        if (!string.IsNullOrWhiteSpace(accEmail))
+            emailed = await _email.SendAsync(accEmail,
+                "Your Mahalaxmi Fashion Hub password reset code",
+                EmailService.BuildOtpEmail(otp, "password reset", 10));
+        if (!string.IsNullOrWhiteSpace(accPhone))
+            texted = await _sms.SendOtpAsync(accPhone, otp);
+
+        var sentTo = new
+        {
+            email = emailed ? MaskEmail(accEmail) : null,
+            phone = texted  ? MaskPhone(accPhone) : null,
+        };
+
+        if (_env.IsDevelopment() || (!emailed && !texted))
+            return Ok(new { success = true, message = "OTP generated.", sentTo, devOtp = otp });
+        return Ok(new { success = true, message = "OTP sent.", sentTo });
+    }
+
     // POST /api/customers/reset-password
     [HttpPost("reset-password")]
     public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest req)
     {
-        var email = req.Email.ToLower().Trim();
-        var customer = await _db.Customers.FirstOrDefaultAsync(c => c.Email == email);
+        // req.Email carries the identifier the customer entered — email OR mobile.
+        var idf = (req.Email ?? "").Trim();
+        var customer = await FindCustomerByIdentifier(idf);
         if (customer is null)
-            return NotFound(new { success = false, message = "No account found for this email." });
+            return NotFound(new { success = false, message = "No account found for this email or mobile number." });
 
         if (string.IsNullOrWhiteSpace(req.Password) || req.Password.Length < 8)
             return BadRequest(new { success = false, message = "Password must be at least 8 characters." });
 
-        var otpOk = await VerifyOtpToken("", email, req.Otp);
+        // The reset OTP token carries both the account's email and phone, so
+        // verify against whichever contacts the account actually has.
+        var accEmail = (customer.Email ?? "").Trim().ToLower();
+        var accPhone = (customer.Phone ?? "").Trim();
+        var otpOk = await VerifyOtpToken(accPhone, accEmail, req.Otp);
         if (!otpOk)
             return BadRequest(new { success = false, message = "Invalid or expired OTP." });
 
@@ -471,6 +538,42 @@ public class CustomersController : ControllerBase
         _db.Customers.Remove(c);
         await _db.SaveChangesAsync();
         return Ok(new { success = true });
+    }
+
+    // Finds a customer by an email (contains '@') or a mobile number (matched on
+    // the last 10 digits, so 91-prefixed and plain forms both resolve).
+    private async Task<Customer?> FindCustomerByIdentifier(string identifier)
+    {
+        var idf = (identifier ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(idf)) return null;
+
+        if (idf.Contains('@'))
+            return await _db.Customers.FirstOrDefaultAsync(c => c.Email == idf.ToLower());
+
+        var digits = new string(idf.Where(char.IsDigit).ToArray());
+        if (digits.Length < 10)
+            return await _db.Customers.FirstOrDefaultAsync(c => c.Phone == idf);
+
+        var last10 = digits.Substring(digits.Length - 10);
+        return await _db.Customers.FirstOrDefaultAsync(c =>
+            c.Phone == idf || c.Phone == digits || c.Phone == last10 ||
+            (c.Phone != "" && c.Phone.EndsWith(last10)));
+    }
+
+    private static string MaskEmail(string email)
+    {
+        var at = email.IndexOf('@');
+        if (at <= 0) return "***";
+        var name  = email.Substring(0, at);
+        var shown = name.Length <= 2 ? name.Substring(0, 1) : name.Substring(0, 2);
+        return shown + new string('*', Math.Max(1, name.Length - shown.Length)) + email.Substring(at);
+    }
+
+    private static string MaskPhone(string phone)
+    {
+        var digits = new string(phone.Where(char.IsDigit).ToArray());
+        if (digits.Length <= 4) return new string('*', digits.Length);
+        return new string('*', digits.Length - 4) + digits.Substring(digits.Length - 4);
     }
 
     private async Task<bool> VerifyOtpToken(string phone, string email, string otp)

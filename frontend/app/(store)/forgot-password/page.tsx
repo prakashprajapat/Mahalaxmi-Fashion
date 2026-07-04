@@ -7,20 +7,30 @@ type Step = 'email' | 'otp' | 'reset' | 'done';
 
 export default function ForgotPasswordPage() {
   const [step, setStep] = useState<Step>('email');
-  const [email, setEmail] = useState('');
+  const [identifier, setIdentifier] = useState('');
+  const [sentMsg, setSentMsg] = useState('');
   const [otp, setOtp] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPw, setConfirmPw] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  const isEmail = (v: string) => /\S+@\S+\.\S+/.test(v);
+  const isMobile = (v: string) => /^\d{10,13}$/.test(v.replace(/\D/g, ''));
+
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    if (!email || !/\S+@\S+\.\S+/.test(email)) return setError('Please enter a valid email address.');
+    const id = identifier.trim();
+    if (!isEmail(id) && !isMobile(id))
+      return setError('Please enter a valid email address or mobile number.');
     setLoading(true);
     try {
-      await customersApi.sendEmailOtp(email, 'reset');
+      const res = await customersApi.forgotPasswordSendOtp(id);
+      const dest: string[] = [];
+      if (res.sentTo?.email) dest.push(res.sentTo.email);
+      if (res.sentTo?.phone) dest.push(res.sentTo.phone);
+      setSentMsg(dest.length ? dest.join(' and ') : 'your registered email / mobile');
       setStep('otp');
     } catch (e) {
       setError((e as Error).message || 'Could not send OTP. Please try again.');
@@ -41,7 +51,7 @@ export default function ForgotPasswordPage() {
     if (password !== confirmPw) return setError('Passwords do not match.');
     setLoading(true);
     try {
-      await customersApi.resetPassword({ email, otp, password });
+      await customersApi.resetPassword({ email: identifier.trim(), otp, password });
       setStep('done');
     } catch (e) {
       setError((e as Error).message || 'Password reset failed. Please try again.');
@@ -53,21 +63,21 @@ export default function ForgotPasswordPage() {
       <section className="page-hero">
         <p className="eyebrow">Customer Account</p>
         <h1>Forgot Password</h1>
-        <p>Reset your account password using your registered email address.</p>
+        <p>Reset your account password using your registered email address or mobile number.</p>
       </section>
 
       <main className="account-shell" style={{ display: 'block' }}>
         <section className="auth-stack">
           {step === 'email' && (
             <div className="form-card">
-              <h2>Enter Registered Email</h2>
-              <p style={{ color: '#666', fontSize: '.9rem', marginBottom: '1rem' }}>We will send an OTP to your registered email address.</p>
+              <h2>Enter Email or Mobile</h2>
+              <p style={{ color: '#666', fontSize: '.9rem', marginBottom: '1rem' }}>We will send an OTP to your registered email and/or mobile. If both are on your account, you will get the same OTP on both.</p>
               {error && <p className="wiz-message">{error}</p>}
               <form onSubmit={handleSendOtp}>
                 <div className="form-grid">
                   <label className="full-field">
-                    Email Address <span className="required-mark">*</span>
-                    <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com" required autoComplete="email" />
+                    Email Address or Mobile Number <span className="required-mark">*</span>
+                    <input type="text" value={identifier} onChange={e => setIdentifier(e.target.value)} placeholder="you@example.com  or  9876543210" required autoComplete="username" />
                   </label>
                   <div className="form-actions">
                     <button type="submit" className="button primary" disabled={loading}>{loading ? 'Sending OTP…' : 'Send OTP →'}</button>
@@ -81,10 +91,10 @@ export default function ForgotPasswordPage() {
           {step === 'otp' && (
             <div className="form-card">
               <h2>Enter OTP</h2>
-              <p style={{ color: '#555', fontSize: '.9rem', marginBottom: '.5rem' }}>OTP sent to <strong>{email}</strong></p>
+              <p style={{ color: '#555', fontSize: '.9rem', marginBottom: '.5rem' }}>OTP sent to <strong>{sentMsg}</strong></p>
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: '.5rem', background: '#fff8e1', border: '1px solid #ffe082', borderRadius: '8px', padding: '.65rem .85rem', margin: '.5rem 0 .75rem', fontSize: '.84rem', color: '#795548' }}>
                 <span style={{ fontSize: '1.1rem', flexShrink: 0 }}>📬</span>
-                <span>Check your <strong>Spam / Junk</strong> folder if you did not receive the OTP.</span>
+                <span>Check your <strong>Spam / Junk</strong> folder (email) or wait a few seconds (SMS) if you did not receive the OTP.</span>
               </div>
               {error && <p className="wiz-message">{error}</p>}
               <form onSubmit={handleVerifyOtp}>

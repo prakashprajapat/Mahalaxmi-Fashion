@@ -116,6 +116,11 @@ export const customersApi = {
     request<{ success: boolean; token?: string; customer?: import('@/types').Customer; newUser?: boolean }>(
       '/customers/verify-otp', { method: 'POST', body: JSON.stringify({ phone, otp }) }
     ),
+  forgotPasswordSendOtp: (identifier: string) =>
+    request<{ success: boolean; sentTo?: { email?: string | null; phone?: string | null }; devOtp?: string }>(
+      '/customers/forgot-password/send-otp',
+      { method: 'POST', body: JSON.stringify({ identifier }) }
+    ),
   resetPassword: (data: { email: string; otp: string; password: string }) =>
     request('/customers/reset-password', { method: 'POST', body: JSON.stringify(data) }),
   updateProfile: (id: number, data: unknown, token: string) =>

@@ -102,7 +102,11 @@ public record UpdateProfileRequest(
 public record AccountStatusRequest(string? Reason);
 
 public record ResetPasswordRequest(
-    string Email,
+    string Email,   // email OR mobile number — the identifier the customer entered
     string Otp,
     string Password
+);
+
+public record ForgotPasswordOtpRequest(
+    string Identifier   // email OR mobile number
 );
