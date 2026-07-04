@@ -136,9 +136,10 @@ export default function AdminOrdersPage() {
   };
 
   const downloadShippingLabel = (order: Order) => {
-    // Phase 3 will auto-fill this from the AWB's delivery partner; for now ask the admin.
-    const courier = (window.prompt('Delivery partner for this label (e.g. Delhivery, India Post):', 'Delhivery') || 'Delhivery').trim();
     const awb = order.awb || '';
+    // Courier is auto-filled from the AWB's platform (Phase 3). Shown only once an AWB/reference exists.
+    const courier = ((order as unknown as { courier?: string }).courier || '').trim();
+    const showCourier = !!awb && !!courier;
     const esc = (s: string | number | null | undefined) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] as string));
     const money = (n: number) => 'Rs.' + Number(n || 0).toFixed(2);
 
@@ -162,7 +163,7 @@ export default function AdminOrdersPage() {
         <td style="text-align:right">${money(it.lineTotal)}</td>
       </tr>`).join('');
 
-    const html = `<!doctype html><html><head><meta charset="utf-8"><title>${courier} label ${esc(awb || order.id)}</title>
+    const html = `<!doctype html><html><head><meta charset="utf-8"><title>${showCourier ? esc(courier) + ' ' : ''}label ${esc(awb || order.id)}</title>
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
     <style>
       *{box-sizing:border-box}
@@ -170,14 +171,10 @@ export default function AdminOrdersPage() {
       html,body{margin:0;padding:0}
       body{font-family:Arial,Helvetica,sans-serif;color:#111;background:#fff}
       .label{width:4in;min-height:6in;margin:0 auto;border:1px solid #111;padding:7px 8px}
-      .top{display:flex;align-items:center;gap:8px;padding-top:1px}
-      .logo-col{display:flex;flex-direction:column;align-items:center;flex-shrink:0}
-      .brand-logo{width:82px;height:82px;object-fit:contain}
-      .courier-mini{background:#111;color:#fff;font-weight:800;font-size:7px;padding:2px 5px;border-radius:3px;letter-spacing:.03em;margin-top:2px;white-space:nowrap}
-      .brand{flex:1;text-align:center}
-      .brand h1{font-size:15px;margin:0;font-weight:800;line-height:1.05}
-      .brand .tag{font-size:7px;letter-spacing:.04em;color:#333;font-weight:700}
-      .brand .web{font-size:8px;color:#a7354d;font-weight:700;margin-top:1px}
+      .top{position:relative;text-align:center;padding-top:2px}
+      .brand-logo{width:135px;height:auto;object-fit:contain;display:inline-block}
+      .web{font-size:9px;color:#a7354d;font-weight:700;margin-top:0}
+      .courier-mini{position:absolute;top:0;right:0;background:#111;color:#fff;font-weight:800;font-size:7px;padding:2px 5px;border-radius:3px;letter-spacing:.03em;white-space:nowrap}
       .doctitle{font-size:10px;font-weight:800;margin:3px 0 4px;text-align:center}
       .box{border:1px solid #111;padding:4px 6px;margin-top:5px}
       .lbl{font-size:7px;font-weight:700;letter-spacing:.06em;color:#333}
@@ -198,17 +195,11 @@ export default function AdminOrdersPage() {
     </style></head><body onload="try{JsBarcode('#barcode','${esc(awb || order.id)}',{format:'CODE128',displayValue:false,height:30,margin:0,width:1.4});}catch(e){}">
     <div class="label">
       <div class="top">
-        <div class="logo-col">
-          <img class="brand-logo" src="https://mahalaxmifashionhub.com/email-logo.png" alt="logo" />
-          <div class="courier-mini">${esc(courier.toUpperCase())}</div>
-        </div>
-        <div class="brand">
-          <h1>Mahalaxmi Fashion Hub</h1>
-          <div class="tag">EVERY LOOK, A NEW EXPERIENCE</div>
-          <div class="web">www.mahalaxmifashionhub.com</div>
-        </div>
+        ${showCourier ? `<div class="courier-mini">${esc(courier.toUpperCase())}</div>` : ''}
+        <img class="brand-logo" src="https://mahalaxmifashionhub.com/email-logo.png" alt="logo" />
+        <div class="web">www.mahalaxmifashionhub.com</div>
       </div>
-      <div class="doctitle">TAX INVOICE / ${courier.toUpperCase()} SHIPPING LABEL</div>
+      <div class="doctitle">TAX INVOICE / ${showCourier ? esc(courier.toUpperCase()) + ' ' : ''}SHIPPING LABEL</div>
 
       <div class="box">
         <div class="lbl">AWB / TRACKING ID</div>
@@ -254,7 +245,7 @@ export default function AdminOrdersPage() {
 
       <div class="cols" style="margin-top:5px">
         <div class="box"><div class="lbl">SELLER / PICKUP</div><div class="txt">Mahalaxmi Fashion Hub, Balotra, Rajasthan - 344022</div></div>
-        <div class="box"><div class="lbl">DELIVERY PARTNER</div><div class="txt">${courier} | AWB: ${esc(awb || 'PENDING')}</div></div>
+        <div class="box"><div class="lbl">DELIVERY PARTNER</div><div class="txt">${showCourier ? esc(courier) + ' | ' : ''}AWB: ${esc(awb || 'PENDING')}</div></div>
       </div>
 
       <div class="foot">Print this label and paste it on the parcel before handover.
@@ -265,7 +256,7 @@ export default function AdminOrdersPage() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${courier.toLowerCase()}-label-${awb || order.id}.html`;
+    a.download = `${showCourier ? courier.toLowerCase() + '-' : ''}label-${awb || order.id}.html`;
     a.click();
     URL.revokeObjectURL(url);
   };
