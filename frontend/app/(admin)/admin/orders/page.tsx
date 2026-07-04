@@ -170,13 +170,15 @@ export default function AdminOrdersPage() {
       html,body{margin:0;padding:0}
       body{font-family:Arial,Helvetica,sans-serif;color:#111;background:#fff}
       .label{width:4in;min-height:6in;margin:0 auto;border:1px solid #111;padding:7px 8px}
-      .top{position:relative;display:flex;align-items:center;gap:8px;padding-top:2px;min-height:66px}
-      .top .brand-logo{width:84px;height:84px;object-fit:contain;flex-shrink:0}
+      .top{display:flex;align-items:center;gap:8px;padding-top:1px}
+      .logo-col{display:flex;flex-direction:column;align-items:center;flex-shrink:0}
+      .brand-logo{width:82px;height:82px;object-fit:contain}
+      .courier-mini{background:#111;color:#fff;font-weight:800;font-size:7px;padding:2px 5px;border-radius:3px;letter-spacing:.03em;margin-top:2px;white-space:nowrap}
+      .brand{flex:1;text-align:center}
       .brand h1{font-size:15px;margin:0;font-weight:800;line-height:1.05}
       .brand .tag{font-size:7px;letter-spacing:.04em;color:#333;font-weight:700}
       .brand .web{font-size:8px;color:#a7354d;font-weight:700;margin-top:1px}
-      .courier{position:absolute;top:0;right:0;background:#111;color:#fff;font-weight:800;font-size:9px;padding:3px 6px;border-radius:3px;letter-spacing:.04em}
-      .doctitle{font-size:10px;font-weight:800;margin:5px 0 5px;text-align:center}
+      .doctitle{font-size:10px;font-weight:800;margin:3px 0 4px;text-align:center}
       .box{border:1px solid #111;padding:4px 6px;margin-top:5px}
       .lbl{font-size:7px;font-weight:700;letter-spacing:.06em;color:#333}
       .cols{display:flex;gap:5px}.cols>.box{flex:1;margin-top:0}
@@ -196,8 +198,10 @@ export default function AdminOrdersPage() {
     </style></head><body onload="try{JsBarcode('#barcode','${esc(awb || order.id)}',{format:'CODE128',displayValue:false,height:30,margin:0,width:1.4});}catch(e){}">
     <div class="label">
       <div class="top">
-        <div class="courier">${esc(courier.toUpperCase())}</div>
-        <img class="brand-logo" src="https://mahalaxmifashionhub.com/email-logo.png" alt="logo" />
+        <div class="logo-col">
+          <img class="brand-logo" src="https://mahalaxmifashionhub.com/email-logo.png" alt="logo" />
+          <div class="courier-mini">${esc(courier.toUpperCase())}</div>
+        </div>
         <div class="brand">
           <h1>Mahalaxmi Fashion Hub</h1>
           <div class="tag">EVERY LOOK, A NEW EXPERIENCE</div>
