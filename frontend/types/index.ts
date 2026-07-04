@@ -106,6 +106,10 @@ export interface Order {
   returnIssue?: string;
   returnReason?: string;
   returnCallback?: string;
+  returnOpeningVideo?: string;
+  returnClosingVideo?: string;
+  returnOpeningPhotos?: string[];
+  returnClosingPhotos?: string[];
 }
 
 export interface Review {

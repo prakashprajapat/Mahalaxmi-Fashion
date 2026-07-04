@@ -23,6 +23,13 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddMemoryCache(); // PERF-2: for settings caching
 
+// Return-media uploads: allow videos up to ~80 MB per file (Kestrel + multipart limits)
+builder.Services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(o =>
+{
+    o.MultipartBodyLengthLimit = 85L * 1024 * 1024;
+});
+builder.WebHost.ConfigureKestrel(o => o.Limits.MaxRequestBodySize = 85L * 1024 * 1024);
+
 // ── Rate Limiting ─────────────────────────────────────────────────────────────
 // SEC-8: Protect auth & OTP endpoints from brute-force (10 req/min)
 builder.Services.AddRateLimiter(opts =>

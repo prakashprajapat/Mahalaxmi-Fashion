@@ -9,6 +9,44 @@ import type { Order, Customer } from '@/types';
 
 const HOURS_12 = 12 * 60 * 60 * 1000;
 const DAYS_7 = 7 * 24 * 60 * 60 * 1000;
+const MAX_PHOTOS = 8;
+const MAX_VIDEO_BYTES = 80 * 1024 * 1024; // 80 MB
+
+// Downscale + re-encode a photo in the browser so uploads stay small (typically <300 KB).
+async function compressImage(file: File, maxDim = 1600, quality = 0.72): Promise<File> {
+  if (!file.type.startsWith('image/')) return file;
+  try {
+    const dataUrl = await new Promise<string>((res, rej) => {
+      const r = new FileReader();
+      r.onload = () => res(r.result as string);
+      r.onerror = rej;
+      r.readAsDataURL(file);
+    });
+    const img = await new Promise<HTMLImageElement>((res, rej) => {
+      const i = new Image();
+      i.onload = () => res(i);
+      i.onerror = rej;
+      i.src = dataUrl;
+    });
+    let { width, height } = img;
+    if (width > maxDim || height > maxDim) {
+      const s = Math.min(maxDim / width, maxDim / height);
+      width = Math.round(width * s);
+      height = Math.round(height * s);
+    }
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return file;
+    ctx.drawImage(img, 0, 0, width, height);
+    const blob = await new Promise<Blob | null>(res => canvas.toBlob(res, 'image/jpeg', quality));
+    if (!blob) return file;
+    return new File([blob], file.name.replace(/\.\w+$/, '') + '.jpg', { type: 'image/jpeg' });
+  } catch {
+    return file; // fall back to original on any failure
+  }
+}
 
 function canCancel(order: Order): boolean {
   if (!['Order Received', 'Pending', 'Pending confirmation'].includes(order.status)) return false;
@@ -34,6 +72,13 @@ export default function OrdersPage() {
   const [returnIssue, setReturnIssue] = useState('Damaged product');
   const [returnCallback, setReturnCallback] = useState('');
   const [returnSubmitted, setReturnSubmitted] = useState('');
+  // Return media
+  const [openVideo, setOpenVideo] = useState<File | null>(null);
+  const [closeVideo, setCloseVideo] = useState<File | null>(null);
+  const [openPhotos, setOpenPhotos] = useState<File[]>([]);
+  const [closePhotos, setClosePhotos] = useState<File[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [uploadMsg, setUploadMsg] = useState('');
   const [msg, setMsg] = useState('');
   const [activeTab, setActiveTab] = useState<'orders' | 'returns'>('orders');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'delivered' | 'cancelled'>('all');
@@ -63,9 +108,54 @@ export default function OrdersPage() {
     } finally { setCancellingId(''); }
   };
 
+  const pickVideo = (which: 'open' | 'close', f: File | null) => {
+    const setter = which === 'open' ? setOpenVideo : setCloseVideo;
+    if (!f) { setter(null); return; }
+    if (!f.type.startsWith('video/')) { alert('Please select a video file.'); return; }
+    if (f.size > MAX_VIDEO_BYTES) { alert('Video is too large (max 80 MB). Please trim or compress it and try again.'); return; }
+    setter(f);
+  };
+
+  const addPhotos = (which: 'open' | 'close', list: FileList | null) => {
+    if (!list) return;
+    const incoming = Array.from(list).filter(f => f.type.startsWith('image/'));
+    if (which === 'open') setOpenPhotos(prev => [...prev, ...incoming].slice(0, MAX_PHOTOS));
+    else setClosePhotos(prev => [...prev, ...incoming].slice(0, MAX_PHOTOS));
+  };
+
+  const removePhoto = (which: 'open' | 'close', idx: number) => {
+    if (which === 'open') setOpenPhotos(prev => prev.filter((_, i) => i !== idx));
+    else setClosePhotos(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  const resetReturnForm = () => {
+    setReturnOrderId(''); setReturnReason(''); setReturnCallback('');
+    setOpenVideo(null); setCloseVideo(null); setOpenPhotos([]); setClosePhotos([]);
+    setUploadMsg('');
+  };
+
   const handleReturn = async (order: Order) => {
     if (!returnReason.trim()) { alert('Please describe the issue.'); return; }
+    setUploading(true);
     try {
+      const token = getToken() ?? '';
+      let done = 0;
+      const total = (openVideo ? 1 : 0) + (closeVideo ? 1 : 0) + openPhotos.length + closePhotos.length;
+      const up = async (file: File, kind: string) => {
+        const f = file.type.startsWith('image/') ? await compressImage(file) : file;
+        if (total) setUploadMsg(`Uploading media… ${++done}/${total}`);
+        const r = await ordersApi.uploadReturnMedia(order.id, f, kind, token);
+        return r.url;
+      };
+
+      const openingVideo = openVideo ? await up(openVideo, 'openingVideo') : '';
+      const closingVideo = closeVideo ? await up(closeVideo, 'closingVideo') : '';
+      const openingPhotos: string[] = [];
+      for (const p of openPhotos) openingPhotos.push(await up(p, 'openingPhoto'));
+      const closingPhotos: string[] = [];
+      for (const p of closePhotos) closingPhotos.push(await up(p, 'closingPhoto'));
+
+      setUploadMsg('Submitting return request…');
       const details = {
         issue: returnIssue,
         invoiceNumber: order.invoiceNumber ?? '',
@@ -73,16 +163,18 @@ export default function OrdersPage() {
         paymentMethod: order.method,
         description: returnReason.trim(),
         callback: returnCallback.trim(),
+        openingVideo, closingVideo, openingPhotos, closingPhotos,
       };
-      const res = await ordersApi.requestReturn(order.id, details, getToken() ?? '');
+      const res = await ordersApi.requestReturn(order.id, details, token);
       setOrders(prev => prev.map(o => o.id === order.id ? res.order : o));
       setReturnSubmitted(order.id);
-      setReturnOrderId('');
-      setReturnReason('');
-      setReturnCallback('');
+      resetReturnForm();
       setMsg(`Return requested for order #${order.id}.`);
     } catch (e) {
       setMsg('Failed to request return: ' + (e as Error).message);
+    } finally {
+      setUploading(false);
+      setUploadMsg('');
     }
   };
 
@@ -168,9 +260,32 @@ export default function OrdersPage() {
                       </div>
                       <span className="badge badge-yellow">{(order as any).returnStatus ?? 'Return Requested'}</span>
                     </div>
-                    {(order as any).returnReason && (
-                      <p style={{ fontSize: '.85rem', color: '#666', marginTop: '.5rem' }}>Reason: {(order as any).returnReason}</p>
+                    {order.returnIssue && (
+                      <p style={{ fontSize: '.85rem', color: '#666', marginTop: '.5rem' }}><strong>Issue:</strong> {order.returnIssue}</p>
                     )}
+                    {(order.returnReason || (order as any).returnReason) && (
+                      <p style={{ fontSize: '.85rem', color: '#666', marginTop: '.25rem' }}>Reason: {order.returnReason || (order as any).returnReason}</p>
+                    )}
+                    {(() => {
+                      const media = [
+                        ...(order.returnOpeningVideo ? [{ url: order.returnOpeningVideo, video: true }] : []),
+                        ...(order.returnClosingVideo ? [{ url: order.returnClosingVideo, video: true }] : []),
+                        ...(order.returnOpeningPhotos ?? []).map(u => ({ url: u, video: false })),
+                        ...(order.returnClosingPhotos ?? []).map(u => ({ url: u, video: false })),
+                      ];
+                      if (!media.length) return null;
+                      return (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '.4rem', marginTop: '.6rem' }}>
+                          {media.map((m, i) => (
+                            <a key={i} href={m.url} target="_blank" rel="noreferrer" style={{ display: 'block' }}>
+                              {m.video
+                                ? <div style={{ width: 54, height: 54, borderRadius: 6, border: '1px solid #eee', background: '#111', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.1rem' }}>▶</div>
+                                : <img src={m.url} alt="" style={{ width: 54, height: 54, objectFit: 'cover', borderRadius: 6, border: '1px solid #eee' }} />}
+                            </a>
+                          ))}
+                        </div>
+                      );
+                    })()}
                   </div>
                 ))}
               </div>
@@ -261,13 +376,81 @@ export default function OrdersPage() {
                         placeholder="Mobile number for callback (optional)"
                         style={{ width: '100%', border: '1.5px solid #ddd', borderRadius: '8px', padding: '.55rem .75rem', fontSize: '.85rem', boxSizing: 'border-box', marginBottom: '.35rem' }} />
 
-                      <p style={{ fontSize: '.72rem', color: '#999', margin: '.25rem 0 .5rem' }}>📷 Photo &amp; video upload (opening / packing) will be available here shortly.</p>
+                      {/* ── Media uploads (all optional) ────────────────────────── */}
+                      <div style={{ borderTop: '1px dashed #e0e0e0', margin: '.85rem 0 .35rem', paddingTop: '.6rem' }}>
+                        <p style={{ fontSize: '.8rem', fontWeight: 700, color: '#555', margin: '0 0 .1rem' }}>📷 Photos &amp; Videos <span style={{ fontWeight: 400, color: '#999' }}>(optional, but recommended)</span></p>
+                        <p style={{ fontSize: '.72rem', color: '#999', margin: '0 0 .6rem' }}>Add an opening video/photos (parcel being opened) and return-pack video/photos (item being re-packed). This speeds up return approval.</p>
+                      </div>
+
+                      {/* Opening video */}
+                      <div style={{ marginBottom: '.7rem' }}>
+                        <label style={{ fontSize: '.8rem', fontWeight: 600, color: '#555', display: 'block', marginBottom: '.25rem' }}>🎬 Opening Video</label>
+                        {openVideo ? (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '.5rem', fontSize: '.8rem', color: '#333', background: '#fff', border: '1px solid #eee', borderRadius: '8px', padding: '.4rem .6rem' }}>
+                            <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>🎬 {openVideo.name} · {(openVideo.size / 1048576).toFixed(1)} MB</span>
+                            <button type="button" onClick={() => setOpenVideo(null)} style={{ background: 'none', border: 'none', color: '#e74c3c', cursor: 'pointer', fontWeight: 700 }}>Remove</button>
+                          </div>
+                        ) : (
+                          <input type="file" accept="video/*" onChange={e => { pickVideo('open', e.target.files?.[0] ?? null); e.target.value = ''; }} style={{ fontSize: '.8rem' }} />
+                        )}
+                      </div>
+
+                      {/* Opening photos */}
+                      <div style={{ marginBottom: '.7rem' }}>
+                        <label style={{ fontSize: '.8rem', fontWeight: 600, color: '#555', display: 'block', marginBottom: '.25rem' }}>🖼️ Opening Photos <span style={{ color: '#999', fontWeight: 400 }}>({openPhotos.length}/{MAX_PHOTOS})</span></label>
+                        {openPhotos.length > 0 && (
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '.4rem', marginBottom: '.4rem' }}>
+                            {openPhotos.map((p, i) => (
+                              <div key={i} style={{ position: 'relative' }}>
+                                <img src={URL.createObjectURL(p)} alt="" style={{ width: 54, height: 54, objectFit: 'cover', borderRadius: 6, border: '1px solid #eee' }} />
+                                <button type="button" onClick={() => removePhoto('open', i)} style={{ position: 'absolute', top: -6, right: -6, width: 18, height: 18, borderRadius: '50%', background: '#e74c3c', color: '#fff', border: 'none', fontSize: '.7rem', cursor: 'pointer', lineHeight: 1 }}>×</button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {openPhotos.length < MAX_PHOTOS && (
+                          <input type="file" accept="image/*" multiple onChange={e => { addPhotos('open', e.target.files); e.target.value = ''; }} style={{ fontSize: '.8rem' }} />
+                        )}
+                      </div>
+
+                      {/* Return-pack video */}
+                      <div style={{ marginBottom: '.7rem' }}>
+                        <label style={{ fontSize: '.8rem', fontWeight: 600, color: '#555', display: 'block', marginBottom: '.25rem' }}>🎬 Return-Pack Video <span style={{ color: '#999', fontWeight: 400 }}>(closing)</span></label>
+                        {closeVideo ? (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '.5rem', fontSize: '.8rem', color: '#333', background: '#fff', border: '1px solid #eee', borderRadius: '8px', padding: '.4rem .6rem' }}>
+                            <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>🎬 {closeVideo.name} · {(closeVideo.size / 1048576).toFixed(1)} MB</span>
+                            <button type="button" onClick={() => setCloseVideo(null)} style={{ background: 'none', border: 'none', color: '#e74c3c', cursor: 'pointer', fontWeight: 700 }}>Remove</button>
+                          </div>
+                        ) : (
+                          <input type="file" accept="video/*" onChange={e => { pickVideo('close', e.target.files?.[0] ?? null); e.target.value = ''; }} style={{ fontSize: '.8rem' }} />
+                        )}
+                      </div>
+
+                      {/* Return-pack photos */}
+                      <div style={{ marginBottom: '.7rem' }}>
+                        <label style={{ fontSize: '.8rem', fontWeight: 600, color: '#555', display: 'block', marginBottom: '.25rem' }}>🖼️ Return-Pack Photos <span style={{ color: '#999', fontWeight: 400 }}>(closing · {closePhotos.length}/{MAX_PHOTOS})</span></label>
+                        {closePhotos.length > 0 && (
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '.4rem', marginBottom: '.4rem' }}>
+                            {closePhotos.map((p, i) => (
+                              <div key={i} style={{ position: 'relative' }}>
+                                <img src={URL.createObjectURL(p)} alt="" style={{ width: 54, height: 54, objectFit: 'cover', borderRadius: 6, border: '1px solid #eee' }} />
+                                <button type="button" onClick={() => removePhoto('close', i)} style={{ position: 'absolute', top: -6, right: -6, width: 18, height: 18, borderRadius: '50%', background: '#e74c3c', color: '#fff', border: 'none', fontSize: '.7rem', cursor: 'pointer', lineHeight: 1 }}>×</button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {closePhotos.length < MAX_PHOTOS && (
+                          <input type="file" accept="image/*" multiple onChange={e => { addPhotos('close', e.target.files); e.target.value = ''; }} style={{ fontSize: '.8rem' }} />
+                        )}
+                      </div>
+
+                      {uploadMsg && <p style={{ fontSize: '.78rem', color: '#a7354d', fontWeight: 600, margin: '.25rem 0 .5rem' }}>⏳ {uploadMsg}</p>}
 
                       <div style={{ display: 'flex', gap: '.5rem', marginTop: '.25rem' }}>
-                        <button className="button primary" onClick={() => handleReturn(order)} style={{ fontSize: '.85rem', padding: '.5rem 1rem' }}>
-                          Submit Return Request
+                        <button className="button primary" onClick={() => handleReturn(order)} disabled={uploading} style={{ fontSize: '.85rem', padding: '.5rem 1rem', opacity: uploading ? 0.6 : 1 }}>
+                          {uploading ? 'Submitting…' : 'Submit Return Request'}
                         </button>
-                        <button className="button secondary" onClick={() => { setReturnOrderId(''); setReturnReason(''); setReturnCallback(''); }} style={{ fontSize: '.85rem', padding: '.5rem 1rem' }}>
+                        <button className="button secondary" onClick={resetReturnForm} disabled={uploading} style={{ fontSize: '.85rem', padding: '.5rem 1rem' }}>
                           Cancel
                         </button>
                       </div>

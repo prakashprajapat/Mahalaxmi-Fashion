@@ -80,12 +80,28 @@ export const ordersApi = {
     request<{ success: boolean; order: import('@/types').Order }>(
       `/orders/${orderId}/cancel`, { method: 'PATCH' }, token
     ),
-  requestReturn: (orderId: string, details: { issue?: string; invoiceNumber?: string; awb?: string; paymentMethod?: string; description?: string; callback?: string } | string, token: string) =>
+  requestReturn: (orderId: string, details: { issue?: string; invoiceNumber?: string; awb?: string; paymentMethod?: string; description?: string; callback?: string; openingVideo?: string; closingVideo?: string; openingPhotos?: string[]; closingPhotos?: string[] } | string, token: string) =>
     request<{ success: boolean; order: import('@/types').Order }>(
       `/orders/${orderId}/return`,
       { method: 'POST', body: JSON.stringify(typeof details === 'string' ? { reason: details } : { reason: details.description, ...details }) },
       token
     ),
+  // Upload ONE return photo/video (called per file). kind ∈ openingVideo|closingVideo|openingPhoto|closingPhoto
+  uploadReturnMedia: async (orderId: string, file: File, kind: string, token: string) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('kind', kind);
+    const res = await fetch(`${API_BASE}/orders/${orderId}/return-media`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      body: fd,
+    });
+    if (!res.ok) {
+      const e = await res.json().catch(() => ({ message: res.statusText }));
+      throw new Error(e.message || `Upload failed (${res.status})`);
+    }
+    return res.json() as Promise<{ success: boolean; url: string }>;
+  },
   // BUG-1: getByCustomer removed — /orders/my endpoint does not exist on backend
   // Use getAll({ email }) or getAll({ phone }) instead
   updateStatus: (data: { orderId: string; status: string; awb?: string; courier?: string }, token: string) =>

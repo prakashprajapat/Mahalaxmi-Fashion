@@ -23,7 +23,18 @@ public class OrdersController : ControllerBase
         "Return", "Cancel Requested", "Cancelled"
     ];
 
-    public OrdersController(AppDbContext db) => _db = db;
+    private readonly IWebHostEnvironment _env;
+
+    public OrdersController(AppDbContext db, IWebHostEnvironment env)
+    {
+        _db = db;
+        _env = env;
+    }
+
+    // Deploy-safe uploads root: /var/www/mahalaxmi-uploads/returns (outside repo & publish dir).
+    // Derived from ContentRootPath (/var/www/mahalaxmi-backend) so it survives git reset + republish.
+    private string ReturnsRoot() =>
+        Path.GetFullPath(Path.Combine(_env.ContentRootPath, "..", "mahalaxmi-uploads", "returns"));
 
     // GET /api/orders  (Admin = all paginated; Customer = filtered at DB level)
     [HttpGet]
@@ -332,13 +343,104 @@ public class OrdersController : ControllerBase
             returnAwb         = req.Awb?.Trim() ?? order.Awb ?? "",
             returnPayment     = req.PaymentMethod?.Trim() ?? order.Method,
             returnCallback    = req.Callback?.Trim() ?? "",
-            returnMedia       = Array.Empty<string>()   // Pass 2 will populate uploaded photo/video URLs
+            returnMedia       = new
+            {
+                openingVideo  = req.OpeningVideo?.Trim() ?? "",
+                closingVideo  = req.ClosingVideo?.Trim() ?? "",
+                openingPhotos = (req.OpeningPhotos ?? new List<string>()).Where(u => !string.IsNullOrWhiteSpace(u)).ToList(),
+                closingPhotos = (req.ClosingPhotos ?? new List<string>()).Where(u => !string.IsNullOrWhiteSpace(u)).ToList()
+            }
         }, _json);
         order.Status = "Return Requested";
         order.UpdatedAt = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync();
 
         return Ok(new { success = true, order = MapOrder(order) });
+    }
+
+    // POST /api/orders/{orderId}/return-media  — upload ONE return photo/video (called per file)
+    // kind ∈ { openingVideo, closingVideo, openingPhoto, closingPhoto }
+    [HttpPost("{orderId}/return-media")]
+    [Authorize]
+    [RequestSizeLimit(85_000_000)]
+    [RequestFormLimits(MultipartBodyLengthLimit = 85_000_000)]
+    public async Task<IActionResult> UploadReturnMedia(string orderId, [FromForm] IFormFile? file, [FromForm] string? kind)
+    {
+        var order = await _db.SiteOrders.FirstOrDefaultAsync(o => o.OrderId == orderId);
+        if (order is null)
+            return NotFound(new { success = false, message = "Order not found." });
+
+        // SEC-4 IDOR: caller must own this order (admin bypasses)
+        if (!User.HasClaim("role", "admin"))
+        {
+            var callerId = User.FindFirstValue("sub");
+            var callerEmail = User.FindFirstValue("email");
+            var oc = ParseJson(order.CustomerJson);
+            if (callerId != GetJsonStr(oc, "id") &&
+                !string.Equals(callerEmail, GetJsonStr(oc, "email"), StringComparison.OrdinalIgnoreCase))
+                return Forbid();
+        }
+
+        if (file is null || file.Length == 0)
+            return BadRequest(new { success = false, message = "No file received." });
+
+        var kinds = new[] { "openingVideo", "closingVideo", "openingPhoto", "closingPhoto" };
+        if (string.IsNullOrEmpty(kind) || !kinds.Contains(kind))
+            return BadRequest(new { success = false, message = "Invalid media kind." });
+
+        bool isVideo = kind.EndsWith("Video");
+        var ct = file.ContentType ?? "";
+        if (isVideo && !ct.StartsWith("video/", StringComparison.OrdinalIgnoreCase))
+            return BadRequest(new { success = false, message = "Expected a video file." });
+        if (!isVideo && !ct.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+            return BadRequest(new { success = false, message = "Expected an image file." });
+
+        long maxBytes = isVideo ? 80L * 1024 * 1024 : 8L * 1024 * 1024;
+        if (file.Length > maxBytes)
+            return BadRequest(new { success = false, message = $"File too large (max {(isVideo ? "80 MB" : "8 MB")})." });
+
+        var ext = Path.GetExtension(file.FileName ?? "");
+        ext = new string(ext.Where(c => char.IsLetterOrDigit(c) || c == '.').ToArray()).ToLowerInvariant();
+        if (string.IsNullOrWhiteSpace(ext) || ext.Length > 6) ext = isVideo ? ".mp4" : ".jpg";
+
+        var safeOrder = CleanOrderId(orderId);
+        var dir = Path.Combine(ReturnsRoot(), safeOrder);
+        Directory.CreateDirectory(dir);
+        var name = $"{kind}_{Guid.NewGuid():N}{ext}";
+        await using (var fs = System.IO.File.Create(Path.Combine(dir, name)))
+            await file.CopyToAsync(fs);
+
+        return Ok(new { success = true, url = $"/api/orders/return-media/{safeOrder}/{name}" });
+    }
+
+    // GET /api/orders/return-media/{orderId}/{file}  — stream a stored return photo/video.
+    // Anonymous read: filenames are unguessable GUIDs (act as capability tokens).
+    [HttpGet("return-media/{orderId}/{file}")]
+    [AllowAnonymous]
+    public IActionResult GetReturnMedia(string orderId, string file)
+    {
+        var safeOrder = CleanOrderId(orderId);
+        var safeFile = new string((file ?? "").Where(c => char.IsLetterOrDigit(c) || c == '_' || c == '.' || c == '-').ToArray());
+        if (string.IsNullOrEmpty(safeFile) || safeFile.Contains(".."))
+            return NotFound();
+
+        var full = Path.Combine(ReturnsRoot(), safeOrder, safeFile);
+        if (!System.IO.File.Exists(full))
+            return NotFound();
+
+        var mime = Path.GetExtension(full).ToLowerInvariant() switch
+        {
+            ".mp4" => "video/mp4",
+            ".webm" => "video/webm",
+            ".mov" => "video/quicktime",
+            ".ogg" or ".ogv" => "video/ogg",
+            ".jpg" or ".jpeg" => "image/jpeg",
+            ".png" => "image/png",
+            ".webp" => "image/webp",
+            ".gif" => "image/gif",
+            _ => "application/octet-stream"
+        };
+        return File(System.IO.File.OpenRead(full), mime, enableRangeProcessing: true);
     }
 
     private static JsonElement ParseJson(string? raw)
@@ -351,6 +453,14 @@ public class OrdersController : ControllerBase
     private static string? GetJsonStr(JsonElement el, string key) =>
         el.ValueKind == JsonValueKind.Object && el.TryGetProperty(key, out var v)
             ? v.GetString() : null;
+
+    private static JsonElement GetJsonObj(JsonElement el, string key) =>
+        el.ValueKind == JsonValueKind.Object && el.TryGetProperty(key, out var v) ? v : default;
+
+    private static List<string> GetJsonArr(JsonElement el, string key) =>
+        el.ValueKind == JsonValueKind.Object && el.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.Array
+            ? v.EnumerateArray().Where(e => e.ValueKind == JsonValueKind.String).Select(e => e.GetString()!).ToList()
+            : new List<string>();
 
     private static string CleanOrderId(string? raw)
     {
@@ -402,7 +512,11 @@ public class OrdersController : ControllerBase
             Courier: o.Courier,
             ReturnIssue: GetJsonStr(rawJson, "returnIssue"),
             ReturnReason: GetJsonStr(rawJson, "returnReason"),
-            ReturnCallback: GetJsonStr(rawJson, "returnCallback")
+            ReturnCallback: GetJsonStr(rawJson, "returnCallback"),
+            ReturnOpeningVideo: GetJsonStr(GetJsonObj(rawJson, "returnMedia"), "openingVideo"),
+            ReturnClosingVideo: GetJsonStr(GetJsonObj(rawJson, "returnMedia"), "closingVideo"),
+            ReturnOpeningPhotos: GetJsonArr(GetJsonObj(rawJson, "returnMedia"), "openingPhotos"),
+            ReturnClosingPhotos: GetJsonArr(GetJsonObj(rawJson, "returnMedia"), "closingPhotos")
         );
     }
 }
@@ -414,5 +528,9 @@ public record ReturnRequest(
     string? InvoiceNumber = null,
     string? Awb = null,
     string? PaymentMethod = null,
-    string? Callback = null
+    string? Callback = null,
+    string? OpeningVideo = null,
+    string? ClosingVideo = null,
+    List<string>? OpeningPhotos = null,
+    List<string>? ClosingPhotos = null
 );

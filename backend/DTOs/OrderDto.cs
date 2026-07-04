@@ -55,7 +55,11 @@ public record OrderDto(
     string? Courier = null,
     string? ReturnIssue = null,
     string? ReturnReason = null,
-    string? ReturnCallback = null
+    string? ReturnCallback = null,
+    string? ReturnOpeningVideo = null,
+    string? ReturnClosingVideo = null,
+    List<string>? ReturnOpeningPhotos = null,
+    List<string>? ReturnClosingPhotos = null
 );
 
 public record PlaceOrderRequest(
