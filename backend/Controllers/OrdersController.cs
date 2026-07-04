@@ -60,18 +60,26 @@ public class OrdersController : ControllerBase
 
         var customerQuery = _db.SiteOrders.AsQueryable();
 
-        // Use DB-level JSON text search — filter by email (primary) AND phone (secondary)
-        // Using AND when both available prevents cross-customer leakage
-        if (!string.IsNullOrEmpty(tokenEmail) && !string.IsNullOrEmpty(cleanPhone))
-            customerQuery = customerQuery.Where(o =>
-                EF.Functions.ILike(o.CustomerJson!, $"%{tokenEmail}%") &&
-                EF.Functions.ILike(o.CustomerJson!, $"%{cleanPhone}%"));
-        else if (!string.IsNullOrEmpty(tokenEmail))
-            customerQuery = customerQuery.Where(o => EF.Functions.ILike(o.CustomerJson!, $"%{tokenEmail}%"));
-        else if (!string.IsNullOrEmpty(cleanPhone))
-            customerQuery = customerQuery.Where(o => EF.Functions.ILike(o.CustomerJson!, $"%{cleanPhone}%"));
-        else
+        // Match an order to the signed-in customer if ANY reliable identifier matches:
+        // the customer id embedded at checkout, their account email, or their verified phone.
+        // NOTE: the previous logic required email AND phone together, which hid legitimate
+        // orders whenever the checkout email was left blank or differed from the account
+        // email (the common case for COD orders) — even though the order was clearly theirs.
+        var hasId = cid > 0;
+        var hasEmail = !string.IsNullOrEmpty(tokenEmail);
+        var hasPhone = !string.IsNullOrEmpty(cleanPhone);
+        if (!hasId && !hasEmail && !hasPhone)
             return Ok(new { success = true, orders = Array.Empty<object>() });
+
+        // Trailing quote on the id needle prevents "5" from matching "50", etc.
+        var idNeedle    = $"%\"id\":\"{cid}\"%";
+        var emailNeedle = $"%{tokenEmail}%";
+        var phoneNeedle = $"%{cleanPhone}%";
+
+        customerQuery = customerQuery.Where(o =>
+            (hasId    && EF.Functions.ILike(o.CustomerJson!, idNeedle)) ||
+            (hasEmail && EF.Functions.ILike(o.CustomerJson!, emailNeedle)) ||
+            (hasPhone && EF.Functions.ILike(o.CustomerJson!, phoneNeedle)));
 
         var filteredList = await customerQuery
             .OrderByDescending(o => o.PlacedAt ?? o.CreatedAt)
