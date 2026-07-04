@@ -90,10 +90,28 @@ export default function Navbar() {
       .catch(() => {});
   }, []);
 
+  // Clear every login-form field so one user's phone/OTP never lingers for the next
+  const resetLoginForm = () => {
+    setLoginForm({ email: '', password: '' });
+    setLoginError('');
+    setShowPassword(false);
+    setLoginMode('password');
+    setOtpContact('');
+    setOtpCode('');
+    setOtpSent(false);
+    setOtpMsg('');
+    setOtpLoading(false);
+  };
+
   const openLogin = () => {
     setMenuOpen(false);
-    setLoginError('');
+    resetLoginForm();
     setLoginOpen(true);
+  };
+
+  const closeLogin = () => {
+    setLoginOpen(false);
+    resetLoginForm();
   };
 
   const handleLogin = async (e: FormEvent) => {
@@ -106,6 +124,7 @@ export default function Navbar() {
       saveCustomer(res.customer);
       setIsLoggedIn(true);
       setLoginOpen(false);
+      resetLoginForm();
       window.dispatchEvent(new Event('auth-changed'));
     } catch (err) {
       setLoginError((err as Error).message || 'Login failed. Please check your credentials.');
@@ -144,6 +163,7 @@ export default function Navbar() {
       saveCustomer(res.customer);
       setIsLoggedIn(true);
       setLoginOpen(false);
+      resetLoginForm();
       window.dispatchEvent(new Event('auth-changed'));
     } catch (err) {
       setOtpMsg((err as Error).message || 'Invalid OTP. Please try again.');
@@ -310,7 +330,7 @@ export default function Navbar() {
                 ))}
                 <div style={{ borderTop: '1px solid #f0f0f0', marginTop: '.5rem', paddingTop: '.5rem' }}>
                   <button type="button"
-                    onClick={() => { logout(); setMenuOpen(false); window.dispatchEvent(new Event('auth-changed')); router.push('/account'); }}
+                    onClick={() => { logout(); resetLoginForm(); setMenuOpen(false); window.dispatchEvent(new Event('auth-changed')); router.push('/account'); }}
                     style={{ display: 'block', width: '100%', textAlign: 'left', padding: '.45rem .25rem', color: '#e67e22', fontSize: '.9rem', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}>
                     🔓 Logout
                   </button>
@@ -379,7 +399,7 @@ export default function Navbar() {
 
       {loginOpen && (
         <div
-          onClick={() => setLoginOpen(false)}
+          onClick={closeLogin}
           style={{ position: 'fixed', inset: 0, zIndex: 900, background: 'rgba(0,0,0,.62)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
           <style>{`
             .mfh-login-modal {
@@ -421,7 +441,7 @@ export default function Navbar() {
           <div
             onClick={e => e.stopPropagation()}
             className="mfh-login-modal">
-            <button onClick={() => setLoginOpen(false)} aria-label="Close login"
+            <button onClick={closeLogin} aria-label="Close login"
               style={{ position: 'absolute', right: 14, top: 14, background: 'rgba(0,0,0,.15)', border: 'none', color: '#fff', fontSize: '1.2rem', cursor: 'pointer', lineHeight: 1, zIndex: 10, width: 30, height: 30, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               ×
             </button>
@@ -446,7 +466,7 @@ export default function Navbar() {
                       <input type="checkbox" checked={showPassword} onChange={e => setShowPassword(e.target.checked)} />
                       Show Password
                     </label>
-                    <Link href="/forgot-password" onClick={() => setLoginOpen(false)} style={{ color: '#a01836', textDecoration: 'none' }}>Forgot?</Link>
+                    <Link href="/forgot-password" onClick={closeLogin} style={{ color: '#a01836', textDecoration: 'none' }}>Forgot?</Link>
                   </div>
                   {loginError && <p style={{ margin: 0, color: '#c0392b', fontSize: '.85rem', fontWeight: 600 }}>{loginError}</p>}
                   <button type="submit" disabled={loginLoading}
@@ -454,7 +474,7 @@ export default function Navbar() {
                     {loginLoading ? 'Logging in...' : 'Login'}
                   </button>
                   <p style={{ margin: '.6rem 0 0', textAlign: 'center', color: '#666' }}>
-                    New customer? <Link href="/account/register" onClick={() => setLoginOpen(false)} style={{ color: '#a01836', fontWeight: 800, textDecoration: 'none' }}>Create New Account</Link>
+                    New customer? <Link href="/account/register" onClick={closeLogin} style={{ color: '#a01836', fontWeight: 800, textDecoration: 'none' }}>Create New Account</Link>
                   </p>
                 </>
               ) : (
