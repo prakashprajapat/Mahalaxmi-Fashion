@@ -76,7 +76,7 @@ public class EmailService
         _ = purpose; // kept for call-site compatibility; wording now matches the SMS
         return $@"
 <div style=""font-family:Arial,Helvetica,sans-serif;max-width:480px;margin:0 auto;border:1px solid #eee;border-radius:12px;overflow:hidden"">
-  <div style=""background:#ffffff;padding:22px 24px;text-align:center;border-bottom:3px solid #a7354d"">
+  <div style=""background:#000000;padding:22px 24px;text-align:center;border-bottom:3px solid #a7354d"">
     <img src=""https://mahalaxmifashionhub.com/logo.webp?v=4"" alt=""Mahalaxmi Fashion Hub"" width=""210"" style=""max-width:210px;width:210px;height:auto;display:inline-block"" />
   </div>
   <div style=""padding:24px"">
