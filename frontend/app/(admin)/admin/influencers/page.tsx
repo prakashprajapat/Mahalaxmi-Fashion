@@ -29,6 +29,7 @@ export default function InfluencersAdminPage() {
   const [fraud, setFraud] = useState(null);
   const [fraudLoading, setFraudLoading] = useState(false);
   const [fraudCreator, setFraudCreator] = useState('all');
+  const [fraudFlag, setFraudFlag] = useState('all'); // all | self | flagged | returned | cancelled
 
   const token = typeof window !== 'undefined' ? getAdminToken() : '';
   const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
@@ -67,7 +68,14 @@ export default function InfluencersAdminPage() {
     if (!fraud) return;
     const list = fraudCreator !== 'all' ? fraud.creators.filter(c => String(c.id) === fraudCreator) : fraud.creators;
     const rows = [['Creator','Coupon','Order ID','Customer','Phone','Amount','Status','Date','Flags']];
-    list.forEach(c => c.orders.forEach(o => {
+    list.forEach(c => c.orders.filter(o =>
+      fraudFlag === 'all' ? true
+      : fraudFlag === 'flagged' ? o.flags.length > 0
+      : fraudFlag === 'self' ? o.flags.some((f: string) => f.startsWith('Self'))
+      : fraudFlag === 'returned' ? o.flags.includes('Returned')
+      : fraudFlag === 'cancelled' ? o.flags.includes('Cancelled')
+      : true
+    ).forEach(o => {
       rows.push([c.name, c.couponCode ?? '', o.orderId, o.customerName, o.customerPhone, o.total, o.status, o.date, o.flags.join(' | ')]);
     }));
     const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
@@ -309,9 +317,16 @@ export default function InfluencersAdminPage() {
         ? <div style={{padding:'3rem',textAlign:'center',color:'#999'}}>Loading report…</div>
         : (() => {
           const sel = fraudCreator !== 'all' ? fraud.creators.find(c => String(c.id) === fraudCreator) : null;
-          const orders = sel
+          const allOrders = sel
             ? sel.orders.map(o => ({ ...o, creatorName: sel.name }))
             : fraud.creators.flatMap(c => c.orders.map(o => ({ ...o, creatorName: c.name })));
+          const orders = allOrders.filter(o =>
+            fraudFlag === 'all' ? true
+            : fraudFlag === 'flagged' ? o.flags.length > 0
+            : fraudFlag === 'self' ? o.flags.some((f: string) => f.startsWith('Self'))
+            : fraudFlag === 'returned' ? o.flags.includes('Returned')
+            : fraudFlag === 'cancelled' ? o.flags.includes('Cancelled')
+            : true);
           const rc = sel ? (sel.risk==='high'?{bg:'#fef2f2',txt:'#b91c1c',label:'🔴 High risk'}:sel.risk==='medium'?{bg:'#fffbeb',txt:'#b45309',label:'🟡 Medium'}:{bg:'#f0fdf4',txt:'#15803d',label:'🟢 Low'}) : null;
           return (
           <div>
@@ -332,6 +347,15 @@ export default function InfluencersAdminPage() {
                   style={{padding:'.45rem .8rem',borderRadius:'8px',border:'1.5px solid #ddd',fontSize:'.85rem',minWidth:'230px',background:'#fff'}}>
                   <option value="all">All creators</option>
                   {fraud.creators.map(c => <option key={c.id} value={String(c.id)}>{c.name} ({c.couponCode})</option>)}
+                </select>
+                <label style={{fontSize:'.82rem',fontWeight:600,color:'#555',marginLeft:'.5rem'}}>Show:</label>
+                <select value={fraudFlag} onChange={e=>setFraudFlag(e.target.value)}
+                  style={{padding:'.45rem .8rem',borderRadius:'8px',border:'1.5px solid #ddd',fontSize:'.85rem',background:'#fff'}}>
+                  <option value="all">All orders</option>
+                  <option value="self">🚩 Self-orders</option>
+                  <option value="flagged">Flagged only</option>
+                  <option value="returned">Returned</option>
+                  <option value="cancelled">Cancelled</option>
                 </select>
               </div>
               <button onClick={downloadFraudCsv} style={{padding:'.45rem 1rem',borderRadius:'8px',border:'none',background:'#16a34a',color:'#fff',cursor:'pointer',fontWeight:700,fontSize:'.83rem'}}>⬇ Export to Excel</button>
