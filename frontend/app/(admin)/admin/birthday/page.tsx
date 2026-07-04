@@ -35,6 +35,8 @@ export default function BirthdayPage() {
   const [slab, setSlab]       = useState<number>(0); // active slab (days): 30 | 15 | 7 | 0
   const [sending, setSending] = useState<Record<string, boolean>>({});
   const [result, setResult]   = useState<Record<string, string>>({});
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
   // Per-slab send tracking: key = `${id}-${type}-${slabDays}-${year}`
   const [sent, setSent]       = useState<Record<string, string>>({});
   const yearNow = new Date().getFullYear();
@@ -60,6 +62,8 @@ export default function BirthdayPage() {
   }, [token]);
 
   useEffect(() => { load(); }, [load]);
+  // Clear selection whenever the slab or the underlying data changes
+  useEffect(() => { setSelected(new Set()); }, [slab, data]);
 
   const sendSms = async (c: CelebrationEntry['customer'], type: OccType, slabDays: number) => {
     const key = `${c.id}-${type}-${slabDays}`;
@@ -96,6 +100,35 @@ export default function BirthdayPage() {
     if (inActive(e.anniversaryIn)) rows.push({ c: e.customer, type: 'anniversary', daysIn: e.anniversaryIn! });
   });
   rows.sort((a, b) => a.daysIn - b.daysIn);
+
+  // ── Multi-select + bulk send ──────────────────────────────────────────────
+  const rowKey = (id: number, type: OccType) => `${id}-${type}`;
+  const isSendable = (r: { c: { phone: string; id: number }; type: OccType }) =>
+    !!r.c.phone && !sent[sentKey(r.c.id, r.type, active.days)];
+  const selectableRows = rows.filter(isSendable);
+  const allSelected = selectableRows.length > 0 && selectableRows.every(r => selected.has(rowKey(r.c.id, r.type)));
+  const selBirthdayCount = selectableRows.filter(r => r.type === 'birthday'    && selected.has(rowKey(r.c.id, r.type))).length;
+  const selAnnivCount    = selectableRows.filter(r => r.type === 'anniversary' && selected.has(rowKey(r.c.id, r.type))).length;
+
+  const toggleRow = (id: number, type: OccType) => setSelected(prev => {
+    const next = new Set(prev);
+    const k = rowKey(id, type);
+    if (next.has(k)) next.delete(k); else next.add(k);
+    return next;
+  });
+  const toggleAll = () => setSelected(allSelected ? new Set() : new Set(selectableRows.map(r => rowKey(r.c.id, r.type))));
+
+  const bulkSend = async (occasion: OccType) => {
+    const targets = selectableRows.filter(r => r.type === occasion && selected.has(rowKey(r.c.id, r.type)));
+    if (targets.length === 0) return;
+    setBulkBusy(true);
+    for (const r of targets) {
+      // eslint-disable-next-line no-await-in-loop
+      await sendSms(r.c, r.type, active.days);
+    }
+    setBulkBusy(false);
+    setSelected(new Set());
+  };
 
   // Count how many customers sit in each slab, for the tab badges
   const slabCount = (sd: number) => {
@@ -141,6 +174,23 @@ export default function BirthdayPage() {
         </button>
       </div>
 
+      {/* Bulk send bar */}
+      {selected.size > 0 && (
+        <div style={{ background: '#fff3cd', borderRadius: '8px', padding: '.6rem 1rem', marginBottom: '1rem', display: 'flex', gap: '.6rem', alignItems: 'center', flexWrap: 'wrap' }}>
+          <strong style={{ fontSize: '.85rem' }}>{selected.size} selected</strong>
+          <button disabled={bulkBusy || selBirthdayCount === 0} onClick={() => bulkSend('birthday')}
+            style={{ background: selBirthdayCount ? '#a7354d' : '#e5b8c2', color: '#fff', border: 'none', borderRadius: 6, padding: '.4rem .9rem', fontSize: '.82rem', fontWeight: 700, cursor: (bulkBusy || !selBirthdayCount) ? 'not-allowed' : 'pointer' }}>
+            🎂 Send Birthday Offer ({selBirthdayCount})
+          </button>
+          <button disabled={bulkBusy || selAnnivCount === 0} onClick={() => bulkSend('anniversary')}
+            style={{ background: selAnnivCount ? '#6c3d8f' : '#c9b6da', color: '#fff', border: 'none', borderRadius: 6, padding: '.4rem .9rem', fontSize: '.82rem', fontWeight: 700, cursor: (bulkBusy || !selAnnivCount) ? 'not-allowed' : 'pointer' }}>
+            💍 Send Anniversary Offer ({selAnnivCount})
+          </button>
+          {bulkBusy && <span style={{ fontSize: '.8rem', color: '#856404' }}>Sending…</span>}
+          <button onClick={() => setSelected(new Set())} style={{ background: '#f5f5f5', border: 'none', borderRadius: 6, padding: '.4rem .8rem', fontSize: '.82rem', cursor: 'pointer' }}>Clear</button>
+        </div>
+      )}
+
       {/* Details table for the active slab */}
       <div style={{ background: '#fff', borderRadius: '12px', boxShadow: '0 1px 4px rgba(0,0,0,.07)', overflow: 'hidden' }}>
         {loading ? (
@@ -153,6 +203,9 @@ export default function BirthdayPage() {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '.88rem' }}>
             <thead style={{ background: '#f9f9f9' }}>
               <tr>
+                <th style={{ padding: '.75rem 1rem', width: 36 }}>
+                  <input type="checkbox" checked={allSelected} onChange={toggleAll} disabled={selectableRows.length === 0} />
+                </th>
                 {['Customer', 'Phone', 'Email', 'Occasion', 'Send Offer'].map(h => (
                   <th key={h} style={{ padding: '.75rem 1rem', textAlign: 'left', fontWeight: 600, fontSize: '.78rem', color: '#888', textTransform: 'uppercase' }}>{h}</th>
                 ))}
@@ -165,7 +218,12 @@ export default function BirthdayPage() {
                 const wasSent = sent[sentKey(c.id, type, active.days)];
                 const isBday = type === 'birthday';
                 return (
-                  <tr key={k + i} style={{ borderTop: i > 0 ? '1px solid #f0f0f0' : undefined }}>
+                  <tr key={k + i} style={{ borderTop: i > 0 ? '1px solid #f0f0f0' : undefined, background: selected.has(`${c.id}-${type}`) ? '#fdf0f3' : undefined }}>
+                    <td style={{ padding: '.75rem 1rem' }}>
+                      {c.phone && !wasSent
+                        ? <input type="checkbox" checked={selected.has(`${c.id}-${type}`)} onChange={() => toggleRow(c.id, type)} />
+                        : null}
+                    </td>
                     <td style={{ padding: '.75rem 1rem', fontWeight: 600 }}>
                       {c.firstName} {c.lastName}
                       <div style={{ fontSize: '.75rem', color: '#888', fontWeight: 400 }}>#{c.id}</div>
