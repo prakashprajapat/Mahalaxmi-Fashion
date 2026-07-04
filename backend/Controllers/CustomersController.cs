@@ -75,7 +75,7 @@ public class CustomersController : ControllerBase
             query = query.Where(c =>
                 c.FirstName.ToLower().Contains(s) ||
                 c.LastName.ToLower().Contains(s) ||
-                c.Email.ToLower().Contains(s) ||
+                (c.Email ?? "").ToLower().Contains(s) ||
                 c.Phone.Contains(s) ||
                 c.CustomerCode.ToLower().Contains(s));
         }
@@ -219,7 +219,7 @@ public class CustomersController : ControllerBase
         _db.Customers.Add(customer);
         await _db.SaveChangesAsync();
 
-        var token = _auth.GenerateJwt(customer.Id.ToString(), customer.Email, "customer");
+        var token = _auth.GenerateJwt(customer.Id.ToString(), customer.Email ?? "", "customer");
         return Ok(new { success = true, token, customer = ToDto(customer) });
     }
 
@@ -236,7 +236,7 @@ public class CustomersController : ControllerBase
         if (customer.AccountStatus != "active")
             return Unauthorized(new { success = false, message = "Account is deactivated." });
 
-        var token = _auth.GenerateJwt(customer.Id.ToString(), customer.Email, "customer");
+        var token = _auth.GenerateJwt(customer.Id.ToString(), customer.Email ?? "", "customer");
         return Ok(new { success = true, token, customer = ToDto(customer) });
     }
 
@@ -331,8 +331,8 @@ public class CustomersController : ControllerBase
                 CustomerCode     = await NextCustomerCodeAsync(),
                 FirstName        = isEmail ? phone.Split('@')[0] : "",
                 LastName         = "",
-                // Email is unique + required, so give phone-only signups a synthetic address.
-                Email            = isEmail ? phone.ToLower() : $"{phone}@mobile.mahalaxmifashionhub.com",
+                // Phone-only signups start with no email; the customer adds it later via profile update.
+                Email            = isEmail ? phone.ToLower() : null,
                 Phone            = isEmail ? "" : phone,
                 PasswordHash     = "",
                 PasswordSalt     = "",
@@ -344,7 +344,7 @@ public class CustomersController : ControllerBase
             await _db.SaveChangesAsync();
         }
 
-        var token = _auth.GenerateJwt(customer.Id.ToString(), customer.Email, "customer");
+        var token = _auth.GenerateJwt(customer.Id.ToString(), customer.Email ?? "", "customer");
         return Ok(new { success = true, token, customer = ToDto(customer) });
     }
 
@@ -629,7 +629,7 @@ public class CustomersController : ControllerBase
             return Unauthorized(new { success = false, message = "Account is deactivated." });
         }
 
-        var jwtToken = _auth.GenerateJwt(existing.Id.ToString(), existing.Email, "customer");
+        var jwtToken = _auth.GenerateJwt(existing.Id.ToString(), existing.Email ?? "", "customer");
         return Ok(new { success = true, token = jwtToken, customer = ToDto(existing) });
         } // end try
         catch (Exception ex)

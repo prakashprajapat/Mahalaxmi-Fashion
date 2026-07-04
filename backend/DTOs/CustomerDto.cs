@@ -6,7 +6,7 @@ public record CustomerDto(
     string  FirstName,
     string  LastName,
     string  Gender,
-    string  Email,
+    string? Email,
     string  Phone,
     string? DateOfBirth,
     string? MarriageDate,
