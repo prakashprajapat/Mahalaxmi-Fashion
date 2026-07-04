@@ -27,9 +27,9 @@ function FilterSection({ title, children, defaultOpen = true }: { title: string;
 }
 
 function FilterContent({
-  products, subcategories, allSizes, allColors,
-  globalMin, globalMax, priceMin, priceMax, selectedSubcat, selectedSizes, selectedColors,
-  setPriceMin, setPriceMax, setSelectedSubcat, setSelectedSizes, setSelectedColors,
+  products, subcategories, allVariants, allSizes, allColors,
+  globalMin, globalMax, priceMin, priceMax, selectedSubcat, selectedVariant, selectedSizes, selectedColors,
+  setPriceMin, setPriceMax, setSelectedSubcat, setSelectedVariant, setSelectedSizes, setSelectedColors,
 }: any) {
   const minPct = globalMax > globalMin ? ((priceMin - globalMin) / (globalMax - globalMin)) * 100 : 0;
   const maxPct = globalMax > globalMin ? ((globalMax - priceMax) / (globalMax - globalMin)) * 100 : 0;
@@ -70,7 +70,7 @@ function FilterContent({
 
       {/* Subcategory — dropdown list */}
       {subcategories.length > 0 && (
-        <FilterSection title="Category">
+        <FilterSection title="Subcategory">
           <select
             value={normalizeSub(selectedSubcat)}
             onChange={e => {
@@ -91,12 +91,41 @@ function FilterContent({
               appearance: 'auto',
             }}
           >
-            <option value="">All Categories</option>
+            <option value="">All Subcategories</option>
             {subcategories.map(({ key, label }: any) => {
               const count = products.filter((p: any) => normalizeSub(p.subcategory ?? '') === key).length;
               return (
                 <option key={key} value={key}>{label} ({count})</option>
               );
+            })}
+          </select>
+        </FilterSection>
+      )}
+
+      {/* Variant — dropdown list */}
+      {allVariants.length > 0 && (
+        <FilterSection title="Variant">
+          <select
+            value={selectedVariant}
+            onChange={e => setSelectedVariant(e.target.value)}
+            style={{
+              width: '100%',
+              padding: '.45rem .6rem',
+              borderRadius: '8px',
+              border: '1.5px solid #ddd',
+              fontSize: '.82rem',
+              color: selectedVariant ? '#a7354d' : '#555',
+              fontWeight: selectedVariant ? 700 : 400,
+              background: '#fff',
+              cursor: 'pointer',
+              outline: 'none',
+              appearance: 'auto',
+            }}
+          >
+            <option value="">All Variants</option>
+            {allVariants.map((v: string) => {
+              const count = products.filter((p: any) => { try { return (JSON.parse(p.extraJson ?? '{}').variant ?? '') === v; } catch { return false; } }).length;
+              return <option key={v} value={v}>{v} ({count})</option>;
             })}
           </select>
         </FilterSection>
@@ -146,6 +175,7 @@ export default function ProductsClient({ products, title, initialQ = '' }: Props
   const [sortOpen, setSortOpen] = useState(false);
   const [sort, setSort] = useState('position');
   const [selectedSubcat, setSelectedSubcat] = useState('');
+  const [selectedVariant, setSelectedVariant] = useState('');
   const [selectedSizes, setSelectedSizes] = useState<string[]>([]);
   const [selectedColors, setSelectedColors] = useState<string[]>([]);
   const [q, setQ] = useState(initialQ);
@@ -170,6 +200,7 @@ export default function ProductsClient({ products, title, initialQ = '' }: Props
     setPriceMin(globalMin);
     setPriceMax(globalMax);
     setSelectedSubcat('');
+    setSelectedVariant('');
     setSelectedSizes([]);
     setSelectedColors([]);
     setSort('position');
@@ -211,6 +242,12 @@ export default function ProductsClient({ products, title, initialQ = '' }: Props
     return Array.from(c).sort();
   }, [products]);
 
+  const allVariants = useMemo(() => {
+    const v = new Set<string>();
+    products.forEach((p: any) => { try { const val = JSON.parse(p.extraJson ?? '{}').variant; if (val) v.add(val); } catch {} });
+    return Array.from(v).sort();
+  }, [products]);
+
   const filtered = useMemo(() => {
     let r = [...products];
     if (q) {
@@ -218,6 +255,7 @@ export default function ProductsClient({ products, title, initialQ = '' }: Props
       r = r.filter((p: any) => p.name?.toLowerCase().includes(lq) || p.description?.toLowerCase().includes(lq) || (p.subcategory ?? '').toLowerCase().includes(lq));
     }
     if (selectedSubcat) r = r.filter((p: any) => normalizeSub(p.subcategory ?? '') === normalizeSub(selectedSubcat));
+    if (selectedVariant) r = r.filter((p: any) => { try { return (JSON.parse(p.extraJson ?? '{}').variant ?? '') === selectedVariant; } catch { return false; } });
     r = r.filter((p: any) => { const price = p.discountPrice ?? p.price; return price >= priceMin && price <= priceMax; });
     if (selectedSizes.length > 0) r = r.filter((p: any) => { try { return selectedSizes.some(s => (JSON.parse(p.extraJson ?? '{}').sizes ?? []).includes(s)); } catch { return false; } });
     if (selectedColors.length > 0) r = r.filter((p: any) => { try { const ex = JSON.parse(p.extraJson ?? '{}'); const pc = [...(ex.colors ?? []), ...(ex.customColors ?? []).map((c: any) => c.name).filter(Boolean)]; return selectedColors.some(c => pc.includes(c)); } catch { return false; } });
@@ -232,9 +270,9 @@ export default function ProductsClient({ products, title, initialQ = '' }: Props
       case 'discount':   r.sort((a: any, b: any) => { const dA = a.discountPrice ? Math.round(((a.price - a.discountPrice) / a.price) * 100) : 0; const dB = b.discountPrice ? Math.round(((b.price - b.discountPrice) / b.price) * 100) : 0; return dB - dA; }); break;
     }
     return r;
-  }, [products, q, selectedSubcat, priceMin, priceMax, selectedSizes, selectedColors, sort]);
+  }, [products, q, selectedSubcat, selectedVariant, priceMin, priceMax, selectedSizes, selectedColors, sort]);
 
-  const activeFilterCount = [selectedSubcat ? 1 : 0, (priceMin > globalMin || priceMax < globalMax) ? 1 : 0, selectedSizes.length, selectedColors.length].reduce((a, b) => a + b, 0);
+  const activeFilterCount = [selectedSubcat ? 1 : 0, selectedVariant ? 1 : 0, (priceMin > globalMin || priceMax < globalMax) ? 1 : 0, selectedSizes.length, selectedColors.length].reduce((a, b) => a + b, 0);
 
   const sortOptions = [
     { value: 'position',   label: 'Featured' },
@@ -248,9 +286,9 @@ export default function ProductsClient({ products, title, initialQ = '' }: Props
     { value: 'discount',   label: 'Discount: High to Low' },
   ];
 
-  const clearAll = () => { setSelectedSubcat(''); setSelectedSizes([]); setSelectedColors([]); setPriceMin(globalMin); setPriceMax(globalMax); setQ(''); };
+  const clearAll = () => { setSelectedSubcat(''); setSelectedVariant(''); setSelectedSizes([]); setSelectedColors([]); setPriceMin(globalMin); setPriceMax(globalMax); setQ(''); };
 
-  const filterProps = { products, subcategories, allSizes, allColors, globalMin, globalMax, priceMin, priceMax, selectedSubcat, selectedSizes, selectedColors, setPriceMin, setPriceMax, setSelectedSubcat, setSelectedSizes, setSelectedColors };
+  const filterProps = { products, subcategories, allVariants, allSizes, allColors, globalMin, globalMax, priceMin, priceMax, selectedSubcat, selectedVariant, selectedSizes, selectedColors, setPriceMin, setPriceMax, setSelectedSubcat, setSelectedVariant, setSelectedSizes, setSelectedColors };
 
   return (
     <>

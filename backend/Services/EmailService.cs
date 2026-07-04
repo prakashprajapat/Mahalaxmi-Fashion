@@ -77,7 +77,7 @@ public class EmailService
         return $@"
 <div style=""font-family:Arial,Helvetica,sans-serif;max-width:480px;margin:0 auto;border:1px solid #eee;border-radius:12px;overflow:hidden"">
   <div style=""background:#ffffff;padding:22px 24px;text-align:center;border-bottom:3px solid #a7354d"">
-    <img src=""https://mahalaxmifashionhub.com/logo-email.png"" alt=""Mahalaxmi Fashion Hub"" width=""210"" style=""max-width:210px;width:210px;height:auto;display:inline-block"" />
+    <img src=""https://mahalaxmifashionhub.com/logo.webp?v=4"" alt=""Mahalaxmi Fashion Hub"" width=""210"" style=""max-width:210px;width:210px;height:auto;display:inline-block"" />
   </div>
   <div style=""padding:24px"">
     <p style=""color:#333;font-size:15px;margin:0 0 12px"">Your OTP for <strong>Mahalaxmi Fashion Hub</strong> is:</p>
