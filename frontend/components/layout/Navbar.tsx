@@ -22,6 +22,13 @@ export default function Navbar() {
   const [loginError, setLoginError] = useState('');
   const [loginLoading, setLoginLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  // Mobile/Email OTP login
+  const [loginMode, setLoginMode] = useState<'password' | 'otp'>('password');
+  const [otpContact, setOtpContact] = useState('');
+  const [otpCode, setOtpCode] = useState('');
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpLoading, setOtpLoading] = useState(false);
+  const [otpMsg, setOtpMsg] = useState('');
   const [cartBounce, setCartBounce] = useState(false);
   const [customerName, setCustomerName] = useState('');
   const [showWaLogin, setShowWaLogin] = useState(true);
@@ -106,6 +113,48 @@ export default function Navbar() {
       setLoginLoading(false);
     }
   };
+
+  const handleSendOtp = async () => {
+    const contact = otpContact.trim();
+    if (!contact) { setOtpMsg('Enter your mobile number or email.'); return; }
+    setOtpLoading(true); setOtpMsg('');
+    try {
+      const isEmail = contact.includes('@');
+      if (isEmail) await customersApi.sendEmailOtp(contact);
+      else await customersApi.sendOtp(contact);
+      setOtpSent(true);
+      setOtpMsg(`OTP sent to your ${isEmail ? 'email' : 'mobile'}.`);
+    } catch (err) {
+      setOtpMsg((err as Error).message || 'Could not send OTP. Please try again.');
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    if (otpCode.trim().length < 4) { setOtpMsg('Enter the OTP you received.'); return; }
+    setOtpLoading(true); setOtpMsg('');
+    try {
+      const res = await customersApi.verifyOtp(otpContact.trim(), otpCode.trim());
+      if (res.newUser || !res.token || !res.customer) {
+        setOtpMsg('No account found for this number/email. Please create a new account.');
+        return;
+      }
+      setToken(res.token);
+      saveCustomer(res.customer);
+      setIsLoggedIn(true);
+      setLoginOpen(false);
+      window.dispatchEvent(new Event('auth-changed'));
+    } catch (err) {
+      setOtpMsg((err as Error).message || 'Invalid OTP. Please try again.');
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
+  // Reset OTP flow whenever switching modes or closing the modal
+  const switchToOtp = () => { setLoginMode('otp'); setOtpSent(false); setOtpCode(''); setOtpMsg(''); };
+  const switchToPassword = () => { setLoginMode('password'); setOtpMsg(''); };
 
   return (
     <>
@@ -382,29 +431,68 @@ export default function Navbar() {
             <form onSubmit={handleLogin} className="mfh-login-form" style={{ display: 'flex', flexDirection: 'column', gap: '.9rem' }}>
               <h2 style={{ margin: 0, fontSize: '1.6rem', fontWeight: 800, color: '#1a1a1a' }}>Welcome Back</h2>
               <p style={{ margin: '-.4rem 0 .2rem', fontSize: '.85rem', color: '#888' }}>Login to your account</p>
-              <input type="email" required placeholder="Email" autoComplete="email"
-                value={loginForm.email}
-                onChange={e => setLoginForm(f => ({ ...f, email: e.target.value }))}
-                style={{ height: 54, border: '1.5px solid #ddd', borderRadius: 9, padding: '0 1rem', fontSize: '1.05rem', background: '#fff', boxSizing: 'border-box' }} />
-              <input type={showPassword ? 'text' : 'password'} required placeholder="Password" autoComplete="current-password"
-                value={loginForm.password}
-                onChange={e => setLoginForm(f => ({ ...f, password: e.target.value }))}
-                style={{ height: 52, border: '1.5px solid #ddd', borderRadius: 9, padding: '0 1rem', fontSize: '1.05rem', background: '#fff', boxSizing: 'border-box' }} />
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', color: '#555', fontSize: '.95rem' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '.5rem', cursor: 'pointer' }}>
-                  <input type="checkbox" checked={showPassword} onChange={e => setShowPassword(e.target.checked)} />
-                  Show Password
-                </label>
-                <Link href="/forgot-password" onClick={() => setLoginOpen(false)} style={{ color: '#a01836', textDecoration: 'none' }}>Forgot?</Link>
-              </div>
-              {loginError && <p style={{ margin: 0, color: '#c0392b', fontSize: '.85rem', fontWeight: 600 }}>{loginError}</p>}
-              <button type="submit" disabled={loginLoading}
-                style={{ height: 54, border: 'none', borderRadius: 9, background: '#a01836', color: '#fff', fontWeight: 800, fontSize: '1.05rem', cursor: loginLoading ? 'not-allowed' : 'pointer', opacity: loginLoading ? .7 : 1 }}>
-                {loginLoading ? 'Logging in...' : 'Login'}
-              </button>
-              <p style={{ margin: '.6rem 0 0', textAlign: 'center', color: '#666' }}>
-                New customer? <Link href="/account/register" onClick={() => setLoginOpen(false)} style={{ color: '#a01836', fontWeight: 800, textDecoration: 'none' }}>Create New Account</Link>
-              </p>
+              {loginMode === 'password' ? (
+                <>
+                  <input type="email" required placeholder="Email" autoComplete="email"
+                    value={loginForm.email}
+                    onChange={e => setLoginForm(f => ({ ...f, email: e.target.value }))}
+                    style={{ height: 54, border: '1.5px solid #ddd', borderRadius: 9, padding: '0 1rem', fontSize: '1.05rem', background: '#fff', boxSizing: 'border-box' }} />
+                  <input type={showPassword ? 'text' : 'password'} required placeholder="Password" autoComplete="current-password"
+                    value={loginForm.password}
+                    onChange={e => setLoginForm(f => ({ ...f, password: e.target.value }))}
+                    style={{ height: 52, border: '1.5px solid #ddd', borderRadius: 9, padding: '0 1rem', fontSize: '1.05rem', background: '#fff', boxSizing: 'border-box' }} />
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', color: '#555', fontSize: '.95rem' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '.5rem', cursor: 'pointer' }}>
+                      <input type="checkbox" checked={showPassword} onChange={e => setShowPassword(e.target.checked)} />
+                      Show Password
+                    </label>
+                    <Link href="/forgot-password" onClick={() => setLoginOpen(false)} style={{ color: '#a01836', textDecoration: 'none' }}>Forgot?</Link>
+                  </div>
+                  {loginError && <p style={{ margin: 0, color: '#c0392b', fontSize: '.85rem', fontWeight: 600 }}>{loginError}</p>}
+                  <button type="submit" disabled={loginLoading}
+                    style={{ height: 54, border: 'none', borderRadius: 9, background: '#a01836', color: '#fff', fontWeight: 800, fontSize: '1.05rem', cursor: loginLoading ? 'not-allowed' : 'pointer', opacity: loginLoading ? .7 : 1 }}>
+                    {loginLoading ? 'Logging in...' : 'Login'}
+                  </button>
+                  <p style={{ margin: '.6rem 0 0', textAlign: 'center', color: '#666' }}>
+                    New customer? <Link href="/account/register" onClick={() => setLoginOpen(false)} style={{ color: '#a01836', fontWeight: 800, textDecoration: 'none' }}>Create New Account</Link>
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p style={{ margin: '-.2rem 0 0', fontSize: '.9rem', color: '#555' }}>Login with a code sent to your mobile or email.</p>
+                  <input type="text" placeholder="Mobile number or Email" autoComplete="username"
+                    value={otpContact}
+                    onChange={e => setOtpContact(e.target.value)}
+                    disabled={otpSent}
+                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); otpSent ? handleVerifyOtp() : handleSendOtp(); } }}
+                    style={{ height: 54, border: '1.5px solid #ddd', borderRadius: 9, padding: '0 1rem', fontSize: '1.05rem', background: otpSent ? '#f7f7f7' : '#fff', boxSizing: 'border-box' }} />
+                  {otpSent && (
+                    <input type="text" inputMode="numeric" placeholder="Enter OTP" autoFocus
+                      value={otpCode}
+                      onChange={e => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleVerifyOtp(); } }}
+                      style={{ height: 54, border: '1.5px solid #ddd', borderRadius: 9, padding: '0 1rem', fontSize: '1.15rem', letterSpacing: '.2em', textAlign: 'center', background: '#fff', boxSizing: 'border-box' }} />
+                  )}
+                  {otpMsg && <p style={{ margin: 0, color: otpMsg.startsWith('OTP sent') ? '#2e7d32' : '#c0392b', fontSize: '.85rem', fontWeight: 600 }}>{otpMsg}</p>}
+                  {!otpSent ? (
+                    <button type="button" onClick={handleSendOtp} disabled={otpLoading}
+                      style={{ height: 54, border: 'none', borderRadius: 9, background: '#a01836', color: '#fff', fontWeight: 800, fontSize: '1.05rem', cursor: otpLoading ? 'not-allowed' : 'pointer', opacity: otpLoading ? .7 : 1 }}>
+                      {otpLoading ? 'Sending...' : 'Send OTP'}
+                    </button>
+                  ) : (
+                    <button type="button" onClick={handleVerifyOtp} disabled={otpLoading}
+                      style={{ height: 54, border: 'none', borderRadius: 9, background: '#a01836', color: '#fff', fontWeight: 800, fontSize: '1.05rem', cursor: otpLoading ? 'not-allowed' : 'pointer', opacity: otpLoading ? .7 : 1 }}>
+                      {otpLoading ? 'Verifying...' : 'Verify & Login'}
+                    </button>
+                  )}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '.85rem' }}>
+                    {otpSent ? (
+                      <button type="button" onClick={handleSendOtp} disabled={otpLoading} style={{ background: 'none', border: 'none', color: '#a01836', fontWeight: 600, cursor: 'pointer', padding: 0 }}>Resend OTP</button>
+                    ) : <span />}
+                    <button type="button" onClick={switchToPassword} style={{ background: 'none', border: 'none', color: '#666', fontWeight: 600, cursor: 'pointer', padding: 0 }}>← Password login</button>
+                  </div>
+                </>
+              )}
 
               {/* Social Login Buttons — always visible */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '.75rem', margin: '.25rem 0' }}>
@@ -429,6 +517,13 @@ export default function Navbar() {
                   </button>
                 )}
 
+                {/* Mobile / Email OTP */}
+                <button type="button" onClick={switchToOtp} title="Login with Mobile or Email OTP"
+                  style={{ flex: 1, height: 46, borderRadius: 9, background: loginMode === 'otp' ? '#fdf0f3' : '#fff', color: '#a01836', fontWeight: 700, fontSize: '.78rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '.3rem', border: loginMode === 'otp' ? '1.5px solid #a01836' : '1.5px solid #ddd', cursor: 'pointer' }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#a01836" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M11 18h2"/></svg>
+                  Mobile/Email
+                </button>
+
                 {/* Facebook */}
                 {facebookAppId ? (
                   <a href={`https://www.facebook.com/v18.0/dialog/oauth?client_id=${facebookAppId}&redirect_uri=${encodeURIComponent(typeof window !== 'undefined' ? window.location.origin + '/account/social-callback' : '')}&scope=email,public_profile&response_type=code&state=facebook`}
@@ -444,13 +539,6 @@ export default function Navbar() {
                     Facebook
                   </button>
                 )}
-
-                {/* Instagram */}
-                <button type="button" disabled title="Instagram login — coming soon"
-                  style={{ flex: 1, height: 46, borderRadius: 9, background: 'linear-gradient(135deg,#f5f5f5,#f5f5f5)', color: '#bbb', fontWeight: 700, fontSize: '.85rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '.4rem', border: '1.5px solid #eee', cursor: 'not-allowed' }}>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ccc" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="#ccc" stroke="none"/></svg>
-                  Instagram
-                </button>
               </div>
             </form>
           </div>

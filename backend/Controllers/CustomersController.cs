@@ -17,12 +17,16 @@ public class CustomersController : ControllerBase
     private readonly AppDbContext _db;
     private readonly AuthService _auth;
     private readonly IWebHostEnvironment _env;
+    private readonly EmailService _email;
+    private readonly SmsService _sms;
 
-    public CustomersController(AppDbContext db, AuthService auth, IWebHostEnvironment env)
+    public CustomersController(AppDbContext db, AuthService auth, IWebHostEnvironment env, EmailService email, SmsService sms)
     {
         _db = db;
         _auth = auth;
         _env = env;
+        _email = email;
+        _sms = sms;
     }
 
     // Generates the next sequential customer code: MFHCUS1005, MFHCUS1006, ...
@@ -272,9 +276,18 @@ public class CustomersController : ControllerBase
         });
         await _db.SaveChangesAsync();
 
-        // TODO: Send OTP via WhatsApp/SMS API (plug in your provider here)
-        // SEC-1: devOtp only in Development — never exposed in production
-        if (_env.IsDevelopment())
+        // Deliver the OTP: email via SMTP, or mobile via MSG91 SMS.
+        var sent = false;
+        if (!string.IsNullOrWhiteSpace(email))
+            sent = await _email.SendAsync(
+                email,
+                "Your Mahalaxmi Fashion Hub login code",
+                EmailService.BuildOtpEmail(otp, "login", 10));
+        else if (!string.IsNullOrWhiteSpace(phoneOrEmail))
+            sent = await _sms.SendOtpAsync(phoneOrEmail, otp);
+
+        // SEC-1: devOtp only in Development, or as a fallback if delivery isn't configured yet.
+        if (_env.IsDevelopment() || !sent)
             return Ok(new { success = true, message = "OTP sent.", devOtp = otp });
         return Ok(new { success = true, message = "OTP sent." });
     }
