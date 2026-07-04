@@ -272,7 +272,7 @@ public class CustomersController : ControllerBase
             Email     = email,
             OtpHash   = hash,
             Purpose   = req.Purpose ?? "login",
-            ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(10),
+            ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(5),
         });
         await _db.SaveChangesAsync();
 
@@ -282,7 +282,7 @@ public class CustomersController : ControllerBase
             sent = await _email.SendAsync(
                 email,
                 "Your Mahalaxmi Fashion Hub login code",
-                EmailService.BuildOtpEmail(otp, "login", 10));
+                EmailService.BuildOtpEmail(otp, "login", 5));
         else if (!string.IsNullOrWhiteSpace(phoneOrEmail))
             sent = await _sms.SendOtpAsync(phoneOrEmail, otp);
 
@@ -385,7 +385,7 @@ public class CustomersController : ControllerBase
             Email     = accEmail,
             OtpHash   = hash,
             Purpose   = "reset",
-            ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(10),
+            ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(5),
         });
         await _db.SaveChangesAsync();
 
@@ -395,7 +395,7 @@ public class CustomersController : ControllerBase
         if (!string.IsNullOrWhiteSpace(accEmail))
             emailed = await _email.SendAsync(accEmail,
                 "Your Mahalaxmi Fashion Hub password reset code",
-                EmailService.BuildOtpEmail(otp, "password reset", 10));
+                EmailService.BuildOtpEmail(otp, "password reset", 5));
         if (!string.IsNullOrWhiteSpace(accPhone))
             texted = await _sms.SendOtpAsync(accPhone, otp);
 
