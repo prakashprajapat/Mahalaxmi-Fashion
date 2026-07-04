@@ -136,27 +136,126 @@ export default function AdminOrdersPage() {
   };
 
   const downloadShippingLabel = (order: Order) => {
-    const items = order.cart.map(item => `${item.name}${item.size ? ` (${item.size})` : ''} x ${item.quantity}`).join('<br>');
-    const html = `<!doctype html><html><head><meta charset="utf-8"><title>Shipping Label ${order.id}</title><style>
-      body{font-family:Arial,sans-serif;margin:24px;color:#111}.label{width:420px;border:2px solid #111;padding:18px}
-      h1{font-size:20px;margin:0 0 10px}.row{border-top:1px solid #ddd;padding:8px 0}.small{font-size:12px;color:#555}
-      .awb{font-size:18px;font-weight:800;letter-spacing:.08em}.to{font-size:16px;font-weight:800}
-      @media print{body{margin:0}.label{border:2px solid #111}}
-    </style></head><body><div class="label">
-      <h1>Mahalaxmi Fashion Hub</h1>
-      <div class="row"><span class="small">ORDER</span><br><strong>${order.id}</strong></div>
-      <div class="row"><span class="small">AWB</span><br><span class="awb">${order.awb || 'Pending'}</span></div>
-      <div class="row"><span class="small">SHIP TO</span><br><span class="to">${order.shippingName || order.customerName || ''}</span><br>
-        ${[order.shippingAddress, order.shippingCity, order.shippingState, order.shippingPincode].filter(Boolean).join(', ')}<br>
-        Phone: ${order.customerPhone || ''}</div>
-      <div class="row"><span class="small">ITEMS</span><br>${items || '-'}</div>
-      <div class="row"><strong>Total: ₹${order.total.toLocaleString('en-IN')}</strong> | ${order.method.toUpperCase()}</div>
+    const courier = 'Delhivery'; // TODO(Phase 3): use the selected courier
+    const awb = order.awb || '';
+    const esc = (s: string) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] as string));
+    const money = (n: number) => 'Rs.' + Number(n || 0).toFixed(2);
+
+    const gstRate = Number(order.cart[0]?.gstRate) || 5;
+    const hsn = order.cart[0]?.hsn || '6211';
+    const invoiceTotal = Number(order.total) || 0;
+    const taxable = invoiceTotal / (1 + gstRate / 100);
+    const totalTax = invoiceTotal - taxable;
+    const cgst = totalTax / 2;
+    const totalQty = order.cart.reduce((s, i) => s + i.quantity, 0);
+    const payment = (order.method || '').toLowerCase() === 'cod' ? 'COD' : (order.method || 'PREPAID').toUpperCase();
+    const placed = new Date(order.placedAt ?? order.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+    const shipTo = [order.shippingAddress, order.shippingCity, order.shippingState, order.shippingPincode].filter(Boolean).map(esc).join(', ');
+
+    const productRows = order.cart.map((it, i) => `
+      <tr>
+        <td style="padding:4px 0">${i + 1}. ${esc(it.name)}</td>
+        <td>${esc(it.sku || '-')}</td>
+        <td style="text-align:center">${it.quantity}</td>
+        <td>${esc(it.size || '-')}</td>
+        <td style="text-align:right">${money(it.lineTotal)}</td>
+      </tr>`).join('');
+
+    const html = `<!doctype html><html><head><meta charset="utf-8"><title>${courier} label ${esc(awb || order.id)}</title>
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
+    <style>
+      *{box-sizing:border-box}
+      body{font-family:Arial,Helvetica,sans-serif;margin:0;color:#111;background:#fff}
+      .label{width:780px;margin:16px auto;border:1.5px solid #111;padding:16px 18px}
+      .top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+      .brand{display:flex;gap:12px;align-items:center}
+      .brand img{width:70px;height:70px;object-fit:contain}
+      .brand h1{font-size:22px;margin:0;font-weight:800}
+      .brand .tag{font-size:11px;letter-spacing:.06em;color:#333;font-weight:700}
+      .courier{background:#111;color:#fff;font-weight:800;font-size:14px;padding:6px 12px;border-radius:4px;letter-spacing:.05em}
+      .doctitle{font-size:15px;font-weight:800;margin:8px 0 12px}
+      .box{border:1.5px solid #111;padding:8px 12px;margin-top:10px}
+      .lbl{font-size:10px;font-weight:700;letter-spacing:.08em;color:#333}
+      .cols{display:flex;gap:10px}.cols>.box{flex:1;margin-top:0}
+      .awbnum{font-size:22px;font-weight:800;letter-spacing:.12em;text-align:center;margin-top:2px}
+      #barcode{display:block;width:100%;height:70px}
+      .to{font-size:17px;font-weight:800;margin:3px 0}
+      table{width:100%;border-collapse:collapse;font-size:12px}
+      th{text-align:left;font-size:10px;letter-spacing:.05em;color:#333;border-bottom:1px solid #999;padding-bottom:3px}
+      .tax{display:flex;gap:20px}.tax .left{flex:1.3}.tax .right{flex:1}
+      .taxrow{display:flex;justify-content:space-between;font-size:12px;padding:1px 0}
+      .taxrow.total{font-weight:800;border-top:1px solid #999;margin-top:3px;padding-top:3px}
+      .foot{font-size:11px;font-weight:700;margin-top:10px}
+      .foot .muted{font-weight:400;color:#555}
+      @media print{body{margin:0}.label{margin:0;border:1.5px solid #111}}
+    </style></head><body onload="try{JsBarcode('#barcode','${esc(awb || order.id)}',{format:'CODE128',displayValue:false,height:64,margin:0,width:2});}catch(e){}">
+    <div class="label">
+      <div class="top">
+        <div class="brand">
+          <img src="https://mahalaxmifashionhub.com/email-logo.png" alt="logo" />
+          <div><h1>Mahalaxmi Fashion Hub</h1><div class="tag">EVERY LOOK, A NEW EXPERIENCE</div></div>
+        </div>
+        <div class="courier">${courier.toUpperCase()}</div>
+      </div>
+      <div class="doctitle">TAX INVOICE / ${courier.toUpperCase()} SHIPPING LABEL</div>
+
+      <div class="box">
+        <div class="lbl">AWB / TRACKING ID</div>
+        <svg id="barcode"></svg>
+        <div class="awbnum">${esc(awb || 'PENDING')}</div>
+      </div>
+
+      <div class="cols" style="margin-top:10px">
+        <div class="box"><div class="lbl">ORDER ID</div><div style="font-weight:800;font-size:15px">${esc(order.id)}</div></div>
+        <div class="box"><div class="lbl">PAYMENT</div><div style="font-weight:800;font-size:15px">${esc(payment)}</div></div>
+      </div>
+
+      <div class="box">
+        <div class="lbl">SHIP TO</div>
+        <div class="to">${esc(order.shippingName || order.customerName || '')}</div>
+        <div style="font-size:12px">${shipTo}</div>
+        <div style="font-size:12px">Phone: ${esc(order.customerPhone || '')}</div>
+      </div>
+
+      <div class="box">
+        <div class="lbl" style="margin-bottom:5px">PRODUCT DETAILS (TOTAL QTY: ${totalQty})</div>
+        <table>
+          <tr><th>Product</th><th>SKU</th><th style="text-align:center">Qty</th><th>Size</th><th style="text-align:right">Amount</th></tr>
+          ${productRows}
+        </table>
+      </div>
+
+      <div class="box tax">
+        <div class="left">
+          <div class="lbl">TAX INVOICE</div>
+          <div style="font-weight:800;font-size:13px;margin:2px 0">Invoice Type: Tax Invoice</div>
+          <div style="font-size:12px">Invoice No: INV-${esc(order.id)}</div>
+          <div style="font-size:12px">Invoice Date: ${placed}</div>
+          <div style="font-size:12px">HSN: ${esc(hsn)} | GST: ${gstRate}% | CGST + SGST</div>
+        </div>
+        <div class="right">
+          <div class="taxrow"><span>Taxable Value</span><span>${money(taxable)}</span></div>
+          <div class="taxrow"><span>CGST</span><span>${money(cgst)}</span></div>
+          <div class="taxrow"><span>SGST</span><span>${money(cgst)}</span></div>
+          <div class="taxrow total"><span>Total Tax</span><span>${money(totalTax)}</span></div>
+          <div class="taxrow total"><span>Invoice Total (Tax Included)</span><span>${money(invoiceTotal)}</span></div>
+        </div>
+      </div>
+
+      <div class="cols" style="margin-top:10px">
+        <div class="box"><div class="lbl">SELLER / PICKUP</div><div style="font-size:12px">Mahalaxmi Fashion Hub, Balotra, Rajasthan - 344022</div></div>
+        <div class="box"><div class="lbl">DELIVERY PARTNER</div><div style="font-size:12px">${courier} | AWB: ${esc(awb || 'PENDING')}</div></div>
+      </div>
+
+      <div class="foot">Print this label and paste it on the parcel before handover.<br>
+        <span class="muted">Tax amount is included in the invoice total.</span></div>
     </div></body></html>`;
+
     const blob = new Blob([html], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `shipping-label-${order.id}.html`;
+    a.download = `${courier.toLowerCase()}-label-${awb || order.id}.html`;
     a.click();
     URL.revokeObjectURL(url);
   };
