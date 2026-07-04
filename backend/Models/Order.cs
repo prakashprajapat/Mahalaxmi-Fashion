@@ -74,6 +74,10 @@ public class SiteOrder
     [Column("invoice_number")]
     public string? InvoiceNumber { get; set; }
 
+    // Delivery partner (Delhivery / India Post / Manual etc.) — set with the AWB
+    [Column("courier")]
+    public string? Courier { get; set; }
+
     [Column("created_at")]
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 

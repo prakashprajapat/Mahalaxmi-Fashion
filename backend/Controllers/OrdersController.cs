@@ -203,6 +203,8 @@ public class OrdersController : ControllerBase
         order.Status = req.Status;
         if (req.Awb is not null)
             order.Awb = new string(req.Awb.Where(char.IsLetterOrDigit).ToArray());
+        if (!string.IsNullOrWhiteSpace(req.Courier))
+            order.Courier = req.Courier.Trim();
         // BUG-2: Record exact delivery time for accurate return window calculation
         if (string.Equals(req.Status, "Delivered", StringComparison.OrdinalIgnoreCase) && order.DeliveredAt is null)
             order.DeliveredAt = DateTimeOffset.UtcNow;
@@ -389,7 +391,8 @@ public class OrdersController : ControllerBase
             o.UpdatedAt,
             o.PanNumber,
             o.PanName,
-            InvoiceNumber: o.InvoiceNumber
+            InvoiceNumber: o.InvoiceNumber,
+            Courier: o.Courier
         );
     }
 }

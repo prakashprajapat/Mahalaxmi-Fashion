@@ -102,6 +102,7 @@ export interface Order {
   createdAt: string;
   updatedAt: string;
   invoiceNumber?: string;
+  courier?: string;
 }
 
 export interface Review {

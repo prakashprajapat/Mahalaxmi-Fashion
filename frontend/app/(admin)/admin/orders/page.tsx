@@ -26,9 +26,6 @@ const RETURN_STATUS_TABS: { key: string; label: string; hidden?: boolean }[] = [
 ];
 
 const RETURN_STATUSES = ['Return Requested', 'Return Transit', 'Return'];
-const ORDER_STATUSES  = ORDER_STATUS_TABS.filter(t => t.key !== 'all').map(t => t.key);
-
-const ALL_STATUSES = [...ORDER_STATUSES, ...RETURN_STATUSES];
 
 function exportCSV(orders: Order[]) {
   const header = ['Order ID','Date','Customer','Phone','Email','City','State','Subtotal','Shipping','COD Fee','Total','Method','Status','AWB'];
@@ -105,15 +102,24 @@ export default function AdminOrdersPage() {
   const countFor = (key: string) =>
     key === 'all' ? mainFiltered.length : mainFiltered.filter(o => o.status === key).length;
 
+  // Manual AWB / delivery-partner assignment. `newStatus` holds the chosen courier here.
   const handleUpdate = async () => {
-    if (!selected || !newStatus) return;
+    if (!selected) return;
+    if (!awb.trim()) { alert('Enter the AWB / tracking / reference number.'); return; }
     setUpdating(true);
     try {
-      await ordersApi.updateStatus({ orderId: selected.id, status: newStatus, awb }, getAdminToken() ?? '');
+      await ordersApi.updateStatus({ orderId: selected.id, status: 'Shipped', awb: awb.trim(), courier: newStatus || 'Manual' }, getAdminToken() ?? '');
       fetchOrders();
-      setSelected(null);
+      setSelected(null); setAwb('');
     } catch (e) { alert((e as Error).message); }
     finally { setUpdating(false); }
+  };
+
+  const openManualAwb = () => {
+    const sel = filtered.filter(o => selectedIds.has(o.id));
+    if (sel.length !== 1) { alert('Select exactly ONE order to assign its AWB / tracking number.'); return; }
+    const o = sel[0];
+    setSelected(o); setAwb(o.awb ?? ''); setNewStatus(o.courier || 'Delhivery');
   };
 
   const toggleSelect = (id: string) => {
@@ -169,7 +175,7 @@ export default function AdminOrdersPage() {
     const esc = (s: string | number | null | undefined) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] as string));
     const money = (n: number) => 'Rs.' + Number(n || 0).toFixed(2);
     const awb = order.awb || '';
-    const courier = ((order as unknown as { courier?: string }).courier || '').trim();
+    const courier = (order.courier || '').trim();
     const showCourier = !!awb && !!courier;
     const gstRate = Number(order.cart[0]?.gstRate) || 5;
     const hsn = order.cart[0]?.hsn || '6211';
@@ -343,7 +349,9 @@ export default function AdminOrdersPage() {
         <div style={{ background: '#fff3cd', borderRadius: '8px', padding: '.6rem 1rem', marginBottom: '1rem', display: 'flex', gap: '.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
           <strong style={{ fontSize: '.85rem' }}>{selectedIds.size} selected</strong>
           <button onClick={() => bulkUpdateStatus('Ready for Shipping')} style={{ background: '#27ae60', color: '#fff', border: 'none', borderRadius: '6px', padding: '.35rem .75rem', fontSize: '.8rem', cursor: 'pointer' }}>Ready to Ship</button>
+          <button onClick={openManualAwb} style={{ background: '#00695c', color: '#fff', border: 'none', borderRadius: '6px', padding: '.35rem .75rem', fontSize: '.8rem', cursor: 'pointer' }}>🚚 AWB / Courier</button>
           <button onClick={() => bulkUpdateStatus('Shipped')} style={{ background: '#7b1fa2', color: '#fff', border: 'none', borderRadius: '6px', padding: '.35rem .75rem', fontSize: '.8rem', cursor: 'pointer' }}>Mark Shipped</button>
+          <button onClick={() => bulkUpdateStatus('Delivered')} style={{ background: '#2e7d32', color: '#fff', border: 'none', borderRadius: '6px', padding: '.35rem .75rem', fontSize: '.8rem', cursor: 'pointer' }}>✅ Mark Delivered</button>
           <button onClick={() => bulkUpdateStatus('Cancelled')} style={{ background: '#c62828', color: '#fff', border: 'none', borderRadius: '6px', padding: '.35rem .75rem', fontSize: '.8rem', cursor: 'pointer' }}>Cancel</button>
           <button onClick={() => openLabelsPdf(filtered.filter(o => selectedIds.has(o.id)))} style={{ background: '#1565c0', color: '#fff', border: 'none', borderRadius: '6px', padding: '.35rem .75rem', fontSize: '.8rem', cursor: 'pointer', fontWeight: 700 }}>⬇ Labels PDF ({selectedIds.size})</button>
           <button onClick={() => setSelectedIds(new Set())} style={{ background: '#f5f5f5', border: 'none', borderRadius: '6px', padding: '.35rem .75rem', fontSize: '.8rem', cursor: 'pointer' }}>Clear</button>
@@ -438,7 +446,7 @@ export default function AdminOrdersPage() {
       {selected && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 300, padding: '1rem' }}>
           <div style={{ background: '#fff', borderRadius: '16px', padding: '1.5rem', width: '100%', maxWidth: '420px' }}>
-            <h3 style={{ fontWeight: 700, marginBottom: '.25rem' }}>Update Order</h3>
+            <h3 style={{ fontWeight: 700, marginBottom: '.25rem' }}>Assign AWB / Delivery Partner</h3>
             <p style={{ fontSize: '.82rem', color: '#888', marginBottom: '1.25rem', fontFamily: 'monospace' }}>{selected.id}</p>
 
             <div style={{ background: '#f9f9f9', borderRadius: '8px', padding: '.75rem', marginBottom: '1rem', fontSize: '.82rem' }}>
@@ -450,10 +458,10 @@ export default function AdminOrdersPage() {
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '.75rem' }}>
               <div>
-                <label style={{ fontSize: '.85rem', color: '#555', display: 'block', marginBottom: '.3rem' }}>New Status</label>
+                <label style={{ fontSize: '.85rem', color: '#555', display: 'block', marginBottom: '.3rem' }}>Delivery Partner</label>
                 <select value={newStatus} onChange={e => setNewStatus(e.target.value)}
                   style={{ width: '100%', border: '1.5px solid #ddd', borderRadius: '8px', padding: '.6rem .75rem', fontSize: '.9rem' }}>
-                  {ALL_STATUSES.map(s => <option key={s}>{s}</option>)}
+                  {['Delhivery', 'India Post', 'DTDC', 'Other / Manual'].map(s => <option key={s}>{s}</option>)}
                 </select>
               </div>
               <div>
@@ -470,7 +478,7 @@ export default function AdminOrdersPage() {
               </button>
               <button onClick={handleUpdate} disabled={updating}
                 style={{ flex: 1, background: '#a7354d', color: '#fff', border: 'none', borderRadius: '8px', padding: '.65rem', cursor: updating ? 'not-allowed' : 'pointer', fontWeight: 600, opacity: updating ? .7 : 1 }}>
-                {updating ? 'Saving...' : 'Update Order'}
+                {updating ? 'Saving...' : 'Save (Mark Shipped)'}
               </button>
             </div>
           </div>

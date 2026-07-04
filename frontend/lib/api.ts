@@ -86,7 +86,7 @@ export const ordersApi = {
     ),
   // BUG-1: getByCustomer removed — /orders/my endpoint does not exist on backend
   // Use getAll({ email }) or getAll({ phone }) instead
-  updateStatus: (data: { orderId: string; status: string; awb?: string }, token: string) =>
+  updateStatus: (data: { orderId: string; status: string; awb?: string; courier?: string }, token: string) =>
     request<{ success: boolean; order: import('@/types').Order }>(
       '/orders/status', { method: 'PATCH', body: JSON.stringify(data) }, token
     ),

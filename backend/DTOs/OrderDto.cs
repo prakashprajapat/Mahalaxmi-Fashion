@@ -51,7 +51,8 @@ public record OrderDto(
     string? PanName = null,
     string? CouponCode = null,
     decimal DiscountAmount = 0,
-    string? InvoiceNumber = null
+    string? InvoiceNumber = null,
+    string? Courier = null
 );
 
 public record PlaceOrderRequest(
@@ -84,5 +85,6 @@ public record PlaceOrderRequest(
 public record AdminUpdateOrderRequest(
     string OrderId,
     string Status,
-    string? Awb
+    string? Awb,
+    string? Courier = null
 );
