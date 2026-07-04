@@ -139,7 +139,7 @@ export default function AdminOrdersPage() {
     // Phase 3 will auto-fill this from the AWB's delivery partner; for now ask the admin.
     const courier = (window.prompt('Delivery partner for this label (e.g. Delhivery, India Post):', 'Delhivery') || 'Delhivery').trim();
     const awb = order.awb || '';
-    const esc = (s: string) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] as string));
+    const esc = (s: string | number | null | undefined) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] as string));
     const money = (n: number) => 'Rs.' + Number(n || 0).toFixed(2);
 
     const gstRate = Number(order.cart[0]?.gstRate) || 5;
