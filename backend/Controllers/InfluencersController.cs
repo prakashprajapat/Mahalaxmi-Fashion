@@ -1,8 +1,10 @@
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using MahalaxmiApi.Data;
 using MahalaxmiApi.Models;
+using MahalaxmiApi.Services;
 
 namespace MahalaxmiApi.Controllers;
 
@@ -11,7 +13,17 @@ namespace MahalaxmiApi.Controllers;
 public class InfluencersController : ControllerBase
 {
     private readonly AppDbContext _db;
-    public InfluencersController(AppDbContext db) => _db = db;
+    private readonly EmailService _email;
+    private readonly SmsService _sms;
+    private readonly IWebHostEnvironment _env;
+
+    public InfluencersController(AppDbContext db, EmailService email, SmsService sms, IWebHostEnvironment env)
+    {
+        _db = db;
+        _email = email;
+        _sms = sms;
+        _env = env;
+    }
 
     // ── Admin auth helper ────────────────────────────────────────────────────
     // Admin = a valid JWT carrying the "role":"admin" claim (same auth as the rest of the admin panel).
