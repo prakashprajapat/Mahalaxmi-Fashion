@@ -207,8 +207,10 @@ public class OrdersController : ControllerBase
         if (string.Equals(req.Status, "Delivered", StringComparison.OrdinalIgnoreCase) && order.DeliveredAt is null)
             order.DeliveredAt = DateTimeOffset.UtcNow;
 
-        // Assign a GST invoice number the first time an order is marked Ready for Shipping.
-        if (string.Equals(req.Status, "Ready for Shipping", StringComparison.OrdinalIgnoreCase)
+        // Assign a GST invoice number once the order is confirmed for shipping — at
+        // "Ready for Shipping" or any later stage — if it doesn't already have one.
+        var invoiceStatuses = new[] { "Ready for Shipping", "Shipped", "Transit", "Delivered" };
+        if (invoiceStatuses.Contains(req.Status, StringComparer.OrdinalIgnoreCase)
             && string.IsNullOrEmpty(order.InvoiceNumber))
         {
             order.InvoiceNumber = await NextInvoiceNumberAsync();
