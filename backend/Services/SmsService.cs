@@ -29,12 +29,16 @@ public class SmsService
         return p;
     }
 
-    // Sends the given OTP to a mobile number using MSG91's OTP API + a registered template.
+    // Sends the given OTP to a mobile number using MSG91's Flow (Send SMS) API
+    // with a DLT-approved template. This path is proven to deliver where the
+    // OTP API rejects the same template ("Template ID Missing or Invalid Template").
     // Returns true only when MSG91 accepts the request.
     public async Task<bool> SendOtpAsync(string mobile, string otp)
     {
         var authKey    = await Setting("msg91AuthKey");
         var templateId = await Setting("msg91SmsTemplateId");
+        var sender     = await Setting("msg91SenderId");
+        if (string.IsNullOrWhiteSpace(sender)) sender = "MAHFHB";
 
         if (string.IsNullOrWhiteSpace(authKey) || string.IsNullOrWhiteSpace(templateId))
         {
@@ -52,16 +56,35 @@ public class SmsService
         try
         {
             using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
-            var url = "https://control.msg91.com/api/v5/otp"
-                    + $"?template_id={Uri.EscapeDataString(templateId)}"
-                    + $"&mobile={phone}"
-                    + $"&otp={Uri.EscapeDataString(otp)}";
 
-            using var reqMsg = new HttpRequestMessage(HttpMethod.Post, url)
+            // MSG91 Flow (Send SMS) API. The OTP is carried as both "OTP" and
+            // "var1" so it maps regardless of which variable name the active
+            // template version uses (extra keys are ignored by MSG91).
+            var payload = new
             {
-                Content = new StringContent("{}", Encoding.UTF8, "application/json"),
+                template_id = templateId,
+                sender      = sender,
+                short_url   = "0",
+                recipients  = new[]
+                {
+                    new Dictionary<string, string>
+                    {
+                        ["mobiles"] = phone,
+                        ["OTP"]     = otp,
+                        ["var1"]    = otp,
+                    }
+                }
+            };
+
+            var json = System.Text.Json.JsonSerializer.Serialize(payload);
+
+            using var reqMsg = new HttpRequestMessage(HttpMethod.Post,
+                "https://control.msg91.com/api/v5/flow/")
+            {
+                Content = new StringContent(json, Encoding.UTF8, "application/json"),
             };
             reqMsg.Headers.Add("authkey", authKey);
+            reqMsg.Headers.Add("accept", "application/json");
 
             var res      = await http.SendAsync(reqMsg);
             var bodyText = await res.Content.ReadAsStringAsync();
