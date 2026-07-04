@@ -19,14 +19,29 @@ function AccountContent() {
   const [facebookAppId, setFacebookAppId] = useState('');
 
   useEffect(() => {
-    const c = getCustomer();
-    if (c) setCustomer(c);
+    setCustomer(getCustomer());
 
     settingsApi.getAll().then(r => {
       const s = r.settings ?? {};
       setGoogleClientId(s.googleClientId ?? '');
       setFacebookAppId(s.facebookAppId ?? '');
     }).catch(() => {});
+
+    // Re-check whenever auth changes anywhere, or the page is shown again from the
+    // back/forward cache, or the tab regains focus — so a logged-out state is never stale.
+    const onAuth = () => setCustomer(getCustomer());
+    window.addEventListener('auth-changed', onAuth);
+    window.addEventListener('storage', onAuth);
+    window.addEventListener('pageshow', onAuth);
+    window.addEventListener('focus', onAuth);
+    document.addEventListener('visibilitychange', onAuth);
+    return () => {
+      window.removeEventListener('auth-changed', onAuth);
+      window.removeEventListener('storage', onAuth);
+      window.removeEventListener('pageshow', onAuth);
+      window.removeEventListener('focus', onAuth);
+      document.removeEventListener('visibilitychange', onAuth);
+    };
   }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
