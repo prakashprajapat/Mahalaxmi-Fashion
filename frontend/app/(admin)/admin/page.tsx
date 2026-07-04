@@ -1,5 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { ordersApi, customersApi, productsApi } from '@/lib/api';
 import { getAdminToken } from '@/lib/auth';
 
@@ -12,6 +14,7 @@ interface Stats {
 }
 
 export default function AdminDashboard() {
+  const router = useRouter();
   const [stats, setStats] = useState<Stats | null>(null);
   const [recentOrders, setRecentOrders] = useState<import('@/types').Order[]>([]);
 
@@ -35,11 +38,11 @@ export default function AdminDashboard() {
   }, []);
 
   const cards = stats ? [
-    { label: 'Total Orders', value: stats.totalOrders, icon: '📦', color: 'bg-blue-50 text-blue-700' },
-    { label: 'Total Revenue', value: `₹${stats.totalRevenue.toLocaleString('en-IN')}`, icon: '💰', color: 'bg-green-50 text-green-700' },
-    { label: 'Customers', value: stats.totalCustomers, icon: '👥', color: 'bg-purple-50 text-purple-700' },
-    { label: 'Products', value: stats.totalProducts, icon: '👗', color: 'bg-orange-50 text-orange-700' },
-    { label: 'Pending Orders', value: stats.pendingOrders, icon: '⏳', color: 'bg-yellow-50 text-yellow-700' },
+    { label: 'Total Orders', value: stats.totalOrders, icon: '📦', color: 'bg-blue-50 text-blue-700', href: '/admin/orders' },
+    { label: 'Total Revenue', value: `₹${stats.totalRevenue.toLocaleString('en-IN')}`, icon: '💰', color: 'bg-green-50 text-green-700', href: '/admin/reports' },
+    { label: 'Customers', value: stats.totalCustomers, icon: '👥', color: 'bg-purple-50 text-purple-700', href: '/admin/customers' },
+    { label: 'Products', value: stats.totalProducts, icon: '👗', color: 'bg-orange-50 text-orange-700', href: '/admin/products' },
+    { label: 'Pending Orders', value: stats.pendingOrders, icon: '⏳', color: 'bg-yellow-50 text-yellow-700', href: '/admin/orders' },
   ] : [];
 
   return (
@@ -49,11 +52,12 @@ export default function AdminDashboard() {
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
         {stats ? cards.map(c => (
-          <div key={c.label} className={`rounded-xl p-4 ${c.color.split(' ')[0]}`}>
+          <Link key={c.label} href={c.href}
+            className={`rounded-xl p-4 block transition hover:shadow-md hover:-translate-y-0.5 cursor-pointer ${c.color.split(' ')[0]}`}>
             <p className="text-2xl mb-1">{c.icon}</p>
             <p className={`text-xl font-bold ${c.color.split(' ')[1]}`}>{c.value}</p>
             <p className="text-xs text-gray-500">{c.label}</p>
-          </div>
+          </Link>
         )) : [...Array(5)].map((_, i) => (
           <div key={i} className="bg-gray-100 rounded-xl p-4 animate-pulse h-24" />
         ))}
@@ -75,7 +79,8 @@ export default function AdminDashboard() {
             </thead>
             <tbody className="divide-y">
               {recentOrders.map(o => (
-                <tr key={o.id}>
+                <tr key={o.id} onClick={() => router.push('/admin/orders')}
+                  className="cursor-pointer hover:bg-gray-50">
                   <td className="py-2 pr-4 font-mono text-xs">{o.id}</td>
                   <td className="py-2 pr-4">{o.customerName || '—'}</td>
                   <td className="py-2 pr-4 font-medium">₹{o.total.toLocaleString('en-IN')}</td>
