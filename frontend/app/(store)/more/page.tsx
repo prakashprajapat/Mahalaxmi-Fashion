@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 };
 
 export default async function MoreProductsPage() {
-  const { products } = await productsApi.getAll({ pageSize: 200 }).catch(() => ({ products: [] }));
+  const { products } = await productsApi.getAll({ category: 'more', pageSize: 200 }).catch(() => ({ products: [] }));
   return (
     <>
       <section className="page-hero">
