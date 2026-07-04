@@ -322,8 +322,27 @@ public class CustomersController : ControllerBase
         var customer = isEmail
             ? await _db.Customers.FirstOrDefaultAsync(c => c.Email == phone.ToLower())
             : await _db.Customers.FirstOrDefaultAsync(c => c.Phone == phone);
+
+        // First-time OTP login (mobile or email) auto-creates a passwordless account.
         if (customer is null)
-            return Ok(new { success = true, newUser = true, phone });
+        {
+            customer = new Customer
+            {
+                CustomerCode     = await NextCustomerCodeAsync(),
+                FirstName        = isEmail ? phone.Split('@')[0] : "Customer",
+                LastName         = "",
+                // Email is unique + required, so give phone-only signups a synthetic address.
+                Email            = isEmail ? phone.ToLower() : $"{phone}@mobile.mahalaxmifashionhub.com",
+                Phone            = isEmail ? "" : phone,
+                PasswordHash     = "",
+                PasswordSalt     = "",
+                EmailVerified    = isEmail,
+                MarketingConsent = true,
+                SubmittedAt      = DateTimeOffset.UtcNow.ToString("o"),
+            };
+            _db.Customers.Add(customer);
+            await _db.SaveChangesAsync();
+        }
 
         var token = _auth.GenerateJwt(customer.Id.ToString(), customer.Email, "customer");
         return Ok(new { success = true, token, customer = ToDto(customer) });
