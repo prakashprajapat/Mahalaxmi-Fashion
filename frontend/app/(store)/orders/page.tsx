@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { getCustomer, getToken } from '@/lib/auth';
 import { ordersApi } from '@/lib/api';
+import { productImageSrc } from '@/lib/productImages';
 import type { Order, Customer } from '@/types';
 
 const HOURS_12 = 12 * 60 * 60 * 1000;
@@ -34,6 +35,7 @@ export default function OrdersPage() {
   const [msg, setMsg] = useState('');
   const [activeTab, setActiveTab] = useState<'orders' | 'returns'>('orders');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'delivered' | 'cancelled'>('all');
+  const [detailOrder, setDetailOrder] = useState<Order | null>(null);
 
   useEffect(() => {
     const c = getCustomer();
@@ -52,6 +54,7 @@ export default function OrdersPage() {
     try {
       const res = await ordersApi.cancel(orderId, getToken() ?? '');
       setOrders(prev => prev.map(o => o.id === orderId ? res.order : o));
+      setDetailOrder(prev => prev && prev.id === orderId ? res.order : prev);
       setMsg(`Cancel request submitted for order #${orderId}.`);
     } catch (e) {
       setMsg('Failed to cancel order: ' + (e as Error).message);
@@ -172,27 +175,40 @@ export default function OrdersPage() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               {filteredOrders.map(order => (
                 <div key={order.id} className="form-card" style={{ padding: '1.25rem' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '.5rem', marginBottom: '.75rem' }}>
-                    <div>
-                      <strong style={{ fontSize: '1rem' }}>Order #{order.id}</strong>
-                      <span style={{ display: 'block', fontSize: '.8rem', color: '#888', marginTop: '.1rem' }}>
-                        Placed: {new Date(order.placedAt ?? order.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
-                      </span>
+                  <div onClick={() => setDetailOrder(order)} style={{ cursor: 'pointer' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '.5rem', marginBottom: '.75rem' }}>
+                      <div>
+                        <strong style={{ fontSize: '1rem' }}>Order #{order.id}</strong>
+                        <span style={{ display: 'block', fontSize: '.8rem', color: '#888', marginTop: '.1rem' }}>
+                          Placed: {new Date(order.placedAt ?? order.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '.75rem' }}>
+                        <span className={`badge ${order.status === 'Delivered' ? 'badge-green' : order.status === 'Cancelled' ? 'badge-red' : 'badge-yellow'}`}>
+                          {order.status}
+                        </span>
+                        <strong style={{ color: '#a7354d' }}>₹{order.total.toLocaleString('en-IN')}</strong>
+                      </div>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '.75rem' }}>
-                      <span className={`badge ${order.status === 'Delivered' ? 'badge-green' : order.status === 'Cancelled' ? 'badge-red' : 'badge-yellow'}`}>
-                        {order.status}
-                      </span>
-                      <strong style={{ color: '#a7354d' }}>₹{order.total.toLocaleString('en-IN')}</strong>
-                    </div>
-                  </div>
 
-                  {/* Items */}
-                  <div style={{ fontSize: '.85rem', color: '#555', marginBottom: '.75rem' }}>
-                    {order.cart.slice(0, 3).map((item, i) => (
-                      <span key={i}>{item.name}{item.size ? ` (${item.size})` : ''} × {item.quantity}{i < Math.min(order.cart.length, 3) - 1 ? ', ' : ''}</span>
-                    ))}
-                    {order.cart.length > 3 && <span style={{ color: '#aaa' }}> +{order.cart.length - 3} more</span>}
+                    {/* Items preview (with thumbnails) */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '.4rem', marginBottom: '.5rem' }}>
+                      {order.cart.slice(0, 3).map((item, i) => {
+                        const thumb = productImageSrc(item.colorPhoto || item.image);
+                        return (
+                          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '.5rem', fontSize: '.85rem', color: '#555' }}>
+                            {thumb
+                              ? <img src={thumb} alt="" style={{ width: 34, height: 34, borderRadius: 6, objectFit: 'cover', border: '1px solid #eee', flexShrink: 0 }} />
+                              : <div style={{ width: 34, height: 34, borderRadius: 6, background: '#f5f5f5', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>👗</div>}
+                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {item.name}{item.size ? ` (${item.size})` : ''} × {item.quantity}
+                            </span>
+                          </div>
+                        );
+                      })}
+                      {order.cart.length > 3 && <span style={{ color: '#aaa', fontSize: '.82rem' }}>+{order.cart.length - 3} more item{order.cart.length - 3 !== 1 ? 's' : ''}</span>}
+                    </div>
+                    <p style={{ fontSize: '.82rem', color: '#a7354d', fontWeight: 600, marginBottom: '.75rem' }}>View full details →</p>
                   </div>
 
                   {order.awb && (
@@ -256,6 +272,92 @@ export default function OrdersPage() {
           )}
         </section>
       </main>
+
+      {/* Full order detail modal */}
+      {detailOrder && (
+        <div onClick={() => setDetailOrder(null)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.55)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', zIndex: 400, padding: '1rem', overflowY: 'auto' }}>
+          <div onClick={e => e.stopPropagation()}
+            style={{ background: '#fff', borderRadius: '16px', width: '100%', maxWidth: '560px', margin: '2rem auto', padding: '1.5rem' }}>
+            {/* Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
+              <div>
+                <h3 style={{ fontWeight: 800, fontSize: '1.1rem', margin: 0 }}>Order #{detailOrder.id}</h3>
+                <span style={{ fontSize: '.8rem', color: '#888' }}>
+                  Placed: {new Date(detailOrder.placedAt ?? detailOrder.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                </span>
+              </div>
+              <button onClick={() => setDetailOrder(null)} aria-label="Close"
+                style={{ background: 'none', border: 'none', fontSize: '1.6rem', cursor: 'pointer', color: '#888', lineHeight: 1 }}>×</button>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '.75rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
+              <span className={`badge ${detailOrder.status === 'Delivered' ? 'badge-green' : detailOrder.status === 'Cancelled' ? 'badge-red' : 'badge-yellow'}`}>{detailOrder.status}</span>
+              <span style={{ fontSize: '.85rem', color: '#555', textTransform: 'capitalize' }}>{detailOrder.method}</span>
+              {detailOrder.awb && <span style={{ fontSize: '.8rem', color: '#666' }}>AWB: <strong>{detailOrder.awb}</strong></span>}
+            </div>
+
+            {/* Items */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '.75rem', marginBottom: '1rem' }}>
+              {detailOrder.cart.map((item, i) => {
+                const thumb = productImageSrc(item.colorPhoto || item.image);
+                const sizeOnly = item.color ? (item.size || '').split(' / ').filter(p => p && p !== item.color).join(' / ') : (item.size || '');
+                return (
+                  <div key={i} style={{ display: 'flex', gap: '.75rem', alignItems: 'center', borderBottom: '1px solid #f5f5f5', paddingBottom: '.75rem' }}>
+                    {thumb
+                      ? <img src={thumb} alt="" style={{ width: 56, height: 56, borderRadius: 8, objectFit: 'cover', border: '1px solid #eee', flexShrink: 0 }} />
+                      : <div style={{ width: 56, height: 56, borderRadius: 8, background: '#f5f5f5', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.4rem', flexShrink: 0 }}>👗</div>}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 600, fontSize: '.9rem', color: '#333' }}>{item.name}</div>
+                      <div style={{ fontSize: '.75rem', color: '#888', fontFamily: 'monospace' }}>SKU: {item.sku || '—'}{item.colorColumn ? ` · Col ${item.colorColumn}` : ''}</div>
+                      <div style={{ fontSize: '.78rem', color: '#666', display: 'flex', alignItems: 'center', gap: '.3rem', flexWrap: 'wrap' }}>
+                        {item.color && (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '.25rem' }}>
+                            {item.colorCode && <span style={{ width: 11, height: 11, borderRadius: '50%', background: item.colorCode, border: '1px solid #ccc' }} />}
+                            {item.color}{item.colorCode ? ` (${item.colorCode})` : ''}
+                          </span>
+                        )}
+                        {sizeOnly && <span>{item.color ? '· ' : ''}Size: {sizeOnly}</span>}
+                        <span>· Qty: {item.quantity}</span>
+                      </div>
+                    </div>
+                    <div style={{ textAlign: 'right', fontSize: '.85rem', fontWeight: 600, whiteSpace: 'nowrap' }}>₹{Number(item.lineTotal).toLocaleString('en-IN')}</div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Totals */}
+            <div style={{ fontSize: '.85rem', color: '#555', display: 'flex', flexDirection: 'column', gap: '.3rem', marginBottom: '1rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Subtotal</span><span>₹{Number(detailOrder.subtotal).toLocaleString('en-IN')}</span></div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Shipping</span><span>{detailOrder.shippingCost ? `₹${Number(detailOrder.shippingCost).toLocaleString('en-IN')}` : 'Free'}</span></div>
+              {detailOrder.codFee > 0 && <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>COD Fee</span><span>₹{Number(detailOrder.codFee).toLocaleString('en-IN')}</span></div>}
+              {(detailOrder as { discountAmount?: number }).discountAmount ? <div style={{ display: 'flex', justifyContent: 'space-between', color: '#2e7d32' }}><span>Discount{(detailOrder as { couponCode?: string }).couponCode ? ` (${(detailOrder as { couponCode?: string }).couponCode})` : ''}</span><span>−₹{Number((detailOrder as { discountAmount?: number }).discountAmount).toLocaleString('en-IN')}</span></div> : null}
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 800, color: '#a7354d', borderTop: '1px solid #eee', paddingTop: '.4rem' }}><span>Total</span><span>₹{Number(detailOrder.total).toLocaleString('en-IN')}</span></div>
+            </div>
+
+            {/* Delivery address */}
+            <div style={{ background: '#f9f9f9', borderRadius: '8px', padding: '.75rem', fontSize: '.82rem', color: '#555', marginBottom: '1rem' }}>
+              <strong style={{ display: 'block', marginBottom: '.25rem', color: '#333' }}>Delivery Address</strong>
+              {detailOrder.shippingName && <div>{detailOrder.shippingName}</div>}
+              <div>{[detailOrder.shippingAddress, detailOrder.shippingCity, detailOrder.shippingState, detailOrder.shippingPincode].filter(Boolean).join(', ') || '—'}</div>
+            </div>
+
+            {/* Actions */}
+            <div style={{ display: 'flex', gap: '.5rem', flexWrap: 'wrap' }}>
+              {canCancel(detailOrder) && (
+                <button className="button secondary" disabled={cancellingId === detailOrder.id}
+                  onClick={() => handleCancel(detailOrder.id)}
+                  style={{ fontSize: '.82rem', padding: '.4rem .85rem', borderColor: '#e74c3c', color: '#e74c3c' }}>
+                  {cancellingId === detailOrder.id ? 'Cancelling…' : '✕ Cancel Order'}
+                </button>
+              )}
+              <Link href={`/tracking?awb=${detailOrder.awb ?? ''}`} className="button secondary" style={{ fontSize: '.82rem', padding: '.4rem .85rem' }}>📦 Track</Link>
+              <button className="button primary" onClick={() => setDetailOrder(null)} style={{ fontSize: '.82rem', padding: '.4rem .85rem', marginLeft: 'auto' }}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
