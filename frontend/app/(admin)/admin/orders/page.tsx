@@ -135,42 +135,14 @@ export default function AdminOrdersPage() {
     fetchOrders();
   };
 
-  const downloadShippingLabel = (order: Order) => {
-    const awb = order.awb || '';
-    // Courier is auto-filled from the AWB's platform (Phase 3). Shown only once an AWB/reference exists.
-    const courier = ((order as unknown as { courier?: string }).courier || '').trim();
-    const showCourier = !!awb && !!courier;
-    const esc = (s: string | number | null | undefined) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] as string));
-    const money = (n: number) => 'Rs.' + Number(n || 0).toFixed(2);
-
-    const gstRate = Number(order.cart[0]?.gstRate) || 5;
-    const hsn = order.cart[0]?.hsn || '6211';
-    const invoiceTotal = Number(order.total) || 0;
-    const taxable = invoiceTotal / (1 + gstRate / 100);
-    const totalTax = invoiceTotal - taxable;
-    const cgst = totalTax / 2;
-    const totalQty = order.cart.reduce((s, i) => s + i.quantity, 0);
-    const payment = (order.method || '').toLowerCase() === 'cod' ? 'COD' : (order.method || 'PREPAID').toUpperCase();
-    const placed = new Date(order.placedAt ?? order.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
-    const shipTo = [order.shippingAddress, order.shippingCity, order.shippingState, order.shippingPincode].filter(Boolean).map(esc).join(', ');
-
-    const productRows = order.cart.map((it, i) => `
-      <tr>
-        <td style="padding:4px 0">${i + 1}. ${esc(it.name)}</td>
-        <td>${esc(it.sku || '-')}</td>
-        <td style="text-align:center">${it.quantity}</td>
-        <td>${esc(it.size || '-')}</td>
-        <td style="text-align:right">${money(it.lineTotal)}</td>
-      </tr>`).join('');
-
-    const html = `<!doctype html><html><head><meta charset="utf-8"><title>${showCourier ? esc(courier) + ' ' : ''}label ${esc(awb || order.id)}</title>
-    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
-    <style>
+  // Shared 4x6 label styles (one label per printed page)
+  const LABEL_CSS = `
       *{box-sizing:border-box}
       @page{size:4in 6in;margin:0}
       html,body{margin:0;padding:0}
       body{font-family:Arial,Helvetica,sans-serif;color:#111;background:#fff}
-      .label{width:4in;min-height:6in;margin:0 auto;border:1px solid #111;padding:7px 8px}
+      .label{width:4in;min-height:6in;margin:0 auto;border:1px solid #111;padding:7px 8px;page-break-after:always}
+      .label:last-child{page-break-after:auto}
       .top{position:relative;text-align:center;padding-top:2px}
       .brand-logo{width:135px;height:auto;object-fit:contain;display:inline-block}
       .web{font-size:9px;color:#a7354d;font-weight:700;margin-top:0}
@@ -180,7 +152,7 @@ export default function AdminOrdersPage() {
       .lbl{font-size:7px;font-weight:700;letter-spacing:.06em;color:#333}
       .cols{display:flex;gap:5px}.cols>.box{flex:1;margin-top:0}
       .awbnum{font-size:12px;font-weight:800;letter-spacing:.08em;text-align:center;margin-top:1px}
-      #barcode{display:block;width:100%;height:34px}
+      .bc{display:block;width:100%;height:34px}
       .to{font-size:11px;font-weight:800;margin:1px 0}
       .txt{font-size:8px}
       .big{font-weight:800;font-size:11px}
@@ -191,8 +163,33 @@ export default function AdminOrdersPage() {
       .taxrow.total{font-weight:800;border-top:1px solid #999;margin-top:2px;padding-top:2px}
       .foot{font-size:7px;font-weight:700;margin-top:5px}
       .foot .muted{font-weight:400;color:#555}
-      @media print{body{margin:0}.label{margin:0;width:4in;border:1px solid #111}}
-    </style></head><body onload="try{JsBarcode('#barcode','${esc(awb || order.id)}',{format:'CODE128',displayValue:false,height:30,margin:0,width:1.4});}catch(e){}">
+      @media print{body{margin:0}.label{margin:0;width:4in;border:1px solid #111}}`;
+
+  const buildLabelBody = (order: Order): string => {
+    const esc = (s: string | number | null | undefined) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] as string));
+    const money = (n: number) => 'Rs.' + Number(n || 0).toFixed(2);
+    const awb = order.awb || '';
+    const courier = ((order as unknown as { courier?: string }).courier || '').trim();
+    const showCourier = !!awb && !!courier;
+    const gstRate = Number(order.cart[0]?.gstRate) || 5;
+    const hsn = order.cart[0]?.hsn || '6211';
+    const invoiceTotal = Number(order.total) || 0;
+    const taxable = invoiceTotal / (1 + gstRate / 100);
+    const totalTax = invoiceTotal - taxable;
+    const cgst = totalTax / 2;
+    const totalQty = order.cart.reduce((s, i) => s + i.quantity, 0);
+    const payment = (order.method || '').toLowerCase() === 'cod' ? 'COD' : (order.method || 'PREPAID').toUpperCase();
+    const placed = new Date(order.placedAt ?? order.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+    const shipTo = [order.shippingAddress, order.shippingCity, order.shippingState, order.shippingPincode].filter(Boolean).map(esc).join(', ');
+    const productRows = order.cart.map((it, i) => `
+      <tr>
+        <td style="padding:4px 0">${i + 1}. ${esc(it.name)}</td>
+        <td>${esc(it.sku || '-')}</td>
+        <td style="text-align:center">${it.quantity}</td>
+        <td>${esc(it.size || '-')}</td>
+        <td style="text-align:right">${money(it.lineTotal)}</td>
+      </tr>`).join('');
+    return `
     <div class="label">
       <div class="top">
         ${showCourier ? `<div class="courier-mini">${esc(courier.toUpperCase())}</div>` : ''}
@@ -200,24 +197,20 @@ export default function AdminOrdersPage() {
         <div class="web">www.mahalaxmifashionhub.com</div>
       </div>
       <div class="doctitle">TAX INVOICE / ${showCourier ? esc(courier.toUpperCase()) + ' ' : ''}SHIPPING LABEL</div>
-
       <div class="box">
         <div class="lbl">AWB / TRACKING ID</div>
-        <svg id="barcode"></svg>
+        <svg class="bc" data-code="${esc(awb || order.id)}"></svg>
         <div class="awbnum">${esc(awb || 'PENDING')}</div>
       </div>
-
       <div class="cols" style="margin-top:5px">
         <div class="box"><div class="lbl">ORDER ID</div><div class="big">${esc(order.id)}</div></div>
         <div class="box"><div class="lbl">PAYMENT</div><div class="big">${esc(payment)}</div></div>
       </div>
-
       <div class="box">
         <div class="lbl">SHIP TO</div>
         <div class="to">${esc(order.shippingName || order.customerName || '')}</div>
         <div class="txt">${shipTo}</div>
       </div>
-
       <div class="box">
         <div class="lbl" style="margin-bottom:3px">PRODUCT DETAILS (TOTAL QTY: ${totalQty})</div>
         <table>
@@ -225,7 +218,6 @@ export default function AdminOrdersPage() {
           ${productRows}
         </table>
       </div>
-
       <div class="box tax">
         <div class="left">
           <div class="lbl">TAX INVOICE</div>
@@ -242,24 +234,34 @@ export default function AdminOrdersPage() {
           <div class="taxrow total"><span>Invoice Total</span><span>${money(invoiceTotal)}</span></div>
         </div>
       </div>
-
       <div class="cols" style="margin-top:5px">
         <div class="box"><div class="lbl">SELLER / PICKUP</div><div class="txt">Mahalaxmi Fashion Hub, Balotra, Rajasthan - 344022</div></div>
         <div class="box"><div class="lbl">DELIVERY PARTNER</div><div class="txt">${showCourier ? esc(courier) + ' | ' : ''}AWB: ${esc(awb || 'PENDING')}</div></div>
       </div>
-
       <div class="foot">Print this label and paste it on the parcel before handover.
         <span class="muted">Tax included in invoice total.</span></div>
-    </div></body></html>`;
+    </div>`;
+  };
 
+  // Opens one or many labels in a print view; the print dialog lets you "Save as PDF"
+  // (or send straight to a 4x6 label printer). Each label is its own page.
+  const openLabelsPdf = (list: Order[]) => {
+    if (!list.length) return;
+    const bodies = list.map(buildLabelBody).join('\n');
+    const html = `<!doctype html><html><head><meta charset="utf-8"><title>Labels (${list.length})</title>
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
+    <style>${LABEL_CSS}</style></head>
+    <body onload="try{document.querySelectorAll('.bc').forEach(function(el){JsBarcode(el, el.getAttribute('data-code'), {format:'CODE128',displayValue:false,height:30,margin:0,width:1.4});});}catch(e){};setTimeout(function(){window.focus();window.print();},450);">
+    ${bodies}
+    </body></html>`;
     const blob = new Blob([html], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${showCourier ? courier.toLowerCase() + '-' : ''}label-${awb || order.id}.html`;
-    a.click();
-    URL.revokeObjectURL(url);
+    const w = window.open(url, '_blank');
+    if (!w) { alert('Please allow pop-ups for this site to download/print labels.'); }
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
   };
+
+  const downloadShippingLabel = (order: Order) => openLabelsPdf([order]);
 
   return (
     <div>
@@ -343,6 +345,7 @@ export default function AdminOrdersPage() {
           <button onClick={() => bulkUpdateStatus('Ready for Shipping')} style={{ background: '#27ae60', color: '#fff', border: 'none', borderRadius: '6px', padding: '.35rem .75rem', fontSize: '.8rem', cursor: 'pointer' }}>Ready to Ship</button>
           <button onClick={() => bulkUpdateStatus('Shipped')} style={{ background: '#7b1fa2', color: '#fff', border: 'none', borderRadius: '6px', padding: '.35rem .75rem', fontSize: '.8rem', cursor: 'pointer' }}>Mark Shipped</button>
           <button onClick={() => bulkUpdateStatus('Cancelled')} style={{ background: '#c62828', color: '#fff', border: 'none', borderRadius: '6px', padding: '.35rem .75rem', fontSize: '.8rem', cursor: 'pointer' }}>Cancel</button>
+          <button onClick={() => openLabelsPdf(filtered.filter(o => selectedIds.has(o.id)))} style={{ background: '#1565c0', color: '#fff', border: 'none', borderRadius: '6px', padding: '.35rem .75rem', fontSize: '.8rem', cursor: 'pointer', fontWeight: 700 }}>⬇ Labels PDF ({selectedIds.size})</button>
           <button onClick={() => setSelectedIds(new Set())} style={{ background: '#f5f5f5', border: 'none', borderRadius: '6px', padding: '.35rem .75rem', fontSize: '.8rem', cursor: 'pointer' }}>Clear</button>
         </div>
       )}
