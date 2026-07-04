@@ -136,7 +136,8 @@ export default function AdminOrdersPage() {
   };
 
   const downloadShippingLabel = (order: Order) => {
-    const courier = 'Delhivery'; // TODO(Phase 3): use the selected courier
+    // Phase 3 will auto-fill this from the AWB's delivery partner; for now ask the admin.
+    const courier = (window.prompt('Delivery partner for this label (e.g. Delhivery, India Post):', 'Delhivery') || 'Delhivery').trim();
     const awb = order.awb || '';
     const esc = (s: string) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] as string));
     const money = (n: number) => 'Rs.' + Number(n || 0).toFixed(2);
@@ -167,18 +168,18 @@ export default function AdminOrdersPage() {
       *{box-sizing:border-box}
       body{font-family:Arial,Helvetica,sans-serif;margin:0;color:#111;background:#fff}
       .label{width:780px;margin:16px auto;border:1.5px solid #111;padding:16px 18px}
-      .top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
-      .brand{display:flex;gap:12px;align-items:center}
-      .brand img{width:70px;height:70px;object-fit:contain}
-      .brand h1{font-size:22px;margin:0;font-weight:800}
+      .top{position:relative;text-align:center;padding-top:4px}
+      .brand img{width:96px;height:96px;object-fit:contain;display:block;margin:0 auto 4px}
+      .brand h1{font-size:24px;margin:0;font-weight:800}
       .brand .tag{font-size:11px;letter-spacing:.06em;color:#333;font-weight:700}
-      .courier{background:#111;color:#fff;font-weight:800;font-size:14px;padding:6px 12px;border-radius:4px;letter-spacing:.05em}
-      .doctitle{font-size:15px;font-weight:800;margin:8px 0 12px}
+      .brand .web{font-size:12px;color:#a7354d;font-weight:700;margin-top:2px}
+      .courier{position:absolute;top:0;right:0;background:#111;color:#fff;font-weight:800;font-size:14px;padding:6px 12px;border-radius:4px;letter-spacing:.05em}
+      .doctitle{font-size:15px;font-weight:800;margin:10px 0 12px;text-align:center}
       .box{border:1.5px solid #111;padding:8px 12px;margin-top:10px}
       .lbl{font-size:10px;font-weight:700;letter-spacing:.08em;color:#333}
       .cols{display:flex;gap:10px}.cols>.box{flex:1;margin-top:0}
-      .awbnum{font-size:22px;font-weight:800;letter-spacing:.12em;text-align:center;margin-top:2px}
-      #barcode{display:block;width:100%;height:70px}
+      .awbnum{font-size:18px;font-weight:800;letter-spacing:.1em;text-align:center;margin-top:2px}
+      #barcode{display:block;width:100%;height:46px}
       .to{font-size:17px;font-weight:800;margin:3px 0}
       table{width:100%;border-collapse:collapse;font-size:12px}
       th{text-align:left;font-size:10px;letter-spacing:.05em;color:#333;border-bottom:1px solid #999;padding-bottom:3px}
@@ -188,14 +189,16 @@ export default function AdminOrdersPage() {
       .foot{font-size:11px;font-weight:700;margin-top:10px}
       .foot .muted{font-weight:400;color:#555}
       @media print{body{margin:0}.label{margin:0;border:1.5px solid #111}}
-    </style></head><body onload="try{JsBarcode('#barcode','${esc(awb || order.id)}',{format:'CODE128',displayValue:false,height:64,margin:0,width:2});}catch(e){}">
+    </style></head><body onload="try{JsBarcode('#barcode','${esc(awb || order.id)}',{format:'CODE128',displayValue:false,height:42,margin:0,width:1.8});}catch(e){}">
     <div class="label">
       <div class="top">
+        <div class="courier">${esc(courier.toUpperCase())}</div>
         <div class="brand">
           <img src="https://mahalaxmifashionhub.com/email-logo.png" alt="logo" />
-          <div><h1>Mahalaxmi Fashion Hub</h1><div class="tag">EVERY LOOK, A NEW EXPERIENCE</div></div>
+          <h1>Mahalaxmi Fashion Hub</h1>
+          <div class="tag">EVERY LOOK, A NEW EXPERIENCE</div>
+          <div class="web">www.mahalaxmifashionhub.com</div>
         </div>
-        <div class="courier">${courier.toUpperCase()}</div>
       </div>
       <div class="doctitle">TAX INVOICE / ${courier.toUpperCase()} SHIPPING LABEL</div>
 
@@ -214,7 +217,6 @@ export default function AdminOrdersPage() {
         <div class="lbl">SHIP TO</div>
         <div class="to">${esc(order.shippingName || order.customerName || '')}</div>
         <div style="font-size:12px">${shipTo}</div>
-        <div style="font-size:12px">Phone: ${esc(order.customerPhone || '')}</div>
       </div>
 
       <div class="box">
