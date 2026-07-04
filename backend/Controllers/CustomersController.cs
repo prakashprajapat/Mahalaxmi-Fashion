@@ -321,7 +321,7 @@ public class CustomersController : ControllerBase
 
         var customer = isEmail
             ? await _db.Customers.FirstOrDefaultAsync(c => c.Email == phone.ToLower())
-            : await _db.Customers.FirstOrDefaultAsync(c => c.Phone == phone);
+            : await FindCustomerByIdentifier(phone);
 
         // First-time OTP login (mobile or email) auto-creates a passwordless account.
         if (customer is null)

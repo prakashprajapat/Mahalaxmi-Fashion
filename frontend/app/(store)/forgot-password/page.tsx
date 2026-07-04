@@ -77,7 +77,20 @@ export default function ForgotPasswordPage() {
                 <div className="form-grid">
                   <label className="full-field">
                     Email Address or Mobile Number <span className="required-mark">*</span>
-                    <input type="text" value={identifier} onChange={e => setIdentifier(e.target.value)} placeholder="you@example.com  or  9876543210" required autoComplete="username" />
+                    <span style={{ display: 'flex', alignItems: 'stretch', border: '1.5px solid #ddd', borderRadius: 8, overflow: 'hidden', background: '#fff' }}>
+                      {/^\d/.test(identifier.trim()) && (
+                        <span style={{ display: 'flex', alignItems: 'center', padding: '0 .5rem 0 .85rem', fontWeight: 600, color: '#333', background: '#fafafa', borderRight: '1px solid #eee' }}>+91</span>
+                      )}
+                      <input type="text" value={identifier}
+                        onChange={e => {
+                          const raw = e.target.value;
+                          const first = raw.trim()[0];
+                          if (first && /[0-9]/.test(first)) setIdentifier(raw.replace(/\D/g, '').slice(0, 10));
+                          else setIdentifier(raw);
+                        }}
+                        placeholder="you@example.com  or  9876543210" required autoComplete="username"
+                        style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent' }} />
+                    </span>
                   </label>
                   <div className="form-actions">
                     <button type="submit" className="button primary" disabled={loading}>{loading ? 'Sending OTP…' : 'Send OTP →'}</button>

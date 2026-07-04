@@ -460,12 +460,22 @@ export default function Navbar() {
               ) : (
                 <>
                   <p style={{ margin: '-.2rem 0 0', fontSize: '.9rem', color: '#555' }}>Login with a code sent to your mobile or email.</p>
-                  <input type="text" placeholder="Mobile number or Email" autoComplete="username"
-                    value={otpContact}
-                    onChange={e => setOtpContact(e.target.value)}
-                    disabled={otpSent}
-                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); otpSent ? handleVerifyOtp() : handleSendOtp(); } }}
-                    style={{ height: 54, border: '1.5px solid #ddd', borderRadius: 9, padding: '0 1rem', fontSize: '1.05rem', background: otpSent ? '#f7f7f7' : '#fff', boxSizing: 'border-box' }} />
+                  <div style={{ display: 'flex', alignItems: 'stretch', border: '1.5px solid #ddd', borderRadius: 9, background: otpSent ? '#f7f7f7' : '#fff', overflow: 'hidden' }}>
+                    {/^\d/.test(otpContact.trim()) && (
+                      <span style={{ display: 'flex', alignItems: 'center', padding: '0 .5rem 0 1rem', fontSize: '1.05rem', fontWeight: 600, color: '#333', background: '#fafafa', borderRight: '1px solid #eee' }}>+91</span>
+                    )}
+                    <input type="text" placeholder="Mobile number or Email" autoComplete="username"
+                      value={otpContact}
+                      onChange={e => {
+                        const raw = e.target.value;
+                        const first = raw.trim()[0];
+                        if (first && /[0-9]/.test(first)) setOtpContact(raw.replace(/\D/g, '').slice(0, 10));
+                        else setOtpContact(raw);
+                      }}
+                      disabled={otpSent}
+                      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); otpSent ? handleVerifyOtp() : handleSendOtp(); } }}
+                      style={{ flex: 1, height: 54, border: 'none', outline: 'none', padding: '0 1rem', fontSize: '1.05rem', background: 'transparent', boxSizing: 'border-box' }} />
+                  </div>
                   {otpSent && (
                     <input type="text" inputMode="numeric" placeholder="Enter OTP" autoFocus
                       value={otpCode}
