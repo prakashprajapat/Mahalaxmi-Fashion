@@ -107,14 +107,6 @@ export default function AccountEditPage() {
                 Email Address
                 <input type="email" value={form.email} onChange={set('email')} placeholder="you@example.com" />
               </label>
-              <label>
-                Date of Birth
-                <input type="date" value={form.dateOfBirth} onChange={set('dateOfBirth')} />
-              </label>
-              <label>
-                Marriage Anniversary
-                <input type="date" value={form.marriageDate} onChange={set('marriageDate')} />
-              </label>
               <label className="full-field">
                 Mobile Number
                 <input type="tel" value={form.phone} onChange={set('phone')} placeholder="e.g. 9876543210" maxLength={15} inputMode="numeric" />
@@ -156,6 +148,21 @@ export default function AccountEditPage() {
               <input type="checkbox" checked={form.marketingConsent} onChange={set('marketingConsent')} />
               <span style={{ fontSize: '.88rem' }}>I agree to receive offers, newsletters, and updates from Mahalaxmi Fashion Hub.</span>
             </label>
+
+            <h2 style={{ marginTop: '1.75rem' }}>🎁 Special Offers</h2>
+            <p style={{ color: '#666', fontSize: '.88rem', margin: '0 0 1rem', lineHeight: 1.5 }}>
+              Share your special dates to receive exclusive Birthday &amp; Anniversary discounts and surprises. This is completely optional!
+            </p>
+            <div className="form-grid">
+              <label>
+                🎂 Date of Birth
+                <input type="date" value={form.dateOfBirth} onChange={set('dateOfBirth')} />
+              </label>
+              <label>
+                💍 Marriage Anniversary
+                <input type="date" value={form.marriageDate} onChange={set('marriageDate')} />
+              </label>
+            </div>
 
             {error && <p className="wiz-message" style={{ color: '#c0392b', marginTop: '1rem' }}>{error}</p>}
             {msg && <p className="wiz-message" style={{ color: '#27ae60', marginTop: '1rem' }}>{msg}</p>}
