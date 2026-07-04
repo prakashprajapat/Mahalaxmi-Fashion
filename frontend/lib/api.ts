@@ -80,9 +80,11 @@ export const ordersApi = {
     request<{ success: boolean; order: import('@/types').Order }>(
       `/orders/${orderId}/cancel`, { method: 'PATCH' }, token
     ),
-  requestReturn: (orderId: string, reason: string, token: string) =>
+  requestReturn: (orderId: string, details: { issue?: string; invoiceNumber?: string; awb?: string; paymentMethod?: string; description?: string; callback?: string } | string, token: string) =>
     request<{ success: boolean; order: import('@/types').Order }>(
-      `/orders/${orderId}/return`, { method: 'POST', body: JSON.stringify({ reason }) }, token
+      `/orders/${orderId}/return`,
+      { method: 'POST', body: JSON.stringify(typeof details === 'string' ? { reason: details } : { reason: details.description, ...details }) },
+      token
     ),
   // BUG-1: getByCustomer removed — /orders/my endpoint does not exist on backend
   // Use getAll({ email }) or getAll({ phone }) instead

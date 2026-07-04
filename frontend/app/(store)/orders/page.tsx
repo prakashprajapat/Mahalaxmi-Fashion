@@ -31,6 +31,8 @@ export default function OrdersPage() {
   const [cancellingId, setCancellingId] = useState('');
   const [returnOrderId, setReturnOrderId] = useState('');
   const [returnReason, setReturnReason] = useState('');
+  const [returnIssue, setReturnIssue] = useState('Damaged product');
+  const [returnCallback, setReturnCallback] = useState('');
   const [returnSubmitted, setReturnSubmitted] = useState('');
   const [msg, setMsg] = useState('');
   const [activeTab, setActiveTab] = useState<'orders' | 'returns'>('orders');
@@ -61,15 +63,24 @@ export default function OrdersPage() {
     } finally { setCancellingId(''); }
   };
 
-  const handleReturn = async (orderId: string) => {
-    if (!returnReason.trim()) { alert('Please enter a reason for return.'); return; }
+  const handleReturn = async (order: Order) => {
+    if (!returnReason.trim()) { alert('Please describe the issue.'); return; }
     try {
-      const res = await ordersApi.requestReturn(orderId, returnReason, getToken() ?? '');
-      setOrders(prev => prev.map(o => o.id === orderId ? res.order : o));
-      setReturnSubmitted(orderId);
+      const details = {
+        issue: returnIssue,
+        invoiceNumber: order.invoiceNumber ?? '',
+        awb: order.awb ?? '',
+        paymentMethod: order.method,
+        description: returnReason.trim(),
+        callback: returnCallback.trim(),
+      };
+      const res = await ordersApi.requestReturn(order.id, details, getToken() ?? '');
+      setOrders(prev => prev.map(o => o.id === order.id ? res.order : o));
+      setReturnSubmitted(order.id);
       setReturnOrderId('');
       setReturnReason('');
-      setMsg(`Return requested for order #${orderId}.`);
+      setReturnCallback('');
+      setMsg(`Return requested for order #${order.id}.`);
     } catch (e) {
       setMsg('Failed to request return: ' + (e as Error).message);
     }
@@ -220,19 +231,43 @@ export default function OrdersPage() {
                   {/* Return form */}
                   {returnOrderId === order.id && (
                     <div style={{ background: '#f9f9f9', border: '1px solid #eee', borderRadius: '8px', padding: '1rem', marginBottom: '.75rem' }}>
-                      <p style={{ fontWeight: 600, fontSize: '.9rem', marginBottom: '.5rem' }}>Reason for Return</p>
+                      <p style={{ fontWeight: 700, fontSize: '.95rem', marginBottom: '.75rem' }}>Return Request</p>
+
+                      {/* Auto-filled order details */}
+                      <div style={{ background: '#fff', border: '1px solid #eee', borderRadius: '8px', padding: '.6rem .75rem', fontSize: '.78rem', color: '#555', marginBottom: '.75rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '.25rem .75rem' }}>
+                        <span><strong>Order No:</strong> {order.id}</span>
+                        <span><strong>Invoice No:</strong> {order.invoiceNumber || '—'}</span>
+                        <span><strong>AWB No:</strong> {order.awb || '—'}</span>
+                        <span><strong>Payment:</strong> {(order.method || '').toUpperCase()}</span>
+                      </div>
+
+                      <label style={{ fontSize: '.82rem', fontWeight: 600, color: '#555', display: 'block', marginBottom: '.25rem' }}>Issue *</label>
+                      <select value={returnIssue} onChange={e => setReturnIssue(e.target.value)}
+                        style={{ width: '100%', border: '1.5px solid #ddd', borderRadius: '8px', padding: '.55rem .75rem', fontSize: '.85rem', marginBottom: '.6rem', background: '#fff' }}>
+                        {['Damaged product', 'Wrong item received', 'Size / fit issue', 'Not as described', 'Missing item / accessory', 'Quality issue', 'Other'].map(s => <option key={s}>{s}</option>)}
+                      </select>
+
+                      <label style={{ fontSize: '.82rem', fontWeight: 600, color: '#555', display: 'block', marginBottom: '.25rem' }}>Description *</label>
                       <textarea
                         value={returnReason}
                         onChange={e => setReturnReason(e.target.value)}
-                        placeholder="Please describe the issue (damaged, wrong item, size issue, etc.)"
+                        placeholder="Please describe the issue in detail"
                         rows={3}
-                        style={{ width: '100%', border: '1.5px solid #ddd', borderRadius: '8px', padding: '.6rem .75rem', fontSize: '.85rem', resize: 'vertical', boxSizing: 'border-box' }}
+                        style={{ width: '100%', border: '1.5px solid #ddd', borderRadius: '8px', padding: '.6rem .75rem', fontSize: '.85rem', resize: 'vertical', boxSizing: 'border-box', marginBottom: '.6rem' }}
                       />
-                      <div style={{ display: 'flex', gap: '.5rem', marginTop: '.5rem' }}>
-                        <button className="button primary" onClick={() => handleReturn(order.id)} style={{ fontSize: '.85rem', padding: '.5rem 1rem' }}>
+
+                      <label style={{ fontSize: '.82rem', fontWeight: 600, color: '#555', display: 'block', marginBottom: '.25rem' }}>Callback Number</label>
+                      <input value={returnCallback} onChange={e => setReturnCallback(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                        placeholder="Mobile number for callback (optional)"
+                        style={{ width: '100%', border: '1.5px solid #ddd', borderRadius: '8px', padding: '.55rem .75rem', fontSize: '.85rem', boxSizing: 'border-box', marginBottom: '.35rem' }} />
+
+                      <p style={{ fontSize: '.72rem', color: '#999', margin: '.25rem 0 .5rem' }}>📷 Photo &amp; video upload (opening / packing) will be available here shortly.</p>
+
+                      <div style={{ display: 'flex', gap: '.5rem', marginTop: '.25rem' }}>
+                        <button className="button primary" onClick={() => handleReturn(order)} style={{ fontSize: '.85rem', padding: '.5rem 1rem' }}>
                           Submit Return Request
                         </button>
-                        <button className="button secondary" onClick={() => { setReturnOrderId(''); setReturnReason(''); }} style={{ fontSize: '.85rem', padding: '.5rem 1rem' }}>
+                        <button className="button secondary" onClick={() => { setReturnOrderId(''); setReturnReason(''); setReturnCallback(''); }} style={{ fontSize: '.85rem', padding: '.5rem 1rem' }}>
                           Cancel
                         </button>
                       </div>
@@ -261,6 +296,11 @@ export default function OrdersPage() {
                         style={{ fontSize: '.82rem', padding: '.4rem .85rem' }}>
                         🔄 Request Return
                       </button>
+                    )}
+                    {order.status === 'Delivered' && order.cart[0] && (
+                      <Link href={`/products/${order.cart[0].id}`} className="button secondary" style={{ fontSize: '.82rem', padding: '.4rem .85rem', borderColor: '#f59e0b', color: '#c77800' }}>
+                        ★ Write a Review
+                      </Link>
                     )}
                     <Link href={`/tracking?awb=${order.awb ?? ''}`} className="button secondary" style={{ fontSize: '.82rem', padding: '.4rem .85rem' }}>
                       📦 Track

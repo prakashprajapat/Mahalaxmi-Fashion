@@ -52,7 +52,10 @@ public record OrderDto(
     string? CouponCode = null,
     decimal DiscountAmount = 0,
     string? InvoiceNumber = null,
-    string? Courier = null
+    string? Courier = null,
+    string? ReturnIssue = null,
+    string? ReturnReason = null,
+    string? ReturnCallback = null
 );
 
 public record PlaceOrderRequest(

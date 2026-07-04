@@ -103,6 +103,9 @@ export interface Order {
   updatedAt: string;
   invoiceNumber?: string;
   courier?: string;
+  returnIssue?: string;
+  returnReason?: string;
+  returnCallback?: string;
 }
 
 export interface Review {

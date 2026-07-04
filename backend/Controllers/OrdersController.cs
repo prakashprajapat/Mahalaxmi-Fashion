@@ -326,7 +326,13 @@ public class OrdersController : ControllerBase
         order.RawJson = JsonSerializer.Serialize(new
         {
             returnRequestedAt = DateTimeOffset.UtcNow,
-            returnReason = req.Reason?.Trim() ?? ""
+            returnIssue       = req.Issue?.Trim() ?? "",
+            returnReason      = (req.Description ?? req.Reason)?.Trim() ?? "",
+            returnInvoiceNo   = req.InvoiceNumber?.Trim() ?? order.InvoiceNumber ?? "",
+            returnAwb         = req.Awb?.Trim() ?? order.Awb ?? "",
+            returnPayment     = req.PaymentMethod?.Trim() ?? order.Method,
+            returnCallback    = req.Callback?.Trim() ?? "",
+            returnMedia       = Array.Empty<string>()   // Pass 2 will populate uploaded photo/video URLs
         }, _json);
         order.Status = "Return Requested";
         order.UpdatedAt = DateTimeOffset.UtcNow;
@@ -360,6 +366,7 @@ public class OrdersController : ControllerBase
         var shippingJson = string.IsNullOrEmpty(o.ShippingJson)
             ? new JsonElement()
             : JsonSerializer.Deserialize<JsonElement>(o.ShippingJson);
+        var rawJson = ParseJson(o.RawJson);
         var cartLines = string.IsNullOrEmpty(o.CartJson)
             ? new List<CartLineDto>()
             : JsonSerializer.Deserialize<List<CartLineDto>>(o.CartJson, _json) ?? [];
@@ -392,9 +399,20 @@ public class OrdersController : ControllerBase
             o.PanNumber,
             o.PanName,
             InvoiceNumber: o.InvoiceNumber,
-            Courier: o.Courier
+            Courier: o.Courier,
+            ReturnIssue: GetJsonStr(rawJson, "returnIssue"),
+            ReturnReason: GetJsonStr(rawJson, "returnReason"),
+            ReturnCallback: GetJsonStr(rawJson, "returnCallback")
         );
     }
 }
 
-public record ReturnRequest(string? Reason);
+public record ReturnRequest(
+    string? Reason,
+    string? Issue = null,
+    string? Description = null,
+    string? InvoiceNumber = null,
+    string? Awb = null,
+    string? PaymentMethod = null,
+    string? Callback = null
+);
