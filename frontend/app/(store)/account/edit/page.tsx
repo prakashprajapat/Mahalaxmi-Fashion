@@ -156,11 +156,25 @@ export default function AccountEditPage() {
             <div className="form-grid">
               <label>
                 🎂 Date of Birth
-                <input type="date" value={form.dateOfBirth} onChange={set('dateOfBirth')} />
+                <input type="date" value={form.dateOfBirth} onChange={set('dateOfBirth')}
+                  disabled={!!customer?.dateOfBirth}
+                  style={customer?.dateOfBirth ? { background: '#f2f2f2', cursor: 'not-allowed', color: '#666' } : undefined} />
+                {customer?.dateOfBirth && (
+                  <span style={{ fontSize: '.72rem', color: '#999', marginTop: '.25rem', display: 'block' }}>
+                    🔒 Saved and locked — contact support to change.
+                  </span>
+                )}
               </label>
               <label>
                 💍 Marriage Anniversary
-                <input type="date" value={form.marriageDate} onChange={set('marriageDate')} />
+                <input type="date" value={form.marriageDate} onChange={set('marriageDate')}
+                  disabled={!!customer?.marriageDate}
+                  style={customer?.marriageDate ? { background: '#f2f2f2', cursor: 'not-allowed', color: '#666' } : undefined} />
+                {customer?.marriageDate && (
+                  <span style={{ fontSize: '.72rem', color: '#999', marginTop: '.25rem', display: 'block' }}>
+                    🔒 Saved and locked — contact support to change.
+                  </span>
+                )}
               </label>
             </div>
 

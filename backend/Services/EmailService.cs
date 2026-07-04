@@ -68,17 +68,21 @@ public class EmailService
     }
 
     // Small helper to build a branded OTP email body.
+    // Wording is kept in line with the OTP SMS so the customer sees one consistent message.
+    // NOTE: the SMS text itself is a DLT-approved MSG91 template and can only be changed
+    // on the MSG91 dashboard, not from code.
     public static string BuildOtpEmail(string otp, string purpose, int validMinutes)
     {
+        _ = purpose; // kept for call-site compatibility; wording now matches the SMS
         return $@"
 <div style=""font-family:Arial,Helvetica,sans-serif;max-width:480px;margin:0 auto;border:1px solid #eee;border-radius:12px;overflow:hidden"">
-  <div style=""background:#a7354d;color:#fff;padding:20px 24px"">
-    <h2 style=""margin:0;font-size:20px"">Mahalaxmi Fashion Hub</h2>
+  <div style=""background:#ffffff;padding:22px 24px;text-align:center;border-bottom:3px solid #a7354d"">
+    <img src=""https://mahalaxmifashionhub.com/logo-email.png"" alt=""Mahalaxmi Fashion Hub"" width=""210"" style=""max-width:210px;width:210px;height:auto;display:inline-block"" />
   </div>
   <div style=""padding:24px"">
-    <p style=""color:#333;font-size:15px;margin:0 0 12px"">Your verification code for <strong>{purpose}</strong> is:</p>
+    <p style=""color:#333;font-size:15px;margin:0 0 12px"">Your OTP for <strong>Mahalaxmi Fashion Hub</strong> is:</p>
     <p style=""font-size:32px;font-weight:800;letter-spacing:.25em;color:#a7354d;margin:8px 0 16px"">{otp}</p>
-    <p style=""color:#777;font-size:13px;margin:0"">This code is valid for {validMinutes} minutes. If you did not request this, you can ignore this email.</p>
+    <p style=""color:#777;font-size:13px;margin:0"">Valid for {validMinutes} minutes. Please do not share this code with anyone.</p>
   </div>
 </div>";
     }

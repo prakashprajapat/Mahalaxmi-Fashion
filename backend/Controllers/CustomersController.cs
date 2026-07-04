@@ -460,8 +460,10 @@ public class CustomersController : ControllerBase
         if (req.LastName     != null) c.LastName     = req.LastName.Trim();
         if (req.Gender       != null) c.Gender       = req.Gender;
         if (req.Phone        != null) c.Phone        = req.Phone.Trim();
-        if (req.DateOfBirth  != null) c.DateOfBirth  = ParseDate(req.DateOfBirth);
-        if (req.MarriageDate != null) c.MarriageDate = ParseDate(req.MarriageDate);
+        // Birthday & anniversary can be set once, then locked — stops customers editing
+        // their dates repeatedly to keep claiming date-based offers.
+        if (req.DateOfBirth  != null && c.DateOfBirth  == null) c.DateOfBirth  = ParseDate(req.DateOfBirth);
+        if (req.MarriageDate != null && c.MarriageDate == null) c.MarriageDate = ParseDate(req.MarriageDate);
         if (req.AddrLine1    != null) c.AddrLine1    = req.AddrLine1;
         if (req.AddrLine2    != null) c.AddrLine2    = req.AddrLine2;
         if (req.Pincode      != null) c.Pincode      = req.Pincode;

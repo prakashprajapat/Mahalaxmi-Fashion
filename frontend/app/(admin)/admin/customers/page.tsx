@@ -104,7 +104,6 @@ export default function AdminCustomersPage() {
     }
   };
 
-  const specialToday = customers.filter(c => isToday(c.dateOfBirth) || isToday(c.marriageDate));
 
   return (
     <div>
@@ -180,28 +179,6 @@ export default function AdminCustomersPage() {
         )}
 
         {message && <p className={`text-xs mt-3 ${message.includes('success') ? 'text-green-700' : 'text-red-600'}`}>{message}</p>}
-      </div>
-
-      <div className="bg-white rounded-xl shadow-sm p-4 mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <p className="text-sm font-semibold text-gray-800">Birthday / Anniversary Offers</p>
-          <p className="text-xs text-gray-500">
-            Customers due today: {specialToday.length}. Dates from the register page show here automatically.
-          </p>
-        </div>
-        {specialToday.length > 0 && (
-          <div className="flex flex-wrap gap-2">
-            {specialToday.slice(0, 4).map(c => {
-              const href = offerLink(c);
-              return href ? (
-                <a key={c.id} href={href} target="_blank" rel="noopener noreferrer"
-                  className="px-3 py-1 rounded-lg bg-green-600 text-white text-xs font-semibold">
-                  Offer: {c.firstName}
-                </a>
-              ) : null;
-            })}
-          </div>
-        )}
       </div>
 
       <input
