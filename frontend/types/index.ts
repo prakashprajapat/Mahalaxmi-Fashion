@@ -69,6 +69,11 @@ export interface CartLine {
   subcategory: string;
   gstRate: number;
   hsn: string;
+  // Structured colour info captured at checkout (new orders only)
+  color?: string;
+  colorCode?: string;
+  colorPhoto?: string;
+  colorColumn?: string;
 }
 
 export interface Order {

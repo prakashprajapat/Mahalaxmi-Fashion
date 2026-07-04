@@ -143,20 +143,37 @@ export default function CheckoutPage() {
     return undefined;
   };
 
-  const buildCartLines = () => cart.map(i => ({
-    id: String(i.dbId),
-    name: i.name,
-    sku: i.sku ?? '',
-    size: [i.selectedSize, i.selectedColor].filter(Boolean).join(' / '),
-    image: i.image ?? '',
-    quantity: i.quantity,
-    price: i.discountPrice ?? i.price,
-    lineTotal: (i.discountPrice ?? i.price) * i.quantity,
-    category: i.category,
-    subcategory: i.subcategory,
-    gstRate: i.gstRate ?? 5,
-    hsn: i.hsnCode ?? '6211',
-  }));
+  const buildCartLines = () => cart.map(i => {
+    // Look up the selected colour's code / photo / column from the product's extraJson
+    let colorCode = '', colorPhoto = '', colorColumn = '';
+    if (i.selectedColor) {
+      try {
+        const ex = JSON.parse(i.extraJson ?? '{}');
+        const cc = (ex.customColors ?? []).find((c: { name?: string }) => c.name === i.selectedColor);
+        if (cc) { colorCode = cc.code ?? ''; colorPhoto = cc.photo ?? ''; colorColumn = cc.columnLetter ?? ''; }
+        if (!colorCode) colorCode = (ex.colorCodes ?? {})[i.selectedColor] ?? '';
+      } catch { /* extraJson missing or malformed — leave colour meta blank */ }
+    }
+    return {
+      id: String(i.dbId),
+      name: i.name,
+      sku: i.sku ?? '',
+      size: [i.selectedSize, i.selectedColor].filter(Boolean).join(' / '),
+      image: i.image ?? '',
+      quantity: i.quantity,
+      price: i.discountPrice ?? i.price,
+      lineTotal: (i.discountPrice ?? i.price) * i.quantity,
+      category: i.category,
+      subcategory: i.subcategory,
+      gstRate: i.gstRate ?? 5,
+      hsn: i.hsnCode ?? '6211',
+      // Structured colour info for admin order display
+      color: i.selectedColor ?? '',
+      colorCode,
+      colorPhoto,
+      colorColumn,
+    };
+  });
 
   const handlePincodeChange = (val: string) => {
     const state = val.length >= 2 ? getPincodeState(val) : '';

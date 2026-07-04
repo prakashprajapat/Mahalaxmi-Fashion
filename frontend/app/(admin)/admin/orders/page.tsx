@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { ordersApi } from '@/lib/api';
 import { getAdminToken } from '@/lib/auth';
 import { exportOrders } from '@/lib/exportExcel';
+import { productImageSrc } from '@/lib/productImages';
 import type { Order } from '@/types';
 
 const ORDER_STATUS_TABS: { key: string; label: string; hidden?: boolean }[] = [
@@ -264,16 +265,16 @@ export default function AdminOrdersPage() {
                     checked={selectedIds.size === filtered.length && filtered.length > 0}
                     onChange={e => setSelectedIds(e.target.checked ? new Set(filtered.map(o => o.id)) : new Set())} />
                 </th>
-                {['Order ID','Date','Customer','Phone','Items','Amount','Method','AWB','Status','Action'].map(h => (
+                {['Order ID','Date','Customer','Item(s)','Amount','Method','AWB','Status','Action'].map(h => (
                   <th key={h} style={{ padding: '.75rem 1rem', textAlign: 'left', fontWeight: 600, fontSize: '.72rem', color: '#888', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={11} style={{ textAlign: 'center', padding: '3rem', color: '#aaa' }}>Loading orders…</td></tr>
+                <tr><td colSpan={10} style={{ textAlign: 'center', padding: '3rem', color: '#aaa' }}>Loading orders…</td></tr>
               ) : filtered.length === 0 ? (
-                <tr><td colSpan={11} style={{ textAlign: 'center', padding: '3rem', color: '#aaa' }}>No orders found.</td></tr>
+                <tr><td colSpan={10} style={{ textAlign: 'center', padding: '3rem', color: '#aaa' }}>No orders found.</td></tr>
               ) : filtered.map((o, i) => {
                 const sc = statusColor(o.status);
                 return (
@@ -286,9 +287,37 @@ export default function AdminOrdersPage() {
                       {new Date(o.placedAt ?? o.createdAt).toLocaleDateString('en-IN')}
                     </td>
                     <td style={{ padding: '.65rem 1rem', fontWeight: 500 }}>{o.customerName || '—'}</td>
-                    <td style={{ padding: '.65rem 1rem', fontSize: '.78rem' }}>{o.customerPhone || '—'}</td>
-                    <td style={{ padding: '.65rem 1rem', fontSize: '.78rem', color: '#888' }}>
-                      {o.cart.reduce((s, c) => s + c.quantity, 0)} item{o.cart.reduce((s, c) => s + c.quantity, 0) !== 1 ? 's' : ''}
+                    <td style={{ padding: '.5rem 1rem', minWidth: '270px' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '.45rem' }}>
+                        {o.cart.map((c, ci) => {
+                          const thumb = productImageSrc(c.colorPhoto || c.image);
+                          // `size` historically holds "size / colour" — strip the colour part when we show it separately
+                          const sizeOnly = c.color ? (c.size || '').split(' / ').filter(p => p && p !== c.color).join(' / ') : (c.size || '');
+                          return (
+                            <div key={ci} style={{ display: 'flex', gap: '.5rem', alignItems: 'center' }}>
+                              {thumb
+                                ? <img src={thumb} alt="" style={{ width: 40, height: 40, borderRadius: 6, objectFit: 'cover', flexShrink: 0, border: '1px solid #eee' }} />
+                                : <div style={{ width: 40, height: 40, borderRadius: 6, background: '#f5f5f5', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.1rem', flexShrink: 0 }}>👗</div>}
+                              <div style={{ fontSize: '.72rem', lineHeight: 1.4 }}>
+                                <div style={{ fontWeight: 600, color: '#333', maxWidth: 190, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</div>
+                                <div style={{ color: '#888', fontFamily: 'monospace' }}>
+                                  SKU: {c.sku || '—'}{c.colorColumn ? ` · Col ${c.colorColumn}` : ''}
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '.3rem', color: '#666', flexWrap: 'wrap' }}>
+                                  {c.color && (
+                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '.25rem' }}>
+                                      {c.colorCode && <span style={{ width: 11, height: 11, borderRadius: '50%', background: c.colorCode, border: '1px solid #ccc', display: 'inline-block', flexShrink: 0 }} />}
+                                      {c.color}{c.colorCode ? ` (${c.colorCode})` : ''}
+                                    </span>
+                                  )}
+                                  {sizeOnly && <span>{c.color ? '· ' : ''}Size: {sizeOnly}</span>}
+                                  <span>· ×{c.quantity}</span>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </td>
                     <td style={{ padding: '.65rem 1rem', fontWeight: 600, whiteSpace: 'nowrap' }}>₹{o.total.toLocaleString('en-IN')}</td>
                     <td style={{ padding: '.65rem 1rem', textTransform: 'capitalize', fontSize: '.78rem' }}>{o.method}</td>

@@ -14,7 +14,12 @@ public record CartLineDto(
     string Category,
     string Subcategory,
     decimal GstRate,
-    string Hsn
+    string Hsn,
+    // Structured colour info captured at checkout (optional — older orders won't have it)
+    string? Color = null,
+    string? ColorCode = null,
+    string? ColorPhoto = null,
+    string? ColorColumn = null
 );
 
 public record OrderDto(
