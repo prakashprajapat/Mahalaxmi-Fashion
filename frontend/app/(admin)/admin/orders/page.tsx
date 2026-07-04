@@ -166,35 +166,39 @@ export default function AdminOrdersPage() {
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
     <style>
       *{box-sizing:border-box}
-      body{font-family:Arial,Helvetica,sans-serif;margin:0;color:#111;background:#fff}
-      .label{width:780px;margin:16px auto;border:1.5px solid #111;padding:16px 18px}
-      .top{position:relative;text-align:center;padding-top:4px}
-      .brand img{width:96px;height:96px;object-fit:contain;display:block;margin:0 auto 4px}
-      .brand h1{font-size:24px;margin:0;font-weight:800}
-      .brand .tag{font-size:11px;letter-spacing:.06em;color:#333;font-weight:700}
-      .brand .web{font-size:12px;color:#a7354d;font-weight:700;margin-top:2px}
-      .courier{position:absolute;top:0;right:0;background:#111;color:#fff;font-weight:800;font-size:14px;padding:6px 12px;border-radius:4px;letter-spacing:.05em}
-      .doctitle{font-size:15px;font-weight:800;margin:10px 0 12px;text-align:center}
-      .box{border:1.5px solid #111;padding:8px 12px;margin-top:10px}
-      .lbl{font-size:10px;font-weight:700;letter-spacing:.08em;color:#333}
-      .cols{display:flex;gap:10px}.cols>.box{flex:1;margin-top:0}
-      .awbnum{font-size:18px;font-weight:800;letter-spacing:.1em;text-align:center;margin-top:2px}
-      #barcode{display:block;width:100%;height:46px}
-      .to{font-size:17px;font-weight:800;margin:3px 0}
-      table{width:100%;border-collapse:collapse;font-size:12px}
-      th{text-align:left;font-size:10px;letter-spacing:.05em;color:#333;border-bottom:1px solid #999;padding-bottom:3px}
-      .tax{display:flex;gap:20px}.tax .left{flex:1.3}.tax .right{flex:1}
-      .taxrow{display:flex;justify-content:space-between;font-size:12px;padding:1px 0}
-      .taxrow.total{font-weight:800;border-top:1px solid #999;margin-top:3px;padding-top:3px}
-      .foot{font-size:11px;font-weight:700;margin-top:10px}
+      @page{size:4in 6in;margin:0}
+      html,body{margin:0;padding:0}
+      body{font-family:Arial,Helvetica,sans-serif;color:#111;background:#fff}
+      .label{width:4in;min-height:6in;margin:0 auto;border:1px solid #111;padding:7px 8px}
+      .top{position:relative;display:flex;align-items:center;gap:8px;padding-top:2px;min-height:66px}
+      .top .brand-logo{width:84px;height:84px;object-fit:contain;flex-shrink:0}
+      .brand h1{font-size:15px;margin:0;font-weight:800;line-height:1.05}
+      .brand .tag{font-size:7px;letter-spacing:.04em;color:#333;font-weight:700}
+      .brand .web{font-size:8px;color:#a7354d;font-weight:700;margin-top:1px}
+      .courier{position:absolute;top:0;right:0;background:#111;color:#fff;font-weight:800;font-size:9px;padding:3px 6px;border-radius:3px;letter-spacing:.04em}
+      .doctitle{font-size:10px;font-weight:800;margin:5px 0 5px;text-align:center}
+      .box{border:1px solid #111;padding:4px 6px;margin-top:5px}
+      .lbl{font-size:7px;font-weight:700;letter-spacing:.06em;color:#333}
+      .cols{display:flex;gap:5px}.cols>.box{flex:1;margin-top:0}
+      .awbnum{font-size:12px;font-weight:800;letter-spacing:.08em;text-align:center;margin-top:1px}
+      #barcode{display:block;width:100%;height:34px}
+      .to{font-size:11px;font-weight:800;margin:1px 0}
+      .txt{font-size:8px}
+      .big{font-weight:800;font-size:11px}
+      table{width:100%;border-collapse:collapse;font-size:8px}
+      th{text-align:left;font-size:7px;letter-spacing:.03em;color:#333;border-bottom:1px solid #999;padding-bottom:2px}
+      .tax{display:flex;gap:8px}.tax .left{flex:1.3}.tax .right{flex:1}
+      .taxrow{display:flex;justify-content:space-between;font-size:8px;padding:0}
+      .taxrow.total{font-weight:800;border-top:1px solid #999;margin-top:2px;padding-top:2px}
+      .foot{font-size:7px;font-weight:700;margin-top:5px}
       .foot .muted{font-weight:400;color:#555}
-      @media print{body{margin:0}.label{margin:0;border:1.5px solid #111}}
-    </style></head><body onload="try{JsBarcode('#barcode','${esc(awb || order.id)}',{format:'CODE128',displayValue:false,height:42,margin:0,width:1.8});}catch(e){}">
+      @media print{body{margin:0}.label{margin:0;width:4in;border:1px solid #111}}
+    </style></head><body onload="try{JsBarcode('#barcode','${esc(awb || order.id)}',{format:'CODE128',displayValue:false,height:30,margin:0,width:1.4});}catch(e){}">
     <div class="label">
       <div class="top">
         <div class="courier">${esc(courier.toUpperCase())}</div>
+        <img class="brand-logo" src="https://mahalaxmifashionhub.com/email-logo.png" alt="logo" />
         <div class="brand">
-          <img src="https://mahalaxmifashionhub.com/email-logo.png" alt="logo" />
           <h1>Mahalaxmi Fashion Hub</h1>
           <div class="tag">EVERY LOOK, A NEW EXPERIENCE</div>
           <div class="web">www.mahalaxmifashionhub.com</div>
@@ -208,19 +212,19 @@ export default function AdminOrdersPage() {
         <div class="awbnum">${esc(awb || 'PENDING')}</div>
       </div>
 
-      <div class="cols" style="margin-top:10px">
-        <div class="box"><div class="lbl">ORDER ID</div><div style="font-weight:800;font-size:15px">${esc(order.id)}</div></div>
-        <div class="box"><div class="lbl">PAYMENT</div><div style="font-weight:800;font-size:15px">${esc(payment)}</div></div>
+      <div class="cols" style="margin-top:5px">
+        <div class="box"><div class="lbl">ORDER ID</div><div class="big">${esc(order.id)}</div></div>
+        <div class="box"><div class="lbl">PAYMENT</div><div class="big">${esc(payment)}</div></div>
       </div>
 
       <div class="box">
         <div class="lbl">SHIP TO</div>
         <div class="to">${esc(order.shippingName || order.customerName || '')}</div>
-        <div style="font-size:12px">${shipTo}</div>
+        <div class="txt">${shipTo}</div>
       </div>
 
       <div class="box">
-        <div class="lbl" style="margin-bottom:5px">PRODUCT DETAILS (TOTAL QTY: ${totalQty})</div>
+        <div class="lbl" style="margin-bottom:3px">PRODUCT DETAILS (TOTAL QTY: ${totalQty})</div>
         <table>
           <tr><th>Product</th><th>SKU</th><th style="text-align:center">Qty</th><th>Size</th><th style="text-align:right">Amount</th></tr>
           ${productRows}
@@ -230,27 +234,27 @@ export default function AdminOrdersPage() {
       <div class="box tax">
         <div class="left">
           <div class="lbl">TAX INVOICE</div>
-          <div style="font-weight:800;font-size:13px;margin:2px 0">Invoice Type: Tax Invoice</div>
-          <div style="font-size:12px">Invoice No: INV-${esc(order.id)}</div>
-          <div style="font-size:12px">Invoice Date: ${placed}</div>
-          <div style="font-size:12px">HSN: ${esc(hsn)} | GST: ${gstRate}% | CGST + SGST</div>
+          <div style="font-weight:800;font-size:9px;margin:1px 0">Invoice Type: Tax Invoice</div>
+          <div class="txt">Invoice No: INV-${esc(order.id)}</div>
+          <div class="txt">Invoice Date: ${placed}</div>
+          <div class="txt">HSN: ${esc(hsn)} | GST: ${gstRate}% | CGST + SGST</div>
         </div>
         <div class="right">
           <div class="taxrow"><span>Taxable Value</span><span>${money(taxable)}</span></div>
           <div class="taxrow"><span>CGST</span><span>${money(cgst)}</span></div>
           <div class="taxrow"><span>SGST</span><span>${money(cgst)}</span></div>
           <div class="taxrow total"><span>Total Tax</span><span>${money(totalTax)}</span></div>
-          <div class="taxrow total"><span>Invoice Total (Tax Included)</span><span>${money(invoiceTotal)}</span></div>
+          <div class="taxrow total"><span>Invoice Total</span><span>${money(invoiceTotal)}</span></div>
         </div>
       </div>
 
-      <div class="cols" style="margin-top:10px">
-        <div class="box"><div class="lbl">SELLER / PICKUP</div><div style="font-size:12px">Mahalaxmi Fashion Hub, Balotra, Rajasthan - 344022</div></div>
-        <div class="box"><div class="lbl">DELIVERY PARTNER</div><div style="font-size:12px">${courier} | AWB: ${esc(awb || 'PENDING')}</div></div>
+      <div class="cols" style="margin-top:5px">
+        <div class="box"><div class="lbl">SELLER / PICKUP</div><div class="txt">Mahalaxmi Fashion Hub, Balotra, Rajasthan - 344022</div></div>
+        <div class="box"><div class="lbl">DELIVERY PARTNER</div><div class="txt">${courier} | AWB: ${esc(awb || 'PENDING')}</div></div>
       </div>
 
-      <div class="foot">Print this label and paste it on the parcel before handover.<br>
-        <span class="muted">Tax amount is included in the invoice total.</span></div>
+      <div class="foot">Print this label and paste it on the parcel before handover.
+        <span class="muted">Tax included in invoice total.</span></div>
     </div></body></html>`;
 
     const blob = new Blob([html], { type: 'text/html' });
