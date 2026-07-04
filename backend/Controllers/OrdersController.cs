@@ -49,43 +49,47 @@ public class OrdersController : ControllerBase
             return Ok(new { success = true, orders = orders.Select(o => MapOrder(o)), total, page, pageSize });
         }
 
-        // PERF-1: Customer — filter at DB level using JSON text search
+        // Customer — match orders in memory so identifiers can be NORMALISED before
+        // comparison. Fragile JSON substring matching (ILike) missed legitimate orders
+        // whenever the checkout email was blank/different, or the phone was stored with
+        // formatting (e.g. "+91 94294 29880") so the 10 digits weren't contiguous.
         var tokenCustomerId = User.FindFirstValue("sub");
-        var tokenEmail = User.FindFirstValue("email");
+        var tokenEmail = (User.FindFirstValue("email") ?? "").Trim().ToLowerInvariant();
         var customer = int.TryParse(tokenCustomerId, out var cid)
             ? await _db.Customers.FindAsync(cid)
             : null;
-        var cleanPhone = new string((customer?.Phone ?? "").Where(char.IsDigit).ToArray());
-        if (cleanPhone.Length > 10) cleanPhone = cleanPhone[^10..];
+        var acctPhone = NormalizePhone(customer?.Phone);
 
-        var customerQuery = _db.SiteOrders.AsQueryable();
-
-        // Match an order to the signed-in customer if ANY reliable identifier matches:
-        // the customer id embedded at checkout, their account email, or their verified phone.
-        // NOTE: the previous logic required email AND phone together, which hid legitimate
-        // orders whenever the checkout email was left blank or differed from the account
-        // email (the common case for COD orders) — even though the order was clearly theirs.
-        var hasId = cid > 0;
-        var hasEmail = !string.IsNullOrEmpty(tokenEmail);
-        var hasPhone = !string.IsNullOrEmpty(cleanPhone);
-        if (!hasId && !hasEmail && !hasPhone)
+        if (cid <= 0 && string.IsNullOrEmpty(tokenEmail) && string.IsNullOrEmpty(acctPhone))
             return Ok(new { success = true, orders = Array.Empty<object>() });
 
-        // Trailing quote on the id needle prevents "5" from matching "50", etc.
-        var idNeedle    = $"%\"id\":\"{cid}\"%";
-        var emailNeedle = $"%{tokenEmail}%";
-        var phoneNeedle = $"%{cleanPhone}%";
-
-        customerQuery = customerQuery.Where(o =>
-            (hasId    && EF.Functions.ILike(o.CustomerJson!, idNeedle)) ||
-            (hasEmail && EF.Functions.ILike(o.CustomerJson!, emailNeedle)) ||
-            (hasPhone && EF.Functions.ILike(o.CustomerJson!, phoneNeedle)));
-
-        var filteredList = await customerQuery
+        // Store scale is small; loading orders and matching in memory is fine and lets us
+        // compare last-10-digit phone / case-insensitive email / exact id reliably.
+        var allOrders = await _db.SiteOrders
             .OrderByDescending(o => o.PlacedAt ?? o.CreatedAt)
             .ToListAsync();
 
-        return Ok(new { success = true, orders = filteredList.Select(o => MapOrder(o)) });
+        var mine = allOrders.Where(o =>
+        {
+            var cj = ParseJson(o.CustomerJson);
+            var orderId    = GetJsonStr(cj, "id");
+            var orderEmail = (GetJsonStr(cj, "email") ?? "").Trim().ToLowerInvariant();
+            var orderPhone = NormalizePhone(GetJsonStr(cj, "phone"));
+
+            return (cid > 0 && orderId == cid.ToString())
+                || (!string.IsNullOrEmpty(tokenEmail) && orderEmail == tokenEmail)
+                || (!string.IsNullOrEmpty(acctPhone) && orderPhone == acctPhone);
+        }).ToList();
+
+        return Ok(new { success = true, orders = mine.Select(o => MapOrder(o)) });
+    }
+
+    // Reduce any phone string to its last 10 digits so "+91 94294 29880",
+    // "9429429880" and "919429429880" all compare equal.
+    private static string NormalizePhone(string? raw)
+    {
+        var digits = new string((raw ?? "").Where(char.IsDigit).ToArray());
+        return digits.Length > 10 ? digits[^10..] : digits;
     }
 
     // GET /api/orders/{orderId}
