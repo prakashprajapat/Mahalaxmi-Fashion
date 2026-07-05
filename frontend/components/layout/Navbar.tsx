@@ -416,8 +416,8 @@ export default function Navbar() {
               justify-content: center; padding: 2rem 1.25rem; text-align: center; gap: .75rem;
             }
             .mfh-login-logo img {
-              width: 185px; height: auto; max-width: 185px; flex-shrink: 0;
-              border-radius: 14px; padding: 12px 14px; box-sizing: border-box;
+              width: 175px; height: 175px; max-width: 175px; flex-shrink: 0;
+              border-radius: 50%; padding: 22px; box-sizing: border-box;
               background: #fff; object-fit: contain; display: block;
             }
             .mfh-login-logo p {
@@ -434,7 +434,7 @@ export default function Navbar() {
                 flex-direction: row !important; padding: 1rem 1.25rem !important;
                 justify-content: flex-start !important; gap: .75rem !important;
               }
-              .mfh-login-logo img { width: 140px !important; height: auto !important; padding: 8px 10px !important; border-radius: 10px !important; }
+              .mfh-login-logo img { width: 96px !important; height: 96px !important; padding: 12px !important; border-radius: 50% !important; }
               .mfh-login-logo p { font-size: .9rem !important; text-align: left !important; }
               .mfh-login-logo small { display: none !important; }
               .mfh-login-form { padding: 1.25rem !important; }
