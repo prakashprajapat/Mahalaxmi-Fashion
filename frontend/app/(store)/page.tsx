@@ -28,10 +28,10 @@ export default async function HomePage() {
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           className="home-hero-image"
-          src="/hero-banner.webp"
+          src="/hero-banner.png"
           alt="Mahalaxmi Fashion Hub - Ethnic Wear for the Entire Family"
-          width={1920}
-          height={900}
+          width={1200}
+          height={600}
           fetchPriority="high"
           loading="eager"
           decoding="sync"
@@ -41,12 +41,14 @@ export default async function HomePage() {
         {/* Bottom-left text overlay — hidden on mobile via .home-hero-overlay CSS */}
         <div className="home-hero-overlay" style={{
           position: 'absolute',
-          bottom: '6%',
-          left: '3%',
-          width: '52%',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '.5rem',
+          width: 1,
+          height: 1,
+          padding: 0,
+          margin: -1,
+          overflow: 'hidden',
+          clip: 'rect(0,0,0,0)',
+          whiteSpace: 'nowrap',
+          border: 0,
           pointerEvents: 'none',
         }}>
           {/* Headline (page H1 for SEO) — both lines same font & size */}
@@ -115,11 +117,11 @@ export default async function HomePage() {
           </div>
         </div>
 
-        {/* Transparent clickable area over the "SHOP NOW" button in the image (right side) */}
+        {/* Transparent clickable area over the "SHOP NOW" button in the image (bottom-centre) */}
         <Link href="/best-sellers" aria-label="Shop Best Sellers" style={{
           position: 'absolute',
-          left: '63%', right: '4%',
-          bottom: '3%', height: '7%',
+          left: '64%', right: '15%',
+          bottom: '2%', height: '9%',
           display: 'block',
           cursor: 'pointer',
           zIndex: 2,
