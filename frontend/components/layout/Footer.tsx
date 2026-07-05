@@ -59,7 +59,7 @@ export default function Footer() {
           <Link href="/safety-center">Safety Center</Link>
           <Link href="/about-us">About Us</Link>
           <Link href="/contact">Contact Us</Link>
-          <Link href="/influencer">💸 Earn With Us</Link>
+          <a href="https://affiliate.mahalaxmifashionhub.com/">💸 Earn With Us</a>
         </nav>
 
         <nav className="site-footer-col">
