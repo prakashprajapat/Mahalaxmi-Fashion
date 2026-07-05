@@ -575,6 +575,8 @@ public class OrdersController : ControllerBase
             root["returnRejectReason"] = "";
             root["returnMediaDeleted"] = true;
             root.Remove("returnMediaPurgeAt");
+            // Approved → accepted, item on its way back. Leaves "Return Requested".
+            order.Status = "Return Transit";
         }
         else // reject
         {
@@ -583,6 +585,8 @@ public class OrdersController : ControllerBase
             root["returnRejectReason"] = reason;
             root["returnMediaPurgeAt"] = now.AddDays(30).ToString("o");
             root["returnMediaDeleted"] = false;
+            // Rejected → return denied, order stays delivered. Leaves the Returns queue.
+            order.Status = "Delivered";
         }
         root["returnDecisionBy"] = actor;
 

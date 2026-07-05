@@ -96,6 +96,22 @@ export default function AdminOrdersPage() {
     }
   };
 
+  // Approved return whose item has now been received → close it out as "Returned".
+  const markReturned = async (order: Order) => {
+    if (!confirm('Mark this return as Returned (item received back)?')) return;
+    setDecisionBusy(true);
+    try {
+      const token = getAdminToken() ?? '';
+      const r = await ordersApi.updateStatus({ orderId: order.id, status: 'Return' }, token);
+      setOrders(prev => prev.map(o => (o.id === order.id ? r.order : o)));
+      closeReturnModal();
+    } catch (e) {
+      alert((e as Error).message || 'Failed to update.');
+    } finally {
+      setDecisionBusy(false);
+    }
+  };
+
   const fetchOrders = () => {
     setLoading(true);
     const token = getAdminToken() ?? '';
@@ -676,8 +692,13 @@ export default function AdminOrdersPage() {
                 </div>
               )
             ) : (
-              <div style={{ display: 'flex', marginTop: '1rem' }}>
+              <div style={{ display: 'flex', gap: '.75rem', marginTop: '1rem' }}>
                 <button onClick={closeReturnModal} style={grey}>Close</button>
+                {o.returnDecision === 'approved' && RETURN_STATUSES.includes(o.status) && o.status !== 'Return' && (
+                  <button onClick={() => markReturned(o)} disabled={decisionBusy} style={{ ...btn, background: '#2e7d32' }}>
+                    {decisionBusy ? 'Saving…' : '✓ Mark as Returned'}
+                  </button>
+                )}
               </div>
             )}
           </div>
