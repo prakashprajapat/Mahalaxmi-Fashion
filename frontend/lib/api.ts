@@ -131,9 +131,10 @@ export const ordersApi = {
 
 // ── Customers ────────────────────────────────────────────────────────────────
 export const customersApi = {
-  register: (data: unknown) =>
+  // token is passed when an ADMIN creates a customer from the panel (bypasses OTP).
+  register: (data: unknown, token?: string) =>
     request<{ success: boolean; token: string; customer: import('@/types').Customer }>(
-      '/customers/register', { method: 'POST', body: JSON.stringify(data) }
+      '/customers/register', { method: 'POST', body: JSON.stringify(data) }, token
     ),
   login: (data: { email: string; password: string }) =>
     request<{ success: boolean; token: string; customer: import('@/types').Customer }>(

@@ -91,7 +91,7 @@ export default function AdminCustomersPage() {
         state: form.state.trim(),
         district: form.district.trim(),
         marketingConsent: true,
-      });
+      }, getAdminToken() ?? '');
       setForm({ firstName: '', lastName: '', email: '', phone: '', dateOfBirth: '', marriageDate: '', state: '', district: '', password: 'Mfh@12345' });
       setMessage('Customer added successfully.');
       setAddOpen(false);

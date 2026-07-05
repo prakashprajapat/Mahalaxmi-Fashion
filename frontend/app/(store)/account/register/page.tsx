@@ -7,7 +7,7 @@ import { setCustomer, setToken } from '@/lib/auth';
 import { INDIA_STATES, getDistrictsForState } from '@/lib/indianLocations';
 import type { Customer } from '@/types';
 
-type Step = 'details' | 'birthday';
+type Step = 'details' | 'otp' | 'birthday';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -17,6 +17,11 @@ export default function RegisterPage() {
   const [savedCustomer, setSavedCustomer] = useState<Customer | null>(null);
   const [savedToken, setSavedToken] = useState('');
   const [birthdayForm, setBirthdayForm] = useState({ dob: '', anniv: '' });
+
+  // OTP verification (mobile) — the account is created only after the code is verified.
+  const [otp, setOtp] = useState('');
+  const [otpError, setOtpError] = useState('');
+  const [otpInfo, setOtpInfo] = useState('');
 
   const [honeypot, setHoneypot] = useState('');
 
@@ -50,6 +55,7 @@ export default function RegisterPage() {
 
   const validate = (): string | null => {
     if (!form.firstName.trim()) return 'First Name is required.';
+    if (form.phone.replace(/\D/g, '').length < 10) return 'Please enter a valid 10-digit Mobile Number.';
     if (!form.email || !/\S+@\S+\.\S+/.test(form.email)) return 'Please enter a valid email address.';
     if (form.password.length < 8) return 'Password must be at least 8 characters.';
     if (form.password !== form.confirmPw) return 'Passwords do not match.';
@@ -61,11 +67,28 @@ export default function RegisterPage() {
     return null;
   };
 
-  const handleCreateAccount = async () => {
+  const cleanPhone = () => form.phone.replace(/\D/g, '').slice(-10);
+
+  // Step 1 → send the OTP to the mobile, then move to the verify step.
+  const handleSendOtp = async () => {
     setError('');
     const err = validate();
     if (err) return setError(err);
     if (honeypot) return; // bot detected — silently ignore
+    setLoading(true);
+    try {
+      await customersApi.sendOtp(cleanPhone(), 'register');
+      setOtp(''); setOtpError(''); setOtpInfo('A 6-digit OTP has been sent to your mobile number.');
+      setStep('otp');
+    } catch (e) {
+      setError((e as Error).message || 'Could not send OTP. Please try again.');
+    } finally { setLoading(false); }
+  };
+
+  // Step 2 → verify the OTP and create the account (backend re-checks the OTP).
+  const handleVerifyAndCreate = async () => {
+    setOtpError('');
+    if (!/^\d{6}$/.test(otp)) return setOtpError('Please enter the 6-digit OTP.');
     setLoading(true);
     try {
       const res = await customersApi.register({
@@ -73,7 +96,7 @@ export default function RegisterPage() {
         lastName: form.lastName,
         gender: form.gender,
         email: form.email,
-        phone: form.phone,
+        phone: cleanPhone(),
         password: form.password,
         addrLine1: form.addrLine1,
         addrLine2: form.addrLine2,
@@ -82,15 +105,25 @@ export default function RegisterPage() {
         state: form.state,
         district: form.district,
         marketingConsent: form.consent,
-        otp: '',
+        otp,
       });
       if (res.token) { setToken(res.token); setCustomer(res.customer); }
       setSavedCustomer(res.customer);
       setSavedToken(res.token);
       setStep('birthday');
     } catch (e) {
-      setError((e as Error).message || 'Account creation failed. Please try again.');
+      setOtpError((e as Error).message || 'OTP verification failed. Please try again.');
     } finally { setLoading(false); }
+  };
+
+  const handleResendOtp = async () => {
+    setOtpError(''); setOtpInfo('');
+    try {
+      await customersApi.sendOtp(cleanPhone(), 'register');
+      setOtpInfo('OTP resent to your mobile number.');
+    } catch (e) {
+      setOtpError((e as Error).message || 'Could not resend OTP.');
+    }
   };
 
   const handleSaveBirthday = async () => {
@@ -127,7 +160,7 @@ export default function RegisterPage() {
                 style={{ display: 'none' }} tabIndex={-1} autoComplete="off" aria-hidden="true" />
               <h2>Your Personal Details</h2>
               <div className="info-banner success">
-                We will verify your account before completing registration.
+                We&apos;ll send a 6-digit OTP to your mobile number to verify your account before completing registration.
               </div>
               <div className="form-grid">
                 <label className="form-field">
@@ -155,9 +188,9 @@ export default function RegisterPage() {
                     </div>
                   </div>
                   <label className="form-field">
-                    Mobile Number
+                    Mobile Number <span className="required-mark">*</span>
                     <input type="tel" value={form.phone} onChange={setField('phone')}
-                      placeholder="e.g. 9876543210" maxLength={15} inputMode="numeric" autoComplete="off" data-form-type="other" />
+                      placeholder="10-digit mobile" maxLength={15} inputMode="numeric" autoComplete="off" data-form-type="other" />
                   </label>
                 </div>
                 <label className="form-field full-field">
@@ -228,13 +261,59 @@ export default function RegisterPage() {
                 {error && <p className="wiz-message full-field">{error}</p>}
 
                 <div className="full-field" style={{ display: 'flex', gap: '.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
-                  <button type="button" onClick={handleCreateAccount} disabled={loading}
+                  <button type="button" onClick={handleSendOtp} disabled={loading}
                     className="button primary" style={{ fontSize: '.95rem' }}>
-                    {loading ? 'Creating Account…' : 'Create Account →'}
+                    {loading ? 'Sending OTP…' : 'Send OTP →'}
                   </button>
                   <Link href="/account" className="button secondary">Back to Login</Link>
                 </div>
               </div>
+            </div>
+          )}
+
+
+          {/* ── Step 2: OTP verification ─────────────────────── */}
+          {step === 'otp' && (
+            <div className="form-card" style={{ maxWidth: '460px', margin: '0 auto', textAlign: 'center' }}>
+              <div style={{ fontSize: '2.5rem', marginBottom: '.4rem' }}>📱</div>
+              <h2 style={{ marginBottom: '.3rem' }}>Verify Your Mobile</h2>
+              <p style={{ color: '#666', fontSize: '.88rem', marginBottom: '1.25rem', lineHeight: 1.5 }}>
+                Enter the 6-digit OTP sent to <strong>+91 {cleanPhone()}</strong>.
+              </p>
+
+              {otpInfo && <div className="info-banner success" style={{ marginBottom: '1rem' }}>{otpInfo}</div>}
+
+              <input
+                type="text"
+                inputMode="numeric"
+                maxLength={6}
+                value={otp}
+                onChange={e => { setOtp(e.target.value.replace(/\D/g, '').slice(0, 6)); setOtpError(''); }}
+                placeholder="______"
+                style={{
+                  width: '100%', textAlign: 'center', letterSpacing: '.5em', fontSize: '1.4rem', fontWeight: 700,
+                  border: '1.5px solid #ddd', borderRadius: '10px', padding: '.7rem', boxSizing: 'border-box', marginBottom: '.5rem',
+                }}
+              />
+
+              {otpError && <p className="wiz-message" style={{ color: '#c0392b', margin: '.25rem 0 .75rem' }}>{otpError}</p>}
+
+              <div style={{ display: 'flex', gap: '.75rem', justifyContent: 'center', flexWrap: 'wrap', marginTop: '.75rem' }}>
+                <button type="button" onClick={handleVerifyAndCreate} disabled={loading} className="button primary">
+                  {loading ? 'Verifying…' : '✅ Verify & Create Account'}
+                </button>
+                <button type="button" onClick={() => { setStep('details'); setOtpError(''); setOtpInfo(''); }} className="button secondary">
+                  ← Edit Details
+                </button>
+              </div>
+
+              <p style={{ fontSize: '.82rem', color: '#888', marginTop: '1rem' }}>
+                Didn&apos;t get the code?{' '}
+                <button type="button" onClick={handleResendOtp}
+                  style={{ background: 'none', border: 'none', color: '#a7354d', fontWeight: 600, cursor: 'pointer', textDecoration: 'underline', padding: 0 }}>
+                  Resend OTP
+                </button>
+              </p>
             </div>
           )}
 

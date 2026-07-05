@@ -236,11 +236,15 @@ public class CustomersController : ControllerBase
         if (!string.IsNullOrWhiteSpace(phone) && await _db.Customers.AnyAsync(c => c.Phone == phone))
             return Conflict(new { success = false, message = "Phone already registered." });
 
-        if (!string.IsNullOrWhiteSpace(req.Otp))
+        // OTP verification is MANDATORY for public self-registration — the account is created
+        // only after the mobile (or email) has been verified with a one-time code. An admin
+        // creating a customer from the panel (authenticated with the admin role) is exempt.
+        var isAdminCreate = User.HasClaim("role", "admin");
+        if (!isAdminCreate)
         {
-            var otpOk = await VerifyOtpToken(phone, email, req.Otp);
+            var otpOk = await VerifyOtpToken(phone, email, req.Otp ?? "");
             if (!otpOk)
-                return BadRequest(new { success = false, message = "Invalid or expired OTP." });
+                return BadRequest(new { success = false, message = "Please verify the OTP sent to your mobile number before creating the account." });
         }
 
         var (hash, salt) = _auth.HashPassword(req.Password);
@@ -266,7 +270,7 @@ public class CustomersController : ControllerBase
             PasswordHash     = hash,
             PasswordSalt     = salt,
             SubmittedAt      = DateTimeOffset.UtcNow.ToString("o"),
-            EmailVerified    = !string.IsNullOrWhiteSpace(req.Otp),
+            EmailVerified    = isAdminCreate || !string.IsNullOrWhiteSpace(req.Otp),
         };
 
         _db.Customers.Add(customer);
