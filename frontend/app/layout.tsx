@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import Script from 'next/script';
+import { settingsApi } from '@/lib/api';
 import './globals.css';
 
 export const viewport: Viewport = {
@@ -9,80 +10,82 @@ export const viewport: Viewport = {
 const SITE_URL = 'https://mahalaxmifashionhub.com';
 const GA4_ID   = process.env.NEXT_PUBLIC_GA4_ID ?? 'G-SFMFYD4NE6';
 
-export const metadata: Metadata = {
-  metadataBase: new URL(SITE_URL),
-  title: {
-    default: 'Mahalaxmi Fashion Hub',
-    template: '%s | Mahalaxmi Fashion Hub',
-  },
-  description: 'Premium Indian Fashion — Sarees, Nighty, Petticoat & More. Shop ethnic wear online from Balotra, Rajasthan.',
-  keywords: 'saree, nighty, petticoat, indian fashion, women clothing, ethnic wear, balotra, rajasthan',
-  authors: [{ name: 'Mahalaxmi Fashion Hub' }],
-  creator: 'Mahalaxmi Fashion Hub',
-  publisher: 'Mahalaxmi Fashion Hub',
+async function getSeoSettings(): Promise<Record<string, string>> {
+  try {
+    const { settings } = await settingsApi.getAll();
+    return settings ?? {};
+  } catch {
+    return {};
+  }
+}
 
-  // ── Canonical ──────────────────────────────────────────────────────────────
-  alternates: {
-    canonical: '/',
-  },
+// Global site metadata — defaults + admin-editable values (Settings → SEO sections).
+export async function generateMetadata(): Promise<Metadata> {
+  const s = await getSeoSettings();
 
-  // ── Open Graph ─────────────────────────────────────────────────────────────
-  openGraph: {
-    type: 'website',
-    locale: 'en_IN',
-    url: SITE_URL,
-    siteName: 'Mahalaxmi Fashion Hub',
-    title: 'Mahalaxmi Fashion Hub — Every Look, A New Experience',
-    description: 'Premium Indian Fashion — Sarees, Nighty, Petticoat & More. Shop ethnic wear online from Balotra, Rajasthan.',
-    images: [
-      {
-        url: '/og-image.jpg',
-        width: 1200,
-        height: 630,
-        alt: 'Mahalaxmi Fashion Hub — Ethnic Wear for the Entire Family',
-      },
-    ],
-  },
+  const defaultTitle = s.seoHomeTitle?.trim() || 'Mahalaxmi Fashion Hub';
+  const defaultDesc  = s.seoHomeDescription?.trim()
+    || 'Premium Indian Fashion — Sarees, Nighty, Petticoat & More. Shop ethnic wear online from Balotra, Rajasthan.';
+  const keywords     = s.seoKeywords?.trim()
+    || 'saree, nighty, petticoat, indian fashion, women clothing, ethnic wear, balotra, rajasthan';
+  const ogImage      = s.seoOgImage?.trim() || '/og-image.jpg';
+  const twitterSite  = s.seoTwitterSite?.trim();
+  const googleVerif  = s.googleSiteVerification?.trim();
+  const bingVerif    = s.bingSiteVerification?.trim();
 
-  // ── Twitter / X Card ───────────────────────────────────────────────────────
-  twitter: {
-    card: 'summary_large_image',
-    title: 'Mahalaxmi Fashion Hub — Every Look, A New Experience',
-    description: 'Premium Indian Fashion — Sarees, Nighty, Petticoat & More.',
-    images: ['/og-image.jpg'],
-  },
+  return {
+    metadataBase: new URL(SITE_URL),
+    title: {
+      default: defaultTitle,
+      template: '%s | Mahalaxmi Fashion Hub',
+    },
+    description: defaultDesc,
+    keywords,
+    authors: [{ name: 'Mahalaxmi Fashion Hub' }],
+    creator: 'Mahalaxmi Fashion Hub',
+    publisher: 'Mahalaxmi Fashion Hub',
+    alternates: { canonical: '/' },
+    openGraph: {
+      type: 'website',
+      locale: 'en_IN',
+      url: SITE_URL,
+      siteName: 'Mahalaxmi Fashion Hub',
+      title: defaultTitle,
+      description: defaultDesc,
+      images: [{ url: ogImage, width: 1200, height: 630, alt: 'Mahalaxmi Fashion Hub — Ethnic Wear for the Entire Family' }],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: defaultTitle,
+      description: defaultDesc,
+      images: [ogImage],
+      ...(twitterSite ? { site: twitterSite, creator: twitterSite } : {}),
+    },
+    applicationName: 'Mahalaxmi Fashion Hub',
+    appleWebApp: { capable: true, statusBarStyle: 'default', title: 'Mahalaxmi' },
+    other: { 'mobile-web-app-capable': 'yes' },
+    icons: {
+      icon: [
+        { url: '/favicon.ico?v=8', type: 'image/x-icon', sizes: '16x16 32x32 48x48' },
+        { url: '/favicon-32.png?v=8', type: 'image/png', sizes: '32x32' },
+        { url: '/icon-192.png?v=9', type: 'image/png', sizes: '192x192' },
+      ],
+      apple: '/apple-touch-icon.png?v=9',
+      shortcut: '/favicon.ico?v=8',
+    },
+    robots: { index: true, follow: true, googleBot: { index: true, follow: true } },
+    verification: {
+      ...(googleVerif ? { google: googleVerif } : {}),
+      ...(bingVerif ? { other: { 'msvalidate.01': bingVerif } } : {}),
+    },
+  };
+}
 
-  // ── PWA / Install to Home Screen ─────────────────────────────────────────────
-  applicationName: 'Mahalaxmi Fashion Hub',
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: 'default',
-    title: 'Mahalaxmi',
-  },
-  other: {
-    'mobile-web-app-capable': 'yes',
-  },
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const s = await getSeoSettings();
+  const gtmId = s.gtmId?.trim();
+  const fbPixelId = s.facebookPixelId?.trim();
 
-  // ── Favicon / Icons ──────────────────────────────────────────────────────────
-  icons: {
-    icon: [
-      { url: '/favicon.ico?v=8', type: 'image/x-icon', sizes: '16x16 32x32 48x48' },
-      { url: '/favicon-32.png?v=8', type: 'image/png', sizes: '32x32' },
-      { url: '/icon-192.png?v=9', type: 'image/png', sizes: '192x192' },
-    ],
-    apple: '/apple-touch-icon.png?v=9',
-    shortcut: '/favicon.ico?v=8',
-  },
-
-  // ── Robots ─────────────────────────────────────────────────────────────────
-  robots: {
-    index: true,
-    follow: true,
-    googleBot: { index: true, follow: true },
-  },
-};
-
-export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
       <head>
@@ -91,8 +94,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="dns-prefetch" href="https://res.cloudinary.com" />
         <link rel="dns-prefetch" href="https://www.googletagmanager.com" />
 
-        {/* Google Analytics 4 — loaded lazily (after page is interactive/idle) to keep
-            main-thread free and improve Total Blocking Time / mobile performance. */}
+        {/* Google Analytics 4 — loaded lazily (after page is interactive/idle). */}
         {GA4_ID && (
           <>
             <Script
@@ -108,6 +110,20 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               `}
             </Script>
           </>
+        )}
+
+        {/* Google Tag Manager — admin-configurable (Settings → SEO). Lazy-loaded. */}
+        {gtmId && (
+          <Script id="gtm-init" strategy="lazyOnload">
+            {`(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','${gtmId}');`}
+          </Script>
+        )}
+
+        {/* Facebook Pixel — admin-configurable (Settings → SEO). Lazy-loaded. */}
+        {fbPixelId && (
+          <Script id="fb-pixel" strategy="lazyOnload">
+            {`!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');fbq('init','${fbPixelId}');fbq('track','PageView');`}
+          </Script>
         )}
 
         {/* LocalBusiness JSON-LD */}
@@ -131,11 +147,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 postalCode: '344022',
                 addressCountry: 'IN',
               },
-              geo: {
-                '@type': 'GeoCoordinates',
-                latitude: 25.8333,
-                longitude: 72.2333,
-              },
+              geo: { '@type': 'GeoCoordinates', latitude: 25.8333, longitude: 72.2333 },
               openingHoursSpecification: [
                 {
                   '@type': 'OpeningHoursSpecification',
@@ -151,6 +163,49 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               priceRange: '₹₹',
               currenciesAccepted: 'INR',
               paymentAccepted: 'Cash, Credit Card, Debit Card, UPI',
+            }),
+          }}
+        />
+
+        {/* WebSite + SearchAction JSON-LD (Google sitelinks search box) */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              '@context': 'https://schema.org',
+              '@type': 'WebSite',
+              name: 'Mahalaxmi Fashion Hub',
+              url: SITE_URL,
+              potentialAction: {
+                '@type': 'SearchAction',
+                target: { '@type': 'EntryPoint', urlTemplate: `${SITE_URL}/products?q={search_term_string}` },
+                'query-input': 'required name=search_term_string',
+              },
+            }),
+          }}
+        />
+
+        {/* Organization JSON-LD */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              '@context': 'https://schema.org',
+              '@type': 'Organization',
+              name: 'Mahalaxmi Fashion Hub',
+              url: SITE_URL,
+              logo: `${SITE_URL}/icon-512.png`,
+              sameAs: [
+                'https://www.instagram.com/mahalaxmifashionhub.blt/',
+                'https://www.facebook.com/mahalaxmifashionhub.blt/',
+              ],
+              contactPoint: {
+                '@type': 'ContactPoint',
+                telephone: '+919429429880',
+                contactType: 'customer service',
+                areaServed: 'IN',
+                availableLanguage: ['Hindi', 'English'],
+              },
             }),
           }}
         />

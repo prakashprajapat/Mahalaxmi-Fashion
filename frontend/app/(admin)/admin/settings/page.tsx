@@ -23,6 +23,18 @@ const SECTIONS = [
       { key: 'seoHomeDescription', label: 'Homepage Meta Description (Google snippet — best under 160 chars)', type: 'textarea' },
       { key: 'seoKeywords', label: 'Keywords (comma separated — e.g. saree, nighty, petticoat)', type: 'text' },
       { key: 'seoOgImage', label: 'Social Share Image URL (Open Graph — leave blank for default)', type: 'text' },
+      { key: 'seoTwitterSite', label: 'Twitter/X Handle (e.g. @mahalaxmi)', type: 'text' },
+    ]
+  },
+  {
+    title: 'SEO — Verification, Analytics & Robots',
+    desc: 'Site verification codes, tracking IDs aur robots rules. Ye sab HTML head me apne aap lag jayenge. Khaali chhodo to disable.',
+    fields: [
+      { key: 'googleSiteVerification', label: 'Google Search Console Verification Code (content value only)', type: 'text' },
+      { key: 'bingSiteVerification', label: 'Bing Webmaster Verification Code (content value only)', type: 'text' },
+      { key: 'gtmId', label: 'Google Tag Manager ID (e.g. GTM-XXXXXXX)', type: 'text' },
+      { key: 'facebookPixelId', label: 'Facebook Pixel ID (numbers only)', type: 'text' },
+      { key: 'robotsDisallow', label: 'Robots.txt — extra Disallow paths (one per line, e.g. /admin)', type: 'textarea' },
     ]
   },
   {
