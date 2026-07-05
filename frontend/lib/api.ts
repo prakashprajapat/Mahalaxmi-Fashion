@@ -245,6 +245,14 @@ export const staffApi = {
     request<{ isActive: boolean }>('/staff/' + id + '/toggle-active', { method: 'PUT' }, token),
 };
 
+// ── Suppliers ─────────────────────────────────────────────────────────────────
+export const suppliersApi = {
+  apply: (data: Record<string, string>) =>
+    request<{ success: boolean; message: string }>(
+      '/suppliers', { method: 'POST', body: JSON.stringify(data) }
+    ),
+};
+
 // ── Reviews ───────────────────────────────────────────────────────────────────
 export const reviewsApi = {
   getPending: (token: string) =>

@@ -19,6 +19,7 @@ public class AppDbContext : DbContext
     public DbSet<Influencer>  Influencers  { get; set; }
     public DbSet<PopupLead>   PopupLeads   { get; set; }
     public DbSet<StaffMember> StaffMembers { get; set; }
+    public DbSet<SupplierApplication> SupplierApplications { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

@@ -192,6 +192,26 @@ using (var scope = app.Services.CreateScope())
         ALTER TABLE coupons   ADD COLUMN IF NOT EXISTS customer_id INT;
         ALTER TABLE customers ADD COLUMN IF NOT EXISTS birthday_offer_used    BOOLEAN NOT NULL DEFAULT FALSE;
         ALTER TABLE customers ADD COLUMN IF NOT EXISTS anniversary_offer_used BOOLEAN NOT NULL DEFAULT FALSE;
+        CREATE TABLE IF NOT EXISTS supplier_applications (
+            id                SERIAL PRIMARY KEY,
+            firm_name         VARCHAR(255) NOT NULL,
+            contact_name      VARCHAR(255) NOT NULL,
+            phone             VARCHAR(20)  NOT NULL,
+            email             VARCHAR(255),
+            gst_number        VARCHAR(20),
+            pan_number        VARCHAR(20),
+            business_type     VARCHAR(50),
+            categories        TEXT,
+            address           TEXT,
+            city              VARCHAR(120),
+            state             VARCHAR(120),
+            pincode           VARCHAR(10),
+            website           VARCHAR(255),
+            years_in_business VARCHAR(50),
+            message           TEXT,
+            status            VARCHAR(30)  NOT NULL DEFAULT 'new',
+            created_at        TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+        );
         UPDATE site_orders SET status = 'Pending'
             WHERE status IN ('Order Received', 'Pending confirmation', 'Paid', 'Order Packed');
     ");
