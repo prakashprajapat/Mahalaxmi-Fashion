@@ -386,9 +386,10 @@ export default function Navbar() {
                 { href: '/privacy-policy', label: 'Privacy Policy' },
                 { href: '/safety-center', label: 'Safety Center' },
                 { href: '/contact', label: 'Contact Us' },
+                { href: '/influencer', label: '💸 Earn With Us' },
               ].map(l => (
                 <Link key={l.href} href={l.href} onClick={() => setMenuOpen(false)}
-                  style={{ display: 'block', padding: '.4rem', color: '#666', fontSize: '.85rem', textDecoration: 'none' }}>
+                  style={{ display: 'block', padding: '.4rem', color: l.href === '/influencer' ? '#a7354d' : '#666', fontWeight: l.href === '/influencer' ? 700 : 400, fontSize: '.85rem', textDecoration: 'none' }}>
                   {l.label}
                 </Link>
               ))}

@@ -695,6 +695,42 @@ export default function InfluencerPage() {
           </div>
         </div>
 
+        {/* Ready-to-Post Share Kit */}
+        <div style={{ background: '#fff', borderRadius: '20px', padding: '1.5rem', boxShadow: '0 2px 10px rgba(0,0,0,.06)', marginBottom: '1.5rem' }}>
+          <h2 style={{ fontSize: '1rem', fontWeight: 800, marginBottom: '.35rem', color: '#1a1a1a' }}>
+            📝 Ready-to-Post Share Kit
+          </h2>
+          <p style={{ fontSize: '.82rem', color: '#888', marginTop: 0, marginBottom: '1.25rem' }}>
+            Copy any caption below and post it on Instagram, WhatsApp or your Story — your code &amp; link are already filled in.
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            {[
+              { key: 'cap-insta', label: '📸 Instagram Post / Reel',
+                text: `✨ Found my new favourite fashion destination — Mahalaxmi Fashion Hub! 👗\nSarees, kurtis, nighty & more at unbeatable prices.\n\n🎁 Use my code ${dashData.couponCode} for a special discount!\n🛍️ Shop here 👉 ${affLink}\n\n#MahalaxmiFashionHub #EthnicWear #SareeLove #FashionDeals` },
+              { key: 'cap-wa', label: '📱 WhatsApp Message / Status',
+                text: `👗 *Mahalaxmi Fashion Hub* — trendy ethnic & western wear at great prices!\n\n🎁 Discount code: *${dashData.couponCode}*\n🛍️ Shop now: ${affLink}\n\nGrab your favourites before they're gone! ✨` },
+              { key: 'cap-story', label: '⚡ Story / Short Caption',
+                text: `Mahalaxmi Fashion Hub ✨\nUse code ${dashData.couponCode} for a discount 🎁\n🛍️ ${affLink}` },
+            ].map(c => (
+              <div key={c.key} style={{ border: '1px solid #eee', borderRadius: '12px', padding: '.9rem 1rem', background: '#fafafa' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '.5rem', gap: '.5rem' }}>
+                  <span style={{ fontSize: '.82rem', fontWeight: 700, color: '#1a1a1a' }}>{c.label}</span>
+                  <button onClick={() => copy(c.text, c.key)} style={{
+                    background: copied === c.key ? '#e8f5e9' : BRAND_LIGHT,
+                    color: copied === c.key ? '#2e7d32' : BRAND,
+                    border: `1.5px solid ${copied === c.key ? '#66bb6a' : BRAND}`,
+                    borderRadius: '8px', padding: '.4rem .8rem', fontWeight: 700,
+                    fontSize: '.78rem', cursor: 'pointer', whiteSpace: 'nowrap',
+                  }}>
+                    {copied === c.key ? '✅ Copied!' : '📋 Copy'}
+                  </button>
+                </div>
+                <div style={{ fontSize: '.82rem', color: '#555', whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>{c.text}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
         {/* How to Share Tips */}
         <div style={{ background: '#fff', borderRadius: '20px', padding: '1.5rem', boxShadow: '0 2px 10px rgba(0,0,0,.06)', marginBottom: '1.5rem' }}>
           <h2 style={{ fontSize: '1rem', fontWeight: 800, marginBottom: '1.25rem', color: '#1a1a1a' }}>
