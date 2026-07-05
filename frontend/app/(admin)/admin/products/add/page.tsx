@@ -461,6 +461,7 @@ export default function AddProductPage() {
   const [price, setPrice]       = useState('');
   const [discPct, setDiscPct]   = useState('');
   const [discPrice, setDiscPrice] = useState('');
+  const [shipCharge, setShipCharge] = useState('');
   const [gstRate, setGstRate]   = useState('5');
   const [totalQty, setTotalQty] = useState('');
   const [packOf, setPackOf]     = useState('');
@@ -606,6 +607,7 @@ export default function AddProductPage() {
         subcategory: sub.trim() || '',
         price: Number(price),
         discountPrice: discPrice ? Number(discPrice) : undefined,
+        shippingCharge: shipCharge ? Number(shipCharge) : 0,
         stock: stockStatusFromQty(saveQty),
         sku: sku.trim() || undefined,
         description: desc.trim() || undefined,
@@ -629,7 +631,7 @@ export default function AddProductPage() {
   };
 
   const clearAll = () => {
-    setName(''); fetchNextSku().then(setSku); setPrice(''); setDiscPct(''); setDiscPrice(''); setDesc('');
+    setName(''); fetchNextSku().then(setSku); setPrice(''); setDiscPct(''); setDiscPrice(''); setShipCharge(''); setDesc('');
     setSelSizes([]); setSelColors([]); setCustomSizes([]); setCustomColours([]);
     setVariantStock({});
     setMainPhotos({ front:'', side:'', back:'', zoomed:'' });
@@ -828,6 +830,25 @@ export default function AddProductPage() {
           <div>
             <label style={lbl}>Discount Price (₹)</label>
             <input type="number" value={discPrice} onChange={e => setDiscPrice(e.target.value)} placeholder="Optional" style={inp} />
+          </div>
+
+          <div>
+            <label style={lbl}>
+              Shipping Charge (₹) <span style={{ fontWeight:400, color:'#888', fontSize:'.75rem' }}>Hidden from customer — added into final rate</span>
+            </label>
+            <input type="number" min={0} value={shipCharge} onChange={e => setShipCharge(e.target.value)} placeholder="0" style={inp} />
+            {(() => {
+              const base = discPrice ? Number(discPrice) : Number(price || 0);
+              const ship = Number(shipCharge || 0);
+              const final = base + ship;
+              if (!base) return null;
+              return (
+                <p style={{ fontSize:'.78rem', color:'#166534', marginTop:'.35rem', fontWeight:600 }}>
+                  Final rate customer pays: ₹{final.toLocaleString('en-IN')}
+                  {ship > 0 && <span style={{ color:'#888', fontWeight:400 }}> &nbsp;(₹{base.toLocaleString('en-IN')} + ₹{ship.toLocaleString('en-IN')} shipping)</span>}
+                </p>
+              );
+            })()}
           </div>
 
           <div>

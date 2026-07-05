@@ -1,6 +1,9 @@
 'use client';
 import type { CartItem, Product } from '@/types';
 import { productImageSrc } from '@/lib/productImages';
+import { unitBase, finalUnitPrice } from '@/lib/price';
+
+export { unitBase, finalUnitPrice };
 
 const CART_KEY = 'mfh_cart';
 
@@ -51,8 +54,13 @@ export function clearCart(): void {
   saveCart([]);
 }
 
+// Total per-order shipping baked into the cart (used to waive shipping for local Balotra delivery).
+export function cartShipping(cart: CartItem[]): number {
+  return cart.reduce((sum, i) => sum + (i.shippingCharge ?? 0) * i.quantity, 0);
+}
+
 export function cartTotal(cart: CartItem[]): number {
-  return cart.reduce((sum, i) => sum + (i.discountPrice ?? i.price) * i.quantity, 0);
+  return cart.reduce((sum, i) => sum + finalUnitPrice(i) * i.quantity, 0);
 }
 
 export function cartCount(cart: CartItem[]): number {

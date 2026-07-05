@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Image from 'next/image';
 import type { Product } from '@/types';
-import { addToCart } from '@/lib/cart';
+import { addToCart, finalUnitPrice } from '@/lib/cart';
 import { addToWishlist, removeFromWishlist, isInWishlist } from '@/lib/wishlist';
 import { productImageSrc } from '@/lib/productImages';
 import QuickViewModal from '@/components/product/QuickViewModal';
@@ -14,7 +14,8 @@ export default function ProductCard({ product, priority = false }: { product: Pr
   const [quickView, setQuickView] = useState(false);
   const [imgError, setImgError] = useState(false);
 
-  const price = product.discountPrice ?? product.price;
+  // Final price includes manual shipping (folded in silently). Discount % is measured MRP → final.
+  const price = finalUnitPrice(product);
   const saving = product.price > price ? Math.round(((product.price - price) / product.price) * 100) : 0;
   const image = productImageSrc(product.image);
   const extra = (() => {

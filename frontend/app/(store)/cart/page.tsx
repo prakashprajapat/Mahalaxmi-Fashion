@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { getCart, removeFromCart, updateQuantity, cartTotal } from '@/lib/cart';
+import { getCart, removeFromCart, updateQuantity, cartTotal, finalUnitPrice } from '@/lib/cart';
 import type { CartItem } from '@/types';
 
 export default function CartPage() {
@@ -23,8 +23,7 @@ export default function CartPage() {
     </div>
   );
 
-  const total = cartTotal(cart);
-  const shipping = total >= 999 ? 0 : 60;
+  const total = cartTotal(cart);   // shipping already folded into each item's price
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-10">
@@ -34,7 +33,7 @@ export default function CartPage() {
         {/* Items */}
         <div className="flex-1 space-y-4">
           {cart.map(item => {
-            const price = item.discountPrice ?? item.price;
+            const price = finalUnitPrice(item);
             return (
               <div key={`${item.dbId}-${item.selectedSize}-${item.selectedColor}`} className="card p-4 flex gap-4">
                 <div className="relative w-20 h-20 rounded-lg overflow-hidden bg-gray-50 shrink-0">
@@ -77,19 +76,11 @@ export default function CartPage() {
                 <span>Subtotal</span>
                 <span>₹{total.toLocaleString('en-IN')}</span>
               </div>
-              <div className="flex justify-between">
-                <span>Shipping</span>
-                <span className={shipping === 0 ? 'text-green-600' : ''}>
-                  {shipping === 0 ? 'FREE' : `₹${shipping}`}
-                </span>
-              </div>
-              {shipping > 0 && (
-                <p className="text-xs text-gray-400">Free shipping above ₹999</p>
-              )}
               <div className="border-t pt-2 flex justify-between font-bold text-base">
                 <span>Total</span>
-                <span className="text-[#8B1A1A]">₹{(total + shipping).toLocaleString('en-IN')}</span>
+                <span className="text-[#8B1A1A]">₹{total.toLocaleString('en-IN')}</span>
               </div>
+              <p className="text-xs text-gray-400">Inclusive of all charges</p>
             </div>
             <Link href="/checkout" className="btn-primary w-full text-center block mt-4">
               Proceed to Checkout

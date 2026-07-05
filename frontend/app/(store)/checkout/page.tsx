@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { getCart, cartTotal, clearCart } from '@/lib/cart';
+import { getCart, cartTotal, clearCart, cartShipping, finalUnitPrice, unitBase } from '@/lib/cart';
 import { getCustomer, getToken } from '@/lib/auth';
 import { ordersApi, paymentsApi, couponsApi } from '@/lib/api';
 import type { CartItem, Customer } from '@/types';
@@ -87,7 +87,13 @@ export default function CheckoutPage() {
     return () => window.removeEventListener('auth-changed', onAuth);
   }, [router]);
 
-  const subtotal = cartTotal(cart);
+  // Local Balotra delivery = free shipping. Shipping is normally baked into each item's
+  // price; for a Balotra post office / pincode we drop it so the customer pays the base rate.
+  const isBalotra = /balotra/i.test(shipping.city || '') || (shipping.pincode || '').trim() === '344022';
+  const shipWaiver = isBalotra ? cartShipping(cart) : 0;
+  // Per-item price actually charged (base for Balotra, base + shipping otherwise).
+  const chargedUnit = (i: CartItem) => (isBalotra ? unitBase(i) : finalUnitPrice(i));
+  const subtotal = cartTotal(cart) - shipWaiver;
 
   // Auto-apply a creator referral code (captured from a ?ref= link) so the order
   // is credited to the creator who shared it. Runs once after the cart is ready,
@@ -110,8 +116,8 @@ export default function CheckoutPage() {
   }, [subtotal, couponApplied]);
 
   const discount = couponApplied?.discount ?? 0;
-  const shippingCost = subtotal >= 999 ? 0 : 60;
-  const total = Math.max(0, subtotal - discount + shippingCost);
+  const shippingCost = 0;   // shipping is folded into item prices (or waived for Balotra); no separate charge
+  const total = Math.max(0, subtotal - discount);
   const requiresPan = total > 2000;
 
   const handleApplyCoupon = async () => {
@@ -161,8 +167,8 @@ export default function CheckoutPage() {
       size: [i.selectedSize, i.selectedColor].filter(Boolean).join(' / '),
       image: i.image ?? '',
       quantity: i.quantity,
-      price: i.discountPrice ?? i.price,
-      lineTotal: (i.discountPrice ?? i.price) * i.quantity,
+      price: chargedUnit(i),
+      lineTotal: chargedUnit(i) * i.quantity,
       category: i.category,
       subcategory: i.subcategory,
       gstRate: i.gstRate ?? 5,
@@ -458,7 +464,7 @@ export default function CheckoutPage() {
             {cart.map(i => (
               <div key={`${i.dbId}-${i.selectedSize}-${i.selectedColor}`} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '.85rem', marginBottom: '.5rem' }}>
                 <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginRight: '.5rem' }}>{i.name} × {i.quantity}{[i.selectedSize, i.selectedColor].filter(Boolean).length ? ` (${[i.selectedSize, i.selectedColor].filter(Boolean).join(' / ')})` : ''}</span>
-                <span style={{ flexShrink: 0 }}>₹{((i.discountPrice ?? i.price) * i.quantity).toLocaleString('en-IN')}</span>
+                <span style={{ flexShrink: 0 }}>₹{(chargedUnit(i) * i.quantity).toLocaleString('en-IN')}</span>
               </div>
             ))}
           </div>
@@ -495,19 +501,16 @@ export default function CheckoutPage() {
                 <span>Discount ({couponApplied?.code})</span><span>−₹{discount.toLocaleString('en-IN')}</span>
               </div>
             )}
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '.9rem', marginBottom: '.4rem' }}>
-              <span>Shipping</span><span style={{ color: shippingCost === 0 ? '#27ae60' : undefined }}>{shippingCost === 0 ? 'FREE' : `₹${shippingCost}`}</span>
-            </div>
+            {isBalotra && shipWaiver > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '.9rem', marginBottom: '.4rem', color: '#27ae60' }}>
+                <span>Local delivery (Balotra)</span><span>FREE</span>
+              </div>
+            )}
             <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, fontSize: '1.1rem', paddingTop: '.5rem', borderTop: '1px solid #eee' }}>
               <span>Total</span>
               <span style={{ color: '#a7354d' }}>₹{total.toLocaleString('en-IN')}</span>
             </div>
           </div>
-          {subtotal < 999 && (
-            <p style={{ fontSize: '.78rem', color: '#888', marginTop: '.75rem', textAlign: 'center' }}>
-              Free shipping on orders above ₹999. Add ₹{(999 - subtotal).toLocaleString('en-IN')} more.
-            </p>
-          )}
         </div>
       </div>
     </div>

@@ -148,6 +148,12 @@ public class OrdersController : ControllerBase
         }, _json);
 
         // ── SECURITY: recompute stock + amounts server-side (never trust client totals) ──
+        // Local Balotra delivery ships free: the per-product shipping (normally folded into
+        // the price) is dropped when the shipping address is a Balotra post office / pincode.
+        var shipCity = (req.ShippingCity ?? "").Trim();
+        var shipPin  = (req.ShippingPincode ?? "").Trim();
+        bool isBalotra = shipCity.IndexOf("balotra", StringComparison.OrdinalIgnoreCase) >= 0
+                         || shipPin == "344022";
         decimal serverSubtotal = 0m;
         var cartLines = req.Cart ?? new List<CartLineDto>();
         var skus = cartLines.Select(c => (c.Sku ?? "").Trim()).Where(s => s.Length > 0).Distinct().ToList();
@@ -162,7 +168,9 @@ public class OrdersController : ControllerBase
                 if (string.Equals(prod.StockStatus, "Out of Stock", StringComparison.OrdinalIgnoreCase)
                     || string.Equals(prod.StockStatus, "Inactive", StringComparison.OrdinalIgnoreCase))
                     return BadRequest(new { success = false, message = $"'{prod.Name}' is out of stock. Please remove it and try again." });
-                var unit = prod.DiscountPrice.HasValue && prod.DiscountPrice.Value > 0 ? prod.DiscountPrice.Value : prod.Price;
+                var baseUnit = prod.DiscountPrice.HasValue && prod.DiscountPrice.Value > 0 ? prod.DiscountPrice.Value : prod.Price;
+                // Fold in the manual per-product shipping — unless this is a free-shipping Balotra order.
+                var unit = baseUnit + (isBalotra ? 0m : Math.Max(0m, prod.ShippingCharge));
                 serverSubtotal += unit * qty;
             }
             else
@@ -193,8 +201,8 @@ public class OrdersController : ControllerBase
             }
         }
 
-        // Shipping mirrors checkout: free over ₹999, else ₹60. COD fee clamped ≥ 0.
-        decimal serverShipping = serverSubtotal >= 999m ? 0m : 60m;
+        // Shipping is folded into item prices (or waived for Balotra) — no separate charge. COD fee clamped ≥ 0.
+        decimal serverShipping = 0m;
         decimal serverCodFee   = Math.Max(0m, req.CodFee);
         decimal serverTotal    = Math.Max(0m, serverSubtotal + serverShipping + serverCodFee - serverDiscount);
 

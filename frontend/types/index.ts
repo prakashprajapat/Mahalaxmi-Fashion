@@ -7,6 +7,7 @@ export interface Product {
   price: number;
   discountPrice?: number;
   maxPrice?: number;
+  shippingCharge?: number;
   stock: string;
   description?: string;
   newest: number;

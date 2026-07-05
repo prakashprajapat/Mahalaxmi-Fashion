@@ -33,6 +33,11 @@ public class Product
     [Column("max_price")]
     public decimal? MaxPrice { get; set; }
 
+    // Manual per-product shipping, added on top of the (discounted) rate to form the
+    // final customer price. Hidden from the customer as a separate line. Default 0.
+    [Column("shipping_charge")]
+    public decimal ShippingCharge { get; set; }
+
     [Column("stock_status")]
     public string StockStatus { get; set; } = "In Stock";
 

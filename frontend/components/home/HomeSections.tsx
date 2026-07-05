@@ -2,13 +2,14 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import ProductCard from '@/components/product/ProductCard';
+import { finalUnitPrice } from '@/lib/price';
 import type { Product } from '@/types';
 
 function sortArr(products: Product[], sort: string): Product[] {
   const a = [...products];
   switch (sort) {
-    case 'price-low':  return a.sort((x, y) => (x.discountPrice ?? x.price) - (y.discountPrice ?? y.price));
-    case 'price-high': return a.sort((x, y) => (y.discountPrice ?? y.price) - (x.discountPrice ?? x.price));
+    case 'price-low':  return a.sort((x, y) => finalUnitPrice(x) - finalUnitPrice(y));
+    case 'price-high': return a.sort((x, y) => finalUnitPrice(y) - finalUnitPrice(x));
     case 'newest':     return a.sort((x, y) => y.dbId - x.dbId);
     case 'discount':   return a.sort((x, y) => {
       const dx = x.discountPrice ? Math.round(((x.price - x.discountPrice) / x.price) * 100) : 0;

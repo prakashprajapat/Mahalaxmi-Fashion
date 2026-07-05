@@ -192,6 +192,8 @@ using (var scope = app.Services.CreateScope())
         ALTER TABLE coupons   ADD COLUMN IF NOT EXISTS customer_id INT;
         ALTER TABLE customers ADD COLUMN IF NOT EXISTS birthday_offer_used    BOOLEAN NOT NULL DEFAULT FALSE;
         ALTER TABLE customers ADD COLUMN IF NOT EXISTS anniversary_offer_used BOOLEAN NOT NULL DEFAULT FALSE;
+        -- Manual per-product shipping charge, folded into the final customer price (hidden as a line).
+        ALTER TABLE products  ADD COLUMN IF NOT EXISTS shipping_charge NUMERIC NOT NULL DEFAULT 0;
         CREATE TABLE IF NOT EXISTS supplier_applications (
             id                SERIAL PRIMARY KEY,
             firm_name         VARCHAR(255) NOT NULL,

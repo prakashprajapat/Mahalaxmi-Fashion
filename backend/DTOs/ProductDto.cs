@@ -21,7 +21,8 @@ public record ProductDto(
     int?    PackOf,
     int     ReviewCount = 0,
     double  AvgRating = 0,
-    int     SoldCount = 0
+    int     SoldCount = 0,
+    decimal ShippingCharge = 0
 );
 
 public record ProductCreateRequest(
@@ -45,7 +46,8 @@ public record ProductCreateRequest(
     string? HsnCode = null,
     decimal? GstRate = null,
     int?    Qty = null,
-    int?    PackOf = null
+    int?    PackOf = null,
+    decimal ShippingCharge = 0
 );
 
 public record BulkSaveRequest(List<ProductCreateRequest> Products, bool ReplaceAll = false);

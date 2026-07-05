@@ -1,6 +1,7 @@
 'use client';
 import { useState, useMemo, useEffect } from 'react';
 import ProductCard from '@/components/product/ProductCard';
+import { finalUnitPrice } from '@/lib/price';
 
 interface Props {
   products: any[];
@@ -183,7 +184,7 @@ export default function ProductsClient({ products, title, initialQ = '' }: Props
   // Compute global price range from actual products
   const { globalMin, globalMax } = useMemo(() => {
     const prices = products.map((p: any) => {
-      const v = p.discountPrice != null && p.discountPrice > 0 ? p.discountPrice : p.price;
+      const v = finalUnitPrice(p);
       return typeof v === 'number' && v > 0 ? v : null;
     }).filter((v): v is number => v !== null);
     return {
@@ -256,12 +257,12 @@ export default function ProductsClient({ products, title, initialQ = '' }: Props
     }
     if (selectedSubcat) r = r.filter((p: any) => normalizeSub(p.subcategory ?? '') === normalizeSub(selectedSubcat));
     if (selectedVariant) r = r.filter((p: any) => { try { return (JSON.parse(p.extraJson ?? '{}').variant ?? '') === selectedVariant; } catch { return false; } });
-    r = r.filter((p: any) => { const price = p.discountPrice ?? p.price; return price >= priceMin && price <= priceMax; });
+    r = r.filter((p: any) => { const price = finalUnitPrice(p); return price >= priceMin && price <= priceMax; });
     if (selectedSizes.length > 0) r = r.filter((p: any) => { try { return selectedSizes.some(s => (JSON.parse(p.extraJson ?? '{}').sizes ?? []).includes(s)); } catch { return false; } });
     if (selectedColors.length > 0) r = r.filter((p: any) => { try { const ex = JSON.parse(p.extraJson ?? '{}'); const pc = [...(ex.colors ?? []), ...(ex.customColors ?? []).map((c: any) => c.name).filter(Boolean)]; return selectedColors.some(c => pc.includes(c)); } catch { return false; } });
     switch (sort) {
-      case 'price-low':  r.sort((a: any, b: any) => (a.discountPrice ?? a.price) - (b.discountPrice ?? b.price)); break;
-      case 'price-high': r.sort((a: any, b: any) => (b.discountPrice ?? b.price) - (a.discountPrice ?? a.price)); break;
+      case 'price-low':  r.sort((a: any, b: any) => finalUnitPrice(a) - finalUnitPrice(b)); break;
+      case 'price-high': r.sort((a: any, b: any) => finalUnitPrice(b) - finalUnitPrice(a)); break;
       case 'newest':     r.sort((a: any, b: any) => b.dbId - a.dbId); break;
       case 'oldest':     r.sort((a: any, b: any) => a.dbId - b.dbId); break;
       case 'az':         r.sort((a: any, b: any) => a.name.localeCompare(b.name)); break;

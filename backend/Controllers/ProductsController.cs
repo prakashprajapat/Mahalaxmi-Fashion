@@ -347,6 +347,7 @@ public class ProductsController : ControllerBase
         p.Price         = req.Price;
         p.DiscountPrice = req.DiscountPrice;
         p.MaxPrice      = req.MaxPrice;
+        p.ShippingCharge = Math.Max(0m, req.ShippingCharge);
         p.StockStatus   = req.Stock?.Trim() ?? "In Stock";
         p.Description   = req.Description?.Trim();
         p.Newest        = req.Newest > 0 ? req.Newest : (p.Newest > 0 ? p.Newest : fallbackNewest);
@@ -549,7 +550,8 @@ public class ProductsController : ControllerBase
             ExtraString(extra, "hsnCode"),
             ExtraDecimal(extra, "gstRate"),
             ExtraInt(extra, "qty"),
-            ExtraInt(extra, "packOf")
+            ExtraInt(extra, "packOf"),
+            ShippingCharge: p.ShippingCharge
         );
     }
 }

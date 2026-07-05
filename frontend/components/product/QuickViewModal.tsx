@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import type { Product } from '@/types';
-import { addToCart } from '@/lib/cart';
+import { addToCart, finalUnitPrice } from '@/lib/cart';
 import { addToWishlist, removeFromWishlist, isInWishlist } from '@/lib/wishlist';
 import { productImageSrc } from '@/lib/productImages';
 
@@ -124,7 +124,7 @@ export default function QuickViewModal({ product, onClose }: Props) {
     };
   }, [handleKey]);
 
-  const price = product.discountPrice ?? product.price;
+  const price = finalUnitPrice(product);
   const saving = product.price > price ? Math.round(((product.price - price) / product.price) * 100) : 0;
   const selectedVariantKey = colours.length > 0 ? `${size}|${colour}` : size;
   const selectedVariantStock = extra.variantMatrix ? (extra.variantMatrix[selectedVariantKey] ?? null) : null;

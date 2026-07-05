@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { productsApi, reviewsApi, ordersApi } from '@/lib/api';
 import { addToCart } from '@/lib/cart';
+import { finalUnitPrice } from '@/lib/price';
 import { addToWishlist, isInWishlist, removeFromWishlist } from '@/lib/wishlist';
 import { getCustomer, getToken } from '@/lib/auth';
 import { productImageSrc } from '@/lib/productImages';
@@ -151,7 +152,7 @@ export default function ProductPage({ params }: { params: { id: string } }) {
     </div>
   );
 
-  const price = product.discountPrice ?? product.price;
+  const price = finalUnitPrice(product);
   const saving = product.price > price ? Math.round(((product.price - price) / product.price) * 100) : 0;
   const isPackProduct = Boolean(product.packOf && product.packOf > 1);
 

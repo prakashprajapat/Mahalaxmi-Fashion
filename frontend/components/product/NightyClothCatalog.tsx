@@ -2,6 +2,7 @@
 import { useState, useMemo } from 'react';
 import type { Product } from '@/types';
 import { productImageSrc } from '@/lib/productImages';
+import { finalUnitPrice } from '@/lib/price';
 
 const WA_NUMBER = '919429429880';
 
@@ -24,8 +25,8 @@ export default function NightyClothCatalog({ products }: { products: Product[] }
   const sorted = useMemo(() => {
     let arr = subcatFilter ? products.filter(p => p.subcategory === subcatFilter) : [...products];
     switch (sort) {
-      case 'price-low':  arr = arr.sort((a, b) => (a.discountPrice ?? a.price) - (b.discountPrice ?? b.price)); break;
-      case 'price-high': arr = arr.sort((a, b) => (b.discountPrice ?? b.price) - (a.discountPrice ?? a.price)); break;
+      case 'price-low':  arr = arr.sort((a, b) => finalUnitPrice(a) - finalUnitPrice(b)); break;
+      case 'price-high': arr = arr.sort((a, b) => finalUnitPrice(b) - finalUnitPrice(a)); break;
       case 'newest':     arr = arr.sort((a, b) => b.dbId - a.dbId); break;
       default: break;
     }
@@ -114,7 +115,7 @@ export default function NightyClothCatalog({ products }: { products: Product[] }
 
 function NightyClothCard({ product }: { product: Product }) {
   const image = productImageSrc(product.image);
-  const price = product.discountPrice ?? product.price;
+  const price = finalUnitPrice(product);
   const saving = product.price > price ? Math.round(((product.price - price) / product.price) * 100) : 0;
 
   return (

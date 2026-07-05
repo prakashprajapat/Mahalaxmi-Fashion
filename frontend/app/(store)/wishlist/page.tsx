@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import type { Product } from '@/types';
 import { getWishlist, removeFromWishlist } from '@/lib/wishlist';
-import { addToCart } from '@/lib/cart';
+import { addToCart, finalUnitPrice } from '@/lib/cart';
 
 export default function WishlistPage() {
   const [items, setItems] = useState<Product[]>([]);
@@ -44,7 +44,7 @@ export default function WishlistPage() {
               <p style={{ marginBottom: '1rem', color: '#666' }}>{items.length} item{items.length > 1 ? 's' : ''} saved</p>
               <div className="products-grid">
                 {items.map(product => {
-                  const price = product.discountPrice ?? product.price;
+                  const price = finalUnitPrice(product);
                   const saving = product.price > price ? Math.round(((product.price - price) / product.price) * 100) : 0;
                   return (
                     <div key={product.dbId} className="product-card" style={{ display: 'block' }}>
