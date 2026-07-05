@@ -118,7 +118,7 @@ export default function CheckoutPage() {
   const discount = couponApplied?.discount ?? 0;
   const shippingCost = 0;   // shipping is folded into item prices (or waived for Balotra); no separate charge
   const total = Math.max(0, subtotal - discount);
-  const requiresPan = total > 2000;
+  const requiresPan = false;   // PAN no longer mandatory at checkout (disabled on request)
 
   const handleApplyCoupon = async () => {
     if (!couponCode.trim()) return;
