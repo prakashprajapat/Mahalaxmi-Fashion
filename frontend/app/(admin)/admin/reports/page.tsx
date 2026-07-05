@@ -90,10 +90,12 @@ export default function AdminReportsPage() {
   });
 
   const revenue = filtered.filter(o => !['Cancelled','Return'].includes(o.status)).reduce((s, o) => s + o.total, 0);
-  const taxableBase = filtered.filter(o => !['Cancelled','Return'].includes(o.status)).reduce((s, o) => s + o.subtotal, 0);
-  const cgst = taxableBase * 0.025;
-  const sgst = taxableBase * 0.025;
-  const totalGst = cgst + sgst;
+  // Retail prices are GST-inclusive (5%): extract the taxable base and GST out of the
+  // revenue so that Revenue = Taxable Base + GST — consistent with the GSTR-1 export.
+  const taxableBase = revenue / 1.05;
+  const totalGst = revenue - taxableBase;
+  const cgst = totalGst / 2;
+  const sgst = totalGst / 2;
   const delivered = filtered.filter(o => o.status === 'Delivered').length;
   const cancelled = filtered.filter(o => o.status === 'Cancelled').length;
   const codOrders = filtered.filter(o => o.method === 'cod').length;
