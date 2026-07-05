@@ -539,6 +539,9 @@ export default function AdminOrdersPage() {
         const vid: CSSProperties ={ width: 220, maxWidth: '100%', borderRadius: 8, background: '#000' };
         const btn: CSSProperties ={ flex: 1, color: '#fff', border: 'none', borderRadius: 8, padding: '.65rem', cursor: decisionBusy ? 'not-allowed' : 'pointer', fontWeight: 600, opacity: decisionBusy ? .7 : 1 };
         const grey: CSSProperties ={ flex: 1, background: '#f5f5f5', color: '#555', border: 'none', borderRadius: 8, padding: '.65rem', cursor: 'pointer', fontWeight: 600 };
+        const mediaLinks: CSSProperties = { display: 'flex', gap: '.4rem', justifyContent: 'center', marginTop: '.3rem' };
+        const viewA: CSSProperties = { fontSize: '.72rem', fontWeight: 700, color: '#1565c0', textDecoration: 'none', background: '#eaf2fb', borderRadius: 5, padding: '.15rem .4rem' };
+        const dlA: CSSProperties = { fontSize: '.72rem', fontWeight: 700, color: '#2e7d32', textDecoration: 'none', background: '#e8f5e9', borderRadius: 5, padding: '.15rem .4rem' };
         return (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 300, padding: '1rem' }}>
           <div style={{ background: '#fff', borderRadius: '16px', padding: '1.5rem', width: '100%', maxWidth: '640px', maxHeight: '92vh', display: 'flex', flexDirection: 'column' }}>
@@ -576,18 +579,42 @@ export default function AdminOrdersPage() {
                 <>
                   {(o.returnOpeningVideo || o.returnClosingVideo) && (
                     <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginTop: '.75rem' }}>
-                      {o.returnOpeningVideo && <div><p style={lbl}>🎬 Opening video</p><video src={o.returnOpeningVideo} controls style={vid} /></div>}
-                      {o.returnClosingVideo && <div><p style={lbl}>🎬 Return-pack video</p><video src={o.returnClosingVideo} controls style={vid} /></div>}
+                      {o.returnOpeningVideo && (
+                        <div>
+                          <p style={lbl}>🎬 Opening video</p>
+                          <video src={o.returnOpeningVideo} controls preload="metadata" style={vid} />
+                          <div style={mediaLinks}>
+                            <a href={o.returnOpeningVideo} target="_blank" rel="noreferrer" style={viewA}>↗ View</a>
+                            <a href={o.returnOpeningVideo} download style={dlA}>⬇ Download</a>
+                          </div>
+                        </div>
+                      )}
+                      {o.returnClosingVideo && (
+                        <div>
+                          <p style={lbl}>🎬 Return-pack video</p>
+                          <video src={o.returnClosingVideo} controls preload="metadata" style={vid} />
+                          <div style={mediaLinks}>
+                            <a href={o.returnClosingVideo} target="_blank" rel="noreferrer" style={viewA}>↗ View</a>
+                            <a href={o.returnClosingVideo} download style={dlA}>⬇ Download</a>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                   {photos.length > 0 && (
                     <>
                       <p style={{ ...lbl, marginTop: '.85rem' }}>🖼️ Photos ({photos.length})</p>
-                      <div style={{ display: 'flex', gap: '.5rem', flexWrap: 'wrap' }}>
+                      <div style={{ display: 'flex', gap: '.75rem', flexWrap: 'wrap' }}>
                         {photos.map((src, i) => (
-                          <a key={i} href={src} target="_blank" rel="noreferrer">
-                            <img src={src} alt="" style={{ width: 90, height: 90, objectFit: 'cover', borderRadius: 8, border: '1px solid #eee' }} />
-                          </a>
+                          <div key={i} style={{ textAlign: 'center' }}>
+                            <a href={src} target="_blank" rel="noreferrer">
+                              <img src={src} alt="" style={{ width: 90, height: 90, objectFit: 'cover', borderRadius: 8, border: '1px solid #eee', display: 'block' }} />
+                            </a>
+                            <div style={mediaLinks}>
+                              <a href={src} target="_blank" rel="noreferrer" style={viewA}>↗</a>
+                              <a href={src} download style={dlA}>⬇</a>
+                            </div>
+                          </div>
                         ))}
                       </div>
                     </>
