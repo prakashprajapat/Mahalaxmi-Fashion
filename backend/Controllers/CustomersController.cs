@@ -121,17 +121,22 @@ public class CustomersController : ControllerBase
     public async Task<IActionResult> SendCelebrationSms([FromBody] CelebrationSmsRequest req)
     {
         var authKey    = await _db.SiteSettings.Where(s => s.Key == "msg91AuthKey").Select(s => s.Value).FirstOrDefaultAsync();
-        // Use the dedicated OFFER template — NOT the OTP template — so a discount message goes out.
-        var templateId = await _db.SiteSettings.Where(s => s.Key == "msg91CelebrationTemplateId").Select(s => s.Value).FirstOrDefaultAsync();
-
-        if (string.IsNullOrWhiteSpace(authKey) || string.IsNullOrWhiteSpace(templateId))
-            return BadRequest(new { success = false, message = "Offer SMS not configured. Set 'msg91AuthKey' and 'msg91CelebrationTemplateId' (your birthday/anniversary OFFER template, with a ##coupon## variable) in Settings → MSG91 Configuration." });
-
-        if (string.IsNullOrWhiteSpace(req.Phone))
-            return BadRequest(new { success = false, message = "Phone number is required." });
 
         var occasion = (req.Occasion ?? "birthday").Trim().ToLowerInvariant();
         occasion = occasion == "anniversary" ? "anniversary" : "birthday";
+
+        // Pick the occasion-specific OFFER template; fall back to the shared celebration template
+        // so existing setups keep working even if the specific templates aren't set yet.
+        var specificKey = occasion == "anniversary" ? "msg91AnniversaryTemplateId" : "msg91BirthdayTemplateId";
+        var templateId = await _db.SiteSettings.Where(s => s.Key == specificKey).Select(s => s.Value).FirstOrDefaultAsync();
+        if (string.IsNullOrWhiteSpace(templateId))
+            templateId = await _db.SiteSettings.Where(s => s.Key == "msg91CelebrationTemplateId").Select(s => s.Value).FirstOrDefaultAsync();
+
+        if (string.IsNullOrWhiteSpace(authKey) || string.IsNullOrWhiteSpace(templateId))
+            return BadRequest(new { success = false, message = "Offer SMS not configured. Set 'msg91AuthKey' and the Birthday/Anniversary OFFER template (with a ##coupon## variable) in Settings → MSG91 Configuration." });
+
+        if (string.IsNullOrWhiteSpace(req.Phone))
+            return BadRequest(new { success = false, message = "Phone number is required." });
 
         // Find the customer this offer is for (match on the last 10 digits of the phone).
         var digits = new string(req.Phone.Where(char.IsDigit).ToArray());

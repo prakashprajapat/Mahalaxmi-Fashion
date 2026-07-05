@@ -82,7 +82,9 @@ const SECTIONS = [
       { key: 'msg91AuthKey',              label: 'MSG91 Auth Key', type: 'password' },
       { key: 'msg91WhatsappTemplateId',   label: 'WhatsApp OTP Template ID', type: 'text' },
       { key: 'msg91SmsTemplateId',        label: 'SMS OTP Template ID', type: 'text' },
-      { key: 'msg91CelebrationTemplateId',label: 'Birthday / Anniversary OFFER SMS Template ID (must include ##coupon##)', type: 'text' },
+      { key: 'msg91BirthdayTemplateId',    label: '🎂 Birthday OFFER SMS Template ID (must include ##coupon##)', type: 'text' },
+      { key: 'msg91AnniversaryTemplateId', label: '💍 Anniversary OFFER SMS Template ID (must include ##coupon##)', type: 'text' },
+      { key: 'msg91CelebrationTemplateId', label: 'Default OFFER SMS Template ID (fallback — used if Birthday/Anniversary above are blank, ##coupon##)', type: 'text' },
       { key: 'celebrationOfferPercent',   label: 'Offer Discount % (default 10)', type: 'text' },
       { key: 'adminRecoveryPhone',        label: 'Admin Recovery Mobile (for password-reset OTP SMS, with 91)', type: 'text' },
     ]
