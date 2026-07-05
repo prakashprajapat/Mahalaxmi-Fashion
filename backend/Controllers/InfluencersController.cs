@@ -157,8 +157,11 @@ public class InfluencersController : ControllerBase
             phone = texted  ? MaskPhone(accPhone) : null,
         };
 
-        if (_env.IsDevelopment() || (!emailed && !texted))
+        // Never leak the OTP in production (account-takeover risk) — dev only.
+        if (_env.IsDevelopment())
             return Ok(new { success = true, message = "OTP sent.", sentTo, devOtp = otp });
+        if (!emailed && !texted)
+            return StatusCode(500, new { success = false, message = "Could not send the OTP right now. Please try again shortly." });
         return Ok(new { success = true, message = "OTP sent.", sentTo });
     }
 

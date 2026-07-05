@@ -107,12 +107,48 @@ public class OrdersController : ControllerBase
     }
 
     // GET /api/orders/{orderId}
+    // Public so the /tracking page can look up an order by id or AWB. But order ids/AWBs are
+    // guessable, so an anonymous or non-owner caller only receives shipment-safe fields
+    // (id, status, AWB, courier, dates). Full customer PII / items / amounts / PAN are returned
+    // ONLY to the order's owner (matched via JWT) or an admin.
     [HttpGet("{orderId}")]
+    [AllowAnonymous]
     public async Task<IActionResult> GetById(string orderId)
     {
         var order = await _db.SiteOrders.FirstOrDefaultAsync(o => o.OrderId == orderId || o.Awb == orderId);
         if (order is null) return NotFound(new { success = false, message = "Order not found." });
-        return Ok(new { success = true, order = MapOrder(order) });
+
+        bool full = User.HasClaim("role", "admin");
+        if (!full && User.Identity?.IsAuthenticated == true)
+        {
+            var callerId    = User.FindFirstValue("sub");
+            var callerEmail = (User.FindFirstValue("email") ?? "").Trim().ToLowerInvariant();
+            var oc          = ParseJson(order.CustomerJson);
+            var ownerId     = GetJsonStr(oc, "id");
+            var ownerEmail  = (GetJsonStr(oc, "email") ?? "").Trim().ToLowerInvariant();
+            full = (!string.IsNullOrEmpty(callerId) && callerId == ownerId)
+                || (!string.IsNullOrEmpty(callerEmail) && callerEmail == ownerEmail);
+        }
+
+        var dto = MapOrder(order);
+        if (!full)
+        {
+            // Strip everything except what the public tracking view needs.
+            dto = dto with
+            {
+                PaymentId = null,
+                Cart = new List<CartLineDto>(),
+                Subtotal = 0m, ShippingCost = 0m, CodFee = 0m, Total = 0m, DiscountAmount = 0m,
+                CustomerId = null, CustomerName = null, CustomerEmail = null, CustomerPhone = null,
+                ShippingName = null, ShippingAddress = null, ShippingCity = null,
+                ShippingPincode = null, ShippingState = null,
+                PanNumber = null, PanName = null, CouponCode = null, InvoiceNumber = null,
+                ReturnIssue = null, ReturnReason = null, ReturnCallback = null,
+                ReturnOpeningVideo = null, ReturnClosingVideo = null,
+                ReturnOpeningPhotos = null, ReturnClosingPhotos = null, ReturnRejectReason = null
+            };
+        }
+        return Ok(new { success = true, order = dto });
     }
 
     // POST /api/orders  (Place order — public)
@@ -121,9 +157,9 @@ public class OrdersController : ControllerBase
     {
         var orderId = CleanOrderId(req.Id);
         var method = req.Method.ToLower().Trim();
-        var status = !string.IsNullOrWhiteSpace(req.Status)
-            ? req.Status
-            : "Pending";
+        // NOTE: the order status is decided by the server further below (after the amount is
+        // recomputed and — for prepaid — the payment is verified). A client-supplied status is
+        // never trusted, so a caller can't create a fake "Paid" prepaid order.
 
         // BUG-6: Prefer JWT sub claim over client-supplied customerId — must happen BEFORE building customerJson
         var jwtCustomerId = User.FindFirstValue("sub");
@@ -179,9 +215,16 @@ public class OrdersController : ControllerBase
                 var unit = baseUnit + (isBalotra ? 0m : Math.Max(0m, prod.ShippingCharge));
                 serverSubtotal += unit * qty;
             }
+            else if (!string.IsNullOrWhiteSpace(lineSku))
+            {
+                // SEC: a SKU was supplied but doesn't exist in the catalogue. We can't price it
+                // server-side, so we must NOT trust the client's LineTotal (that was the
+                // "bogus SKU + ₹1 line total" underpay hole). Reject the order instead.
+                return BadRequest(new { success = false, message = "An item in your cart is no longer available. Please refresh your cart and try again." });
+            }
             else
             {
-                serverSubtotal += line.LineTotal;   // product not found by SKU — can't verify, keep client line
+                serverSubtotal += line.LineTotal;   // no SKU at all — legacy/edge line, can't verify
             }
         }
 
@@ -212,6 +255,32 @@ public class OrdersController : ControllerBase
         decimal serverCodFee   = Math.Max(0m, req.CodFee);
         decimal serverTotal    = Math.Max(0m, serverSubtotal + serverShipping + serverCodFee - serverDiscount);
 
+        // ── PAYMENT GATE ──────────────────────────────────────────────────────────────
+        // The server decides the status. COD always starts "Pending". A prepaid order is
+        // only accepted if a Razorpay order for this same local id has actually been marked
+        // "paid" (via /payments/verify or the webhook) AND the amount captured is not less
+        // than the total we computed here. This blocks (a) fake "Paid" prepaid orders placed
+        // without paying, and (b) total-tampering where the customer pays less than they owe.
+        string finalStatus;
+        if (method == "cod")
+        {
+            finalStatus = "Pending";
+        }
+        else
+        {
+            var rp = await _db.RazorpayOrders.FirstOrDefaultAsync(r => r.LocalOrderId == orderId);
+            if (rp is null || rp.Status != "paid")
+                return BadRequest(new { success = false, message = "Payment could not be verified for this order." });
+
+            var expectedPaise = (int)Math.Round(serverTotal * 100m, MidpointRounding.AwayFromZero);
+            // Only block genuine underpayment (≥ ₹1 short). Paying the same or more — e.g. a
+            // Balotra free-shipping order the client didn't discount — is fine.
+            if (expectedPaise - rp.AmountPaise > 100)
+                return BadRequest(new { success = false, message = "Payment amount does not match the order total." });
+
+            finalStatus = "Pending";
+        }
+
         var existing = await _db.SiteOrders.FirstOrDefaultAsync(o => o.OrderId == orderId);
         if (existing is not null)
         {
@@ -220,7 +289,7 @@ public class OrdersController : ControllerBase
                 return Conflict(new { success = false, message = $"Order is already {existing.Status} and cannot be modified." });
 
             existing.Method = method;
-            existing.Status = status;
+            existing.Status = finalStatus;
             existing.PaymentId = req.PaymentId;
             existing.Subtotal = serverSubtotal;
             existing.ShippingCost = serverShipping;
@@ -229,7 +298,7 @@ public class OrdersController : ControllerBase
             existing.CartJson = cart;
             existing.CustomerJson = customerJson;
             existing.ShippingJson = shippingJson;
-            existing.PlacedAt = req.PlacedAt ?? DateTimeOffset.UtcNow;
+            existing.PlacedAt = DateTimeOffset.UtcNow;   // server time — never trust client PlacedAt
             existing.UpdatedAt = DateTimeOffset.UtcNow;
         }
         else
@@ -238,7 +307,7 @@ public class OrdersController : ControllerBase
             {
                 OrderId = orderId,
                 Method = method,
-                Status = status,
+                Status = finalStatus,
                 PaymentId = req.PaymentId,
                 Subtotal = serverSubtotal,
                 ShippingCost = serverShipping,
@@ -247,7 +316,7 @@ public class OrdersController : ControllerBase
                 CartJson = cart,
                 CustomerJson = customerJson,
                 ShippingJson = shippingJson,
-                PlacedAt = req.PlacedAt ?? DateTimeOffset.UtcNow,
+                PlacedAt = DateTimeOffset.UtcNow,   // server time — never trust client PlacedAt
                 // MISS-6: Store PAN details
                 PanNumber = req.PanNumber?.Trim().ToUpper(),
                 PanName = req.PanName?.Trim(),

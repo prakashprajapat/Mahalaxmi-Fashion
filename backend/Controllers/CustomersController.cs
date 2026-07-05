@@ -339,9 +339,12 @@ public class CustomersController : ControllerBase
         else if (!string.IsNullOrWhiteSpace(phoneOrEmail))
             sent = await _sms.SendOtpAsync(phoneOrEmail, otp);
 
-        // SEC-1: devOtp only in Development, or as a fallback if delivery isn't configured yet.
-        if (_env.IsDevelopment() || !sent)
+        // SEC-1: never expose the OTP in production — it would allow account takeover. Only
+        // return it in local development. If delivery failed in production, report an error.
+        if (_env.IsDevelopment())
             return Ok(new { success = true, message = "OTP sent.", devOtp = otp });
+        if (!sent)
+            return StatusCode(500, new { success = false, message = "Could not send the OTP right now. Please try again in a moment." });
         return Ok(new { success = true, message = "OTP sent." });
     }
 
@@ -458,8 +461,11 @@ public class CustomersController : ControllerBase
             phone = texted  ? MaskPhone(accPhone) : null,
         };
 
-        if (_env.IsDevelopment() || (!emailed && !texted))
+        // Never leak the OTP in production (account-takeover risk) — dev only.
+        if (_env.IsDevelopment())
             return Ok(new { success = true, message = "OTP generated.", sentTo, devOtp = otp });
+        if (!emailed && !texted)
+            return StatusCode(500, new { success = false, message = "Could not send the reset code. Please try again shortly." });
         return Ok(new { success = true, message = "OTP sent.", sentTo });
     }
 

@@ -193,8 +193,13 @@ public class AuthController : ControllerBase
             return Ok(new { success = true, message = $"OTP sent to your {where}." });
         }
 
-        // Fallback (no channel configured / all sends failed) — show on screen so the admin isn't locked out.
-        return Ok(new { success = true, message = "OTP generated.", devOtp = otp });
+        // Delivery failed on every channel. Returning the OTP over this unauthenticated endpoint
+        // would allow admin account takeover, so we NEVER expose it in production — only in local
+        // development. In production, ask the admin to fix email/SMS config (or reset via server).
+        if (_env.IsDevelopment())
+            return Ok(new { success = true, message = "OTP generated (dev only).", devOtp = otp });
+
+        return StatusCode(500, new { success = false, message = "Could not send the reset code. Please make sure the admin email or recovery mobile is configured correctly." });
     }
 
     // POST /api/auth/admin-recover/reset
