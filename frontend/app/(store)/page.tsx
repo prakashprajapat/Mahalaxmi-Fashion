@@ -28,7 +28,7 @@ export default async function HomePage() {
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           className="home-hero-image"
-          src="/hero-banner.png"
+          src="/hero-banner.webp"
           alt="Mahalaxmi Fashion Hub - Ethnic Wear for the Entire Family"
           width={1200}
           height={600}
