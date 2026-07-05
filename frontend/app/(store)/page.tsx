@@ -49,18 +49,19 @@ export default async function HomePage() {
           gap: '.5rem',
           pointerEvents: 'none',
         }}>
-          {/* Headline — both lines same font & size */}
-          <div style={{
+          {/* Headline (page H1 for SEO) — both lines same font & size */}
+          <h1 style={{
             fontSize: 'clamp(1rem, 2.8vw, 2rem)',
             fontWeight: 800,
             color: '#fff',
             lineHeight: 1.2,
             textShadow: '0 2px 12px rgba(0,0,0,.55)',
             letterSpacing: '.01em',
+            margin: 0,
           }}>
-            <div>Every Look,</div>
-            <div>A New Experience</div>
-          </div>
+            <span style={{ display: 'block' }}>Every Look,</span>
+            <span style={{ display: 'block' }}>A New Experience</span>
+          </h1>
 
           {/* Sub-headline */}
           <p style={{

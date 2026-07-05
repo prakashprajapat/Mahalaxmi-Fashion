@@ -185,6 +185,18 @@ export default function CheckoutPage() {
       alert('Please fill all shipping fields.');
       return false;
     }
+    if (!/^[6-9]\d{9}$/.test((shipping.phone || '').replace(/\D/g, '').slice(-10))) {
+      alert('Please enter a valid 10-digit mobile number.');
+      return false;
+    }
+    if (!/^\d{6}$/.test(shipping.pincode || '')) {
+      alert('Pincode must be 6 digits.');
+      return false;
+    }
+    if ((shipping as any).email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((shipping as any).email)) {
+      alert('Please enter a valid email address.');
+      return false;
+    }
     if (requiresPan) {
       if (!panData.panNumber || !panData.panName) {
         alert('PAN card details are required for orders above ₹2000.');

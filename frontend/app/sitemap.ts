@@ -9,14 +9,16 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${BASE}/products`,                     lastModified: new Date(), changeFrequency: 'daily',   priority: 0.9 },
     { url: `${BASE}/best-sellers`,                 lastModified: new Date(), changeFrequency: 'daily',   priority: 0.9 },
 
-    // ── Category pages ────────────────────────────────────────────────────────
-    { url: `${BASE}/saree`,                        lastModified: new Date(), changeFrequency: 'weekly',  priority: 0.8 },
-    { url: `${BASE}/women`,                        lastModified: new Date(), changeFrequency: 'weekly',  priority: 0.8 },
-    { url: `${BASE}/men`,                          lastModified: new Date(), changeFrequency: 'weekly',  priority: 0.8 },
-    { url: `${BASE}/nighty`,                       lastModified: new Date(), changeFrequency: 'weekly',  priority: 0.8 },
-    { url: `${BASE}/petticoat`,                    lastModified: new Date(), changeFrequency: 'weekly',  priority: 0.8 },
-    { url: `${BASE}/popline`,                      lastModified: new Date(), changeFrequency: 'weekly',  priority: 0.7 },
-    { url: `${BASE}/nighty-cloth`,                 lastModified: new Date(), changeFrequency: 'weekly',  priority: 0.7 },
+    // ── Category pages (real routes only) ─────────────────────────────────────
+    { url: `${BASE}/women`,                              lastModified: new Date(), changeFrequency: 'weekly', priority: 0.8 },
+    { url: `${BASE}/men`,                                lastModified: new Date(), changeFrequency: 'weekly', priority: 0.8 },
+    { url: `${BASE}/kids`,                               lastModified: new Date(), changeFrequency: 'weekly', priority: 0.8 },
+    { url: `${BASE}/beauty`,                             lastModified: new Date(), changeFrequency: 'weekly', priority: 0.7 },
+    { url: `${BASE}/fabrics`,                            lastModified: new Date(), changeFrequency: 'weekly', priority: 0.7 },
+    { url: `${BASE}/products?category=saree`,            lastModified: new Date(), changeFrequency: 'weekly', priority: 0.8 },
+    { url: `${BASE}/products?category=nighty`,           lastModified: new Date(), changeFrequency: 'weekly', priority: 0.8 },
+    { url: `${BASE}/products?category=petticoat`,        lastModified: new Date(), changeFrequency: 'weekly', priority: 0.8 },
+    { url: `${BASE}/become-supplier`,                    lastModified: new Date(), changeFrequency: 'monthly', priority: 0.5 },
 
     // ── Info pages ────────────────────────────────────────────────────────────
     { url: `${BASE}/about-us`,                     lastModified: new Date(), changeFrequency: 'monthly', priority: 0.6 },

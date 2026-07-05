@@ -321,6 +321,9 @@ public class ProductsController : ControllerBase
         {
             System.IO.Directory.CreateDirectory(dir);
             var bytes    = Convert.FromBase64String(m.Groups[2].Value);
+            if (bytes.Length > 12L * 1024 * 1024) return value; // cap at 12 MB per image
+            var allowed  = new[] { "jpg", "jpeg", "png", "webp", "gif", "avif" };
+            if (!allowed.Contains(ext)) return value;           // only real image types
             var fileName = $"{fileNameHint}-{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}.{ext}";
             var fullPath = System.IO.Path.Combine(dir, fileName);
             System.IO.File.WriteAllBytes(fullPath, bytes);

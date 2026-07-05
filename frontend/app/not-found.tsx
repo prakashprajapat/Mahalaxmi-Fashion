@@ -115,12 +115,12 @@ export default function NotFound() {
 
         <p className="nf-links-title">Popular Categories</p>
         <div className="nf-links">
-          <Link href="/saree">Saree</Link>
-          <Link href="/nighty">Nighty</Link>
-          <Link href="/petticoat">Petticoat</Link>
+          <Link href="/products?category=saree">Saree</Link>
+          <Link href="/products?category=nighty">Nighty</Link>
+          <Link href="/products?category=petticoat">Petticoat</Link>
           <Link href="/women">Women</Link>
           <Link href="/men">Men</Link>
-          <Link href="/popline">Popline</Link>
+          <Link href="/products?category=popline">Popline</Link>
           <Link href="/best-sellers">Best Sellers</Link>
           <Link href="/contact">Contact Us</Link>
         </div>

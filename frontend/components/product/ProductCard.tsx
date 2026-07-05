@@ -25,6 +25,8 @@ export default function ProductCard({ product, priority = false }: { product: Pr
   const handleAdd = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    // Block adding an out-of-stock product to the cart.
+    if ((product.stock ?? '').toLowerCase().includes('out of stock')) return;
     if (needsSelection) {
       setQuickView(true);
       return;

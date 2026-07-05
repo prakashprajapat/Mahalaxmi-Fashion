@@ -246,7 +246,7 @@ export default function ProductPage({ params }: { params: { id: string } }) {
     '@type': 'Product',
     name: product.name,
     description: product.description ?? product.name,
-    image: activeImg || `https://mahalaxmifashionhub.com/logo.png`,
+    image: activeImg || `https://mahalaxmifashionhub.com/icon-512.png`,
     sku: String(product.dbId),
     brand: { '@type': 'Brand', name: 'Mahalaxmi Fashion Hub' },
     offers: {
