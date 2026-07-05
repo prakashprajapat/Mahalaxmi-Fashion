@@ -230,6 +230,21 @@ export const couponsApi = {
     request('/coupons/' + id, { method: 'DELETE' }, token),
 };
 
+// ── Staff ─────────────────────────────────────────────────────────────────────
+export const staffApi = {
+  list: (token: string) =>
+    request<Array<{ id: number; name: string; username: string; email?: string; role: string; isActive: boolean; lastLogin?: string; createdAt?: string }>>(
+      '/staff', undefined, token),
+  create: (data: { name: string; username: string; email?: string; password: string; role: string }, token: string) =>
+    request<{ message: string; id: number }>('/staff', { method: 'POST', body: JSON.stringify(data) }, token),
+  remove: (id: number, token: string) =>
+    request('/staff/' + id, { method: 'DELETE' }, token),
+  resetPassword: (id: number, newPassword: string, token: string) =>
+    request('/staff/' + id + '/reset-password', { method: 'PUT', body: JSON.stringify({ newPassword }) }, token),
+  toggleActive: (id: number, token: string) =>
+    request<{ isActive: boolean }>('/staff/' + id + '/toggle-active', { method: 'PUT' }, token),
+};
+
 // ── Reviews ───────────────────────────────────────────────────────────────────
 export const reviewsApi = {
   getPending: (token: string) =>

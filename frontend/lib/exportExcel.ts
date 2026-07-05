@@ -97,6 +97,33 @@ function download(wb: XLSX.WorkBook, filename: string) {
   XLSX.writeFile(wb, filename, { bookType: 'xlsx', type: 'binary' });
 }
 
+// Indian financial year label, e.g. 14 Jul 2026 → "26-27".
+function fyLabel(d: Date): string {
+  const y = d.getFullYear();
+  const start = d.getMonth() >= 3 ? y : y - 1;   // April = month index 3
+  return `${String(start).slice(-2)}-${String(start + 1).slice(-2)}`;
+}
+// Sequential credit-note numbers per FY, e.g. CN/26-27/001, CN/26-27/002 …
+function buildCreditNoteNos(orders: Order[]): Record<string, string> {
+  const map: Record<string, string> = {};
+  const seqByFy: Record<string, number> = {};
+  orders
+    .filter(o => RETURN_STATUSES.includes(o.status))
+    .sort((a, b) => new Date(a.placedAt ?? a.createdAt).getTime() - new Date(b.placedAt ?? b.createdAt).getTime())
+    .forEach(o => {
+      const fy = fyLabel(new Date(o.placedAt ?? o.createdAt));
+      seqByFy[fy] = (seqByFy[fy] || 0) + 1;
+      map[o.id] = `CN/${fy}/${String(seqByFy[fy]).padStart(3, '0')}`;
+    });
+  return map;
+}
+// Scale factor so an order's item values (incl. shipping/COD/discount) sum to the order total.
+// Makes GSTR-1 taxable/GST match the Sales report (which is order-total based).
+function orderScale(o: Order): number {
+  const st = Number(o.subtotal ?? 0);
+  return st > 0 ? Number(o.total ?? 0) / st : 1;
+}
+
 // ── PRODUCTS EXPORT ───────────────────────────────────────────────────────────
 
 export function exportProducts(products: Product[]) {
@@ -284,46 +311,49 @@ export function exportGSTR1Excel(orders: Order[], from: string, to: string, pack
   ];
 
   const rows: (string | number)[][] = [];
+  const cnMap = buildCreditNoteNos(orders);
 
-  // 1) Sale invoices — every non-cancelled order (returned orders' original sale still counts,
-  //    then its credit note reverses it below). Per-item slab GST on GST-inclusive line totals.
+  // 1) Sale invoices — every non-cancelled order. Item value is scaled to include the order's
+  //    shipping/COD so the totals MATCH the Sales report (which is order-total based).
   orders
     .filter(o => o.status !== 'Cancelled')
     .forEach(o => {
       const date = fmtDate(o.placedAt as any ?? o.createdAt as any);
       const intra = isIntraState(o);
+      const scale = orderScale(o);
       (o.cart ?? []).forEach((item: any) => {
         const qty       = Number(item.quantity ?? 1) || 1;
-        const lineTotal = Number(item.lineTotal ?? 0);
-        const rate      = slabRate(lineTotal / qty);
-        const { taxable, gst } = splitGst(lineTotal, rate);
+        const value     = Number(item.lineTotal ?? 0) * scale;      // incl. shipping/COD share
+        const rate      = slabRate(Number(item.lineTotal ?? 0) / qty);
+        const { taxable, gst } = splitGst(value, rate);
         rows.push([
           'Sale Invoice', GSTIN, invoiceNo(o), date, o.customerName ?? '', (o as any).shippingState ?? '',
           item.hsn ?? item.hsnCode ?? '6211', item.name, qty * pk(item.sku),
           r2(taxable), rate,
           r2(intra ? gst / 2 : 0), r2(intra ? gst / 2 : 0), r2(intra ? 0 : gst),
-          r2(lineTotal),
+          r2(value),
         ]);
       });
     });
 
-  // 2) Credit notes (CDNR) — for returned orders, reversing the goods, negative values.
+  // 2) Credit notes (CDNR) — for returned orders, reversing the (scaled) value, negative.
   orders
     .filter(o => RETURN_STATUSES.includes(o.status))
     .forEach(o => {
       const date = fmtDate(o.placedAt as any ?? o.createdAt as any);
       const intra = isIntraState(o);
+      const scale = orderScale(o);
       (o.cart ?? []).forEach((item: any) => {
         const qty       = Number(item.quantity ?? 1) || 1;
-        const lineTotal = Number(item.lineTotal ?? 0);
-        const rate      = slabRate(lineTotal / qty);
-        const { taxable, gst } = splitGst(lineTotal, rate);
+        const value     = Number(item.lineTotal ?? 0) * scale;
+        const rate      = slabRate(Number(item.lineTotal ?? 0) / qty);
+        const { taxable, gst } = splitGst(value, rate);
         rows.push([
-          'Credit Note', GSTIN, creditNoteNo(o), date, o.customerName ?? '', (o as any).shippingState ?? '',
+          'Credit Note', GSTIN, cnMap[o.id] ?? creditNoteNo(o), date, o.customerName ?? '', (o as any).shippingState ?? '',
           item.hsn ?? item.hsnCode ?? '6211', `Return: ${item.name}`, -(qty * pk(item.sku)),
           neg(taxable), rate,
           neg(intra ? gst / 2 : 0), neg(intra ? gst / 2 : 0), neg(intra ? 0 : gst),
-          neg(lineTotal),
+          neg(value),
         ]);
       });
     });
@@ -352,12 +382,14 @@ export function exportGSTR1Excel(orders: Order[], from: string, to: string, pack
 
 export function exportSalesExcel(orders: Order[], from: string, to: string, packOf: Record<string, number> = {}) {
   const pk = (sku?: string) => Math.max(1, Number(packOf[sku ?? ''] ?? 1));  // pieces per unit
+  const cnMap = buildCreditNoteNos(orders);
+  const cnOf = (o: Order) => cnMap[o.id] ?? creditNoteNo(o);
   // ── Sheet 1: Order Summary (familiar view + Invoice No + Credit Note No) ──
   const ordHdr = ['Order ID','Invoice No','Credit Note No','Date','Customer','Phone','City','State','Subtotal','Shipping','COD Fee','Total','Method','Status'];
   const ordRows: (string | number)[][] = orders.map(o => [
     o.id,
     invoiceNo(o),
-    RETURN_STATUSES.includes(o.status) ? creditNoteNo(o) : '',
+    RETURN_STATUSES.includes(o.status) ? cnOf(o) : '',
     fmtDate(o.placedAt as any ?? o.createdAt as any),
     o.customerName ?? '',
     o.customerPhone ?? '',
@@ -397,7 +429,7 @@ export function exportSalesExcel(orders: Order[], from: string, to: string, pack
     if (RETURN_STATUSES.includes(o.status)) {
       const goods = Number(o.total ?? 0);   // reverse the full sale (incl. shipping) on return
       const cn = splitGst(goods, rate);
-      ledRows.push(['Credit Note (Return)', creditNoteNo(o), o.id, date, o.customerName ?? '', st,
+      ledRows.push(['Credit Note (Return)', cnOf(o), o.id, date, o.customerName ?? '', st,
         neg(cn.taxable), rate, neg(intra ? cn.gst / 2 : 0), neg(intra ? cn.gst / 2 : 0), neg(intra ? 0 : cn.gst),
         neg(goods), 'Return / CN']);
     }
@@ -505,7 +537,7 @@ export function exportGSTR1GovTemplate(
 
   const addLine = (o: Order, item: any, sign: number) => {
     const units = Number(item.quantity ?? 1) || 1;
-    const line  = Number(item.lineTotal ?? 0) * sign;
+    const line  = Number(item.lineTotal ?? 0) * orderScale(o) * sign;   // incl. shipping → matches Sales report
     const rate  = slabRate(Number(item.lineTotal ?? 0) / units);
     const { taxable, gst } = splitGst(line, rate);
     const intra = isIntraState(o);

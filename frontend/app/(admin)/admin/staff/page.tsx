@@ -1,37 +1,25 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { authApi } from '@/lib/api';
+import { authApi, staffApi } from '@/lib/api';
 import { getAdminToken } from '@/lib/auth';
 
-// Only Admin is hardcoded — all other staff persisted in localStorage
+// Owner row shown at the top; real staff come from the backend (staff_members table).
 const ADMIN_ENTRY = {
-  id: 1, name: 'Admin', username: 'admin',
-  email: 'admin@mahalaxmifashionhub.com', role: 'admin', lastLogin: '—',
+  id: 0, name: 'Admin (Owner)', username: 'admin',
+  email: 'admin@mahalaxmifashionhub.com', role: 'admin', lastLogin: '—', isActive: true,
 };
 
-const LS_KEY = 'mfh_staff_list';
-
-function loadStaff() {
-  if (typeof window === 'undefined') return [];
-  try {
-    const raw = localStorage.getItem(LS_KEY);
-    return raw ? (JSON.parse(raw) as typeof ADMIN_ENTRY[]) : [];
-  } catch { return []; }
-}
-
-function saveStaff(list: typeof ADMIN_ENTRY[]) {
-  try { localStorage.setItem(LS_KEY, JSON.stringify(list)); } catch {}
-}
-
 export default function AdminStaffPage() {
-  const [extraStaff, setExtraStaff] = useState<typeof ADMIN_ENTRY[]>([]);
+  const [extraStaff, setExtraStaff] = useState<any[]>([]);
   const [staffForm, setStaffForm] = useState({ name: '', username: '', password: '', role: 'staff' });
   const [pwForm, setPwForm]        = useState({ newPassword: '', confirmPassword: '' });
   const [pwMsg, setPwMsg]          = useState('');
   const [saving, setSaving]        = useState(false);
 
-  // Load from localStorage on mount
-  useEffect(() => { setExtraStaff(loadStaff()); }, []);
+  const refresh = () => {
+    staffApi.list(getAdminToken() ?? '').then(setExtraStaff).catch(() => {});
+  };
+  useEffect(() => { refresh(); }, []);
 
   const allStaff = [ADMIN_ENTRY, ...extraStaff];
 
@@ -52,38 +40,40 @@ export default function AdminStaffPage() {
     } finally { setSaving(false); }
   };
 
-  const handleAddStaff = () => {
+  const handleAddStaff = async () => {
     if (!staffForm.name.trim() || !staffForm.username.trim()) {
       setPwMsg('❌ Staff name and username are required.'); return;
     }
     if (staffForm.password.length < 8) {
       setPwMsg('❌ Staff password must be at least 8 characters.'); return;
     }
-    const exists = allStaff.some(s => s.username === staffForm.username.trim());
-    if (exists) {
-      setPwMsg('❌ Username already exists. Choose a different username.'); return;
-    }
-    const newEntry = {
-      id: Date.now(),
-      name: staffForm.name.trim(),
-      username: staffForm.username.trim(),
-      email: `${staffForm.username.trim()}@staff.local`,
-      role: staffForm.role,
-      lastLogin: 'Never',
-    };
-    const updated = [...extraStaff, newEntry];
-    setExtraStaff(updated);
-    saveStaff(updated);              // persist to localStorage
-    setStaffForm({ name: '', username: '', password: '', role: 'staff' });
-    setPwMsg('✅ Staff account added successfully.');
+    setSaving(true); setPwMsg('');
+    try {
+      await staffApi.create({
+        name: staffForm.name.trim(),
+        username: staffForm.username.trim().toLowerCase(),
+        email: `${staffForm.username.trim().toLowerCase()}@staff.local`,
+        password: staffForm.password,
+        role: staffForm.role,
+      }, getAdminToken() ?? '');
+      setStaffForm({ name: '', username: '', password: '', role: 'staff' });
+      setPwMsg('✅ Staff account created. They can now log in with this username & password.');
+      refresh();
+    } catch (e) {
+      setPwMsg('❌ ' + ((e as Error).message || 'Failed to create staff.'));
+    } finally { setSaving(false); }
   };
 
-  const handleRemoveStaff = (id: number) => {
+  const handleRemoveStaff = async (id: number) => {
+    if (id === 0) return; // owner row — not removable
     if (!confirm('Remove this staff account?')) return;
-    const updated = extraStaff.filter(s => s.id !== id);
-    setExtraStaff(updated);
-    saveStaff(updated);
-    setPwMsg('Staff account removed.');
+    try {
+      await staffApi.remove(id, getAdminToken() ?? '');
+      setPwMsg('Staff account removed.');
+      refresh();
+    } catch (e) {
+      setPwMsg('❌ ' + ((e as Error).message || 'Failed to remove.'));
+    }
   };
 
   const inp: React.CSSProperties = {
