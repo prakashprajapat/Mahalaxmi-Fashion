@@ -62,7 +62,7 @@ public class CouponsController : ControllerBase
         if (!await IsAdmin()) return Unauthorized();
         var coupons = await _db.Coupons.OrderByDescending(c => c.CreatedAt).ToListAsync();
         return Ok(coupons.Select(c => new {
-            c.Id, c.Code, c.Type, c.Value, c.MinOrder,
+            c.Id, c.Code, c.Type, c.Value, c.Occasion, c.MinOrder,
             c.MaxUses, c.UsedCount, c.ExpiresAt, c.IsActive, c.CreatedAt
         }));
     }
@@ -85,6 +85,7 @@ public class CouponsController : ControllerBase
             Code       = req.Code.Trim().ToUpper(),
             Type       = req.Type == "percent" ? "percent" : "flat",
             Value      = req.Value,
+            Occasion   = NormalizeOccasion(req.Occasion),
             MinOrder   = req.MinOrder,
             MaxUses    = req.MaxUses,
             ExpiresAt  = req.ExpiresAt,
@@ -107,6 +108,7 @@ public class CouponsController : ControllerBase
         coupon.Code      = req.Code.Trim().ToUpper();
         coupon.Type      = req.Type == "percent" ? "percent" : "flat";
         coupon.Value     = req.Value;
+        coupon.Occasion  = NormalizeOccasion(req.Occasion);
         coupon.MinOrder  = req.MinOrder;
         coupon.MaxUses   = req.MaxUses;
         coupon.ExpiresAt = req.ExpiresAt;
@@ -114,6 +116,10 @@ public class CouponsController : ControllerBase
         await _db.SaveChangesAsync();
         return Ok(new { success = true });
     }
+
+    // Only accept the known occasion tags; anything else is treated as a regular coupon.
+    private static string NormalizeOccasion(string? o) =>
+        o is "birthday" or "anniversary" ? o : "none";
 
     // ── DELETE /api/coupons/{id}  (admin) ─────────────────────────────────────
     [HttpDelete("{id:int}")]
@@ -131,4 +137,5 @@ public class CouponsController : ControllerBase
 public record ValidateCouponRequest(string Code, decimal OrderAmount);
 public record CouponRequest(
     string Code, string Type, decimal Value, decimal MinOrder,
-    int? MaxUses, DateTimeOffset? ExpiresAt, bool IsActive = true);
+    int? MaxUses, DateTimeOffset? ExpiresAt, bool IsActive = true,
+    string? Occasion = "none");

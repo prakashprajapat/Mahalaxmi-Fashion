@@ -184,6 +184,11 @@ using (var scope = app.Services.CreateScope())
         );
         ALTER TABLE influencers ADD COLUMN IF NOT EXISTS password_hash VARCHAR(255);
         ALTER TABLE influencers ADD COLUMN IF NOT EXISTS reset_requested_at TIMESTAMPTZ;
+        -- Birthday/anniversary offer tracking: coupons carry an occasion; customers get a
+        -- per-occasion 'used' flag so their special date locks only after the offer is redeemed.
+        ALTER TABLE coupons   ADD COLUMN IF NOT EXISTS occasion VARCHAR(20) NOT NULL DEFAULT 'none';
+        ALTER TABLE customers ADD COLUMN IF NOT EXISTS birthday_offer_used    BOOLEAN NOT NULL DEFAULT FALSE;
+        ALTER TABLE customers ADD COLUMN IF NOT EXISTS anniversary_offer_used BOOLEAN NOT NULL DEFAULT FALSE;
         UPDATE site_orders SET status = 'Pending'
             WHERE status IN ('Order Received', 'Pending confirmation', 'Paid', 'Order Packed');
     ");

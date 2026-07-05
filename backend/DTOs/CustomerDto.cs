@@ -24,7 +24,9 @@ public record CustomerDto(
     string  PanStatus,
     bool    EmailVerified,
     bool    PhoneVerified,
-    DateTimeOffset CreatedAt
+    DateTimeOffset CreatedAt,
+    bool    BirthdayOfferUsed = false,
+    bool    AnniversaryOfferUsed = false
 );
 
 public record RegisterRequest(

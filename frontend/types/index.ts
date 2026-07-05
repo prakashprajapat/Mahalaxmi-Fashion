@@ -39,6 +39,8 @@ export interface Customer {
   phone: string;
   dateOfBirth?: string;
   marriageDate?: string;
+  birthdayOfferUsed?: boolean;
+  anniversaryOfferUsed?: boolean;
   addrLine1: string;
   addrLine2: string;
   pincode: string;

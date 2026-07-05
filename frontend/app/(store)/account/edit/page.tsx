@@ -157,22 +157,30 @@ export default function AccountEditPage() {
               <label>
                 🎂 Date of Birth
                 <input type="date" value={form.dateOfBirth} onChange={set('dateOfBirth')}
-                  disabled={!!customer?.dateOfBirth}
-                  style={customer?.dateOfBirth ? { background: '#f2f2f2', cursor: 'not-allowed', color: '#666' } : undefined} />
-                {customer?.dateOfBirth && (
+                  disabled={!!customer?.birthdayOfferUsed}
+                  style={customer?.birthdayOfferUsed ? { background: '#f2f2f2', cursor: 'not-allowed', color: '#666' } : undefined} />
+                {customer?.birthdayOfferUsed ? (
                   <span style={{ fontSize: '.72rem', color: '#999', marginTop: '.25rem', display: 'block' }}>
-                    🔒 Saved and locked — contact support to change.
+                    🔒 Locked — your birthday offer has been used. Contact support to change.
+                  </span>
+                ) : customer?.dateOfBirth && (
+                  <span style={{ fontSize: '.72rem', color: '#27ae60', marginTop: '.25rem', display: 'block' }}>
+                    ✏️ Editable until you redeem your birthday offer.
                   </span>
                 )}
               </label>
               <label>
                 💍 Marriage Anniversary
                 <input type="date" value={form.marriageDate} onChange={set('marriageDate')}
-                  disabled={!!customer?.marriageDate}
-                  style={customer?.marriageDate ? { background: '#f2f2f2', cursor: 'not-allowed', color: '#666' } : undefined} />
-                {customer?.marriageDate && (
+                  disabled={!!customer?.anniversaryOfferUsed}
+                  style={customer?.anniversaryOfferUsed ? { background: '#f2f2f2', cursor: 'not-allowed', color: '#666' } : undefined} />
+                {customer?.anniversaryOfferUsed ? (
                   <span style={{ fontSize: '.72rem', color: '#999', marginTop: '.25rem', display: 'block' }}>
-                    🔒 Saved and locked — contact support to change.
+                    🔒 Locked — your anniversary offer has been used. Contact support to change.
+                  </span>
+                ) : customer?.marriageDate && (
+                  <span style={{ fontSize: '.72rem', color: '#27ae60', marginTop: '.25rem', display: 'block' }}>
+                    ✏️ Editable until you redeem your anniversary offer.
                   </span>
                 )}
               </label>

@@ -192,7 +192,23 @@ public class OrdersController : ControllerBase
             if (!string.IsNullOrWhiteSpace(req.CouponCode))
             {
                 var coupon = await _db.Coupons.FirstOrDefaultAsync(c => c.Code.ToLower() == req.CouponCode.ToLower());
-                if (coupon is not null) { coupon.UsedCount++; }
+                if (coupon is not null)
+                {
+                    coupon.UsedCount++;
+
+                    // A birthday/anniversary coupon "uses up" that offer → lock the customer's date.
+                    if (coupon.Occasion is "birthday" or "anniversary"
+                        && int.TryParse(req.CustomerId, out var cid) && cid > 0)
+                    {
+                        var buyer = await _db.Customers.FindAsync(cid);
+                        if (buyer is not null)
+                        {
+                            if (coupon.Occasion == "birthday") buyer.BirthdayOfferUsed = true;
+                            else buyer.AnniversaryOfferUsed = true;
+                            buyer.UpdatedAt = DateTimeOffset.UtcNow;
+                        }
+                    }
+                }
             }
         }
 

@@ -43,7 +43,7 @@ function SocialCallbackInner() {
         setToken(data.token as string);
         setCustomer(data.customer as import('@/types').Customer);
         window.dispatchEvent(new Event('auth-changed'));
-        router.replace('/account');
+        router.replace('/');
       })
       .catch(e => {
         const msg = (e as Error).message || 'Social login failed. Please try again.';

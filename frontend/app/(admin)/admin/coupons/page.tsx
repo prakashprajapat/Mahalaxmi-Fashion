@@ -4,12 +4,14 @@ import { getAdminToken } from '@/lib/auth';
 import { couponsApi } from '@/lib/api';
 
 interface Coupon {
-  id: number; code: string; type: string; value: number;
+  id: number; code: string; type: string; value: number; occasion: string;
   minOrder: number; maxUses: number | null; usedCount: number;
   expiresAt: string | null; isActive: boolean; createdAt: string;
 }
 
-const empty = { code: '', type: 'flat', value: '', minOrder: '0', maxUses: '', expiresAt: '', isActive: true };
+const empty = { code: '', type: 'flat', value: '', occasion: 'none', minOrder: '0', maxUses: '', expiresAt: '', isActive: true };
+
+const OCCASION_LABEL: Record<string, string> = { none: '—', birthday: '🎂 Birthday', anniversary: '💍 Anniversary' };
 
 export default function CouponsPage() {
   const [coupons, setCoupons] = useState<Coupon[]>([]);
@@ -33,7 +35,7 @@ export default function CouponsPage() {
   const startEdit = (c: Coupon) => {
     setEditId(c.id);
     setForm({
-      code: c.code, type: c.type, value: String(c.value),
+      code: c.code, type: c.type, value: String(c.value), occasion: c.occasion ?? 'none',
       minOrder: String(c.minOrder), maxUses: c.maxUses ? String(c.maxUses) : '',
       expiresAt: c.expiresAt ? c.expiresAt.split('T')[0] : '', isActive: c.isActive,
     });
@@ -49,6 +51,7 @@ export default function CouponsPage() {
         code: form.code.trim().toUpperCase(),
         type: form.type,
         value: parseFloat(form.value),
+        occasion: form.occasion,
         minOrder: parseFloat(form.minOrder) || 0,
         maxUses: form.maxUses ? parseInt(form.maxUses) : null,
         expiresAt: form.expiresAt ? new Date(form.expiresAt).toISOString() : null,
@@ -102,6 +105,19 @@ export default function CouponsPage() {
             </select>
           </label>
 
+          <label style={{ display: 'block', fontSize: '.85rem', fontWeight: 600 }}>
+            Occasion
+            <select value={form.occasion} onChange={e => setForm(f => ({ ...f, occasion: e.target.value }))}
+              style={{ display: 'block', width: '100%', marginTop: '.3rem', border: '1.5px solid #ddd', borderRadius: '7px', padding: '.5rem .75rem', fontSize: '.9rem', boxSizing: 'border-box' }}>
+              <option value="none">None (regular)</option>
+              <option value="birthday">🎂 Birthday</option>
+              <option value="anniversary">💍 Anniversary</option>
+            </select>
+            <span style={{ display: 'block', marginTop: '.25rem', fontSize: '.72rem', color: '#999', fontWeight: 400 }}>
+              Redeeming a birthday/anniversary coupon locks that date on the customer&apos;s profile.
+            </span>
+          </label>
+
           <label style={{ display: 'flex', alignItems: 'center', gap: '.5rem', fontSize: '.85rem', fontWeight: 600, marginTop: '1.5rem', cursor: 'pointer' }}>
             <input type="checkbox" checked={form.isActive} onChange={e => setForm(f => ({ ...f, isActive: e.target.checked }))} />
             Active
@@ -132,7 +148,7 @@ export default function CouponsPage() {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '.88rem' }}>
             <thead>
               <tr style={{ background: '#f8f8f8', textAlign: 'left' }}>
-                {['Code','Type','Value','Min Order','Uses','Expires','Status','Actions'].map(h => (
+                {['Code','Type','Value','Occasion','Min Order','Uses','Expires','Status','Actions'].map(h => (
                   <th key={h} style={{ padding: '.65rem .75rem', fontWeight: 700, borderBottom: '2px solid #eee', whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
@@ -143,6 +159,7 @@ export default function CouponsPage() {
                   <td style={{ padding: '.6rem .75rem', fontWeight: 700, color: '#a7354d' }}>{c.code}</td>
                   <td style={{ padding: '.6rem .75rem' }}>{c.type === 'percent' ? '%' : '₹'}</td>
                   <td style={{ padding: '.6rem .75rem' }}>{c.type === 'percent' ? `${c.value}%` : `₹${c.value}`}</td>
+                  <td style={{ padding: '.6rem .75rem', whiteSpace: 'nowrap' }}>{OCCASION_LABEL[c.occasion] ?? '—'}</td>
                   <td style={{ padding: '.6rem .75rem' }}>₹{c.minOrder}</td>
                   <td style={{ padding: '.6rem .75rem' }}>{c.usedCount}{c.maxUses ? `/${c.maxUses}` : ''}</td>
                   <td style={{ padding: '.6rem .75rem' }}>{c.expiresAt ? new Date(c.expiresAt).toLocaleDateString('en-IN') : '—'}</td>

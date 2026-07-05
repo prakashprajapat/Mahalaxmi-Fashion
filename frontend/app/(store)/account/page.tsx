@@ -53,7 +53,8 @@ function AccountContent() {
       saveCustomer(res.customer);
       setCustomer(res.customer);
       window.dispatchEvent(new Event('auth-changed'));
-      if (returnTo.startsWith('/')) router.push(returnTo);
+      // After login, go to the home page by default (or back to wherever the user came from).
+      router.push(returnTo.startsWith('/') ? returnTo : '/');
     } catch (e) {
       setError((e as Error).message || 'Login failed. Please check your credentials.');
     } finally { setLoading(false); }

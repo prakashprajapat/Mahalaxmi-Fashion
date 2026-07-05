@@ -460,10 +460,10 @@ public class CustomersController : ControllerBase
         if (req.LastName     != null) c.LastName     = req.LastName.Trim();
         if (req.Gender       != null) c.Gender       = req.Gender;
         if (req.Phone        != null) c.Phone        = req.Phone.Trim();
-        // Birthday & anniversary can be set once, then locked — stops customers editing
-        // their dates repeatedly to keep claiming date-based offers.
-        if (req.DateOfBirth  != null && c.DateOfBirth  == null) c.DateOfBirth  = ParseDate(req.DateOfBirth);
-        if (req.MarriageDate != null && c.MarriageDate == null) c.MarriageDate = ParseDate(req.MarriageDate);
+        // Birthday & anniversary stay editable until the customer redeems the matching
+        // date-based coupon; once that offer is used the date locks (stops repeat claims).
+        if (req.DateOfBirth  != null && !c.BirthdayOfferUsed)    c.DateOfBirth  = ParseDate(req.DateOfBirth);
+        if (req.MarriageDate != null && !c.AnniversaryOfferUsed) c.MarriageDate = ParseDate(req.MarriageDate);
         if (req.AddrLine1    != null) c.AddrLine1    = req.AddrLine1;
         if (req.AddrLine2    != null) c.AddrLine2    = req.AddrLine2;
         if (req.Pincode      != null) c.Pincode      = req.Pincode;
@@ -757,6 +757,7 @@ public class CustomersController : ControllerBase
         c.AccountStatus, c.ProfileStatus,
         c.MarketingConsent, c.PanNumber, c.PanName, c.PanStatus,
         c.EmailVerified, c.PhoneVerified,
-        c.CreatedAt
+        c.CreatedAt,
+        c.BirthdayOfferUsed, c.AnniversaryOfferUsed
     );
 }

@@ -35,6 +35,14 @@ public class Customer
     [Column("marriage_date")]
     public DateOnly? MarriageDate { get; set; }
 
+    // True once the customer has redeemed a birthday / anniversary coupon. The matching
+    // date then locks (until then the customer may still edit it).
+    [Column("birthday_offer_used")]
+    public bool BirthdayOfferUsed { get; set; }
+
+    [Column("anniversary_offer_used")]
+    public bool AnniversaryOfferUsed { get; set; }
+
     [Column("addr_line1")]
     public string AddrLine1 { get; set; } = string.Empty;
 

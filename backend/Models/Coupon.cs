@@ -21,6 +21,11 @@ public class Coupon
     [Column("value")]
     public decimal Value { get; set; }
 
+    /// <summary>Ties a coupon to a special date: "none" | "birthday" | "anniversary".
+    /// Redeeming a birthday/anniversary coupon locks that date on the customer's profile.</summary>
+    [Column("occasion")]
+    public string Occasion { get; set; } = "none";
+
     [Column("min_order")]
     public decimal MinOrder { get; set; }
 
