@@ -22,13 +22,20 @@ function sortArr(products: Product[], sort: string): Product[] {
 
 export function BestSellersSection({ products }: { products: Product[] }) {
   const [sort, setSort] = useState('default');
-  const sorted = sortArr(products, sort).slice(0, 8);
-  if (sorted.length === 0) return null;
+  const [cat, setCat] = useState('all');
+
+  // Categories actually present among the best-sellers (keeps chips relevant & clickable)
+  const categories = Array.from(new Set(products.map(p => p.category).filter(Boolean)));
+
+  const filtered = cat === 'all' ? products : products.filter(p => p.category === cat);
+  const sorted = sortArr(filtered, sort).slice(0, 8);
+
+  if (products.length === 0) return null;
 
   return (
-    <section style={{ background: '#fdf0f3', padding: '2.5rem 0' }} id="best-sellers">
+    <section style={{ background: '#fdf0f3', padding: '1.25rem 0 2rem' }} id="best-sellers">
       <div className="section-wrap">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '.75rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '.75rem' }}>
           <h2 className="section-heading" style={{ margin: 0 }}>Best Sellers</h2>
           <div style={{ display: 'flex', alignItems: 'center', gap: '.75rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '.4rem' }}>
@@ -45,9 +52,37 @@ export function BestSellersSection({ products }: { products: Product[] }) {
             <Link href="/best-sellers" style={{ color: '#a7354d', fontWeight: 600, fontSize: '.9rem' }}>View All →</Link>
           </div>
         </div>
+
+        {/* Category filter chips */}
+        {categories.length > 1 && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '.5rem', marginBottom: '1.25rem' }}>
+            {['all', ...categories].map(c => {
+              const active = c === cat;
+              return (
+                <button key={c} type="button" onClick={() => setCat(c)}
+                  style={{
+                    border: active ? '1.5px solid #a7354d' : '1.5px solid #e3c4cd',
+                    background: active ? '#a7354d' : '#fff',
+                    color: active ? '#fff' : '#a7354d',
+                    borderRadius: '20px', padding: '.32rem .95rem',
+                    fontSize: '.82rem', fontWeight: 600, cursor: 'pointer',
+                    textTransform: 'capitalize', transition: 'all .15s',
+                  }}>
+                  {c === 'all' ? 'All' : c}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
         <div className="products-grid">
           {sorted.map((p, i) => <ProductCard key={p.dbId} product={p} priority={i < 4} />)}
         </div>
+        {sorted.length === 0 && (
+          <p style={{ textAlign: 'center', color: '#888', padding: '1.5rem 0', margin: 0 }}>
+            No best sellers in this category yet.
+          </p>
+        )}
       </div>
     </section>
   );

@@ -151,9 +151,9 @@ export default async function HomePage() {
       <NewArrivalsSection products={products} />
 
       {/* Why Shop With Us */}
-      <section style={{ background: '#fafafa', padding: '2rem 1.5rem', borderTop: '1px solid #eee' }}>
+      <section style={{ background: '#fafafa', padding: '1.25rem 1.5rem', borderTop: '1px solid #eee' }}>
         <div className="section-wrap">
-          <h2 className="section-heading" style={{ marginBottom: '1.25rem' }}>Why Customers Stay</h2>
+          <h2 className="section-heading" style={{ marginBottom: '.9rem' }}>Why Customers Stay</h2>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '1rem' }}>
             {[
               { icon: '🧵', title: 'Premium Fabrics', desc: 'Every piece curated for quality — festive & daily wear.' },
