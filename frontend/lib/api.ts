@@ -115,6 +115,13 @@ export const ordersApi = {
       { method: 'POST', body: JSON.stringify({ decision, reason }) },
       token
     ),
+  // Admin: assign a reverse-pickup AWB. mode 'manual' (paste AWB) or 'auto' (Delhivery generates it).
+  assignReturnAwb: (orderId: string, data: { mode: 'manual' | 'auto'; awb?: string; courier?: string }, token: string) =>
+    request<{ success: boolean; order: import('@/types').Order; awb: string; courier: string }>(
+      `/orders/${orderId}/return-awb`,
+      { method: 'POST', body: JSON.stringify(data) },
+      token
+    ),
 };
 
 // ── Customers ────────────────────────────────────────────────────────────────

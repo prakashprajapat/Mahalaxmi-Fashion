@@ -18,7 +18,9 @@ builder.Services.AddDbContext<AppDbContext>(opt =>
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<EmailService>();
 builder.Services.AddScoped<SmsService>();
+builder.Services.AddScoped<DelhiveryService>();
 builder.Services.AddHttpClient("razorpay");
+builder.Services.AddHttpClient("delhivery");
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddMemoryCache(); // PERF-2: for settings caching

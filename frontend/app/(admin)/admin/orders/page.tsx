@@ -74,8 +74,29 @@ export default function AdminOrdersPage() {
   const [showReject, setShowReject] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
   const [decisionBusy, setDecisionBusy] = useState(false);
+  // Return pickup (reverse AWB) inputs
+  const [retAwb, setRetAwb] = useState('');
+  const [retCourier, setRetCourier] = useState('Delhivery');
 
-  const closeReturnModal = () => { setReturnModalId(null); setShowReject(false); setRejectReason(''); };
+  const closeReturnModal = () => { setReturnModalId(null); setShowReject(false); setRejectReason(''); setRetAwb(''); };
+
+  const assignReturnAwb = async (order: Order, mode: 'manual' | 'auto') => {
+    if (mode === 'manual' && !retAwb.trim()) { alert('Enter the return AWB / tracking number.'); return; }
+    if (mode === 'manual' && !confirm(`Assign return AWB ${retAwb.trim()} (${retCourier}) and move to Return Transit?`)) return;
+    setDecisionBusy(true);
+    try {
+      const token = getAdminToken() ?? '';
+      const r = await ordersApi.assignReturnAwb(order.id,
+        mode === 'auto' ? { mode } : { mode, awb: retAwb.trim(), courier: retCourier }, token);
+      setOrders(prev => prev.map(o => (o.id === order.id ? r.order : o)));
+      setRetAwb('');
+      if (mode === 'auto') alert(`Delhivery reverse pickup created. AWB: ${r.awb}`);
+    } catch (e) {
+      alert((e as Error).message || 'Failed to assign return AWB.');
+    } finally {
+      setDecisionBusy(false);
+    }
+  };
 
   const submitDecision = async (order: Order, decision: 'approve' | 'reject') => {
     if (decision === 'reject' && !rejectReason.trim()) { alert('Please enter a reason for rejecting this return.'); return; }
@@ -692,14 +713,50 @@ export default function AdminOrdersPage() {
                 </div>
               )
             ) : (
-              <div style={{ display: 'flex', gap: '.75rem', marginTop: '1rem' }}>
-                <button onClick={closeReturnModal} style={grey}>Close</button>
-                {o.returnDecision === 'approved' && RETURN_STATUSES.includes(o.status) && o.status !== 'Return' && (
-                  <button onClick={() => markReturned(o)} disabled={decisionBusy} style={{ ...btn, background: '#2e7d32' }}>
-                    {decisionBusy ? 'Saving…' : '✓ Mark as Returned'}
-                  </button>
+              <>
+                {o.returnDecision === 'approved' && o.status !== 'Return' && (
+                  <div style={{ marginTop: '1rem', borderTop: '1px solid #eee', paddingTop: '.85rem' }}>
+                    <p style={{ ...lbl, marginBottom: '.4rem' }}>🚚 Return Pickup (reverse)</p>
+                    <div style={{ background: '#faf7f8', borderRadius: 8, padding: '.6rem .75rem', fontSize: '.78rem', color: '#555', marginBottom: '.6rem', lineHeight: 1.5 }}>
+                      <strong>Pickup from customer:</strong><br />
+                      {o.shippingName || o.customerName || '—'}{o.customerPhone ? ` · ${o.customerPhone}` : ''}<br />
+                      {[o.shippingAddress, o.shippingCity, o.shippingState, o.shippingPincode].filter(Boolean).join(', ') || '—'}
+                    </div>
+                    {o.awb ? (
+                      <p style={{ fontSize: '.82rem', color: '#2e7d32', fontWeight: 700, margin: '0 0 .5rem' }}>
+                        ✓ Return AWB: {o.awb}{o.courier ? ` (${o.courier})` : ''}
+                      </p>
+                    ) : (
+                      <>
+                        <div style={{ display: 'flex', gap: '.5rem', marginBottom: '.5rem', flexWrap: 'wrap' }}>
+                          <input value={retAwb} onChange={e => setRetAwb(e.target.value)} placeholder="Return AWB / tracking no."
+                            style={{ flex: '1 1 160px', border: '1.5px solid #ddd', borderRadius: 8, padding: '.5rem .65rem', fontSize: '.85rem', boxSizing: 'border-box' }} />
+                          <select value={retCourier} onChange={e => setRetCourier(e.target.value)}
+                            style={{ border: '1.5px solid #ddd', borderRadius: 8, padding: '.5rem', fontSize: '.85rem' }}>
+                            {['Delhivery', 'India Post', 'DTDC', 'Other / Manual'].map(c => <option key={c}>{c}</option>)}
+                          </select>
+                        </div>
+                        <div style={{ display: 'flex', gap: '.6rem', flexWrap: 'wrap' }}>
+                          <button onClick={() => assignReturnAwb(o, 'manual')} disabled={decisionBusy} style={{ ...btn, flex: '0 0 auto', padding: '.5rem .9rem', background: '#a7354d' }}>
+                            {decisionBusy ? '…' : 'Save AWB'}
+                          </button>
+                          <button onClick={() => assignReturnAwb(o, 'auto')} disabled={decisionBusy} style={{ ...btn, flex: '0 0 auto', padding: '.5rem .9rem', background: '#1565c0' }}>
+                            ⚡ Auto (Delhivery)
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
                 )}
-              </div>
+                <div style={{ display: 'flex', gap: '.75rem', marginTop: '1rem' }}>
+                  <button onClick={closeReturnModal} style={grey}>Close</button>
+                  {o.returnDecision === 'approved' && RETURN_STATUSES.includes(o.status) && o.status !== 'Return' && (
+                    <button onClick={() => markReturned(o)} disabled={decisionBusy} style={{ ...btn, background: '#2e7d32' }}>
+                      {decisionBusy ? 'Saving…' : '✓ Mark as Returned'}
+                    </button>
+                  )}
+                </div>
+              </>
             )}
           </div>
         </div>

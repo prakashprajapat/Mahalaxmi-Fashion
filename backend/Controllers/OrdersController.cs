@@ -25,11 +25,13 @@ public class OrdersController : ControllerBase
     ];
 
     private readonly IWebHostEnvironment _env;
+    private readonly Services.DelhiveryService _delhivery;
 
-    public OrdersController(AppDbContext db, IWebHostEnvironment env)
+    public OrdersController(AppDbContext db, IWebHostEnvironment env, Services.DelhiveryService delhivery)
     {
         _db = db;
         _env = env;
+        _delhivery = delhivery;
     }
 
     // Deploy-safe uploads root: /var/www/mahalaxmi-uploads/returns (outside repo & publish dir).
@@ -597,6 +599,58 @@ public class OrdersController : ControllerBase
         return Ok(new { success = true, order = MapOrder(order) });
     }
 
+    // POST /api/orders/{orderId}/return-awb  (Admin/Staff)
+    //   mode = "manual" → store the AWB the admin pasted from their courier panel.
+    //   mode = "auto"   → generate a Delhivery REVERSE pickup from the customer's address.
+    // Either way the order moves to "Return Transit".
+    [HttpPost("{orderId}/return-awb")]
+    [Authorize(Policy = "AdminOrStaff")]
+    public async Task<IActionResult> AssignReturnAwb(string orderId, [FromBody] ReturnAwbRequest req)
+    {
+        var order = await _db.SiteOrders.FirstOrDefaultAsync(o => o.OrderId == orderId);
+        if (order is null)
+            return NotFound(new { success = false, message = "Order not found." });
+
+        var mode = (req.Mode ?? "manual").Trim().ToLowerInvariant();
+        string awb;
+        string courier;
+
+        if (mode == "auto")
+        {
+            var ship = ParseJson(order.ShippingJson);
+            var cust = ParseJson(order.CustomerJson);
+            var from = new Services.DelhiveryService.PickupAddress(
+                Name:    GetJsonStr(ship, "name") ?? GetJsonStr(cust, "name") ?? "",
+                Address: GetJsonStr(ship, "address") ?? "",
+                Pincode: GetJsonStr(ship, "pincode") ?? "",
+                City:    GetJsonStr(ship, "city") ?? "",
+                State:   GetJsonStr(ship, "state") ?? "",
+                Phone:   GetJsonStr(cust, "phone") ?? "");
+
+            var result = await _delhivery.CreateReversePickupAsync(order.OrderId, from, "Return pickup");
+            if (!result.Success || string.IsNullOrWhiteSpace(result.Awb))
+                return BadRequest(new { success = false, message = result.Error ?? "Delhivery reverse pickup failed." });
+
+            awb = result.Awb!;
+            courier = "Delhivery";
+        }
+        else
+        {
+            awb = new string((req.Awb ?? "").Where(char.IsLetterOrDigit).ToArray());
+            if (string.IsNullOrWhiteSpace(awb))
+                return BadRequest(new { success = false, message = "Enter a return AWB / tracking number." });
+            courier = string.IsNullOrWhiteSpace(req.Courier) ? "Manual" : req.Courier!.Trim();
+        }
+
+        order.Awb = awb;
+        order.Courier = courier;
+        order.Status = "Return Transit";
+        order.UpdatedAt = DateTimeOffset.UtcNow;
+        await _db.SaveChangesAsync();
+
+        return Ok(new { success = true, order = MapOrder(order), awb, courier });
+    }
+
     // Best-effort delete of an order's stored return media directory (instance helper).
     private void DeleteReturnMediaDir(string orderId) => PurgeReturnMediaDir(ReturnsRoot(), orderId);
 
@@ -712,4 +766,10 @@ public record ReturnRequest(
 public record ReturnDecisionRequest(
     string? Decision,      // "approve" | "reject"
     string? Reason = null  // required when rejecting; shown to the customer
+);
+
+public record ReturnAwbRequest(
+    string? Mode,          // "manual" | "auto"
+    string? Awb = null,    // required for manual
+    string? Courier = null
 );
