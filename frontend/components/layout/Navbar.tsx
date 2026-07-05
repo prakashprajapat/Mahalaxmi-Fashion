@@ -188,7 +188,8 @@ export default function Navbar() {
 
       {/* Offer Strip */}
       <section className="premium-offer-strip">
-        <span>🚚 Free Shipping on orders above ₹999</span>
+        <span>🚚 Free Shipping</span>
+        <span>✨ Trending styles at unbeatable prices — new drops every week!</span>
         <Link href="/products?bestSeller=true">Shop Now</Link>
       </section>
 
@@ -200,6 +201,7 @@ export default function Navbar() {
           <Link href="/return-exchange">Refund &amp; Exchange Policy</Link>
           <Link href="/privacy-policy">Privacy Policy</Link>
           <Link href="/safety-center">Safety Center</Link>
+          <Link href="/become-supplier" className="policy-nav-seller">🏪 Become a Seller</Link>
         </nav>
 
         <div className="brand-row">

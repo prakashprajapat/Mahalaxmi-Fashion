@@ -87,6 +87,15 @@ button { cursor: pointer; font-family: inherit; }
 }
 .policy-nav a { color: rgba(255,255,255,.8); white-space: nowrap; }
 .policy-nav a:hover { color: #f1bd79; }
+.policy-nav .policy-nav-seller {
+  margin-left: auto;
+  color: #f1bd79;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: .3rem;
+}
+.policy-nav .policy-nav-seller:hover { color: #fff; }
 
 .brand-row {
   display: flex;
@@ -107,7 +116,20 @@ button { cursor: pointer; font-family: inherit; }
 }
 .brand strong { display: block; font-size: 1.05rem; color: var(--brand); line-height: 1.2; }
 .brand-tagline { font-size: .7rem; color: var(--muted); }
-.brand-mark img { width: auto; height: 68px; max-width: 260px; object-fit: contain; }
+.brand-mark {
+  width: 78px;
+  height: 78px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid var(--brand-light);
+  box-shadow: 0 2px 8px rgba(0,0,0,.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.brand-mark img { width: 100%; height: 100%; padding: 8px; object-fit: contain; }
 
 .search {
   flex: 0 1 480px;
@@ -159,6 +181,24 @@ button { cursor: pointer; font-family: inherit; }
 }
 .account-cta:hover { background: var(--brand); color: #fff; }
 
+/* ─── Primary Button ─── */
+.btn-primary {
+  display: inline-block;
+  background: var(--brand);
+  color: #fff;
+  padding: .75rem 1.5rem;
+  border-radius: var(--radius);
+  font-weight: 700;
+  font-size: .95rem;
+  text-align: center;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(167,53,77,.25);
+  transition: background .2s, transform .1s;
+}
+.btn-primary:hover { background: var(--brand-dark); }
+.btn-primary:active { transform: translateY(1px); }
+
 .department-nav {
   display: flex;
   gap: 0;
@@ -179,9 +219,9 @@ button { cursor: pointer; font-family: inherit; }
   text-align: center;
   text-decoration: none;
   color: #444;
-  font-size: .72rem;
-  font-weight: 500;
-  padding: .4rem .5rem;
+  font-size: .95rem;
+  font-weight: 600;
+  padding: .55rem .7rem;
   gap: .2rem;
   min-width: 56px;
   white-space: nowrap;
@@ -901,10 +941,14 @@ button { cursor: pointer; font-family: inherit; }
     gap: 8px;
   }
 
+  .brand-mark {
+    width: 58px;
+    height: 58px;
+  }
   .brand-mark img {
-    width: auto;
-    height: 52px;
-    max-width: 190px;
+    width: 100%;
+    height: 100%;
+    padding: 5px;
   }
 
   .brand strong {
@@ -974,7 +1018,8 @@ button { cursor: pointer; font-family: inherit; }
 
   .department-nav a {
     padding: .6rem 0;
-    font-size: .86rem;
+    font-size: .92rem;
+    font-weight: 600;
   }
 
   .home-hero-image {
@@ -1005,10 +1050,14 @@ button { cursor: pointer; font-family: inherit; }
     height: 40px;
   }
 
+  .brand-mark {
+    width: 52px;
+    height: 52px;
+  }
   .brand-mark img {
-    width: auto;
-    height: 46px;
-    max-width: 170px;
+    width: 100%;
+    height: 100%;
+    padding: 4px;
   }
 
   .brand strong {
