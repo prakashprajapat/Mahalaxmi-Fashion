@@ -63,6 +63,8 @@ export default function AdminOrdersPage() {
   const [mainTab, setMainTab] = useState<'orders' | 'returns'>('orders');
   const [activeTab, setActiveTab] = useState('all');
   const [search, setSearch] = useState('');
+  const [filterSize, setFilterSize] = useState('');
+  const [filterColour, setFilterColour] = useState('');
   const [dateFilter, setDateFilter] = useState('');
   const [awbModal, setAwbModal] = useState(false);
   const [newStatus, setNewStatus] = useState('');           // holds the chosen courier
@@ -155,14 +157,23 @@ export default function AdminOrdersPage() {
   );
 
   const filtered = tabFiltered.filter(o => {
+    const q = search.toLowerCase();
     const matchSearch = !search ||
-      o.id.toLowerCase().includes(search.toLowerCase()) ||
-      (o.customerName ?? '').toLowerCase().includes(search.toLowerCase()) ||
+      o.id.toLowerCase().includes(q) ||
+      (o.customerName ?? '').toLowerCase().includes(q) ||
       (o.customerPhone ?? '').includes(search) ||
       (o.shippingPincode ?? '').includes(search) ||
-      (o.awb ?? '').toLowerCase().includes(search.toLowerCase());
+      (o.awb ?? '').toLowerCase().includes(q) ||
+      (o.cart ?? []).some(c => (c.sku ?? '').toLowerCase().includes(q) || (c.name ?? '').toLowerCase().includes(q));
     const matchDate = !dateFilter || (o.placedAt ?? o.createdAt).startsWith(dateFilter);
-    return matchSearch && matchDate;
+    const matchSize = !filterSize ||
+      (o.cart ?? []).some(c => (c.size ?? '').toLowerCase().includes(filterSize.toLowerCase()));
+    const matchColour = !filterColour ||
+      (o.cart ?? []).some(c =>
+        (c.color ?? '').toLowerCase().includes(filterColour.toLowerCase()) ||
+        (c.colorCode ?? '').toLowerCase().includes(filterColour.toLowerCase()) ||
+        (c.colorColumn ?? '').toLowerCase().includes(filterColour.toLowerCase()));
+    return matchSearch && matchDate && matchSize && matchColour;
   });
 
   const countFor = (key: string) =>
@@ -436,16 +447,22 @@ export default function AdminOrdersPage() {
 
       {/* Filters row */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '.75rem', marginBottom: '1rem', alignItems: 'center' }}>
-        <input placeholder="Search ID, name, phone, AWB..."
+        <input placeholder="Search ID, name, phone, AWB, SKU..."
           value={search} onChange={e => setSearch(e.target.value)}
           style={{ border: '1.5px solid #ddd', borderRadius: '8px', padding: '.5rem .75rem', fontSize: '.88rem', width: '240px' }} />
+        <input placeholder="Size (e.g. XL)"
+          value={filterSize} onChange={e => setFilterSize(e.target.value)}
+          style={{ border: '1.5px solid #ddd', borderRadius: '8px', padding: '.5rem .75rem', fontSize: '.88rem', width: '130px' }} />
+        <input placeholder="Colour / Design"
+          value={filterColour} onChange={e => setFilterColour(e.target.value)}
+          style={{ border: '1.5px solid #ddd', borderRadius: '8px', padding: '.5rem .75rem', fontSize: '.88rem', width: '150px' }} />
         <input type="date" value={dateFilter} onChange={e => setDateFilter(e.target.value)}
           style={{ border: '1.5px solid #ddd', borderRadius: '8px', padding: '.5rem .75rem', fontSize: '.88rem' }} />
-        {dateFilter && <button onClick={() => setDateFilter('')}
+        {(dateFilter || filterSize || filterColour || search) && <button onClick={() => { setDateFilter(''); setFilterSize(''); setFilterColour(''); setSearch(''); }}
           style={{ background: '#f5f5f5', border: 'none', borderRadius: '8px', padding: '.5rem .75rem', fontSize: '.82rem', cursor: 'pointer' }}>
-          Clear Date
+          Clear
         </button>}
-        <span style={{ fontSize: '.85rem', color: '#888' }}>{filtered.length} orders</span>
+        <span style={{ fontSize: '.85rem', color: '#888', fontWeight: 600 }}>{filtered.length} orders</span>
       </div>
 
       {/* Bulk Actions */}
@@ -483,16 +500,16 @@ export default function AdminOrdersPage() {
                     checked={selectedIds.size === filtered.length && filtered.length > 0}
                     onChange={e => setSelectedIds(e.target.checked ? new Set(filtered.map(o => o.id)) : new Set())} />
                 </th>
-                {['Order ID','Date','Customer','Pincode','Item(s)','Amount','Method','AWB','Action'].map(h => (
+                {['Order ID','Date','Customer','Pincode','Item(s)','Size','Colour/Design','Amount','Method','AWB','Action'].map(h => (
                   <th key={h} style={{ padding: '.75rem 1rem', textAlign: 'left', fontWeight: 600, fontSize: '.72rem', color: '#888', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={10} style={{ textAlign: 'center', padding: '3rem', color: '#aaa' }}>Loading orders…</td></tr>
+                <tr><td colSpan={12} style={{ textAlign: 'center', padding: '3rem', color: '#aaa' }}>Loading orders…</td></tr>
               ) : filtered.length === 0 ? (
-                <tr><td colSpan={10} style={{ textAlign: 'center', padding: '3rem', color: '#aaa' }}>No orders found.</td></tr>
+                <tr><td colSpan={12} style={{ textAlign: 'center', padding: '3rem', color: '#aaa' }}>No orders found.</td></tr>
               ) : filtered.map((o, i) => {
                 return (
                   <tr key={o.id} style={{ borderTop: i > 0 ? '1px solid #f5f5f5' : undefined, background: selectedIds.has(o.id) ? '#fdf0f3' : undefined }}>
@@ -535,6 +552,24 @@ export default function AdminOrdersPage() {
                             </div>
                           );
                         })}
+                      </div>
+                    </td>
+                    <td style={{ padding: '.5rem 1rem', fontSize: '.75rem', color: '#444' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '.45rem' }}>
+                        {o.cart.map((c, ci) => {
+                          const sizeOnly = c.color ? (c.size || '').split(' / ').filter(p => p && p !== c.color).join(' / ') : (c.size || '');
+                          return <div key={ci} style={{ minHeight: 40, display: 'flex', alignItems: 'center', fontWeight: 600 }}>{sizeOnly || '—'}</div>;
+                        })}
+                      </div>
+                    </td>
+                    <td style={{ padding: '.5rem 1rem', fontSize: '.75rem', color: '#444' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '.45rem' }}>
+                        {o.cart.map((c, ci) => (
+                          <div key={ci} style={{ minHeight: 40, display: 'flex', alignItems: 'center', gap: '.3rem', flexWrap: 'wrap' }}>
+                            {c.colorCode && <span style={{ width: 11, height: 11, borderRadius: '50%', background: c.colorCode, border: '1px solid #ccc', display: 'inline-block', flexShrink: 0 }} />}
+                            <span>{c.color || c.colorColumn ? `${c.color || ''}${c.colorColumn ? ` (Col ${c.colorColumn})` : ''}` : '—'}</span>
+                          </div>
+                        ))}
                       </div>
                     </td>
                     <td style={{ padding: '.65rem 1rem', fontWeight: 600, whiteSpace: 'nowrap' }}>₹{o.total.toLocaleString('en-IN')}</td>
