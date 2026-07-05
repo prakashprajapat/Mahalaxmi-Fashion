@@ -56,8 +56,14 @@ export default function QuickViewModal({ product, onClose }: Props) {
   // One swatch per colour (preset = circle, custom = photo) so ALL custom
   // colours show — even if they share a name — and without a text label.
   const swatchList: { key: string; name: string; photo?: string; code: string }[] = isPackProduct ? [] : [
-    ...((extra.colors ?? []).map((name, i) => ({ key: 'p' + i, name, code: (extra.colorCodes?.[name]) || '#ddd' }))),
-    ...((extra.customColors ?? []).map((cc, i) => ({ key: 'c' + i, name: cc.name ?? '', photo: cc.photo, code: cc.code || '#ddd' }))),
+    // Preset colours: only show ones that actually have a colour code (skip the blank/grey dot).
+    ...((extra.colors ?? [])
+        .filter(name => name && name.trim() && extra.colorCodes?.[name])
+        .map((name, i) => ({ key: 'p' + i, name, code: extra.colorCodes![name] }))),
+    // Custom colours: show if they have a photo OR a real colour code.
+    ...((extra.customColors ?? [])
+        .filter(cc => cc.photo || cc.code)
+        .map((cc, i) => ({ key: 'c' + i, name: cc.name ?? '', photo: cc.photo, code: cc.code || '#ddd' }))),
   ];
   const images: string[] = (() => {
     const imgs: string[] = [];

@@ -121,10 +121,11 @@ public class CustomersController : ControllerBase
     public async Task<IActionResult> SendCelebrationSms([FromBody] CelebrationSmsRequest req)
     {
         var authKey    = await _db.SiteSettings.Where(s => s.Key == "msg91AuthKey").Select(s => s.Value).FirstOrDefaultAsync();
-        var templateId = await _db.SiteSettings.Where(s => s.Key == "msg91SmsTemplateId").Select(s => s.Value).FirstOrDefaultAsync();
+        // Use the dedicated OFFER template — NOT the OTP template — so a discount message goes out.
+        var templateId = await _db.SiteSettings.Where(s => s.Key == "msg91CelebrationTemplateId").Select(s => s.Value).FirstOrDefaultAsync();
 
         if (string.IsNullOrWhiteSpace(authKey) || string.IsNullOrWhiteSpace(templateId))
-            return BadRequest(new { success = false, message = "MSG91 not configured. Set msg91AuthKey and msg91SmsTemplateId in Settings." });
+            return BadRequest(new { success = false, message = "Offer SMS not configured. Set 'msg91AuthKey' and 'msg91CelebrationTemplateId' (your birthday/anniversary OFFER template, with a ##coupon## variable) in Settings → MSG91 Configuration." });
 
         if (string.IsNullOrWhiteSpace(req.Phone))
             return BadRequest(new { success = false, message = "Phone number is required." });

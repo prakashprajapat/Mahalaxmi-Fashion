@@ -125,6 +125,7 @@ public class ReviewsController : ControllerBase
 
         _db.Reviews.Remove(review);
         await _db.SaveChangesAsync();
+        ProductsController.BustCache();   // product rating/count is computed from reviews → refresh listings
         return Ok(new { success = true });
     }
 
@@ -135,6 +136,7 @@ public class ReviewsController : ControllerBase
 
         review.Status = status;
         await _db.SaveChangesAsync();
+        ProductsController.BustCache();   // approving/rejecting changes the product's avg rating → refresh listings
         return Ok(new { success = true, review = ToDto(review) });
     }
 

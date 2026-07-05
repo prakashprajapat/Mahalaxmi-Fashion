@@ -16,13 +16,6 @@ const SECTIONS = [
     ]
   },
   {
-    title: 'Social Media',
-    fields: [
-      { key: 'facebook', label: 'Facebook URL', type: 'url' },
-      { key: 'instagram', label: 'Instagram URL', type: 'url' },
-    ]
-  },
-  {
     title: 'Offer Banner',
     desc: 'Controls the offer banner shown on the homepage. Toggle it on/off anytime.',
     fields: [
@@ -32,12 +25,6 @@ const SECTIONS = [
       { key: 'offerText', label: 'Offer Description', type: 'textarea' },
       { key: 'offerButtonLabel', label: 'Button Label', type: 'text' },
       { key: 'offerButtonLink', label: 'Button Link (URL or path)', type: 'text' },
-    ]
-  },
-  {
-    title: 'Hero Banner',
-    fields: [
-      { key: 'heroText', label: 'Hero Overlay Text', type: 'textarea' },
     ]
   },
   {
@@ -52,15 +39,6 @@ const SECTIONS = [
       { key: 'stat2Label', label: 'Stat 2 Label', type: 'text' },
       { key: 'stat3Value', label: 'Stat 3 Value (e.g. 7-day)', type: 'text' },
       { key: 'stat3Label', label: 'Stat 3 Label', type: 'text' },
-    ]
-  },
-  {
-    title: 'Customer Registration — OTP Verification Options',
-    desc: 'Control which OTP methods are available during customer registration. Email OTP is enabled by default.',
-    fields: [
-      { key: 'enableEmailOtp',    label: 'Email OTP (Default — always recommended)', type: 'toggle' },
-      { key: 'enableMobileOtp',   label: 'SMS OTP (requires MSG91 setup below)', type: 'toggle' },
-      { key: 'enableWhatsappOtp', label: 'WhatsApp OTP (requires MSG91 setup below)', type: 'toggle' },
     ]
   },
   {
@@ -82,6 +60,8 @@ const SECTIONS = [
       { key: 'msg91AuthKey',              label: 'MSG91 Auth Key', type: 'password' },
       { key: 'msg91WhatsappTemplateId',   label: 'WhatsApp OTP Template ID', type: 'text' },
       { key: 'msg91SmsTemplateId',        label: 'SMS OTP Template ID', type: 'text' },
+      { key: 'msg91CelebrationTemplateId',label: 'Birthday / Anniversary OFFER SMS Template ID (must include ##coupon##)', type: 'text' },
+      { key: 'celebrationOfferPercent',   label: 'Offer Discount % (default 10)', type: 'text' },
       { key: 'adminRecoveryPhone',        label: 'Admin Recovery Mobile (for password-reset OTP SMS, with 91)', type: 'text' },
     ]
   },
@@ -113,6 +93,16 @@ export default function AdminSettingsPage() {
   };
 
   const set = (key: string, value: string) => setForm(prev => ({ ...prev, [key]: value }));
+
+  // ── Dynamic social links (stored as JSON in form.socialLinks; migrates legacy facebook/instagram) ──
+  const socialLinks: { name: string; url: string }[] = (() => {
+    try { const r = JSON.parse(form.socialLinks || '[]'); if (Array.isArray(r)) return r; } catch {}
+    const legacy: { name: string; url: string }[] = [];
+    if (form.facebook)  legacy.push({ name: 'Facebook',  url: form.facebook });
+    if (form.instagram) legacy.push({ name: 'Instagram', url: form.instagram });
+    return legacy;
+  })();
+  const saveSocial = (list: { name: string; url: string }[]) => set('socialLinks', JSON.stringify(list));
 
   const handleExport = () => {
     const data = { settings: form, exportedAt: new Date().toISOString() };
@@ -231,6 +221,29 @@ export default function AdminSettingsPage() {
               </div>
             </div>
           ))}
+
+          {/* Social Media — dynamic list (add any platform + URL) */}
+          <div style={{ background: '#fff', borderRadius: 12, padding: '1.5rem', boxShadow: '0 1px 4px rgba(0,0,0,.07)' }}>
+            <h2 style={{ fontSize: '1.05rem', fontWeight: 700, marginBottom: '.35rem', color: '#333' }}>Social Media</h2>
+            <p style={{ fontSize: '.85rem', color: '#888', marginBottom: '1rem' }}>Add any social links (Facebook, Instagram, YouTube, X, Pinterest, Telegram…). These appear in the website footer.</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '.6rem' }}>
+              {socialLinks.map((s, i) => (
+                <div key={i} style={{ display: 'flex', gap: '.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <input value={s.name} onChange={e => saveSocial(socialLinks.map((x, idx) => idx === i ? { ...x, name: e.target.value } : x))}
+                    placeholder="Platform (e.g. YouTube)"
+                    style={{ flex: '0 0 170px', border: '1.5px solid #ddd', borderRadius: 8, padding: '.55rem .7rem', fontSize: '.88rem', boxSizing: 'border-box' }} />
+                  <input value={s.url} onChange={e => saveSocial(socialLinks.map((x, idx) => idx === i ? { ...x, url: e.target.value } : x))}
+                    placeholder="https://…"
+                    style={{ flex: '1 1 240px', border: '1.5px solid #ddd', borderRadius: 8, padding: '.55rem .7rem', fontSize: '.88rem', boxSizing: 'border-box' }} />
+                  <button onClick={() => saveSocial(socialLinks.filter((_, idx) => idx !== i))}
+                    style={{ background: '#fce4e4', color: '#b71c1c', border: 'none', borderRadius: 8, padding: '.5rem .8rem', cursor: 'pointer', fontWeight: 700, fontSize: '.82rem' }}>Remove</button>
+                </div>
+              ))}
+              {socialLinks.length === 0 && <p style={{ fontSize: '.82rem', color: '#aaa' }}>No social links yet — add one below.</p>}
+            </div>
+            <button onClick={() => saveSocial([...socialLinks, { name: '', url: '' }])}
+              style={{ marginTop: '.8rem', background: '#a7354d', color: '#fff', border: 'none', borderRadius: 8, padding: '.5rem 1rem', cursor: 'pointer', fontWeight: 700, fontSize: '.85rem' }}>+ Add Social Link</button>
+          </div>
 
           {/* Bottom save bar */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '.25rem', flexWrap: 'wrap' }}>

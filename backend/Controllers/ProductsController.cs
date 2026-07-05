@@ -25,8 +25,8 @@ public class ProductsController : ControllerBase
         _cache = cache;
     }
 
-    /// Call after any write (update/delete/bulk) to bust all product list caches.
-    private static void BustCache() =>
+    /// Call after any write (update/delete/bulk, or a review change) to bust all product list caches.
+    public static void BustCache() =>
         System.Threading.Interlocked.Increment(ref _cacheVer);
 
     // GET /api/products
