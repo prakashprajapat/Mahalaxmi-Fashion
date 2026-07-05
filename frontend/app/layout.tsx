@@ -66,12 +66,12 @@ export const metadata: Metadata = {
   // ── Favicon / Icons ──────────────────────────────────────────────────────────
   icons: {
     icon: [
-      { url: '/favicon.ico?v=7', type: 'image/x-icon', sizes: '16x16 32x32 48x48' },
-      { url: '/favicon-32.png?v=7', type: 'image/png', sizes: '32x32' },
+      { url: '/favicon.ico?v=8', type: 'image/x-icon', sizes: '16x16 32x32 48x48' },
+      { url: '/favicon-32.png?v=8', type: 'image/png', sizes: '32x32' },
       { url: '/icon-192.png', type: 'image/png', sizes: '192x192' },
     ],
     apple: '/apple-touch-icon.png',
-    shortcut: '/favicon.ico?v=7',
+    shortcut: '/favicon.ico?v=8',
   },
 
   // ── Robots ─────────────────────────────────────────────────────────────────
