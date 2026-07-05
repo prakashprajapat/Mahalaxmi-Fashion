@@ -650,7 +650,7 @@ export default function AdminProductsPage() {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '.85rem' }}>
             <thead style={{ background: '#f9f9f9' }}>
               <tr>
-                {['Image','SKU','Name','Category','Price','Discount','Stock','Best Seller','Actions'].map(h => (
+                {['Image','SKU','Name','Category','Final Price','Stock','Best Seller','Actions'].map(h => (
                   <th key={h} style={{ padding: '.75rem 1rem', textAlign: 'left', fontWeight: 600, fontSize: '.72rem', color: '#888', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
@@ -676,9 +676,18 @@ export default function AdminProductsPage() {
                     {isInactive && <div style={{ fontSize: '.68rem', color: '#e65100', fontWeight: 700 }}>🚫 INACTIVE — Won&apos;t show on the website</div>}
                   </td>
                   <td style={{ padding: '.65rem 1rem', fontSize: '.8rem' }}>{p.category}</td>
-                  <td style={{ padding: '.65rem 1rem', fontWeight: 600 }}>₹{p.price.toLocaleString('en-IN')}</td>
-                  <td style={{ padding: '.65rem 1rem', fontSize: '.8rem', color: p.discountPrice ? '#27ae60' : '#ccc' }}>
-                    {p.discountPrice ? `₹${p.discountPrice.toLocaleString('en-IN')}` : '—'}
+                  <td style={{ padding: '.65rem 1rem' }}>
+                    {(() => {
+                      const base = (p.discountPrice && p.discountPrice > 0) ? p.discountPrice : p.price;
+                      const ship = p.shippingCharge ?? 0;
+                      const final = base + ship;
+                      return (
+                        <>
+                          <div style={{ fontWeight: 700, color: '#166534' }}>₹{final.toLocaleString('en-IN')}</div>
+                          {ship > 0 && <div style={{ fontSize: '.68rem', color: '#aaa' }}>incl. ₹{ship.toLocaleString('en-IN')} ship</div>}
+                        </>
+                      );
+                    })()}
                   </td>
                   <td style={{ padding: '.65rem 1rem' }}>
                     <span style={{ fontSize: '.72rem', fontWeight: 700, padding: '.2rem .55rem', borderRadius: '10px',
