@@ -30,6 +30,10 @@ export default function Footer() {
             <img
               src="/logo-color.webp"
               alt="Mahalaxmi Fashion Hub"
+              width={210}
+              height={90}
+              loading="lazy"
+              decoding="async"
               style={{ width: '210px', maxWidth: '100%', height: 'auto' }}
             />
           </Link>

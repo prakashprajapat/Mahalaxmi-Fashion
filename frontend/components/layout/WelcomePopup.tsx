@@ -87,7 +87,7 @@ export default function WelcomePopup() {
           alignItems: 'center', justifyContent: 'center',
           padding: '2rem 1.25rem', textAlign: 'center', gap: '1rem',
         }}>
-          <img src="/logo.webp?v=4" alt="Mahalaxmi Fashion Hub"
+          <img src="/logo.webp?v=4" alt="Mahalaxmi Fashion Hub" width={180} height={180} loading="lazy" decoding="async"
             style={{ width: 180, height: 180, minWidth: 180, maxWidth: 'none', boxSizing: 'border-box', flexShrink: 0, borderRadius: '50%', border: '3px solid rgba(255,255,255,.7)', background: '#fff', objectFit: 'contain', padding: 14 }} />
           <div style={{
             background: 'rgba(255,255,255,.15)', borderRadius: 12,

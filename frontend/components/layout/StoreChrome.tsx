@@ -1,11 +1,15 @@
 'use client';
 import { usePathname } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import Navbar from './Navbar';
 import Footer from './Footer';
 import FloatingCart from './FloatingCart';
-import WelcomePopup from './WelcomePopup';
 import WhatsAppFloat from './WhatsAppFloat';
 import RefCapture from '../RefCapture';
+
+// Non-critical, only shows after a 3.5s delay — load its JS lazily so it stays
+// out of the initial bundle and doesn't block first paint / hydration.
+const WelcomePopup = dynamic(() => import('./WelcomePopup'), { ssr: false });
 
 // The /influencer (affiliate creator portal) is a standalone page — it has its own
 // header/footer and should NOT show the shop navbar, sidebar, footer or popups.

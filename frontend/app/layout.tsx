@@ -86,19 +86,23 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <head>
+        {/* Preload the LCP hero image so it starts downloading immediately */}
+        <link rel="preload" as="image" href="/hero-banner.webp" fetchPriority="high" />
+
         {/* Preconnect to external image/asset hosts for faster product images */}
         <link rel="preconnect" href="https://res.cloudinary.com" />
         <link rel="dns-prefetch" href="https://res.cloudinary.com" />
-        <link rel="preconnect" href="https://www.googletagmanager.com" />
+        <link rel="dns-prefetch" href="https://www.googletagmanager.com" />
 
-        {/* Google Analytics 4 — set NEXT_PUBLIC_GA4_ID=G-XXXXXXXXXX in your .env */}
+        {/* Google Analytics 4 — loaded lazily (after page is interactive/idle) to keep
+            main-thread free and improve Total Blocking Time / mobile performance. */}
         {GA4_ID && (
           <>
             <Script
               src={`https://www.googletagmanager.com/gtag/js?id=${GA4_ID}`}
-              strategy="afterInteractive"
+              strategy="lazyOnload"
             />
-            <Script id="ga4-init" strategy="afterInteractive">
+            <Script id="ga4-init" strategy="lazyOnload">
               {`
                 window.dataLayer = window.dataLayer || [];
                 function gtag(){dataLayer.push(arguments);}
