@@ -228,6 +228,18 @@ public class OrdersController : ControllerBase
         if (order is null)
             return NotFound(new { success = false, message = "Order not found." });
 
+        // Safeguard: don't let a forward-shipping status overwrite a return in progress
+        // (that would silently pull the order out of the Returns queue). Override with Force.
+        var returnStatuses  = new[] { "Return Requested", "Return Transit", "Return" };
+        var forwardShipping = new[] { "Ready for Shipping", "Shipped", "Delivered" };
+        if (!req.Force
+            && returnStatuses.Contains(order.Status, StringComparer.OrdinalIgnoreCase)
+            && forwardShipping.Contains(req.Status, StringComparer.OrdinalIgnoreCase))
+        {
+            return Conflict(new { success = false, message =
+                $"Order {order.OrderId} is in a return flow ({order.Status}); it can't be marked \"{req.Status}\". Use the return actions instead." });
+        }
+
         order.Status = req.Status;
         if (req.Awb is not null)
             order.Awb = new string(req.Awb.Where(char.IsLetterOrDigit).ToArray());

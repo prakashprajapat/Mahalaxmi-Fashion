@@ -98,5 +98,6 @@ public record AdminUpdateOrderRequest(
     string OrderId,
     string Status,
     string? Awb,
-    string? Courier = null
+    string? Courier = null,
+    bool Force = false   // set true to override the return-flow safeguard
 );

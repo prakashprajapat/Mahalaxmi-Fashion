@@ -26,6 +26,9 @@ const RETURN_STATUS_TABS: { key: string; label: string; hidden?: boolean }[] = [
 ];
 
 const RETURN_STATUSES = ['Return Requested', 'Return Transit', 'Return'];
+// Forward-shipping statuses that must NOT be applied to a return in progress —
+// doing so would silently pull the order out of the Returns queue.
+const FORWARD_SHIP_STATUSES = ['Ready for Shipping', 'Shipped', 'Delivered'];
 
 function exportCSV(orders: Order[]) {
   const header = ['Order ID','Date','Customer','Phone','Email','City','State','Subtotal','Shipping','COD Fee','Total','Method','Status','AWB'];
@@ -132,8 +135,20 @@ export default function AdminOrdersPage() {
   // `newStatus` holds the courier (same for all); `awbMap` holds each order's AWB.
   const handleUpdate = async () => {
     const sel = filtered.filter(o => selectedIds.has(o.id));
-    const targets = sel.filter(o => (awbMap[o.id] ?? '').trim());
+    let targets = sel.filter(o => (awbMap[o.id] ?? '').trim());
     if (targets.length === 0) { alert('Enter at least one AWB / tracking number.'); return; }
+    // Safeguard: assigning a forward AWB marks the order "Shipped" — don't do that to a return.
+    const returnTargets = targets.filter(o => RETURN_STATUSES.includes(o.status));
+    if (returnTargets.length) {
+      const proceed = confirm(
+        `${returnTargets.length} of these are return orders (${returnTargets.map(o => o.id).join(', ')}).\n\n` +
+        `Assigning a forward AWB marks them "Shipped" and removes them from the Returns queue.\n\n` +
+        `OK = skip those and continue.  Cancel = stop.`
+      );
+      if (!proceed) return;
+      targets = targets.filter(o => !RETURN_STATUSES.includes(o.status));
+      if (!targets.length) { setAwbModal(false); return; }
+    }
     setUpdating(true);
     try {
       for (const o of targets) {
@@ -166,9 +181,27 @@ export default function AdminOrdersPage() {
 
   const bulkUpdateStatus = async (status: string) => {
     if (!selectedIds.size) return;
-    if (!confirm(`Update ${selectedIds.size} order(s) to "${status}"?`)) return;
+    let ids = [...selectedIds];
+    // Safeguard: forward-shipping statuses shouldn't overwrite a return in progress.
+    if (FORWARD_SHIP_STATUSES.includes(status)) {
+      const returnIds = ids.filter(id => {
+        const o = orders.find(x => x.id === id);
+        return !!o && RETURN_STATUSES.includes(o.status);
+      });
+      if (returnIds.length) {
+        const proceed = confirm(
+          `${returnIds.length} selected order(s) are in a return flow (${returnIds.join(', ')}).\n\n` +
+          `Marking them "${status}" would remove them from the Returns queue.\n\n` +
+          `OK = skip those and continue with the rest.  Cancel = stop.`
+        );
+        if (!proceed) return;
+        ids = ids.filter(id => !returnIds.includes(id));
+        if (!ids.length) { setSelectedIds(new Set()); return; }
+      }
+    }
+    if (!confirm(`Update ${ids.length} order(s) to "${status}"?`)) return;
     const token = getAdminToken() ?? '';
-    for (const id of selectedIds) {
+    for (const id of ids) {
       await ordersApi.updateStatus({ orderId: id, status }, token).catch(() => {});
     }
     setSelectedIds(new Set());
