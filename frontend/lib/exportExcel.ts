@@ -23,6 +23,58 @@ function fmtINR(n: number | undefined | null) {
   return Number(n).toFixed(2);
 }
 
+// ── GST helpers (apparel slab, prices are GST-INCLUSIVE) ──────────────────────
+const HOME_STATE = 'rajasthan';
+const GST_THRESHOLD = 2500;                 // ₹ per piece: ≤ ₹2500 → 5%, above → 18%
+const RETURN_STATUSES = ['Return Requested', 'Return Transit', 'Return'];
+
+/** Per-piece apparel slab. */
+function slabRate(unitPrice: number): number {
+  return unitPrice > GST_THRESHOLD ? 18 : 5;
+}
+/** Highest slab across an order's items — used as the order rate for the full (incl. shipping) value. */
+function orderGstRate(o: Order): number {
+  let rate = 5;
+  (o.cart ?? []).forEach((i: any) => {
+    const qty = Number(i.quantity ?? 1) || 1;
+    const unit = Number(i.lineTotal ?? 0) / qty;
+    if (slabRate(unit) === 18) rate = 18;
+  });
+  return rate;
+}
+/** Split a GST-inclusive amount into taxable base + GST at a given rate. */
+function splitGst(inclAmount: number, rate: number) {
+  const taxable = inclAmount / (1 + rate / 100);
+  return { taxable, gst: inclAmount - taxable };
+}
+function isIntraState(o: Order): boolean {
+  return String((o as any).shippingState ?? '').toLowerCase() === HOME_STATE;
+}
+function invoiceNo(o: Order): string {
+  return ((o as any).invoiceNumber as string) || '—';
+}
+/** Credit-note number derived from the invoice, e.g. M/26-27/002 → CN/26-27/002. */
+function creditNoteNo(o: Order): string {
+  const inv = (o as any).invoiceNumber as string | undefined;
+  if (inv) return 'CN' + inv.replace(/^[A-Za-z]+/, '');
+  return 'CN-' + String(o.id).slice(-6);
+}
+const neg = (x: number) => -Number(x.toFixed(2));
+const r2 = (x: number) => +Number(x.toFixed(2));
+
+/** Net taxable base + GST for a set of orders (order-total incl. shipping, GST-inclusive,
+ *  at the order's slab rate; returns/cancelled excluded → net figure). Used by the Reports page. */
+export function productGstTotals(orders: Order[]) {
+  let taxable = 0, gst = 0;
+  orders
+    .filter(o => o.status !== 'Cancelled' && !RETURN_STATUSES.includes(o.status))
+    .forEach(o => {
+      const s = splitGst(Number(o.total ?? 0), orderGstRate(o));
+      taxable += s.taxable; gst += s.gst;
+    });
+  return { taxable, gst };
+}
+
 /** Parse sizes / colours / stock from product ExtraJson */
 function parseExtra(product: Product) {
   if (!product.extraJson) return { sizes: [] as string[], colours: [] as any[], packOf: product.packOf ?? 1, gstRate: product.gstRate ?? 5, hsnCode: product.hsnCode ?? '' };
@@ -226,58 +278,67 @@ export function exportGSTR1Excel(orders: Order[], from: string, to: string) {
   const HOME_STATE = 'rajasthan';
 
   const header = [
-    'GSTIN of Supplier','Invoice No','Invoice Date','Customer Name','Customer State',
+    'Type','GSTIN of Supplier','Invoice / CN No','Invoice Date','Customer Name','Customer State',
     'HSN Code','Item Description','Quantity','Taxable Value (₹)','GST Rate (%)',
     'CGST (₹)','SGST (₹)','IGST (₹)','Invoice Value (₹)',
   ];
 
   const rows: (string | number)[][] = [];
 
+  // 1) Sale invoices — every non-cancelled order (returned orders' original sale still counts,
+  //    then its credit note reverses it below). Per-item slab GST on GST-inclusive line totals.
   orders
-    .filter(o => !['Cancelled', 'Return', 'Return Transit', 'Return Requested'].includes(o.status))
+    .filter(o => o.status !== 'Cancelled')
     .forEach(o => {
       const date = fmtDate(o.placedAt as any ?? o.createdAt as any);
-      const state = ((o as any).shippingState ?? '').toLowerCase();
-      const isIntra = state === HOME_STATE;
-
+      const intra = isIntraState(o);
       (o.cart ?? []).forEach((item: any) => {
+        const qty       = Number(item.quantity ?? 1) || 1;
         const lineTotal = Number(item.lineTotal ?? 0);
-        const taxable   = lineTotal / 1.05;
-        const gst       = lineTotal - taxable;
-        const cgst      = isIntra ? gst / 2 : 0;
-        const sgst      = isIntra ? gst / 2 : 0;
-        const igst      = isIntra ? 0 : gst;
-
+        const rate      = slabRate(lineTotal / qty);
+        const { taxable, gst } = splitGst(lineTotal, rate);
         rows.push([
-          GSTIN,
-          o.id,
-          date,
-          o.customerName ?? '',
-          (o as any).shippingState ?? '',
-          item.hsn ?? item.hsnCode ?? '6211',
-          item.name,
-          item.quantity,
-          +taxable.toFixed(2),
-          5,
-          +cgst.toFixed(2),
-          +sgst.toFixed(2),
-          +igst.toFixed(2),
-          +lineTotal.toFixed(2),
+          'Sale Invoice', GSTIN, invoiceNo(o), date, o.customerName ?? '', (o as any).shippingState ?? '',
+          item.hsn ?? item.hsnCode ?? '6211', item.name, qty,
+          r2(taxable), rate,
+          r2(intra ? gst / 2 : 0), r2(intra ? gst / 2 : 0), r2(intra ? 0 : gst),
+          r2(lineTotal),
         ]);
       });
     });
 
-  // Summary row
-  const sumTaxable = rows.reduce((s, r) => s + (r[8] as number), 0);
-  const sumCGST    = rows.reduce((s, r) => s + (r[10] as number), 0);
-  const sumSGST    = rows.reduce((s, r) => s + (r[11] as number), 0);
-  const sumIGST    = rows.reduce((s, r) => s + (r[12] as number), 0);
-  const sumInv     = rows.reduce((s, r) => s + (r[13] as number), 0);
-  rows.push(['','','','','','','TOTAL','',+sumTaxable.toFixed(2),'',+sumCGST.toFixed(2),+sumSGST.toFixed(2),+sumIGST.toFixed(2),+sumInv.toFixed(2)]);
+  // 2) Credit notes (CDNR) — for returned orders, reversing the goods, negative values.
+  orders
+    .filter(o => RETURN_STATUSES.includes(o.status))
+    .forEach(o => {
+      const date = fmtDate(o.placedAt as any ?? o.createdAt as any);
+      const intra = isIntraState(o);
+      (o.cart ?? []).forEach((item: any) => {
+        const qty       = Number(item.quantity ?? 1) || 1;
+        const lineTotal = Number(item.lineTotal ?? 0);
+        const rate      = slabRate(lineTotal / qty);
+        const { taxable, gst } = splitGst(lineTotal, rate);
+        rows.push([
+          'Credit Note', GSTIN, creditNoteNo(o), date, o.customerName ?? '', (o as any).shippingState ?? '',
+          item.hsn ?? item.hsnCode ?? '6211', `Return: ${item.name}`, -qty,
+          neg(taxable), rate,
+          neg(intra ? gst / 2 : 0), neg(intra ? gst / 2 : 0), neg(intra ? 0 : gst),
+          neg(lineTotal),
+        ]);
+      });
+    });
+
+  // Summary row (columns shifted by +1 because of the leading "Type" column)
+  const sumTaxable = rows.reduce((s, r) => s + (Number(r[9])  || 0), 0);
+  const sumCGST    = rows.reduce((s, r) => s + (Number(r[11]) || 0), 0);
+  const sumSGST    = rows.reduce((s, r) => s + (Number(r[12]) || 0), 0);
+  const sumIGST    = rows.reduce((s, r) => s + (Number(r[13]) || 0), 0);
+  const sumInv     = rows.reduce((s, r) => s + (Number(r[14]) || 0), 0);
+  rows.push(['NET','','','','','','','TOTAL','', r2(sumTaxable),'', r2(sumCGST), r2(sumSGST), r2(sumIGST), r2(sumInv)]);
 
   const ws = XLSX.utils.aoa_to_sheet([header, ...rows]);
   ws['!cols'] = [
-    { wch: 20 }, { wch: 20 }, { wch: 12 }, { wch: 22 }, { wch: 16 },
+    { wch: 12 }, { wch: 20 }, { wch: 16 }, { wch: 12 }, { wch: 22 }, { wch: 16 },
     { wch: 10 }, { wch: 40 }, { wch: 8  }, { wch: 16 }, { wch: 10 },
     { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 14 },
   ];
@@ -290,37 +351,85 @@ export function exportGSTR1Excel(orders: Order[], from: string, to: string) {
 // ── SALES SUMMARY EXCEL ───────────────────────────────────────────────────────
 
 export function exportSalesExcel(orders: Order[], from: string, to: string) {
-  // Sheet 1: Order-level summary
-  const ordHdr = ['Order ID','Date','Customer','Phone','City','State','Subtotal','Shipping','COD Fee','Total','Method','Status'];
-  const ordRows = orders.map(o => [
+  // ── Sheet 1: Order Summary (familiar view + Invoice No + Credit Note No) ──
+  const ordHdr = ['Order ID','Invoice No','Credit Note No','Date','Customer','Phone','City','State','Subtotal','Shipping','COD Fee','Total','Method','Status'];
+  const ordRows: (string | number)[][] = orders.map(o => [
     o.id,
+    invoiceNo(o),
+    RETURN_STATUSES.includes(o.status) ? creditNoteNo(o) : '',
     fmtDate(o.placedAt as any ?? o.createdAt as any),
     o.customerName ?? '',
     o.customerPhone ?? '',
     (o as any).shippingCity  ?? '',
     (o as any).shippingState ?? '',
-    +Number(o.subtotal).toFixed(2),
-    +Number(o.shippingCost).toFixed(2),
-    +Number(o.codFee).toFixed(2),
-    +Number(o.total).toFixed(2),
+    r2(Number(o.subtotal)),
+    r2(Number(o.shippingCost)),
+    r2(Number(o.codFee)),
+    r2(Number(o.total)),
     o.method,
     o.status,
   ]);
-
-  // Summary row
-  const totSub  = ordRows.reduce((s, r) => s + (r[6]  as number), 0);
-  const totShip = ordRows.reduce((s, r) => s + (r[7]  as number), 0);
-  const totCod  = ordRows.reduce((s, r) => s + (r[8]  as number), 0);
-  const totTot  = ordRows.reduce((s, r) => s + (r[9]  as number), 0);
-  ordRows.push(['','','','','','TOTAL',+totSub.toFixed(2),+totShip.toFixed(2),+totCod.toFixed(2),+totTot.toFixed(2),'','']);
+  const colSum = (idx: number) => ordRows.reduce((s, r) => s + (typeof r[idx] === 'number' ? r[idx] as number : 0), 0);
+  const totTot = colSum(11);
+  ordRows.push(['','','','','','','','TOTAL', r2(colSum(8)), r2(colSum(9)), r2(colSum(10)), r2(totTot), '', '']);
 
   const ws1 = XLSX.utils.aoa_to_sheet([ordHdr, ...ordRows]);
   ws1['!cols'] = [
-    { wch: 20 }, { wch: 14 }, { wch: 22 }, { wch: 14 }, { wch: 16 }, { wch: 16 },
-    { wch: 12 }, { wch: 12 }, { wch: 11 }, { wch: 12 }, { wch: 14 }, { wch: 18 },
+    { wch: 20 }, { wch: 15 }, { wch: 15 }, { wch: 13 }, { wch: 20 }, { wch: 13 }, { wch: 14 }, { wch: 14 },
+    { wch: 11 }, { wch: 11 }, { wch: 10 }, { wch: 11 }, { wch: 10 }, { wch: 16 },
   ];
 
-  // Sheet 2: Status breakdown
+  // ── Sheet 2: Sales & Credit Notes (GST ledger: sale rows + negative credit-note rows for returns) ──
+  const ledHdr = ['Type','Invoice / CN No','Order ID','Date','Customer','State','Taxable Value (₹)','GST %','CGST (₹)','SGST (₹)','IGST (₹)','Doc Value (₹)','Status'];
+  const ledRows: (string | number)[][] = [];
+  orders.filter(o => o.status !== 'Cancelled').forEach(o => {
+    const rate = orderGstRate(o);
+    const intra = isIntraState(o);
+    const date = fmtDate(o.placedAt as any ?? o.createdAt as any);
+    const st = (o as any).shippingState ?? '';
+    // Sale invoice (full order value incl. shipping, GST-inclusive at slab rate)
+    const sale = splitGst(Number(o.total ?? 0), rate);
+    ledRows.push(['Sale Invoice', invoiceNo(o), o.id, date, o.customerName ?? '', st,
+      r2(sale.taxable), rate, r2(intra ? sale.gst / 2 : 0), r2(intra ? sale.gst / 2 : 0), r2(intra ? 0 : sale.gst),
+      r2(Number(o.total)), o.status]);
+    // Credit note for a returned order — reverse the goods value (subtotal), negative
+    if (RETURN_STATUSES.includes(o.status)) {
+      const goods = Number(o.total ?? 0);   // reverse the full sale (incl. shipping) on return
+      const cn = splitGst(goods, rate);
+      ledRows.push(['Credit Note (Return)', creditNoteNo(o), o.id, date, o.customerName ?? '', st,
+        neg(cn.taxable), rate, neg(intra ? cn.gst / 2 : 0), neg(intra ? cn.gst / 2 : 0), neg(intra ? 0 : cn.gst),
+        neg(goods), 'Return / CN']);
+    }
+  });
+  const ws2 = XLSX.utils.aoa_to_sheet([ledHdr, ...ledRows]);
+  ws2['!cols'] = [{ wch: 20 }, { wch: 15 }, { wch: 20 }, { wch: 13 }, { wch: 20 }, { wch: 14 }, { wch: 16 }, { wch: 8 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 13 }, { wch: 15 }];
+
+  // ── Sheet 3: GST Summary by Rate (net of return credit notes) ──
+  const agg: Record<number, { taxable: number; gst: number }> = { 5: { taxable: 0, gst: 0 }, 18: { taxable: 0, gst: 0 } };
+  let cnTaxable = 0, cnGst = 0;
+  orders.filter(o => o.status !== 'Cancelled').forEach(o => {
+    const rate = orderGstRate(o);
+    const sale = splitGst(Number(o.total ?? 0), rate);
+    agg[rate].taxable += sale.taxable; agg[rate].gst += sale.gst;
+    if (RETURN_STATUSES.includes(o.status)) {
+      const goods = Number(o.total ?? 0);   // reverse the full sale (incl. shipping) on return
+      const cn = splitGst(goods, rate);
+      cnTaxable += cn.taxable; cnGst += cn.gst;
+    }
+  });
+  const gstHdr = ['Line','Taxable Value (₹)','CGST (₹)','SGST (₹)','Total GST (₹)'];
+  const gstRows: (string | number)[][] = [
+    ['Sales @ 5%',  r2(agg[5].taxable),  r2(agg[5].gst / 2),  r2(agg[5].gst / 2),  r2(agg[5].gst)],
+    ['Sales @ 18%', r2(agg[18].taxable), r2(agg[18].gst / 2), r2(agg[18].gst / 2), r2(agg[18].gst)],
+    ['Less: Credit Notes (Returns)', neg(cnTaxable), neg(cnGst / 2), neg(cnGst / 2), neg(cnGst)],
+  ];
+  const netTaxable = agg[5].taxable + agg[18].taxable - cnTaxable;
+  const netGst = agg[5].gst + agg[18].gst - cnGst;
+  gstRows.push(['NET GST PAYABLE', r2(netTaxable), r2(netGst / 2), r2(netGst / 2), r2(netGst)]);
+  const ws2b = XLSX.utils.aoa_to_sheet([gstHdr, ...gstRows]);
+  ws2b['!cols'] = [{ wch: 30 }, { wch: 18 }, { wch: 14 }, { wch: 14 }, { wch: 16 }];
+
+  // ── Sheet 4: Status breakdown ──
   const statusMap: Record<string, { count: number; total: number }> = {};
   orders.forEach(o => {
     const s = o.status;
@@ -329,13 +438,12 @@ export function exportSalesExcel(orders: Order[], from: string, to: string) {
     statusMap[s].total += Number(o.total);
   });
   const stHdr = ['Status','Order Count','Total Revenue (₹)'];
-  const stRows = Object.entries(statusMap).map(([st, v]) => [st, v.count, +v.total.toFixed(2)]);
-  stRows.push(['TOTAL', orders.length, +totTot.toFixed(2)]);
+  const stRows: (string | number)[][] = Object.entries(statusMap).map(([st, v]) => [st, v.count, r2(v.total)]);
+  stRows.push(['TOTAL', orders.length, r2(totTot)]);
+  const ws3s = XLSX.utils.aoa_to_sheet([stHdr, ...stRows]);
+  ws3s['!cols'] = [{ wch: 22 }, { wch: 14 }, { wch: 18 }];
 
-  const ws2 = XLSX.utils.aoa_to_sheet([stHdr, ...stRows]);
-  ws2['!cols'] = [{ wch: 22 }, { wch: 14 }, { wch: 18 }];
-
-  // Sheet 3: SKU-wise sales
+  // ── Sheet 5: SKU-wise sales
   const skuMap: Record<string, { name: string; qty: number; revenue: number }> = {};
   orders
     .filter(o => !['Cancelled','Return'].includes(o.status))
@@ -356,8 +464,10 @@ export function exportSalesExcel(orders: Order[], from: string, to: string) {
   ws3['!cols'] = [{ wch: 16 }, { wch: 45 }, { wch: 10 }, { wch: 14 }];
 
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws1, 'All Orders');
-  XLSX.utils.book_append_sheet(wb, ws2, 'Status Summary');
-  XLSX.utils.book_append_sheet(wb, ws3, 'SKU Sales');
+  XLSX.utils.book_append_sheet(wb, ws1,  'Order Summary');
+  XLSX.utils.book_append_sheet(wb, ws2,  'Sales & Credit Notes');
+  XLSX.utils.book_append_sheet(wb, ws2b, 'GST Summary');
+  XLSX.utils.book_append_sheet(wb, ws3s, 'Status Summary');
+  XLSX.utils.book_append_sheet(wb, ws3,  'SKU Sales');
   download(wb, `MFH_Sales_${from}_to_${to}.xlsx`);
 }

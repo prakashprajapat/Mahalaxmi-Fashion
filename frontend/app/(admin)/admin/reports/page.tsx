@@ -2,8 +2,11 @@
 import { useEffect, useState } from 'react';
 import { ordersApi } from '@/lib/api';
 import { getAdminToken } from '@/lib/auth';
-import { exportGSTR1Excel, exportSalesExcel } from '@/lib/exportExcel';
+import { exportGSTR1Excel, exportSalesExcel, productGstTotals } from '@/lib/exportExcel';
 import type { Order } from '@/types';
+
+// Apparel GST slab (GST-inclusive prices): per-piece ≤ ₹2500 → 5%, above → 18%.
+const gstSlab = (unitPrice: number) => (unitPrice > 2500 ? 18 : 5);
 
 function exportGSTR1(orders: Order[], from: string, to: string) {
   const header = ['GSTIN','Invoice No','Invoice Date','Customer Name','State','HSN Code','Description','Qty','Taxable Value','GST Rate','CGST','SGST','IGST','Invoice Value'];
@@ -12,7 +15,9 @@ function exportGSTR1(orders: Order[], from: string, to: string) {
   orders.filter(o => !['Cancelled','Return'].includes(o.status)).forEach(o => {
     const date = new Date(o.placedAt ?? o.createdAt).toLocaleDateString('en-IN');
     o.cart.forEach(item => {
-      const taxable = (item.lineTotal / 1.05);
+      const qty = Number(item.quantity ?? 1) || 1;
+      const rate = gstSlab(item.lineTotal / qty);
+      const taxable = item.lineTotal / (1 + rate / 100);
       const gst = item.lineTotal - taxable;
       const state = (o as any).shippingState ?? '';
       const isIntraState = state.toLowerCase() === 'rajasthan';
@@ -26,7 +31,7 @@ function exportGSTR1(orders: Order[], from: string, to: string) {
         item.name,
         String(item.quantity),
         taxable.toFixed(2),
-        '5%',
+        `${rate}%`,
         isIntraState ? (gst / 2).toFixed(2) : '0.00',
         isIntraState ? (gst / 2).toFixed(2) : '0.00',
         !isIntraState ? gst.toFixed(2) : '0.00',
@@ -90,10 +95,8 @@ export default function AdminReportsPage() {
   });
 
   const revenue = filtered.filter(o => !['Cancelled','Return'].includes(o.status)).reduce((s, o) => s + o.total, 0);
-  // Retail prices are GST-inclusive (5%): extract the taxable base and GST out of the
-  // revenue so that Revenue = Taxable Base + GST — consistent with the GSTR-1 export.
-  const taxableBase = revenue / 1.05;
-  const totalGst = revenue - taxableBase;
+  // GST-inclusive prices, apparel slab (5% / 18% by piece price). Net of returns.
+  const { taxable: taxableBase, gst: totalGst } = productGstTotals(filtered);
   const cgst = totalGst / 2;
   const sgst = totalGst / 2;
   const delivered = filtered.filter(o => o.status === 'Delivered').length;
@@ -121,7 +124,9 @@ export default function AdminReportsPage() {
     o.cart.forEach(item => {
       const hsn = item.hsn || '6211';
       if (!hsnMap[hsn]) hsnMap[hsn] = { qty: 0, taxable: 0, gst: 0 };
-      const taxable = item.lineTotal / 1.05;
+      const qty = Number(item.quantity ?? 1) || 1;
+      const rate = gstSlab(item.lineTotal / qty);
+      const taxable = item.lineTotal / (1 + rate / 100);
       hsnMap[hsn].qty += item.quantity;
       hsnMap[hsn].taxable += taxable;
       hsnMap[hsn].gst += item.lineTotal - taxable;
