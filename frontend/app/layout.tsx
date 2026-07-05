@@ -86,9 +86,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <head>
-        {/* Preload the LCP hero image so it starts downloading immediately */}
-        <link rel="preload" as="image" href="/hero-bannernew.webp" fetchPriority="high" />
-
         {/* Preconnect to external image/asset hosts for faster product images */}
         <link rel="preconnect" href="https://res.cloudinary.com" />
         <link rel="dns-prefetch" href="https://res.cloudinary.com" />

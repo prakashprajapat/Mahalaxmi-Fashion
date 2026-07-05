@@ -21,6 +21,7 @@ const ALL_NAV: { href?: string; label?: string; exact?: boolean; heading?: strin
   { href: '/admin/coupons',     label: '🎟️ Coupons & Discounts' },
   { href: '/admin/influencers', label: '🌟 Influencer Marketing' },
   { href: '/admin/popup-leads', label: '📋 Popup Leads' },
+  { href: '/admin/suppliers',   label: '🏪 Seller Applications' },
   { href: '/admin/settings',    label: '⚙️ Settings' },
 ];
 
