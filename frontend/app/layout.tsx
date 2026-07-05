@@ -1,6 +1,10 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import Script from 'next/script';
 import './globals.css';
+
+export const viewport: Viewport = {
+  themeColor: '#a7354d',
+};
 
 const SITE_URL = 'https://mahalaxmifashionhub.com';
 const GA4_ID   = process.env.NEXT_PUBLIC_GA4_ID ?? 'G-SFMFYD4NE6';
@@ -48,14 +52,23 @@ export const metadata: Metadata = {
     images: ['/og-image.jpg'],
   },
 
-  // ── Favicon ────────────────────────────────────────────────────────────────
+  // ── PWA / Install to Home Screen ─────────────────────────────────────────────
+  applicationName: 'Mahalaxmi Fashion Hub',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'Mahalaxmi',
+  },
+
+  // ── Favicon / Icons ──────────────────────────────────────────────────────────
   icons: {
     icon: [
-      { url: '/logo.webp?v=4',   type: 'image/webp' },
+      { url: '/icon-192.png', type: 'image/png', sizes: '192x192' },
+      { url: '/logo.webp?v=4', type: 'image/webp' },
       { url: '/favicon.ico', type: 'image/x-icon', sizes: '32x32' },
     ],
-    apple: '/logo.webp?v=4',
-    shortcut: '/logo.webp?v=4',
+    apple: '/apple-touch-icon.png',
+    shortcut: '/icon-192.png',
   },
 
   // ── Robots ─────────────────────────────────────────────────────────────────

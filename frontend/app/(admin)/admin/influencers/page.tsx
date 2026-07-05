@@ -402,7 +402,7 @@ export default function InfluencersAdminPage() {
                 </tbody>
               </table>
             </div>
-            <p style={{fontSize:'.78rem',color:'#999',marginTop:'.75rem'}}>Creator चुनकर सिर्फ़ उसके orders देखें, फिर Export to Excel। <b>Self-order</b> = customer का phone/email creator के अपने से match। <b>Repeat</b> = एक ही phone कई orders पर। ज़्यादा return/cancel या self-orders = coupon misuse का संकेत — commission देने से पहले review करें।</p>
+            <p style={{fontSize:'.78rem',color:'#999',marginTop:'.75rem'}}>Select a creator to view only their orders, then Export to Excel. <b>Self-order</b> = the customer&apos;s phone/email matches the creator&apos;s own. <b>Repeat</b> = the same phone appears across many orders. A high return/cancel rate or many self-orders can indicate coupon misuse — review before paying commission.</p>
           </div>
           );
         })()
