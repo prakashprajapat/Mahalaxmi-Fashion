@@ -185,11 +185,13 @@ export default function QuickViewModal({ product, onClose }: Props) {
 
           {/* Left: Image gallery */}
           <div style={{ padding: '1.5rem', borderRight: '1px solid #f0f0f0', minWidth: 0 }}>
-            {/* Main image — outer: no overflow:hidden so lens can spill out */}
+            {/* Main image — frame hugs the photo (no fixed square, no grey bars) */}
             <div style={{
-              width: '100%', aspectRatio: '1/1', marginBottom: '.75rem',
+              width: '100%', marginBottom: '.75rem',
               cursor: imgHovered && activeImg ? 'crosshair' : 'default',
               position: 'relative',
+              borderRadius: '12px', overflow: 'hidden',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}
               onMouseEnter={() => setImgHovered(true)}
               onMouseLeave={() => setImgHovered(false)}
@@ -203,13 +205,10 @@ export default function QuickViewModal({ product, onClose }: Props) {
                 });
               }}
             >
-              {/* Inner: overflow:hidden clips image only */}
-              <div style={{ position: 'absolute', inset: 0, borderRadius: '12px', overflow: 'hidden', background: '#f8f8f8' }}>
-                {activeImg
-                  ? <img src={activeImg} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-                  : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '3rem', color: '#ddd' }}>👗</div>
-                }
-              </div>
+              {activeImg
+                ? <img src={activeImg} alt={product.name} style={{ width: '100%', height: 'auto', maxHeight: '78vh', objectFit: 'contain', display: 'block' }} />
+                : <div style={{ width: '100%', aspectRatio: '1/1', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '3rem', color: '#ddd', background: '#f8f8f8' }}>👗</div>
+              }
               {/* Circular magnifier — fixed so no parent overflow can clip it */}
               {imgHovered && activeImg && (
                 <div style={{
