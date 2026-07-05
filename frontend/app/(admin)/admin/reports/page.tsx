@@ -1,8 +1,8 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { ordersApi } from '@/lib/api';
+import { ordersApi, productsApi } from '@/lib/api';
 import { getAdminToken } from '@/lib/auth';
-import { exportGSTR1Excel, exportSalesExcel, productGstTotals } from '@/lib/exportExcel';
+import { exportGSTR1Excel, exportSalesExcel, exportGSTR1GovTemplate, productGstTotals } from '@/lib/exportExcel';
 import type { Order } from '@/types';
 
 // Apparel GST slab (GST-inclusive prices): per-piece ≤ ₹2500 → 5%, above → 18%.
@@ -80,6 +80,7 @@ export default function AdminReportsPage() {
     const d = new Date(); d.setMonth(d.getMonth() - 1); return d.toISOString().split('T')[0];
   });
   const [dateTo, setDateTo] = useState(new Date().toISOString().split('T')[0]);
+  const [packOf, setPackOf] = useState<Record<string, number>>({});
 
   useEffect(() => {
     const token = getAdminToken() ?? '';
@@ -87,6 +88,14 @@ export default function AdminReportsPage() {
       .then(r => setOrders(r.orders))
       .catch(console.error)
       .finally(() => setLoading(false));
+    // Build SKU → pack-of map so report quantities can be counted in pieces.
+    productsApi.getAll({ pageSize: 10000 })
+      .then(r => {
+        const m: Record<string, number> = {};
+        (r.products ?? []).forEach((p: any) => { if (p.sku) m[p.sku] = Number(p.packOf ?? 1) || 1; });
+        setPackOf(m);
+      })
+      .catch(() => {});
   }, []);
 
   const filtered = orders.filter(o => {
@@ -150,7 +159,7 @@ export default function AdminReportsPage() {
             style={{ background: '#27ae60', color: '#fff', border: 'none', borderRadius: '8px', padding: '.5rem 1rem', fontSize: '.82rem', fontWeight: 600, cursor: 'pointer' }}>
             ⬇️ Sales CSV
           </button>
-          <button onClick={() => exportSalesExcel(filtered, dateFrom, dateTo)}
+          <button onClick={() => exportSalesExcel(filtered, dateFrom, dateTo, packOf)}
             style={{ background: '#1b5e20', color: '#fff', border: 'none', borderRadius: '8px', padding: '.5rem 1rem', fontSize: '.82rem', fontWeight: 600, cursor: 'pointer' }}>
             📊 Sales Excel
           </button>
@@ -158,9 +167,13 @@ export default function AdminReportsPage() {
             style={{ background: '#1565c0', color: '#fff', border: 'none', borderRadius: '8px', padding: '.5rem 1rem', fontSize: '.82rem', fontWeight: 600, cursor: 'pointer' }}>
             📄 GSTR-1 CSV
           </button>
-          <button onClick={() => exportGSTR1Excel(filtered, dateFrom, dateTo)}
+          <button onClick={() => exportGSTR1Excel(filtered, dateFrom, dateTo, packOf)}
             style={{ background: '#0d47a1', color: '#fff', border: 'none', borderRadius: '8px', padding: '.5rem 1rem', fontSize: '.82rem', fontWeight: 600, cursor: 'pointer' }}>
             📊 GSTR-1 Excel
+          </button>
+          <button onClick={() => exportGSTR1GovTemplate(filtered, dateFrom, dateTo, packOf)}
+            style={{ background: '#4a148c', color: '#fff', border: 'none', borderRadius: '8px', padding: '.5rem 1rem', fontSize: '.82rem', fontWeight: 600, cursor: 'pointer' }}>
+            🏛️ GSTR-1 Gov Template
           </button>
         </div>
       </div>

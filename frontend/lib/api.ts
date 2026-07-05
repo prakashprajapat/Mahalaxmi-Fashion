@@ -53,6 +53,11 @@ export const productsApi = {
     request('/products', { method: 'POST', body: JSON.stringify({ products }) }, token),
   update: (id: number, data: unknown, token: string) =>
     request(`/products/${id}`, { method: 'PUT', body: JSON.stringify(data) }, token),
+  // Lightweight stock-only toggle (no need to resend the whole product)
+  updateStock: (id: number, stock: string, token: string) =>
+    request<{ success: boolean; product: import('@/types').Product }>(
+      `/products/${id}/stock`, { method: 'PATCH', body: JSON.stringify({ stock }) }, token
+    ),
   delete: (id: number, token: string) =>
     request(`/products/${id}`, { method: 'DELETE' }, token),
 };

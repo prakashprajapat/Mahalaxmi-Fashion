@@ -49,3 +49,5 @@ public record ProductCreateRequest(
 );
 
 public record BulkSaveRequest(List<ProductCreateRequest> Products, bool ReplaceAll = false);
+
+public record StockUpdateRequest(string? Stock);

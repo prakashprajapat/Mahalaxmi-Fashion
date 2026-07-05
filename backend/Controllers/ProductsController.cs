@@ -248,6 +248,26 @@ public class ProductsController : ControllerBase
         return Ok(new { success = true, product = ToDto(p) });
     }
 
+    // PATCH /api/products/{id}/stock  (Admin/Staff) — update ONLY the stock status.
+    // Lightweight so the Stock Manager toggle doesn't need to resend the whole product.
+    [HttpPatch("{id:int}/stock")]
+    [Authorize(Policy = "AdminOrStaff")]
+    public async Task<IActionResult> UpdateStock(int id, [FromBody] StockUpdateRequest req)
+    {
+        var p = await _db.Products.FindAsync(id);
+        if (p is null) return NotFound(new { success = false, message = "Product not found." });
+
+        var status = (req.Stock ?? "").Trim();
+        var allowed = new[] { "In Stock", "Out of Stock", "Limited Stock" };
+        if (!allowed.Contains(status))
+            return BadRequest(new { success = false, message = "Invalid stock status." });
+
+        p.StockStatus = status;
+        await _db.SaveChangesAsync();
+        BustCache();
+        return Ok(new { success = true, product = ToDto(p) });
+    }
+
     // DELETE /api/products/{id}  (Admin only)
     [HttpDelete("{id:int}")]
     [Authorize(Policy = "AdminOnly")]

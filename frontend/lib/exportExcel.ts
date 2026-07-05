@@ -273,9 +273,9 @@ export function exportCustomers(customers: Customer[]) {
 
 // ── GSTR-1 EXCEL ──────────────────────────────────────────────────────────────
 
-export function exportGSTR1Excel(orders: Order[], from: string, to: string) {
+export function exportGSTR1Excel(orders: Order[], from: string, to: string, packOf: Record<string, number> = {}) {
   const GSTIN = '08MUEPS5079K1ZM'; // Rajasthan — update via Settings if needed
-  const HOME_STATE = 'rajasthan';
+  const pk = (sku?: string) => Math.max(1, Number(packOf[sku ?? ''] ?? 1));  // pieces per unit
 
   const header = [
     'Type','GSTIN of Supplier','Invoice / CN No','Invoice Date','Customer Name','Customer State',
@@ -299,7 +299,7 @@ export function exportGSTR1Excel(orders: Order[], from: string, to: string) {
         const { taxable, gst } = splitGst(lineTotal, rate);
         rows.push([
           'Sale Invoice', GSTIN, invoiceNo(o), date, o.customerName ?? '', (o as any).shippingState ?? '',
-          item.hsn ?? item.hsnCode ?? '6211', item.name, qty,
+          item.hsn ?? item.hsnCode ?? '6211', item.name, qty * pk(item.sku),
           r2(taxable), rate,
           r2(intra ? gst / 2 : 0), r2(intra ? gst / 2 : 0), r2(intra ? 0 : gst),
           r2(lineTotal),
@@ -320,7 +320,7 @@ export function exportGSTR1Excel(orders: Order[], from: string, to: string) {
         const { taxable, gst } = splitGst(lineTotal, rate);
         rows.push([
           'Credit Note', GSTIN, creditNoteNo(o), date, o.customerName ?? '', (o as any).shippingState ?? '',
-          item.hsn ?? item.hsnCode ?? '6211', `Return: ${item.name}`, -qty,
+          item.hsn ?? item.hsnCode ?? '6211', `Return: ${item.name}`, -(qty * pk(item.sku)),
           neg(taxable), rate,
           neg(intra ? gst / 2 : 0), neg(intra ? gst / 2 : 0), neg(intra ? 0 : gst),
           neg(lineTotal),
@@ -350,7 +350,8 @@ export function exportGSTR1Excel(orders: Order[], from: string, to: string) {
 
 // ── SALES SUMMARY EXCEL ───────────────────────────────────────────────────────
 
-export function exportSalesExcel(orders: Order[], from: string, to: string) {
+export function exportSalesExcel(orders: Order[], from: string, to: string, packOf: Record<string, number> = {}) {
+  const pk = (sku?: string) => Math.max(1, Number(packOf[sku ?? ''] ?? 1));  // pieces per unit
   // ── Sheet 1: Order Summary (familiar view + Invoice No + Credit Note No) ──
   const ordHdr = ['Order ID','Invoice No','Credit Note No','Date','Customer','Phone','City','State','Subtotal','Shipping','COD Fee','Total','Method','Status'];
   const ordRows: (string | number)[][] = orders.map(o => [
@@ -451,7 +452,7 @@ export function exportSalesExcel(orders: Order[], from: string, to: string) {
       (o.cart ?? []).forEach((item: any) => {
         const key = item.sku ?? item.name;
         if (!skuMap[key]) skuMap[key] = { name: item.name, qty: 0, revenue: 0 };
-        skuMap[key].qty     += Number(item.quantity ?? 1);
+        skuMap[key].qty     += (Number(item.quantity ?? 1) || 1) * pk(item.sku);
         skuMap[key].revenue += Number(item.lineTotal ?? 0);
       });
     });
@@ -470,4 +471,88 @@ export function exportSalesExcel(orders: Order[], from: string, to: string) {
   XLSX.utils.book_append_sheet(wb, ws3s, 'Status Summary');
   XLSX.utils.book_append_sheet(wb, ws3,  'SKU Sales');
   download(wb, `MFH_Sales_${from}_to_${to}.xlsx`);
+}
+
+// ── GSTR-1 GOVERNMENT OFFLINE-TOOL TEMPLATE ───────────────────────────────────
+// Produces the b2cs, hsn and docs sheets in the exact column layout of the govt
+// "GSTR1_Excel_Workbook_Template". Copy the rows into the official offline tool
+// (or import) to file. Quantities are counted in PIECES (units × pack-of).
+
+const STATE_CODES: Record<string, string> = {
+  'jammu and kashmir':'01','himachal pradesh':'02','punjab':'03','chandigarh':'04',
+  'uttarakhand':'05','haryana':'06','delhi':'07','rajasthan':'08','uttar pradesh':'09',
+  'bihar':'10','sikkim':'11','arunachal pradesh':'12','nagaland':'13','manipur':'14',
+  'mizoram':'15','tripura':'16','meghalaya':'17','assam':'18','west bengal':'19',
+  'jharkhand':'20','odisha':'21','chhattisgarh':'22','madhya pradesh':'23','gujarat':'24',
+  'maharashtra':'27','karnataka':'29','goa':'30','lakshadweep':'31','kerala':'32',
+  'tamil nadu':'33','puducherry':'34','andaman and nicobar islands':'35','telangana':'36',
+  'andhra pradesh':'37','ladakh':'38',
+};
+function posLabel(state?: string): string {
+  const s = String(state ?? '').trim().toLowerCase();
+  const nice = (state ?? '').trim().replace(/\b\w/g, c => c.toUpperCase());
+  const code = STATE_CODES[s];
+  return code ? `${code}-${nice}` : nice;
+}
+
+export function exportGSTR1GovTemplate(
+  orders: Order[], from: string, to: string, packOf: Record<string, number> = {},
+) {
+  const pk = (sku?: string) => Math.max(1, Number(packOf[sku ?? ''] ?? 1));
+
+  const b2cs: Record<string, { pos: string; rate: number; taxable: number }> = {};
+  const hsn:  Record<string, { hsn: string; rate: number; qty: number; value: number; taxable: number; igst: number; cgst: number; sgst: number }> = {};
+
+  const addLine = (o: Order, item: any, sign: number) => {
+    const units = Number(item.quantity ?? 1) || 1;
+    const line  = Number(item.lineTotal ?? 0) * sign;
+    const rate  = slabRate(Number(item.lineTotal ?? 0) / units);
+    const { taxable, gst } = splitGst(line, rate);
+    const intra = isIntraState(o);
+    // B2CS — aggregated by place-of-supply + rate (net of returns)
+    const pos = posLabel((o as any).shippingState);
+    const bk = `${pos}|${rate}`;
+    (b2cs[bk] ||= { pos, rate, taxable: 0 }).taxable += taxable;
+    // HSN — quantity in pieces (units × pack-of)
+    const code = item.hsn || item.hsnCode || '6211';
+    const hk = `${code}|${rate}`;
+    const h = (hsn[hk] ||= { hsn: code, rate, qty: 0, value: 0, taxable: 0, igst: 0, cgst: 0, sgst: 0 });
+    h.qty += units * pk(item.sku) * sign; h.value += line; h.taxable += taxable;
+    if (intra) { h.cgst += gst / 2; h.sgst += gst / 2; } else { h.igst += gst; }
+  };
+  orders.filter(o => o.status !== 'Cancelled').forEach(o => (o.cart ?? []).forEach(it => addLine(o, it, 1)));
+  orders.filter(o => RETURN_STATUSES.includes(o.status)).forEach(o => (o.cart ?? []).forEach(it => addLine(o, it, -1)));
+
+  // b2cs sheet
+  const b2csHdr = ['Type','Place Of Supply','Applicable % of Tax Rate','Rate','Taxable Value','Cess Amount','E-Commerce GSTIN'];
+  const b2csRows = Object.values(b2cs).filter(v => Math.abs(v.taxable) > 0.001)
+    .map(v => ['OE', v.pos, '', v.rate, r2(v.taxable), '', '']);
+  const wsB = XLSX.utils.aoa_to_sheet([['Summary For B2CS(7)'], [], [], b2csHdr, ...b2csRows]);
+  wsB['!cols'] = [{ wch: 8 }, { wch: 22 }, { wch: 20 }, { wch: 8 }, { wch: 16 }, { wch: 12 }, { wch: 18 }];
+
+  // hsn sheet
+  const hsnHdr = ['HSN','Description','UQC','Total Quantity','Total Value','Rate','Taxable Value','Integrated Tax Amount','Central Tax Amount','State/UT Tax Amount','Cess Amount'];
+  const hsnRows = Object.values(hsn)
+    .map(h => [h.hsn, '', 'PCS-PIECES', r2(h.qty), r2(h.value), h.rate, r2(h.taxable), r2(h.igst), r2(h.cgst), r2(h.sgst), '']);
+  const wsH = XLSX.utils.aoa_to_sheet([['Summary For HSN(12)'], [], [], hsnHdr, ...hsnRows]);
+  wsH['!cols'] = [{ wch: 10 }, { wch: 24 }, { wch: 12 }, { wch: 12 }, { wch: 14 }, { wch: 6 }, { wch: 14 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 10 }];
+
+  // docs sheet
+  const invs = orders.filter(o => o.status !== 'Cancelled');
+  const canc = orders.filter(o => o.status === 'Cancelled');
+  const docsHdr = ['Nature of Document','Sr. No. From','Sr. No. To','Total Number','Cancelled'];
+  const docsRows = [[
+    'Invoices for outward supply',
+    invs.length ? invoiceNo(invs[0]) : '',
+    invs.length ? invoiceNo(invs[invs.length - 1]) : '',
+    invs.length, canc.length,
+  ]];
+  const wsD = XLSX.utils.aoa_to_sheet([['Summary of documents issued during the tax period (13)'], [], [], docsHdr, ...docsRows]);
+  wsD['!cols'] = [{ wch: 34 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 12 }];
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, wsB, 'b2cs');
+  XLSX.utils.book_append_sheet(wb, wsH, 'hsn');
+  XLSX.utils.book_append_sheet(wb, wsD, 'docs');
+  download(wb, `GSTR1_GovTemplate_${from}_to_${to}.xlsx`);
 }

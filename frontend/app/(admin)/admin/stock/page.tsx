@@ -101,7 +101,7 @@ export default function AdminStockPage() {
     setSaving(s => ({ ...s, [product.dbId]: true }));
     setMessage(null);
     try {
-      await productsApi.update(product.dbId, { stock: newStatus }, token);
+      await productsApi.updateStock(product.dbId, newStatus, token);
       setProducts(prev =>
         prev.map(p => p.dbId === product.dbId ? { ...p, stock: newStatus } : p)
       );
@@ -124,7 +124,7 @@ export default function AdminStockPage() {
     let done = 0;
     for (const p of toUpdate) {
       try {
-        await productsApi.update(p.dbId, { stock: status }, token);
+        await productsApi.updateStock(p.dbId, status, token);
         setProducts(prev =>
           prev.map(x => x.dbId === p.dbId ? { ...x, stock: status } : x)
         );
