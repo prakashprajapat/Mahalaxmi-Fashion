@@ -93,7 +93,12 @@ export default function SeoAnalysisPage() {
                 {issues.map((it, i) => (
                   <tr key={it.product.dbId} style={{ borderBottom: '1px solid #f5f5f5', background: i % 2 === 0 ? '#fff' : '#fafafa' }}>
                     <td style={{ padding: '.65rem 1rem', color: '#aaa', fontSize: '.8rem' }}>{it.product.dbId}</td>
-                    <td style={{ padding: '.65rem 1rem', fontWeight: 600, maxWidth: 280 }}>{it.product.name || <span style={{ color: '#ccc' }}>— no title —</span>}</td>
+                    <td style={{ padding: '.65rem 1rem', maxWidth: 280 }}>
+                      <div style={{ fontWeight: 600 }}>{it.product.name || <span style={{ color: '#ccc' }}>— no title —</span>}</div>
+                      {it.product.sku && (
+                        <div style={{ fontSize: '.72rem', color: '#999', marginTop: '.15rem', fontFamily: 'monospace' }}>SKU: {it.product.sku}</div>
+                      )}
+                    </td>
                     <td style={{ padding: '.65rem 1rem', color: '#888', fontSize: '.82rem' }}>{it.product.category || '—'}</td>
                     <td style={{ padding: '.65rem 1rem' }}>
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '.35rem' }}>
