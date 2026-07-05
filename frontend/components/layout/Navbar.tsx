@@ -189,7 +189,7 @@ export default function Navbar() {
       {/* Offer Strip */}
       <section className="premium-offer-strip">
         <span>🚚 Free Shipping</span>
-        <span>✨ Trending styles at unbeatable prices — new drops every week!</span>
+        <span className="offer-tagline">✨ Trending styles at unbeatable prices — new drops every week!</span>
         <Link href="/products?bestSeller=true">Shop Now</Link>
       </section>
 
