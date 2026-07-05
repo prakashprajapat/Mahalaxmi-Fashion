@@ -1,8 +1,16 @@
 'use client';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { Suspense } from 'react';
+import { Suspense, useEffect, useState } from 'react';
+import { settingsApi } from '@/lib/api';
 
 const WA_NUMBER = '919429429880';
+
+// Normalise an admin-entered number to wa.me format (digits only, 10-digit → prefix 91).
+function normalizeWa(raw?: string): string {
+  const digits = (raw || '').replace(/\D/g, '');
+  if (!digits) return WA_NUMBER;
+  return digits.length === 10 ? '91' + digits : digits;
+}
 
 function buildMessage(pathname: string, sp: URLSearchParams): string {
   // Product detail page
@@ -41,8 +49,14 @@ function buildMessage(pathname: string, sp: URLSearchParams): string {
 function FloatButton() {
   const pathname = usePathname();
   const sp = useSearchParams();
+  const [wa, setWa] = useState(WA_NUMBER);
+  useEffect(() => {
+    settingsApi.getAll()
+      .then(r => setWa(normalizeWa(r.settings?.whatsapp || r.settings?.phone)))
+      .catch(() => {});
+  }, []);
   const msg = buildMessage(pathname, sp);
-  const href = `https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(msg)}`;
+  const href = `https://wa.me/${wa}?text=${encodeURIComponent(msg)}`;
 
   return (
     <a

@@ -3,12 +3,21 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { settingsApi } from '@/lib/api';
 
+const DEFAULT_WA = '919429429880';
+const DEFAULT_ADDRESS = 'Ward No. 45, Near Mahadev Temple, Balotra, Rajasthan';
+const normalizeWa = (raw?: string) => {
+  const d = (raw || '').replace(/\D/g, '');
+  return !d ? DEFAULT_WA : d.length === 10 ? '91' + d : d;
+};
+
 export default function Footer() {
-  // Social links are managed in Admin → Settings → Social Media (stored as JSON).
+  // Store info + social links are managed in Admin → Settings.
   const [socials, setSocials] = useState<{ name: string; url: string }[]>([]);
+  const [info, setInfo] = useState<Record<string, string>>({});
   useEffect(() => {
     settingsApi.getAll().then(r => {
       const s = r.settings ?? {};
+      setInfo(s);
       let list: { name: string; url: string }[] = [];
       try {
         const parsed = JSON.parse(s.socialLinks || '[]');
@@ -22,6 +31,12 @@ export default function Footer() {
     }).catch(() => {});
   }, []);
 
+  const storeName = info.storeName?.trim() || 'Mahalaxmi Fashion Hub';
+  const tagline = info.tagline?.trim() || 'Designer sarees, daily nightwear, petticoats and fabric essentials - curated with a boutique touch.';
+  const address = info.address?.trim() || DEFAULT_ADDRESS;
+  const wa = normalizeWa(info.whatsapp || info.phone);
+  const waDisplay = '+' + wa.replace(/^(\d{2})(\d+)/, '$1 $2');
+
   return (
     <footer className="site-footer">
       <div className="site-footer-grid">
@@ -29,7 +44,7 @@ export default function Footer() {
           <Link className="brand footer-brand" href="/" style={{ display: 'inline-block' }}>
             <img
               src="/logo-color.webp"
-              alt="Mahalaxmi Fashion Hub"
+              alt={storeName}
               width={210}
               height={90}
               loading="lazy"
@@ -37,8 +52,8 @@ export default function Footer() {
               style={{ width: '210px', maxWidth: '100%', height: 'auto' }}
             />
           </Link>
-          <p>Designer sarees, daily nightwear, petticoats and fabric essentials - curated with a boutique touch.</p>
-          <p className="site-footer-contact">Ward No. 45, Near Mahadev Temple, Balotra, Rajasthan</p>
+          <p>{tagline}</p>
+          <p className="site-footer-contact">{address}</p>
         </div>
 
         <nav className="site-footer-col">
@@ -73,7 +88,7 @@ export default function Footer() {
 
         <nav className="site-footer-col">
           <h2>Connect</h2>
-          <a href="https://wa.me/919429429880" target="_blank" rel="noopener noreferrer">WhatsApp +91 9429429880</a>
+          <a href={`https://wa.me/${wa}`} target="_blank" rel="noopener noreferrer">WhatsApp {waDisplay}</a>
           {socials.length > 0
             ? socials.map((s, i) => (
                 <a key={i} href={s.url} target="_blank" rel="noopener noreferrer">{s.name || 'Link'}</a>
@@ -92,7 +107,7 @@ export default function Footer() {
       </div>
 
       <div className="site-footer-baseline">
-        <small>&copy; {new Date().getFullYear()} Mahalaxmi Fashion Hub. All rights reserved.</small>
+        <small>&copy; {new Date().getFullYear()} {storeName}. All rights reserved.</small>
         <nav className="site-footer-legal">
           <Link href="/about-us">About</Link>
           <Link href="/contact">Contact</Link>

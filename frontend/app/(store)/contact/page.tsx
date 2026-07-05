@@ -1,7 +1,15 @@
 'use client';
-import { useState } from 'react';
-import type { Metadata } from 'next';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { settingsApi } from '@/lib/api';
+
+const DEFAULT_WA = '919429429880';
+const DEFAULT_ADDRESS_LINE1 = 'Ward No. 45, Near Mahadev Temple,';
+const DEFAULT_ADDRESS_LINE2 = 'Balotra, Rajasthan — 344022, India.';
+const normalizeWa = (raw?: string) => {
+  const d = (raw || '').replace(/\D/g, '');
+  return !d ? DEFAULT_WA : d.length === 10 ? '91' + d : d;
+};
 
 export default function ContactPage() {
   const [name, setName]       = useState('');
@@ -9,13 +17,22 @@ export default function ContactPage() {
   const [phone, setPhone]     = useState('');
   const [message, setMessage] = useState('');
   const [sent, setSent]       = useState(false);
+  const [info, setInfo]       = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    settingsApi.getAll().then(r => setInfo(r.settings ?? {})).catch(() => {});
+  }, []);
+
+  const wa = normalizeWa(info.whatsapp || info.phone);
+  const waDisplay = '+' + wa.replace(/^(\d{2})(\d+)/, '$1 $2');
+  const address = info.address?.trim();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim() || !message.trim()) return;
     // Build a WhatsApp message with all the form details
     const text = `*New Enquiry from Website*\n\n*Name:* ${name}\n*Email:* ${email}\n*Phone:* ${phone}\n\n*Message:*\n${message}`;
-    const url  = `https://wa.me/919429429880?text=${encodeURIComponent(text)}`;
+    const url  = `https://wa.me/${wa}?text=${encodeURIComponent(text)}`;
     window.open(url, '_blank');
     setSent(true);
     setName(''); setEmail(''); setPhone(''); setMessage('');
@@ -52,11 +69,11 @@ export default function ContactPage() {
           <article className="policy-card">
             <h2>WhatsApp &amp; Phone</h2>
             <p>For the fastest support, message or call us directly on WhatsApp:</p>
-            <p><strong>+91 9429429880</strong></p>
-            <p><a href="https://wa.me/919429429880" target="_blank" rel="noopener noreferrer" style={{ color: '#a7354d', fontWeight: 600 }}>Chat on WhatsApp →</a></p>
+            <p><strong>{waDisplay}</strong></p>
+            <p><a href={`https://wa.me/${wa}`} target="_blank" rel="noopener noreferrer" style={{ color: '#a7354d', fontWeight: 600 }}>Chat on WhatsApp →</a></p>
 
             <h2 style={{ marginTop: '1.5rem' }}>Store Address</h2>
-            <p>Ward No. 45, Near Mahadev Temple,<br />Balotra, Rajasthan — 344022, India.</p>
+            <p>{address ? address : (<>{DEFAULT_ADDRESS_LINE1}<br />{DEFAULT_ADDRESS_LINE2}</>)}</p>
             <p>Store hours: Monday to Saturday, 10:00 AM – 8:00 PM.</p>
 
             <h2 style={{ marginTop: '1.5rem' }}>Social Media</h2>

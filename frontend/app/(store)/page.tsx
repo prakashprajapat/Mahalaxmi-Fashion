@@ -32,9 +32,20 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function HomePage() {
-  const { products } = await productsApi.getAll({ pageSize: 200 }).catch(() => ({ products: [] as any[] }));
+  const [{ products }, settingsRes] = await Promise.all([
+    productsApi.getAll({ pageSize: 200 }).catch(() => ({ products: [] as any[] })),
+    settingsApi.getAll().catch(() => ({ settings: {} as Record<string, string> })),
+  ]);
+  const s = settingsRes.settings ?? {};
 
   const bestSellers = products.filter((p: any) => p.bestSeller);
+
+  // Admin-editable "Why Customers Stay" heading + optional 3-stat strip (Settings → "Why Customers Stay").
+  const statCards = [
+    { value: s.stat1Value?.trim(), label: s.stat1Label?.trim() },
+    { value: s.stat2Value?.trim(), label: s.stat2Label?.trim() },
+    { value: s.stat3Value?.trim(), label: s.stat3Label?.trim() },
+  ].filter(c => c.value);
 
   return (
     <>
@@ -155,7 +166,23 @@ export default async function HomePage() {
       {/* Why Shop With Us */}
       <section style={{ background: '#fafafa', padding: '1.25rem 1.5rem', borderTop: '1px solid #eee' }}>
         <div className="section-wrap">
-          <h2 className="section-heading" style={{ marginBottom: '.9rem' }}>Why Customers Stay</h2>
+          {s.statEyebrow?.trim() && (
+            <p style={{ fontSize: '.72rem', textTransform: 'uppercase', letterSpacing: '.16em', color: '#a7354d', fontWeight: 700, margin: '0 0 .3rem' }}>{s.statEyebrow.trim()}</p>
+          )}
+          <h2 className="section-heading" style={{ marginBottom: '.9rem' }}>{s.statHeading?.trim() || 'Why Customers Stay'}</h2>
+
+          {/* Optional stat strip — shows only when admin fills at least one stat value */}
+          {statCards.length > 0 && (
+            <div style={{ display: 'grid', gridTemplateColumns: `repeat(${statCards.length}, 1fr)`, gap: '1rem', marginBottom: '1.1rem', maxWidth: '540px' }}>
+              {statCards.map((c, i) => (
+                <div key={i} style={{ background: '#fff', borderRadius: '10px', padding: '1rem .75rem', border: '1px solid #eee', textAlign: 'center' }}>
+                  <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#a7354d', lineHeight: 1.1 }}>{c.value}</div>
+                  {c.label && <div style={{ fontSize: '.75rem', color: '#666', marginTop: '.25rem' }}>{c.label}</div>}
+                </div>
+              ))}
+            </div>
+          )}
+
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '1rem' }}>
             {[
               { icon: '🧵', title: 'Premium Fabrics', desc: 'Every piece curated for quality — festive & daily wear.' },

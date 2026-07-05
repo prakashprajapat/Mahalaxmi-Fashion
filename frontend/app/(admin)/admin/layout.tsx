@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { getAdminToken, adminLogout } from '@/lib/auth';
+import { settingsApi } from '@/lib/api';
 
 // All nav items (admin sees everything). Items with `heading` render as a
 // non-clickable group label.
@@ -49,6 +50,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [authed, setAuthed] = useState(false);
   const [role, setRole] = useState<'admin' | 'staff'>('admin');
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [storeName, setStoreName] = useState('Mahalaxmi Fashion Hub');
+  const [adminName, setAdminName] = useState('');
 
   useEffect(() => {
     if (isPublicAdminRoute) { setAuthed(true); return; }
@@ -57,6 +60,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     setRole(getTokenRole(token) === 'staff' ? 'staff' : 'admin');
     setAuthed(true);
   }, [isPublicAdminRoute, router]);
+
+  useEffect(() => {
+    if (isPublicAdminRoute) return;
+    settingsApi.getAll().then(r => {
+      const s = r.settings ?? {};
+      if (s.storeName?.trim()) setStoreName(s.storeName.trim());
+      if (s.adminDisplayName?.trim()) setAdminName(s.adminDisplayName.trim());
+    }).catch(() => {});
+  }, [isPublicAdminRoute]);
 
   if (isPublicAdminRoute) return <>{children}</>;
 
@@ -81,7 +93,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       {/* Sidebar */}
       <aside className="admin-sidebar">
         <div className="admin-sidebar-brand">
-          <strong>Mahalaxmi Fashion Hub</strong>
+          <strong>{storeName}</strong>
           <span style={{ display: 'flex', alignItems: 'center', gap: '.4rem' }}>
             {role === 'staff' ? 'Staff Workspace' : 'Admin Panel'}
             <span style={{ fontSize: '.65rem', background: role === 'staff' ? '#e67e22' : '#a7354d', color: '#fff', padding: '.1rem .35rem', borderRadius: '4px', fontWeight: 700, textTransform: 'uppercase' }}>
@@ -126,6 +138,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </button>
         <h1>{currentLabel}</h1>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', fontSize: '.85rem', color: '#666' }}>
+          {adminName && <span style={{ fontWeight: 600, color: '#333' }}>👋 {adminName}</span>}
           <Link href="/" style={{ color: '#a7354d', fontWeight: 600, fontSize: '.82rem' }}>🌐 Store</Link>
           <button onClick={() => { adminLogout(); router.push('/admin/login'); }}
             style={{ background: 'none', border: 'none', color: '#a7354d', cursor: 'pointer', fontWeight: 600, fontSize: '.85rem' }}>
@@ -141,7 +154,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <div style={{ width: '240px', height: '100%', background: '#1a1a2e', padding: '1.5rem 0' }}
             onClick={e => e.stopPropagation()}>
             <div style={{ padding: '0 1rem 1rem', borderBottom: '1px solid rgba(255,255,255,.1)', marginBottom: '1rem' }}>
-              <strong style={{ color: '#fff', fontSize: '.95rem' }}>Mahalaxmi Fashion Hub</strong>
+              <strong style={{ color: '#fff', fontSize: '.95rem' }}>{storeName}</strong>
               <span style={{ display: 'block', color: '#aaa', fontSize: '.75rem' }}>Admin Panel</span>
             </div>
             {navItems.map((item, i) => (

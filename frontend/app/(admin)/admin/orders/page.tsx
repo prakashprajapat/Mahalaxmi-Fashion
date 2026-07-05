@@ -500,22 +500,23 @@ export default function AdminOrdersPage() {
                     checked={selectedIds.size === filtered.length && filtered.length > 0}
                     onChange={e => setSelectedIds(e.target.checked ? new Set(filtered.map(o => o.id)) : new Set())} />
                 </th>
-                {['Order ID','Date','Customer','Pincode','Item(s)','Size','Colour/Design','Amount','Method','AWB','Action'].map(h => (
+                {['S.No','Order ID','Date','Customer','Pincode','Item(s)','Size','Colour/Design','Amount','Method','AWB','Action'].map(h => (
                   <th key={h} style={{ padding: '.75rem 1rem', textAlign: 'left', fontWeight: 600, fontSize: '.72rem', color: '#888', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={12} style={{ textAlign: 'center', padding: '3rem', color: '#aaa' }}>Loading orders…</td></tr>
+                <tr><td colSpan={13} style={{ textAlign: 'center', padding: '3rem', color: '#aaa' }}>Loading orders…</td></tr>
               ) : filtered.length === 0 ? (
-                <tr><td colSpan={12} style={{ textAlign: 'center', padding: '3rem', color: '#aaa' }}>No orders found.</td></tr>
+                <tr><td colSpan={13} style={{ textAlign: 'center', padding: '3rem', color: '#aaa' }}>No orders found.</td></tr>
               ) : filtered.map((o, i) => {
                 return (
                   <tr key={o.id} style={{ borderTop: i > 0 ? '1px solid #f5f5f5' : undefined, background: selectedIds.has(o.id) ? '#fdf0f3' : undefined }}>
                     <td style={{ padding: '.65rem 1rem' }}>
                       <input type="checkbox" checked={selectedIds.has(o.id)} onChange={() => toggleSelect(o.id)} />
                     </td>
+                    <td style={{ padding: '.65rem 1rem', fontWeight: 700, fontSize: '.82rem', color: '#a7354d', whiteSpace: 'nowrap' }}>{i + 1}</td>
                     <td style={{ padding: '.65rem 1rem', fontFamily: 'monospace', fontSize: '.75rem', color: '#555', whiteSpace: 'nowrap' }}>{o.id}</td>
                     <td style={{ padding: '.65rem 1rem', fontSize: '.75rem', color: '#888', whiteSpace: 'nowrap' }}>
                       {new Date(o.placedAt ?? o.createdAt).toLocaleDateString('en-IN')}
