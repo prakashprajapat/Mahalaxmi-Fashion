@@ -87,7 +87,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <head>
         {/* Preload the LCP hero image so it starts downloading immediately */}
-        <link rel="preload" as="image" href="/hero-banner.webp" fetchPriority="high" />
+        <link rel="preload" as="image" href="/hero-bannernew.webp" fetchPriority="high" />
 
         {/* Preconnect to external image/asset hosts for faster product images */}
         <link rel="preconnect" href="https://res.cloudinary.com" />
@@ -123,7 +123,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               name: 'Mahalaxmi Fashion Hub',
               url: SITE_URL,
               logo: `${SITE_URL}/icon-512.png`,
-              image: `${SITE_URL}/hero-banner.webp`,
+              image: `${SITE_URL}/hero-bannernew.webp`,
               description: 'Premium Indian Fashion — Sarees, Nighty, Petticoat & More. Family-run ethnic wear boutique in Balotra, Rajasthan.',
               telephone: '+919429429880',
               address: {
