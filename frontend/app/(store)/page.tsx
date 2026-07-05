@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { productsApi, settingsApi } from '@/lib/api';
-import { BestSellersSection, NewArrivalsSection } from '@/components/home/HomeSections';
+import { NewArrivalsSection } from '@/components/home/HomeSections';
+import ProductsClient from '@/components/products/ProductsClient';
 
 // No searchParams = page is fully ISR-cached (served from cache, no DB call per request)
 export const revalidate = 300;
@@ -144,8 +145,10 @@ export default async function HomePage() {
         </section>
       )}
 
-      {/* Best Sellers — client component, sorts without page reload */}
-      <BestSellersSection products={bestSellers} />
+      {/* Best Sellers — full filterable listing (same layout as category pages) */}
+      <section id="best-sellers" style={{ background: '#fdf0f3' }}>
+        <ProductsClient products={bestSellers} title="Best Sellers" />
+      </section>
 
       {/* New Arrivals — client component */}
       <NewArrivalsSection products={products} />
