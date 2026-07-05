@@ -110,6 +110,11 @@ export interface Order {
   returnClosingVideo?: string;
   returnOpeningPhotos?: string[];
   returnClosingPhotos?: string[];
+  returnDecision?: string;        // "approved" | "rejected"
+  returnDecisionAt?: string;
+  returnRejectReason?: string;
+  returnMediaPurgeAt?: string;    // when rejected media auto-deletes
+  returnMediaDeleted?: boolean;
 }
 
 export interface Review {

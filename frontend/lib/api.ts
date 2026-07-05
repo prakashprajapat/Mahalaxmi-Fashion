@@ -108,6 +108,13 @@ export const ordersApi = {
     request<{ success: boolean; order: import('@/types').Order }>(
       '/orders/status', { method: 'PATCH', body: JSON.stringify(data) }, token
     ),
+  // Admin: approve (media deleted now) or reject (media kept 30 days, reason required) a return
+  returnDecision: (orderId: string, decision: 'approve' | 'reject', reason: string, token: string) =>
+    request<{ success: boolean; order: import('@/types').Order }>(
+      `/orders/${orderId}/return-decision`,
+      { method: 'POST', body: JSON.stringify({ decision, reason }) },
+      token
+    ),
 };
 
 // ── Customers ────────────────────────────────────────────────────────────────

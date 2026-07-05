@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import { ordersApi } from '@/lib/api';
 import { getAdminToken } from '@/lib/auth';
 import { exportOrders } from '@/lib/exportExcel';
@@ -66,6 +66,32 @@ export default function AdminOrdersPage() {
   const [awbMap, setAwbMap] = useState<Record<string, string>>({}); // per-order AWB
   const [updating, setUpdating] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  // Return-details modal (view media + approve/reject)
+  const [returnModalId, setReturnModalId] = useState<string | null>(null);
+  const [showReject, setShowReject] = useState(false);
+  const [rejectReason, setRejectReason] = useState('');
+  const [decisionBusy, setDecisionBusy] = useState(false);
+
+  const closeReturnModal = () => { setReturnModalId(null); setShowReject(false); setRejectReason(''); };
+
+  const submitDecision = async (order: Order, decision: 'approve' | 'reject') => {
+    if (decision === 'reject' && !rejectReason.trim()) { alert('Please enter a reason for rejecting this return.'); return; }
+    const msg = decision === 'approve'
+      ? 'Approve this return? All uploaded photos & videos will be permanently deleted now.'
+      : 'Reject this return? The customer will see your reason. Media is kept 30 days as evidence, then auto-deleted.';
+    if (!confirm(msg)) return;
+    setDecisionBusy(true);
+    try {
+      const token = getAdminToken() ?? '';
+      const r = await ordersApi.returnDecision(order.id, decision, rejectReason.trim(), token);
+      setOrders(prev => prev.map(o => (o.id === order.id ? r.order : o)));
+      closeReturnModal();
+    } catch (e) {
+      alert((e as Error).message || 'Failed to submit decision.');
+    } finally {
+      setDecisionBusy(false);
+    }
+  };
 
   const fetchOrders = () => {
     setLoading(true);
@@ -436,11 +462,17 @@ export default function AdminOrdersPage() {
                     <td style={{ padding: '.65rem 1rem', fontSize: '.75rem', fontFamily: 'monospace', color: o.awb ? '#333' : '#ccc' }}>
                       {o.awb || '—'}
                     </td>
-                    <td style={{ padding: '.65rem 1rem' }}>
+                    <td style={{ padding: '.65rem 1rem', whiteSpace: 'nowrap' }}>
                       <button onClick={() => downloadShippingLabel(o)}
                         style={{ color: '#1565c0', background: 'none', border: 'none', cursor: 'pointer', fontSize: '.82rem', fontWeight: 600 }}>
                         ⬇ Label
                       </button>
+                      {RETURN_STATUSES.includes(o.status) && (
+                        <button onClick={() => { setShowReject(false); setRejectReason(''); setReturnModalId(o.id); }}
+                          style={{ display: 'block', marginTop: '.35rem', color: o.returnDecision === 'rejected' ? '#c62828' : o.returnDecision === 'approved' ? '#2e7d32' : '#a7354d', background: 'none', border: 'none', cursor: 'pointer', fontSize: '.82rem', fontWeight: 700 }}>
+                          ↩ Return{o.returnDecision === 'approved' ? ' ✓' : o.returnDecision === 'rejected' ? ' ✕' : ''}
+                        </button>
+                      )}
                     </td>
                   </tr>
                 );
@@ -491,6 +523,103 @@ export default function AdminOrdersPage() {
                 {updating ? 'Saving...' : 'Save (Mark Shipped)'}
               </button>
             </div>
+          </div>
+        </div>
+        );
+      })()}
+
+      {/* Return details modal — view media + Approve / Reject */}
+      {returnModalId && (() => {
+        const o = orders.find(x => x.id === returnModalId);
+        if (!o) return null;
+        const purged = !!o.returnMediaDeleted;
+        const photos = [...(o.returnOpeningPhotos ?? []), ...(o.returnClosingPhotos ?? [])];
+        const hasMedia = !!(o.returnOpeningVideo || o.returnClosingVideo || photos.length);
+        const lbl: CSSProperties ={ fontSize: '.75rem', fontWeight: 700, color: '#666', margin: '0 0 .3rem' };
+        const vid: CSSProperties ={ width: 220, maxWidth: '100%', borderRadius: 8, background: '#000' };
+        const btn: CSSProperties ={ flex: 1, color: '#fff', border: 'none', borderRadius: 8, padding: '.65rem', cursor: decisionBusy ? 'not-allowed' : 'pointer', fontWeight: 600, opacity: decisionBusy ? .7 : 1 };
+        const grey: CSSProperties ={ flex: 1, background: '#f5f5f5', color: '#555', border: 'none', borderRadius: 8, padding: '.65rem', cursor: 'pointer', fontWeight: 600 };
+        return (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 300, padding: '1rem' }}>
+          <div style={{ background: '#fff', borderRadius: '16px', padding: '1.5rem', width: '100%', maxWidth: '640px', maxHeight: '92vh', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div>
+                <h3 style={{ fontWeight: 700, marginBottom: '.15rem' }}>Return · {o.id}</h3>
+                <p style={{ fontSize: '.8rem', color: '#888' }}>{o.customerName || '—'} · {o.status}</p>
+              </div>
+              <button onClick={closeReturnModal} style={{ background: 'none', border: 'none', fontSize: '1.4rem', lineHeight: 1, cursor: 'pointer', color: '#999' }}>×</button>
+            </div>
+
+            {o.returnDecision === 'approved' && (
+              <div style={{ background: '#e8f5e9', color: '#2e7d32', borderRadius: 8, padding: '.5rem .75rem', fontSize: '.8rem', margin: '.6rem 0' }}>
+                ✓ Approved{o.returnDecisionAt ? ` on ${new Date(o.returnDecisionAt).toLocaleString('en-IN')}` : ''} — media deleted.
+              </div>
+            )}
+            {o.returnDecision === 'rejected' && (
+              <div style={{ background: '#fdecea', color: '#c62828', borderRadius: 8, padding: '.5rem .75rem', fontSize: '.8rem', margin: '.6rem 0' }}>
+                ✕ Rejected{o.returnDecisionAt ? ` on ${new Date(o.returnDecisionAt).toLocaleString('en-IN')}` : ''}. Reason: {o.returnRejectReason || '—'}
+                {o.returnMediaPurgeAt && !purged && <div style={{ marginTop: '.25rem', color: '#a1554f' }}>Media auto-deletes on {new Date(o.returnMediaPurgeAt).toLocaleDateString('en-IN')}.</div>}
+                {purged && <div style={{ marginTop: '.25rem' }}>Media has been deleted.</div>}
+              </div>
+            )}
+
+            <div style={{ overflowY: 'auto', flex: 1, fontSize: '.85rem', marginTop: '.4rem' }}>
+              <p style={{ margin: '.35rem 0' }}><strong>Issue:</strong> {o.returnIssue || '—'}</p>
+              <p style={{ margin: '.35rem 0' }}><strong>Description:</strong> {o.returnReason || '—'}</p>
+              {o.returnCallback && <p style={{ margin: '.35rem 0' }}><strong>Callback:</strong> {o.returnCallback}</p>}
+
+              {purged ? (
+                <p style={{ color: '#999', fontStyle: 'italic', marginTop: '.75rem' }}>Media has been deleted.</p>
+              ) : !hasMedia ? (
+                <p style={{ color: '#999', fontStyle: 'italic', marginTop: '.75rem' }}>No photos or videos were uploaded.</p>
+              ) : (
+                <>
+                  {(o.returnOpeningVideo || o.returnClosingVideo) && (
+                    <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginTop: '.75rem' }}>
+                      {o.returnOpeningVideo && <div><p style={lbl}>🎬 Opening video</p><video src={o.returnOpeningVideo} controls style={vid} /></div>}
+                      {o.returnClosingVideo && <div><p style={lbl}>🎬 Return-pack video</p><video src={o.returnClosingVideo} controls style={vid} /></div>}
+                    </div>
+                  )}
+                  {photos.length > 0 && (
+                    <>
+                      <p style={{ ...lbl, marginTop: '.85rem' }}>🖼️ Photos ({photos.length})</p>
+                      <div style={{ display: 'flex', gap: '.5rem', flexWrap: 'wrap' }}>
+                        {photos.map((src, i) => (
+                          <a key={i} href={src} target="_blank" rel="noreferrer">
+                            <img src={src} alt="" style={{ width: 90, height: 90, objectFit: 'cover', borderRadius: 8, border: '1px solid #eee' }} />
+                          </a>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </>
+              )}
+            </div>
+
+            {!o.returnDecision ? (
+              showReject ? (
+                <div style={{ marginTop: '1rem' }}>
+                  <label style={{ fontSize: '.8rem', fontWeight: 600, color: '#555' }}>Reason for rejection (shown to customer) *</label>
+                  <textarea value={rejectReason} onChange={e => setRejectReason(e.target.value)} rows={3}
+                    placeholder="e.g. Product shows signs of use / opening video missing…"
+                    style={{ width: '100%', border: '1.5px solid #ddd', borderRadius: 8, padding: '.5rem', fontSize: '.85rem', boxSizing: 'border-box', marginTop: '.3rem' }} />
+                  <div style={{ display: 'flex', gap: '.6rem', marginTop: '.6rem' }}>
+                    <button onClick={() => { setShowReject(false); setRejectReason(''); }} style={grey}>Back</button>
+                    <button onClick={() => submitDecision(o, 'reject')} disabled={decisionBusy} style={{ ...btn, background: '#c62828' }}>{decisionBusy ? 'Saving…' : 'Confirm Reject'}</button>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', gap: '.75rem', marginTop: '1rem' }}>
+                  <button onClick={closeReturnModal} style={grey}>Close</button>
+                  <button onClick={() => setShowReject(true)} disabled={decisionBusy} style={{ ...btn, background: '#c62828' }}>Reject</button>
+                  <button onClick={() => submitDecision(o, 'approve')} disabled={decisionBusy} style={{ ...btn, background: '#2e7d32' }}>{decisionBusy ? 'Saving…' : 'Approve (delete media)'}</button>
+                </div>
+              )
+            ) : (
+              <div style={{ display: 'flex', marginTop: '1rem' }}>
+                <button onClick={closeReturnModal} style={grey}>Close</button>
+              </div>
+            )}
           </div>
         </div>
         );

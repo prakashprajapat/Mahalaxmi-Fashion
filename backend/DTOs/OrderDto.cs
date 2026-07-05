@@ -59,7 +59,12 @@ public record OrderDto(
     string? ReturnOpeningVideo = null,
     string? ReturnClosingVideo = null,
     List<string>? ReturnOpeningPhotos = null,
-    List<string>? ReturnClosingPhotos = null
+    List<string>? ReturnClosingPhotos = null,
+    string? ReturnDecision = null,       // "approved" | "rejected" | null
+    string? ReturnDecisionAt = null,     // ISO 8601
+    string? ReturnRejectReason = null,
+    string? ReturnMediaPurgeAt = null,   // ISO 8601 — when rejected media auto-deletes
+    bool ReturnMediaDeleted = false
 );
 
 public record PlaceOrderRequest(

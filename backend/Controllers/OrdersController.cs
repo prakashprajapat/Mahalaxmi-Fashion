@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using MahalaxmiApi.Data;
 using MahalaxmiApi.DTOs;
 using MahalaxmiApi.Models;
@@ -347,8 +348,8 @@ public class OrdersController : ControllerBase
             {
                 openingVideo  = req.OpeningVideo?.Trim() ?? "",
                 closingVideo  = req.ClosingVideo?.Trim() ?? "",
-                openingPhotos = (req.OpeningPhotos ?? new List<string>()).Where(u => !string.IsNullOrWhiteSpace(u)).ToList(),
-                closingPhotos = (req.ClosingPhotos ?? new List<string>()).Where(u => !string.IsNullOrWhiteSpace(u)).ToList()
+                openingPhotos = (req.OpeningPhotos ?? new List<string>()).Where(u => !string.IsNullOrWhiteSpace(u)).Take(4).ToList(),
+                closingPhotos = (req.ClosingPhotos ?? new List<string>()).Where(u => !string.IsNullOrWhiteSpace(u)).Take(4).ToList()
             }
         }, _json);
         order.Status = "Return Requested";
@@ -407,10 +408,72 @@ public class OrdersController : ControllerBase
         var dir = Path.Combine(ReturnsRoot(), safeOrder);
         Directory.CreateDirectory(dir);
         var name = $"{kind}_{Guid.NewGuid():N}{ext}";
-        await using (var fs = System.IO.File.Create(Path.Combine(dir, name)))
+        var savedPath = Path.Combine(dir, name);
+        await using (var fs = System.IO.File.Create(savedPath))
             await file.CopyToAsync(fs);
 
+        // Videos: re-encode to a compact 720p H.264 mp4 with ffmpeg. Falls back to the
+        // original file if ffmpeg is unavailable or fails, so uploads never break.
+        if (isVideo)
+        {
+            var (compressedName, compressedPath) = await TryCompressVideoAsync(dir, kind, savedPath);
+            if (compressedName is not null)
+            {
+                if (!string.Equals(compressedPath, savedPath, StringComparison.Ordinal))
+                    try { System.IO.File.Delete(savedPath); } catch { /* keep going */ }
+                name = compressedName;
+            }
+        }
+
         return Ok(new { success = true, url = $"/api/orders/return-media/{safeOrder}/{name}" });
+    }
+
+    // Re-encode a video to 720p H.264 mp4 (CRF 28) so stored/return videos stay small.
+    // Returns the new file name + path on success, or (null, original) if ffmpeg isn't
+    // available or the encode fails — caller then keeps the untouched original.
+    private static async Task<(string? name, string path)> TryCompressVideoAsync(string dir, string kind, string sourcePath)
+    {
+        try
+        {
+            var outName = $"{kind}_{Guid.NewGuid():N}.mp4";
+            var outPath = Path.Combine(dir, outName);
+            var psi = new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = "ffmpeg",
+                RedirectStandardError = true,
+                RedirectStandardOutput = true,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+            };
+            // scale to max 1280px wide (keep aspect, even dims), fast H.264, AAC audio, web-friendly.
+            foreach (var a in new[]
+            {
+                "-y", "-i", sourcePath,
+                "-vf", "scale='min(1280,iw)':-2",
+                "-c:v", "libx264", "-preset", "veryfast", "-crf", "28",
+                "-c:a", "aac", "-b:a", "96k",
+                "-movflags", "+faststart",
+                outPath
+            }) psi.ArgumentList.Add(a);
+
+            using var proc = System.Diagnostics.Process.Start(psi);
+            if (proc is null) return (null, sourcePath);
+
+            using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(4));
+            try { await proc.WaitForExitAsync(cts.Token); }
+            catch (OperationCanceledException) { try { proc.Kill(true); } catch { } return (null, sourcePath); }
+
+            if (proc.ExitCode == 0 && System.IO.File.Exists(outPath) && new FileInfo(outPath).Length > 0)
+                return (outName, outPath);
+
+            try { if (System.IO.File.Exists(outPath)) System.IO.File.Delete(outPath); } catch { }
+            return (null, sourcePath);
+        }
+        catch
+        {
+            // ffmpeg missing / not on PATH / any failure → keep the original upload.
+            return (null, sourcePath);
+        }
     }
 
     // GET /api/orders/return-media/{orderId}/{file}  — stream a stored return photo/video.
@@ -443,6 +506,76 @@ public class OrdersController : ControllerBase
         return File(System.IO.File.OpenRead(full), mime, enableRangeProcessing: true);
     }
 
+    // POST /api/orders/{orderId}/return-decision  (Admin: approve or reject a return)
+    //   approve → return media is deleted immediately.
+    //   reject  → reason required; media kept as evidence for 30 days, then auto-purged.
+    [HttpPost("{orderId}/return-decision")]
+    [Authorize(Policy = "AdminOnly")]
+    public async Task<IActionResult> ReturnDecision(string orderId, [FromBody] ReturnDecisionRequest req)
+    {
+        var order = await _db.SiteOrders.FirstOrDefaultAsync(o => o.OrderId == orderId);
+        if (order is null)
+            return NotFound(new { success = false, message = "Order not found." });
+
+        var decision = (req.Decision ?? "").Trim().ToLowerInvariant();
+        if (decision != "approve" && decision != "reject")
+            return BadRequest(new { success = false, message = "Decision must be 'approve' or 'reject'." });
+
+        var reason = (req.Reason ?? "").Trim();
+        if (decision == "reject" && string.IsNullOrWhiteSpace(reason))
+            return BadRequest(new { success = false, message = "A reason is required to reject a return." });
+
+        // Merge onto existing raw_json so original return details are preserved.
+        var root = (JsonNode.Parse(string.IsNullOrWhiteSpace(order.RawJson) ? "{}" : order.RawJson) as JsonObject)
+                   ?? new JsonObject();
+        var now = DateTimeOffset.UtcNow;
+        var actor = User.FindFirstValue("email") ?? User.FindFirstValue("sub") ?? "admin";
+
+        if (decision == "approve")
+        {
+            // Return accepted → media no longer needed, delete now.
+            DeleteReturnMediaDir(orderId);
+            root["returnMedia"] = new JsonObject
+            {
+                ["openingVideo"]  = "",
+                ["closingVideo"]  = "",
+                ["openingPhotos"] = new JsonArray(),
+                ["closingPhotos"] = new JsonArray(),
+            };
+            root["returnDecision"]     = "approved";
+            root["returnDecisionAt"]   = now.ToString("o");
+            root["returnRejectReason"] = "";
+            root["returnMediaDeleted"] = true;
+            root.Remove("returnMediaPurgeAt");
+        }
+        else // reject
+        {
+            root["returnDecision"]     = "rejected";
+            root["returnDecisionAt"]   = now.ToString("o");
+            root["returnRejectReason"] = reason;
+            root["returnMediaPurgeAt"] = now.AddDays(30).ToString("o");
+            root["returnMediaDeleted"] = false;
+        }
+        root["returnDecisionBy"] = actor;
+
+        order.RawJson = root.ToJsonString();
+        order.UpdatedAt = now;
+        await _db.SaveChangesAsync();
+
+        return Ok(new { success = true, order = MapOrder(order) });
+    }
+
+    // Best-effort delete of an order's stored return media directory (instance helper).
+    private void DeleteReturnMediaDir(string orderId) => PurgeReturnMediaDir(ReturnsRoot(), orderId);
+
+    // Static purge used by both the controller and the background cleanup service.
+    public static void PurgeReturnMediaDir(string returnsRoot, string orderId)
+    {
+        var safe = CleanOrderId(orderId);
+        var dir = Path.Combine(returnsRoot, safe);
+        try { if (Directory.Exists(dir)) Directory.Delete(dir, recursive: true); } catch { /* best effort */ }
+    }
+
     private static JsonElement ParseJson(string? raw)
     {
         if (string.IsNullOrEmpty(raw)) return new JsonElement();
@@ -453,6 +586,10 @@ public class OrdersController : ControllerBase
     private static string? GetJsonStr(JsonElement el, string key) =>
         el.ValueKind == JsonValueKind.Object && el.TryGetProperty(key, out var v)
             ? v.GetString() : null;
+
+    private static bool GetJsonBool(JsonElement el, string key) =>
+        el.ValueKind == JsonValueKind.Object && el.TryGetProperty(key, out var v)
+            && v.ValueKind == JsonValueKind.True;
 
     private static JsonElement GetJsonObj(JsonElement el, string key) =>
         el.ValueKind == JsonValueKind.Object && el.TryGetProperty(key, out var v) ? v : default;
@@ -516,7 +653,12 @@ public class OrdersController : ControllerBase
             ReturnOpeningVideo: GetJsonStr(GetJsonObj(rawJson, "returnMedia"), "openingVideo"),
             ReturnClosingVideo: GetJsonStr(GetJsonObj(rawJson, "returnMedia"), "closingVideo"),
             ReturnOpeningPhotos: GetJsonArr(GetJsonObj(rawJson, "returnMedia"), "openingPhotos"),
-            ReturnClosingPhotos: GetJsonArr(GetJsonObj(rawJson, "returnMedia"), "closingPhotos")
+            ReturnClosingPhotos: GetJsonArr(GetJsonObj(rawJson, "returnMedia"), "closingPhotos"),
+            ReturnDecision: GetJsonStr(rawJson, "returnDecision"),
+            ReturnDecisionAt: GetJsonStr(rawJson, "returnDecisionAt"),
+            ReturnRejectReason: GetJsonStr(rawJson, "returnRejectReason"),
+            ReturnMediaPurgeAt: GetJsonStr(rawJson, "returnMediaPurgeAt"),
+            ReturnMediaDeleted: GetJsonBool(rawJson, "returnMediaDeleted")
         );
     }
 }
@@ -533,4 +675,9 @@ public record ReturnRequest(
     string? ClosingVideo = null,
     List<string>? OpeningPhotos = null,
     List<string>? ClosingPhotos = null
+);
+
+public record ReturnDecisionRequest(
+    string? Decision,      // "approve" | "reject"
+    string? Reason = null  // required when rejecting; shown to the customer
 );

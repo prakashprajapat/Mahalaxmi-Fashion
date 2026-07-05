@@ -9,7 +9,7 @@ import type { Order, Customer } from '@/types';
 
 const HOURS_12 = 12 * 60 * 60 * 1000;
 const DAYS_7 = 7 * 24 * 60 * 60 * 1000;
-const MAX_PHOTOS = 8;
+const MAX_PHOTOS = 4;
 const MAX_VIDEO_BYTES = 80 * 1024 * 1024; // 80 MB
 
 // Downscale + re-encode a photo in the browser so uploads stay small (typically <300 KB).

@@ -7,6 +7,9 @@ APP=/var/www/mahalaxmi-nextjs
 REPO=https://github.com/prakashprajapat/Mahalaxmi-Fashion.git
 cd "$APP" || { echo "ERROR: $APP not found"; exit 1; }
 
+# ffmpeg is required for server-side return-video compression (installed once).
+command -v ffmpeg >/dev/null 2>&1 || { echo "Installing ffmpeg (one-time)..."; apt-get update -y && apt-get install -y ffmpeg; }
+
 echo "1. Backing up server-only files (secrets + uploaded images)..."
 cp backend/appsettings.json /root/appsettings.backup.json 2>/dev/null || true
 rm -rf /root/mfh-uploads-backup && mkdir -p /root/mfh-uploads-backup
