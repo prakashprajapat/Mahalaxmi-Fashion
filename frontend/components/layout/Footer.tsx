@@ -55,7 +55,6 @@ export default function Footer() {
           <Link href="/safety-center">Safety Center</Link>
           <Link href="/about-us">About Us</Link>
           <Link href="/contact">Contact Us</Link>
-          <Link href="/become-supplier">Become a Supplier</Link>
         </nav>
 
         <nav className="site-footer-col">
@@ -97,6 +96,7 @@ export default function Footer() {
           <Link href="/shipping-delivery-policy">Shipping</Link>
           <Link href="/return-policy">Returns</Link>
           <Link href="/cancellation-policy">Cancellation</Link>
+          <Link href="/become-supplier">Become a Supplier</Link>
         </nav>
       </div>
     </footer>

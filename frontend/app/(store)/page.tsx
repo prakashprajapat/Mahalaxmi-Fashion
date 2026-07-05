@@ -169,22 +169,6 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* Become a Supplier CTA */}
-      <section style={{ background: 'linear-gradient(135deg, #7a0a22 0%, #a7354d 100%)', color: '#fff', padding: '2.25rem 1.5rem' }}>
-        <div className="section-wrap" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
-          <div>
-            <h2 style={{ fontSize: '1.5rem', fontWeight: 800, margin: 0 }}>🤝 Become a Supplier</h2>
-            <p style={{ margin: '.35rem 0 0', opacity: .9, fontSize: '.95rem', maxWidth: 560 }}>
-              Manufacturer, wholesaler or distributor? Partner with Mahalaxmi Fashion Hub and reach more customers. Share your firm details — our team will connect with you.
-            </p>
-          </div>
-          <Link href="/become-supplier" className="button"
-            style={{ background: '#fff', color: '#a7354d', fontWeight: 700, whiteSpace: 'nowrap', padding: '.7rem 1.6rem', borderRadius: 8, textDecoration: 'none', flexShrink: 0 }}>
-            Apply Now →
-          </Link>
-        </div>
-      </section>
-
     </>
   );
 }
