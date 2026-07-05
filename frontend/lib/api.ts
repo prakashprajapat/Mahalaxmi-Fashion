@@ -196,12 +196,36 @@ export const authApi = {
 };
 
 // ── Settings ─────────────────────────────────────────────────────────────────
+// Client-side settings cache: layout, navbar, footer, offer banner, whatsapp float, etc. all
+// request /settings on the same page load. We dedupe those into ONE network call and reuse the
+// result briefly, instead of firing 6+ identical requests. (Server rendering keeps using Next's
+// own per-request data cache.) Any admin save clears the cache so changes show on the next load.
+type SettingsResp = { success: boolean; settings: Record<string, string> };
+let _settingsCache: { at: number; data: SettingsResp } | null = null;
+let _settingsInflight: Promise<SettingsResp> | null = null;
+const SETTINGS_TTL = 30_000;
+
 export const settingsApi = {
-  getAll: () => request<{ success: boolean; settings: Record<string, string> }>('/settings'),
-  upsert: (key: string, value: string, token: string) =>
-    request(`/settings/${key}`, { method: 'PUT', body: JSON.stringify({ value }) }, token),
-  bulkUpsert: (settings: Record<string, string>, token: string) =>
-    request('/settings/bulk', { method: 'POST', body: JSON.stringify(settings) }, token),
+  getAll: (): Promise<SettingsResp> => {
+    if (typeof window === 'undefined')
+      return request<SettingsResp>('/settings');            // server: use Next data cache
+    const now = Date.now();
+    if (_settingsCache && now - _settingsCache.at < SETTINGS_TTL)
+      return Promise.resolve(_settingsCache.data);          // fresh enough — reuse
+    if (_settingsInflight) return _settingsInflight;        // a request is already in flight — join it
+    _settingsInflight = request<SettingsResp>('/settings')
+      .then(data => { _settingsCache = { at: Date.now(), data }; return data; })
+      .finally(() => { _settingsInflight = null; });
+    return _settingsInflight;
+  },
+  upsert: (key: string, value: string, token: string) => {
+    _settingsCache = null;                                  // invalidate so the change shows up
+    return request(`/settings/${key}`, { method: 'PUT', body: JSON.stringify({ value }) }, token);
+  },
+  bulkUpsert: (settings: Record<string, string>, token: string) => {
+    _settingsCache = null;                                  // invalidate so the change shows up
+    return request('/settings/bulk', { method: 'POST', body: JSON.stringify(settings) }, token);
+  },
 };
 
 // ── Payments ─────────────────────────────────────────────────────────────────

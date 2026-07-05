@@ -9,12 +9,15 @@ services:
     environment:
       POSTGRES_DB: mahalaxmi_fashionhub
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme}
+      # No default: the stack refuses to start unless DB_PASSWORD is set (never ship "changeme").
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
     ports:
-      - "5432:5432"
+      # Bind to localhost only — Postgres must NOT be reachable from the public internet.
+      # (The backend reaches it over the internal compose network via Host=postgres.)
+      - "127.0.0.1:5432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
@@ -29,8 +32,9 @@ services:
     container_name: mfh_backend
     restart: unless-stopped
     environment:
-      ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=mahalaxmi_fashionhub;Username=postgres;Password=${DB_PASSWORD:-changeme}"
-      Jwt__Key: ${JWT_KEY:-CHANGE_THIS_IN_PRODUCTION_USE_LONG_RANDOM_STRING}
+      ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=mahalaxmi_fashionhub;Username=postgres;Password=${DB_PASSWORD:?DB_PASSWORD is required}"
+      # No default: a guessable JWT key = every login token forgeable. Must be set explicitly.
+      Jwt__Key: ${JWT_KEY:?JWT_KEY is required (use a long random string)}
       Jwt__Issuer: MahalaxmiApi
       Jwt__Audience: MahalaxmiFashionHub
       Admin__Email: ${ADMIN_EMAIL:-admin@mahalaxmifashionhub.com}

@@ -303,6 +303,46 @@ public class OrdersController : ControllerBase
         }
         else
         {
+            // Consume the coupon ATOMICALLY before storing the order. This single UPDATE both
+            // increments used_count AND re-checks the cap in one statement, so two concurrent
+            // orders can never both slip past a MaxUses limit (the old read-then-write could).
+            if (!string.IsNullOrWhiteSpace(serverCouponCode))
+            {
+                var rows = await _db.Database.ExecuteSqlInterpolatedAsync(
+                    $"UPDATE coupons SET used_count = used_count + 1 WHERE lower(code) = lower({serverCouponCode}) AND (max_uses IS NULL OR used_count < max_uses)");
+
+                if (rows == 0)
+                {
+                    // The coupon just hit its usage cap via a concurrent order. For COD we drop the
+                    // discount (nothing charged yet); for a prepaid order the customer has already
+                    // paid the discounted amount, so we honour the order as placed.
+                    if (method == "cod")
+                    {
+                        serverDiscount   = 0m;
+                        serverTotal      = Math.Max(0m, serverSubtotal + serverShipping + serverCodFee);
+                        serverCouponCode = null;
+                    }
+                }
+                else
+                {
+                    // Coupon consumed. A birthday/anniversary offer also locks that occasion.
+                    var occasion = await _db.Coupons
+                        .Where(c => c.Code.ToLower() == serverCouponCode!.ToLower())
+                        .Select(c => c.Occasion).FirstOrDefaultAsync();
+                    if ((occasion == "birthday" || occasion == "anniversary")
+                        && int.TryParse(req.CustomerId, out var cid) && cid > 0)
+                    {
+                        var buyer = await _db.Customers.FindAsync(cid);
+                        if (buyer is not null)
+                        {
+                            if (occasion == "birthday") buyer.BirthdayOfferUsed = true;
+                            else buyer.AnniversaryOfferUsed = true;
+                            buyer.UpdatedAt = DateTimeOffset.UtcNow;
+                        }
+                    }
+                }
+            }
+
             _db.SiteOrders.Add(new SiteOrder
             {
                 OrderId = orderId,
@@ -324,28 +364,6 @@ public class OrdersController : ControllerBase
                 CouponCode = serverCouponCode,
                 DiscountAmount = serverDiscount,
             });
-            // Increment coupon used_count only when a valid coupon was actually applied.
-            if (!string.IsNullOrWhiteSpace(serverCouponCode))
-            {
-                var coupon = await _db.Coupons.FirstOrDefaultAsync(c => c.Code.ToLower() == serverCouponCode.ToLower());
-                if (coupon is not null)
-                {
-                    coupon.UsedCount++;
-
-                    // A birthday/anniversary coupon "uses up" that offer → lock the customer's date.
-                    if (coupon.Occasion is "birthday" or "anniversary"
-                        && int.TryParse(req.CustomerId, out var cid) && cid > 0)
-                    {
-                        var buyer = await _db.Customers.FindAsync(cid);
-                        if (buyer is not null)
-                        {
-                            if (coupon.Occasion == "birthday") buyer.BirthdayOfferUsed = true;
-                            else buyer.AnniversaryOfferUsed = true;
-                            buyer.UpdatedAt = DateTimeOffset.UtcNow;
-                        }
-                    }
-                }
-            }
         }
 
         await _db.SaveChangesAsync();
@@ -385,32 +403,50 @@ public class OrdersController : ControllerBase
         if (string.Equals(req.Status, "Delivered", StringComparison.OrdinalIgnoreCase) && order.DeliveredAt is null)
             order.DeliveredAt = DateTimeOffset.UtcNow;
 
+        order.UpdatedAt = DateTimeOffset.UtcNow;
+
         // Assign a GST invoice number once the order is confirmed for shipping — at
         // "Ready for Shipping" or any later stage — if it doesn't already have one.
         var invoiceStatuses = new[] { "Ready for Shipping", "Shipped", "Transit", "Delivered" };
-        if (invoiceStatuses.Contains(req.Status, StringComparer.OrdinalIgnoreCase)
-            && string.IsNullOrEmpty(order.InvoiceNumber))
+        var needsInvoice = invoiceStatuses.Contains(req.Status, StringComparer.OrdinalIgnoreCase)
+                           && string.IsNullOrEmpty(order.InvoiceNumber);
+
+        if (needsInvoice)
         {
-            order.InvoiceNumber = await NextInvoiceNumberAsync();
+            // Serialise invoice numbering with a transaction-scoped advisory lock (keyed on the
+            // financial year) so two concurrent "Ready for Shipping" updates can never be handed
+            // the SAME GST number. The lock is held until the new number is committed, then auto-released.
+            var prefix = InvoicePrefix();
+            await using var tx = await _db.Database.BeginTransactionAsync();
+            await _db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtext({prefix}))");
+            order.InvoiceNumber = await NextInvoiceNumberAsync(prefix);
+            await _db.SaveChangesAsync();
+            await tx.CommitAsync();
+        }
+        else
+        {
+            await _db.SaveChangesAsync();
         }
 
-        order.UpdatedAt = DateTimeOffset.UtcNow;
-
-        await _db.SaveChangesAsync();
         return Ok(new { success = true, order = MapOrder(order) });
     }
 
-    // Builds the next sequential GST invoice number, e.g. "M/26-27/001".
-    // The financial year runs 1 April → 31 March, so the counter resets each 1 April
-    // (an invoice generated on/after 01-04-2027 becomes M/27-28/001).
-    private async Task<string> NextInvoiceNumberAsync()
+    // Invoice prefix for the current Indian financial year, e.g. "M/26-27/".
+    // The FY runs 1 April → 31 March, so the counter resets each 1 April.
+    private static string InvoicePrefix()
     {
         // Use India time so the 1-April boundary is correct locally.
         var now = DateTimeOffset.UtcNow.ToOffset(TimeSpan.FromHours(5.5)).DateTime;
         int startYear = now.Month >= 4 ? now.Year : now.Year - 1;
         var fy = $"{startYear % 100:00}-{(startYear + 1) % 100:00}";   // e.g. "26-27"
-        var prefix = $"M/{fy}/";
+        return $"M/{fy}/";
+    }
 
+    // Builds the next sequential GST invoice number for the given FY prefix, e.g. "M/26-27/001".
+    // MUST be called while holding the advisory lock (see UpdateStatus) so the read-max-then-assign
+    // is race-free.
+    private async Task<string> NextInvoiceNumberAsync(string prefix)
+    {
         var existing = await _db.SiteOrders
             .Where(o => o.InvoiceNumber != null && o.InvoiceNumber.StartsWith(prefix))
             .Select(o => o.InvoiceNumber!)
