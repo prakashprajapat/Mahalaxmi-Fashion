@@ -66,12 +66,12 @@ export const metadata: Metadata = {
   // ── Favicon / Icons ──────────────────────────────────────────────────────────
   icons: {
     icon: [
-      { url: '/favicon.ico?v=6', type: 'image/x-icon', sizes: '16x16 32x32 48x48' },
-      { url: '/favicon-32.png?v=6', type: 'image/png', sizes: '32x32' },
+      { url: '/favicon.ico?v=7', type: 'image/x-icon', sizes: '16x16 32x32 48x48' },
+      { url: '/favicon-32.png?v=7', type: 'image/png', sizes: '32x32' },
       { url: '/icon-192.png', type: 'image/png', sizes: '192x192' },
     ],
     apple: '/apple-touch-icon.png',
-    shortcut: '/favicon.ico?v=6',
+    shortcut: '/favicon.ico?v=7',
   },
 
   // ── Robots ─────────────────────────────────────────────────────────────────
@@ -118,7 +118,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               '@type': 'ClothingStore',
               name: 'Mahalaxmi Fashion Hub',
               url: SITE_URL,
-              logo: `${SITE_URL}/Logo.png`,
+              logo: `${SITE_URL}/icon-512.png`,
               image: `${SITE_URL}/hero-banner.webp`,
               description: 'Premium Indian Fashion — Sarees, Nighty, Petticoat & More. Family-run ethnic wear boutique in Balotra, Rajasthan.',
               telephone: '+919429429880',
