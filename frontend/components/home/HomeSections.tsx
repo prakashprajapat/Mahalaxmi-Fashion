@@ -27,7 +27,7 @@ export function BestSellersSection({ products }: { products: Product[] }) {
   if (products.length === 0) return null;
 
   return (
-    <section style={{ background: '#fdf0f3', padding: '1.25rem 0 2rem' }} id="best-sellers">
+    <section style={{ background: '#fdf0f3', padding: '.6rem 0 2rem' }} id="best-sellers">
       <div className="section-wrap">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '.75rem' }}>
           <h2 className="section-heading" style={{ margin: 0 }}>Best Sellers</h2>
