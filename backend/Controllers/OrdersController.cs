@@ -157,13 +157,19 @@ public class OrdersController : ControllerBase
         decimal serverSubtotal = 0m;
         var cartLines = req.Cart ?? new List<CartLineDto>();
         var skus = cartLines.Select(c => (c.Sku ?? "").Trim()).Where(s => s.Length > 0).Distinct().ToList();
-        var products = await _db.Products.Where(p => skus.Contains(p.Sku)).ToListAsync();
+        var products = await _db.Products.Where(p => p.Sku != null && skus.Contains(p.Sku)).ToListAsync();
         var bySku = new Dictionary<string, Product>(StringComparer.OrdinalIgnoreCase);
-        foreach (var p in products) bySku[p.Sku] = p;   // last-wins (defensive vs any dup SKU)
+        foreach (var p in products)
+        {
+            var productSku = p.Sku?.Trim();
+            if (!string.IsNullOrWhiteSpace(productSku))
+                bySku[productSku] = p;   // last-wins (defensive vs any dup SKU)
+        }
         foreach (var line in cartLines)
         {
             var qty = Math.Max(1, line.Quantity);
-            if (!string.IsNullOrWhiteSpace(line.Sku) && bySku.TryGetValue(line.Sku.Trim(), out var prod))
+            var lineSku = line.Sku?.Trim();
+            if (!string.IsNullOrWhiteSpace(lineSku) && bySku.TryGetValue(lineSku, out var prod))
             {
                 if (string.Equals(prod.StockStatus, "Out of Stock", StringComparison.OrdinalIgnoreCase)
                     || string.Equals(prod.StockStatus, "Inactive", StringComparison.OrdinalIgnoreCase))

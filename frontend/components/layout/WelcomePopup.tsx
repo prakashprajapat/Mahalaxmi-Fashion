@@ -109,7 +109,7 @@ export default function WelcomePopup() {
               <div style={{ fontSize: '3.5rem', marginBottom: '.75rem' }}>🎁</div>
               <h2 style={{ color: '#a7354d', fontWeight: 800, margin: '0 0 .4rem' }}>Welcome to the Family!</h2>
               <p style={{ color: '#666', fontSize: '.9rem', margin: 0 }}>
-                You'll be the first to know about new arrivals, offers and exclusive deals.
+                You&apos;ll be the first to know about new arrivals, offers and exclusive deals.
               </p>
             </div>
           ) : (
@@ -191,7 +191,7 @@ export default function WelcomePopup() {
                   marginTop: '.75rem', background: 'none', border: 'none',
                   color: '#bbb', fontSize: '.8rem', cursor: 'pointer', textDecoration: 'underline',
                 }}>
-                No thanks, I'll miss out
+                No thanks, I&apos;ll miss out
               </button>
             </>
           )}

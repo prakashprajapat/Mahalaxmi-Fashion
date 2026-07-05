@@ -1,8 +1,13 @@
 User-agent: *
 Allow: /
 
-# Disallow admin panel from indexing
+# Disallow private, transactional, and API pages from indexing
 Disallow: /admin/
+Disallow: /account/
+Disallow: /cart/
+Disallow: /checkout/
+Disallow: /orders/
+Disallow: /wishlist/
 Disallow: /api/
 
 Sitemap: https://mahalaxmifashionhub.com/sitemap.xml

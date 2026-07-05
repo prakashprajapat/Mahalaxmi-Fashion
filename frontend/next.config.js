@@ -1,6 +1,7 @@
 const path = require('path');
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  poweredByHeader: false,
   ...(process.env.NEXT_OUTPUT_STANDALONE === 'true' ? { output: 'standalone' } : {}),
   // CQ-1: Build errors should surface — removed ignoreBuildErrors and ignoreDuringBuilds
   typescript: { ignoreBuildErrors: false },
@@ -26,6 +27,20 @@ const nextConfig = {
       {
         source: '/api/:path*',
         destination: `${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000/api'}/:path*`,
+      },
+    ];
+  },
+  async headers() {
+    return [
+      {
+        source: '/:path*',
+        headers: [
+          { key: 'X-Frame-Options', value: 'DENY' },
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+          { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
+          { key: 'Strict-Transport-Security', value: 'max-age=31536000; includeSubDomains; preload' },
+        ],
       },
     ];
   },
@@ -76,11 +91,19 @@ const nextConfig = {
     ];
 
     // CQ-7: permanent: true for SEO-correct 301 redirects (old PHP/HTML URLs)
-    return legacy.map(([source, destination]) => ({
-      source: `/${source}`,
-      destination,
-      permanent: true,
-    }));
+    return [
+      {
+        source: '/:path*',
+        has: [{ type: 'host', value: 'www.mahalaxmifashionhub.com' }],
+        destination: 'https://mahalaxmifashionhub.com/:path*',
+        permanent: true,
+      },
+      ...legacy.map(([source, destination]) => ({
+        source: `/${source}`,
+        destination,
+        permanent: true,
+      })),
+    ];
   },
 };
 

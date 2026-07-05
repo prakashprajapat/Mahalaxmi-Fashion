@@ -93,7 +93,7 @@ export default function NotFound() {
       `}</style>
 
       <div className="nf-wrap">
-        <img src="/Logo.png" alt="Mahalaxmi Fashion Hub" className="nf-logo" />
+        <img src="/logo.webp?v=4" alt="Mahalaxmi Fashion Hub" className="nf-logo" />
 
         <p className="nf-code">404</p>
         <h1 className="nf-title">Page Not Found</h1>
