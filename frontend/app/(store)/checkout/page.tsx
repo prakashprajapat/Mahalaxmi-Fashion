@@ -217,47 +217,6 @@ export default function CheckoutPage() {
     return true;
   };
 
-  const handleCod = async () => {
-    if (honeypot) return; // bot detected
-    if (!validateShipping()) return;
-    setLoading(true);
-    try {
-      const oid = `MFH${Date.now()}`;
-      const cartLines = buildCartLines();
-      await ordersApi.place({
-        id: oid,
-        method: 'cod',
-        status: 'Pending',
-        cart: cartLines,
-        subtotal,
-        shippingCost,
-        codFee: 0,
-        total,
-        customerId: customer?.id?.toString(),
-        customerName: shipping.name,
-        customerEmail: shipping.email,
-        customerPhone: shipping.phone,
-        panNumber: requiresPan ? panData.panNumber : undefined,
-        panName: requiresPan ? panData.panName : undefined,
-        couponCode: attributionCode(),
-        discountAmount: couponApplied?.discount ?? 0,
-        shippingName: shipping.name,
-        shippingAddress: shipping.address,
-        shippingCity: shipping.city,
-        shippingPincode: shipping.pincode,
-        shippingState: shipping.state,
-        placedAt: new Date().toISOString(),
-      });
-      clearCart();
-      setOrderId(oid);
-      setStep('confirm');
-    } catch (e) {
-      alert('Order failed: ' + (e as Error).message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleRazorpay = async () => {
     if (!validateShipping()) return;
     setLoading(true);
@@ -449,9 +408,6 @@ export default function CheckoutPage() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '.75rem' }}>
               <button onClick={handleRazorpay} disabled={loading} className="button primary" style={{ width: '100%' }}>
                 {loading ? 'Processing…' : '💳 Pay Online (UPI / Card / Net Banking)'}
-              </button>
-              <button onClick={handleCod} disabled={loading} className="button secondary" style={{ width: '100%' }}>
-                Cash on Delivery
               </button>
             </div>
           </div>
