@@ -331,7 +331,7 @@ export default function Navbar() {
                 <div style={{ borderTop: '1px solid #f0f0f0', marginTop: '.5rem', paddingTop: '.5rem' }}>
                   <button type="button"
                     onClick={() => { logout(); resetLoginForm(); setMenuOpen(false); window.dispatchEvent(new Event('auth-changed')); router.push('/account'); }}
-                    style={{ display: 'block', width: '100%', textAlign: 'left', padding: '.45rem .25rem', color: '#e67e22', fontSize: '.9rem', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}>
+                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '.4rem', width: '100%', textAlign: 'center', padding: '.6rem .25rem', color: '#fff', fontSize: '.92rem', background: '#a7354d', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: 700, marginBottom: '.4rem' }}>
                     🔓 Logout
                   </button>
                   <Link href="/account/deactivate" onClick={() => setMenuOpen(false)}

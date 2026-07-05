@@ -823,7 +823,7 @@ export default function InfluencerPage() {
         <div style={{ marginTop: '1.5rem', background: BRAND_LIGHT, borderRadius: '16px', padding: '1.25rem', textAlign: 'center', border: `1px solid #f0d0d9` }}>
           <div style={{ fontWeight: 700, marginBottom: '.3rem', color: '#1a1a1a' }}>💬 Need Help?</div>
           <p style={{ color: '#666', fontSize: '.85rem', margin: '0 0 .75rem' }}>WhatsApp us for commission payments, orders, or any questions</p>
-          <a href="https://wa.me/919876543210" target="_blank" rel="noopener noreferrer"
+          <a href="https://wa.me/919429429880" target="_blank" rel="noopener noreferrer"
             style={{ background: '#25D366', color: '#fff', textDecoration: 'none', borderRadius: '20px', padding: '.5rem 1.2rem', fontWeight: 700, fontSize: '.85rem' }}>
             📱 WhatsApp Support
           </a>

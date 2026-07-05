@@ -54,18 +54,8 @@ export default function ProductPage({ params }: { params: { id: string } }) {
   const [reviewMsg, setReviewMsg] = useState('');
   const [submittingReview, setSubmittingReview] = useState(false);
 
-  // Inject canonical tag for this product page
-  useEffect(() => {
-    const canonicalUrl = `https://mahalaxmifashionhub.com/products/${params.id}`;
-    let link = document.querySelector<HTMLLinkElement>('link[rel="canonical"]');
-    if (!link) {
-      link = document.createElement('link');
-      link.setAttribute('rel', 'canonical');
-      document.head.appendChild(link);
-    }
-    link.setAttribute('href', canonicalUrl);
-    return () => { link?.remove(); };
-  }, [params.id]);
+  // Canonical + SEO metadata are now provided server-side by layout.tsx
+  // (generateMetadata), so no client-side canonical injection is needed here.
 
   useEffect(() => {
     let cancelled = false;

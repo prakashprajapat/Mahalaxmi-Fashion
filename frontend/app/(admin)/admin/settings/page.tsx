@@ -16,6 +16,16 @@ const SECTIONS = [
     ]
   },
   {
+    title: 'SEO — Homepage & Google',
+    desc: 'Ye text Google search results aur browser tab me dikhta hai. Khaali chhodoge to default use hoga. (Product pages ka SEO product ke naam/description se apne aap banta hai.)',
+    fields: [
+      { key: 'seoHomeTitle', label: 'Homepage Meta Title (Google title — best under 60 chars)', type: 'text' },
+      { key: 'seoHomeDescription', label: 'Homepage Meta Description (Google snippet — best under 160 chars)', type: 'textarea' },
+      { key: 'seoKeywords', label: 'Keywords (comma separated — e.g. saree, nighty, petticoat)', type: 'text' },
+      { key: 'seoOgImage', label: 'Social Share Image URL (Open Graph — leave blank for default)', type: 'text' },
+    ]
+  },
+  {
     title: 'Offer Banner',
     desc: 'Controls the offer banner shown on the homepage. Toggle it on/off anytime.',
     fields: [

@@ -1,9 +1,13 @@
-import { MetadataRoute } from 'next'
+import { MetadataRoute } from 'next';
+import { productsApi } from '@/lib/api';
 
 const BASE = 'https://mahalaxmifashionhub.com';
 
-export default function sitemap(): MetadataRoute.Sitemap {
-  return [
+// Regenerate the sitemap periodically so newly-added products appear automatically.
+export const revalidate = 3600; // 1 hour
+
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  const staticEntries: MetadataRoute.Sitemap = [
     // ── Core pages ────────────────────────────────────────────────────────────
     { url: BASE,                                   lastModified: new Date(), changeFrequency: 'daily',   priority: 1.0 },
     { url: `${BASE}/products`,                     lastModified: new Date(), changeFrequency: 'daily',   priority: 0.9 },
@@ -32,5 +36,21 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${BASE}/shipping-delivery-policy`,     lastModified: new Date(), changeFrequency: 'yearly',  priority: 0.4 },
     { url: `${BASE}/terms-conditions`,             lastModified: new Date(), changeFrequency: 'yearly',  priority: 0.4 },
     { url: `${BASE}/safety-center`,                lastModified: new Date(), changeFrequency: 'yearly',  priority: 0.3 },
-  ]
+  ];
+
+  // ── Product pages (auto — every product from the API) ───────────────────────
+  let productEntries: MetadataRoute.Sitemap = [];
+  try {
+    const { products } = await productsApi.getAll({ pageSize: 1000 });
+    productEntries = (products ?? []).map(p => ({
+      url: `${BASE}/products/${p.dbId}`,
+      lastModified: new Date(),
+      changeFrequency: 'weekly' as const,
+      priority: 0.7,
+    }));
+  } catch {
+    // If the API is unreachable at build time, still return the static sitemap.
+  }
+
+  return [...staticEntries, ...productEntries];
 }

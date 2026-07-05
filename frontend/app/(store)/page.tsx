@@ -1,26 +1,40 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { productsApi, settingsApi } from '@/lib/api';
-import { NewArrivalsSection } from '@/components/home/HomeSections';
-import ProductsClient from '@/components/products/ProductsClient';
+import { BestSellersSection, NewArrivalsSection } from '@/components/home/HomeSections';
+import OfferBanner from '@/components/home/OfferBanner';
 
 // No searchParams = page is fully ISR-cached (served from cache, no DB call per request)
 export const revalidate = 300;
 
+// Homepage SEO — admin-editable from Settings → "SEO — Homepage & Google".
+// Falls back to the site defaults (in layout.tsx) when a field is left blank.
+export async function generateMetadata(): Promise<Metadata> {
+  const res = await settingsApi.getAll().catch(() => ({ settings: {} as Record<string, string> }));
+  const s = res.settings ?? {};
+  const title = s.seoHomeTitle?.trim();
+  const description = s.seoHomeDescription?.trim();
+  const keywords = s.seoKeywords?.trim();
+  const ogImage = s.seoOgImage?.trim();
+
+  const meta: Metadata = {};
+  if (title) meta.title = { absolute: title };
+  if (description) meta.description = description;
+  if (keywords) meta.keywords = keywords;
+  if (title || description || ogImage) {
+    meta.openGraph = {
+      ...(title ? { title } : {}),
+      ...(description ? { description } : {}),
+      ...(ogImage ? { images: [{ url: ogImage }] } : {}),
+    };
+  }
+  return meta;
+}
+
 export default async function HomePage() {
-  const [{ products }, settings] = await Promise.all([
-    productsApi.getAll({ pageSize: 200 }).catch(() => ({ products: [] as any[] })),
-    settingsApi.getAll().catch(() => ({ settings: {} as Record<string, string> })),
-  ]);
+  const { products } = await productsApi.getAll({ pageSize: 200 }).catch(() => ({ products: [] as any[] }));
 
   const bestSellers = products.filter((p: any) => p.bestSeller);
-
-  const s = settings.settings ?? {};
-  const offerEnabled = s.offerEnabled === 'true';
-  const offerEyebrow = s.offerEyebrow || 'Festival Offer';
-  const offerTitle = s.offerTitle || 'Fresh festive deals are live now';
-  const offerText = s.offerText || 'Update this banner anytime from the admin panel to promote discounts, launches, or special collections.';
-  const offerButtonLabel = s.offerButtonLabel || 'Explore Offer';
-  const offerButtonLink = s.offerButtonLink || '/products?bestSeller=true';
 
   return (
     <>
@@ -129,26 +143,11 @@ export default async function HomePage() {
         }} />
       </section>
 
-      {/* Dynamic Offer Banner */}
-      {offerEnabled && (
-        <section style={{ background: 'linear-gradient(135deg, #a7354d 0%, #5c1a28 100%)', color: '#fff', padding: '2rem 1.5rem' }}>
-          <div style={{ maxWidth: '800px', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1.5rem', flexWrap: 'wrap' }}>
-            <div>
-              <p style={{ fontSize: '.8rem', textTransform: 'uppercase', letterSpacing: '.1em', opacity: .8, marginBottom: '.35rem' }}>{offerEyebrow}</p>
-              <h2 style={{ fontSize: 'clamp(1.2rem, 3vw, 1.6rem)', fontWeight: 800, margin: '0 0 .5rem' }}>{offerTitle}</h2>
-              <p style={{ opacity: .85, fontSize: '.9rem', maxWidth: '500px' }}>{offerText}</p>
-            </div>
-            <Link href={offerButtonLink} className="button" style={{ background: '#fff', color: '#a7354d', fontWeight: 700, whiteSpace: 'nowrap', padding: '.65rem 1.5rem', borderRadius: '8px', textDecoration: 'none', flexShrink: 0 }}>
-              {offerButtonLabel}
-            </Link>
-          </div>
-        </section>
-      )}
+      {/* Dynamic Offer Banner — client-rendered so admin toggle reflects instantly */}
+      <OfferBanner />
 
-      {/* Best Sellers — full filterable listing (same layout as category pages) */}
-      <section id="best-sellers" style={{ background: '#fdf0f3' }}>
-        <ProductsClient products={bestSellers} title="Best Sellers" />
-      </section>
+      {/* Best Sellers — simple preview grid */}
+      <BestSellersSection products={bestSellers} />
 
       {/* New Arrivals — client component */}
       <NewArrivalsSection products={products} />
