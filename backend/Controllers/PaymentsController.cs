@@ -109,6 +109,56 @@ public class PaymentsController : ControllerBase
         return Ok(new { success = true, verified = true });
     }
 
+    // POST /api/payments/webhook  — Razorpay server-to-server reconciliation.
+    // Marks the Razorpay order paid even if the browser closed before /verify was called,
+    // so a captured payment is never lost. Configure the URL + secret in the Razorpay dashboard.
+    [HttpPost("webhook")]
+    public async Task<IActionResult> Webhook()
+    {
+        var secret = _config["Razorpay:WebhookSecret"] ?? "";
+
+        string body;
+        using (var reader = new StreamReader(Request.Body, Encoding.UTF8))
+            body = await reader.ReadToEndAsync();
+
+        // Verify the webhook signature (HMAC-SHA256 of the raw body).
+        var sigHeader = Request.Headers["X-Razorpay-Signature"].ToString();
+        if (string.IsNullOrEmpty(secret) || string.IsNullOrEmpty(sigHeader)
+            || !string.Equals(HMACSHA256Hex(body, secret), sigHeader, StringComparison.OrdinalIgnoreCase))
+            return Unauthorized(new { success = false, message = "Invalid webhook signature." });
+
+        try
+        {
+            var evt = JsonSerializer.Deserialize<JsonElement>(body);
+            var eventName = evt.TryGetProperty("event", out var en) ? en.GetString() : "";
+
+            string? rpOrderId = null, rpPaymentId = null;
+            if (evt.TryGetProperty("payload", out var payload)
+                && payload.TryGetProperty("payment", out var pay)
+                && pay.TryGetProperty("entity", out var ent))
+            {
+                rpOrderId   = ent.TryGetProperty("order_id", out var oid) ? oid.GetString() : null;
+                rpPaymentId = ent.TryGetProperty("id", out var pid) ? pid.GetString() : null;
+            }
+
+            if ((eventName == "payment.captured" || eventName == "order.paid") && !string.IsNullOrEmpty(rpOrderId))
+            {
+                var order = await _db.RazorpayOrders.FirstOrDefaultAsync(r => r.RazorpayOrderId == rpOrderId);
+                if (order is not null && order.Status != "paid")
+                {
+                    order.RazorpayPaymentId = rpPaymentId;
+                    order.Status = "paid";
+                    order.PaidAt = DateTimeOffset.UtcNow;
+                    order.RawVerifyJson = body;
+                    await _db.SaveChangesAsync();
+                }
+            }
+        }
+        catch { /* malformed payload — still return 200 so Razorpay doesn't retry endlessly */ }
+
+        return Ok(new { success = true });
+    }
+
     private static string HMACSHA256Hex(string data, string secret)
     {
         var keyBytes = Encoding.UTF8.GetBytes(secret);

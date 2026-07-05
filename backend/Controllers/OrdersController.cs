@@ -147,6 +147,57 @@ public class OrdersController : ControllerBase
             state = req.ShippingState ?? ""
         }, _json);
 
+        // ── SECURITY: recompute stock + amounts server-side (never trust client totals) ──
+        decimal serverSubtotal = 0m;
+        var cartLines = req.Cart ?? new List<CartLineDto>();
+        var skus = cartLines.Select(c => (c.Sku ?? "").Trim()).Where(s => s.Length > 0).Distinct().ToList();
+        var products = await _db.Products.Where(p => skus.Contains(p.Sku)).ToListAsync();
+        var bySku = new Dictionary<string, Product>(StringComparer.OrdinalIgnoreCase);
+        foreach (var p in products) bySku[p.Sku] = p;   // last-wins (defensive vs any dup SKU)
+        foreach (var line in cartLines)
+        {
+            var qty = Math.Max(1, line.Quantity);
+            if (!string.IsNullOrWhiteSpace(line.Sku) && bySku.TryGetValue(line.Sku.Trim(), out var prod))
+            {
+                if (string.Equals(prod.StockStatus, "Out of Stock", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(prod.StockStatus, "Inactive", StringComparison.OrdinalIgnoreCase))
+                    return BadRequest(new { success = false, message = $"'{prod.Name}' is out of stock. Please remove it and try again." });
+                var unit = prod.DiscountPrice.HasValue && prod.DiscountPrice.Value > 0 ? prod.DiscountPrice.Value : prod.Price;
+                serverSubtotal += unit * qty;
+            }
+            else
+            {
+                serverSubtotal += line.LineTotal;   // product not found by SKU — can't verify, keep client line
+            }
+        }
+
+        // Re-validate the coupon server-side → trusted discount (blocks discount tampering).
+        decimal serverDiscount = 0m;
+        string? serverCouponCode = null;
+        if (!string.IsNullOrWhiteSpace(req.CouponCode))
+        {
+            var code = req.CouponCode.Trim();
+            var coupon = await _db.Coupons.FirstOrDefaultAsync(c => c.Code.ToLower() == code.ToLower() && c.IsActive);
+            var callerId = int.TryParse(req.CustomerId, out var cid) ? cid : -1;
+            var valid = coupon is not null
+                && (!coupon.ExpiresAt.HasValue || coupon.ExpiresAt.Value >= DateTimeOffset.UtcNow)
+                && (!coupon.MaxUses.HasValue || coupon.UsedCount < coupon.MaxUses.Value)
+                && serverSubtotal >= coupon.MinOrder
+                && (!coupon.CustomerId.HasValue || coupon.CustomerId.Value == callerId);
+            if (valid && coupon is not null)
+            {
+                serverDiscount = coupon.Type == "percent"
+                    ? Math.Round(serverSubtotal * coupon.Value / 100m, 2)
+                    : Math.Min(coupon.Value, serverSubtotal);
+                serverCouponCode = coupon.Code;
+            }
+        }
+
+        // Shipping mirrors checkout: free over ₹999, else ₹60. COD fee clamped ≥ 0.
+        decimal serverShipping = serverSubtotal >= 999m ? 0m : 60m;
+        decimal serverCodFee   = Math.Max(0m, req.CodFee);
+        decimal serverTotal    = Math.Max(0m, serverSubtotal + serverShipping + serverCodFee - serverDiscount);
+
         var existing = await _db.SiteOrders.FirstOrDefaultAsync(o => o.OrderId == orderId);
         if (existing is not null)
         {
@@ -157,10 +208,10 @@ public class OrdersController : ControllerBase
             existing.Method = method;
             existing.Status = status;
             existing.PaymentId = req.PaymentId;
-            existing.Subtotal = req.Subtotal;
-            existing.ShippingCost = req.ShippingCost;
-            existing.CodFee = req.CodFee;
-            existing.Total = req.Total;
+            existing.Subtotal = serverSubtotal;
+            existing.ShippingCost = serverShipping;
+            existing.CodFee = serverCodFee;
+            existing.Total = serverTotal;
             existing.CartJson = cart;
             existing.CustomerJson = customerJson;
             existing.ShippingJson = shippingJson;
@@ -175,10 +226,10 @@ public class OrdersController : ControllerBase
                 Method = method,
                 Status = status,
                 PaymentId = req.PaymentId,
-                Subtotal = req.Subtotal,
-                ShippingCost = req.ShippingCost,
-                CodFee = req.CodFee,
-                Total = req.Total,
+                Subtotal = serverSubtotal,
+                ShippingCost = serverShipping,
+                CodFee = serverCodFee,
+                Total = serverTotal,
                 CartJson = cart,
                 CustomerJson = customerJson,
                 ShippingJson = shippingJson,
@@ -186,14 +237,14 @@ public class OrdersController : ControllerBase
                 // MISS-6: Store PAN details
                 PanNumber = req.PanNumber?.Trim().ToUpper(),
                 PanName = req.PanName?.Trim(),
-                // Coupon
-                CouponCode = string.IsNullOrWhiteSpace(req.CouponCode) ? null : req.CouponCode.Trim().ToUpper(),
-                DiscountAmount = req.DiscountAmount,
+                // Coupon (only the server-validated code/discount is stored)
+                CouponCode = serverCouponCode,
+                DiscountAmount = serverDiscount,
             });
-            // Increment coupon used_count
-            if (!string.IsNullOrWhiteSpace(req.CouponCode))
+            // Increment coupon used_count only when a valid coupon was actually applied.
+            if (!string.IsNullOrWhiteSpace(serverCouponCode))
             {
-                var coupon = await _db.Coupons.FirstOrDefaultAsync(c => c.Code.ToLower() == req.CouponCode.ToLower());
+                var coupon = await _db.Coupons.FirstOrDefaultAsync(c => c.Code.ToLower() == serverCouponCode.ToLower());
                 if (coupon is not null)
                 {
                     coupon.UsedCount++;
