@@ -2,58 +2,69 @@
 import { useEffect, useState } from 'react';
 
 /**
- * Registers the service worker and shows an "Add to Home Screen" prompt.
- * - Android/Chrome: uses the native beforeinstallprompt → one-tap Install.
- * - iOS/Safari: shows a hint to use Share → Add to Home Screen (no native prompt exists).
+ * Small "Create Shortcut" button that adds the site to the home screen.
+ * - Android/Chrome: uses the native install prompt (one tap).
+ * - iOS/Safari: shows a tiny hint (Share → Add to Home Screen), since iOS has no install API.
  */
 export default function PwaInstaller() {
   const [deferred, setDeferred] = useState<any>(null);
-  const [show, setShow] = useState(false);
-  const [iosHint, setIosHint] = useState(false);
+  const [visible, setVisible] = useState(false);
+  const [isIos, setIsIos] = useState(false);
+  const [showHint, setShowHint] = useState(false);
 
   useEffect(() => {
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js').catch(() => {});
     }
 
-    const onBIP = (e: any) => { e.preventDefault(); setDeferred(e); setShow(true); };
-    window.addEventListener('beforeinstallprompt', onBIP);
-
-    // iOS has no beforeinstallprompt — show a manual hint (unless already installed / dismissed).
-    const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
-    const isStandalone = window.matchMedia('(display-mode: standalone)').matches
+    const standalone = window.matchMedia('(display-mode: standalone)').matches
       || (navigator as any).standalone === true;
     let dismissed = false;
     try { dismissed = localStorage.getItem('mfh_pwa_dismissed') === '1'; } catch {}
-    if (isIos && !isStandalone && !dismissed) { setIosHint(true); setShow(true); }
+    if (standalone || dismissed) return; // already installed or user dismissed
 
+    const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    setIsIos(ios);
+    if (ios) setVisible(true); // iOS: show the button so the user can add manually
+
+    const onBIP = (e: any) => { e.preventDefault(); setDeferred(e); setVisible(true); };
+    window.addEventListener('beforeinstallprompt', onBIP);
     return () => window.removeEventListener('beforeinstallprompt', onBIP);
   }, []);
 
-  const install = async () => {
-    if (!deferred) return;
-    deferred.prompt();
-    try { await deferred.userChoice; } catch {}
-    setDeferred(null); setShow(false);
+  const handleClick = async () => {
+    if (deferred) {                 // Android — trigger the real install prompt
+      deferred.prompt();
+      try { await deferred.userChoice; } catch {}
+      setDeferred(null); setVisible(false);
+      return;
+    }
+    if (isIos) setShowHint(h => !h); // iOS — toggle the manual hint
   };
+
   const dismiss = () => {
-    setShow(false);
+    setVisible(false);
     try { localStorage.setItem('mfh_pwa_dismissed', '1'); } catch {}
   };
 
-  if (!show) return null;
+  if (!visible) return null;
   return (
-    <div style={{ position: 'fixed', left: '50%', transform: 'translateX(-50%)', bottom: 16, zIndex: 1000, background: '#fff', boxShadow: '0 4px 20px rgba(0,0,0,.18)', borderRadius: 12, padding: '.7rem .9rem', display: 'flex', alignItems: 'center', gap: '.75rem', maxWidth: '92%', border: '1px solid #eee' }}>
-      <img src="/icon-192.png" alt="" style={{ width: 36, height: 36, borderRadius: 8, flexShrink: 0 }} />
-      {iosHint ? (
-        <span style={{ fontSize: '.82rem', color: '#333' }}>Install the app: tap <b>Share</b> ⬆️ then <b>Add to Home Screen</b>.</span>
-      ) : (
-        <span style={{ fontSize: '.85rem', color: '#333', fontWeight: 600 }}>Add Mahalaxmi to your home screen</span>
+    <div style={{ position: 'fixed', right: 12, bottom: 78, zIndex: 1000, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
+      {showHint && isIos && (
+        <div style={{ background: '#fff', color: '#333', borderRadius: 10, padding: '.55rem .7rem', fontSize: '.75rem', boxShadow: '0 4px 16px rgba(0,0,0,.18)', maxWidth: 220, lineHeight: 1.4, border: '1px solid #eee' }}>
+          Tap <b>Share</b> ⬆️ then <b>Add to Home Screen</b>.
+        </div>
       )}
-      {!iosHint && (
-        <button onClick={install} style={{ background: '#a7354d', color: '#fff', border: 'none', borderRadius: 8, padding: '.45rem .9rem', fontWeight: 700, cursor: 'pointer', fontSize: '.82rem', whiteSpace: 'nowrap' }}>Install</button>
-      )}
-      <button onClick={dismiss} aria-label="Dismiss" style={{ background: 'none', border: 'none', color: '#999', cursor: 'pointer', fontSize: '1.2rem', lineHeight: 1 }}>×</button>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <button onClick={handleClick}
+          style={{ background: '#a7354d', color: '#fff', border: 'none', borderRadius: 22, padding: '.5rem .85rem', fontWeight: 700, fontSize: '.8rem', cursor: 'pointer', boxShadow: '0 3px 12px rgba(0,0,0,.2)', whiteSpace: 'nowrap' }}>
+          📲 Create Shortcut
+        </button>
+        <button onClick={dismiss} aria-label="Dismiss"
+          style={{ background: '#fff', color: '#999', border: '1px solid #eee', borderRadius: '50%', width: 26, height: 26, cursor: 'pointer', fontSize: '.95rem', lineHeight: 1, boxShadow: '0 2px 8px rgba(0,0,0,.12)' }}>
+          ×
+        </button>
+      </div>
     </div>
   );
 }

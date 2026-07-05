@@ -133,13 +133,12 @@ function AccountContent() {
           gap: .75rem;
         }
         .mfh-account-login-logo img {
-          width: 150px; height: 150px; min-width: 150px; max-width: none;
+          width: 185px; height: auto; max-width: 185px;
           box-sizing: border-box; flex-shrink: 0;
-          border-radius: 50%;
-          border: 3px solid rgba(255,255,255,.7);
+          border-radius: 14px;
           background: #fff;
-          object-fit: contain;
-          padding: 12px;
+          object-fit: contain; display: block;
+          padding: 12px 14px;
         }
         .mfh-account-login-logo p { margin:0; color:#fff; font-weight:800; font-size:1rem; line-height:1.3; }
         .mfh-account-login-logo small { color:rgba(255,255,255,.7); font-size:.75rem; margin-top:.25rem; display:block; }
@@ -147,7 +146,7 @@ function AccountContent() {
         @media (max-width: 560px) {
           .mfh-account-login-card { grid-template-columns: 1fr; }
           .mfh-account-login-logo { flex-direction:row; padding:1rem 1.25rem; justify-content:flex-start; gap:.75rem; }
-          .mfh-account-login-logo img { width:48px; height:48px; }
+          .mfh-account-login-logo img { width:140px; height:auto; padding:8px 10px; border-radius:10px; }
           .mfh-account-login-logo p { font-size:.9rem; text-align:left; }
           .mfh-account-login-logo small { display:none; }
           .mfh-account-login-form { padding:1.25rem; }

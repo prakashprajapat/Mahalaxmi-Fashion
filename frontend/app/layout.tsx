@@ -59,6 +59,9 @@ export const metadata: Metadata = {
     statusBarStyle: 'default',
     title: 'Mahalaxmi',
   },
+  other: {
+    'mobile-web-app-capable': 'yes',
+  },
 
   // ── Favicon / Icons ──────────────────────────────────────────────────────────
   icons: {
