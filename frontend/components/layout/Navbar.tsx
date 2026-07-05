@@ -242,9 +242,7 @@ export default function Navbar() {
               }
               .cart-bounce { animation: cartBounce .6s ease; background: #27ae60 !important; }
             `}</style>
-            {isLoggedIn ? (
-              <Link className="account-cta" href="/account">My Account</Link>
-            ) : (
+            {!isLoggedIn && (
               <button type="button" className="account-cta" onClick={openLogin}
                 style={{ border: 'none', cursor: 'pointer' }}>
                 Login / Signup
