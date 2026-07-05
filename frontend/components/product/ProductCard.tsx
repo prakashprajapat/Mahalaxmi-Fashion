@@ -67,12 +67,12 @@ export default function ProductCard({ product, priority = false }: { product: Pr
                   width={400}
                   height={400}
                   priority={priority}
-                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  style={{ width: '100%', height: '100%', objectFit: 'contain' }}
                   onError={() => setImgError(true)}
                 />
               ) : (
                 <img src={image} alt={product.name}
-                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  style={{ width: '100%', height: '100%', objectFit: 'contain' }}
                   onError={() => setImgError(true)}
                 />
               )
