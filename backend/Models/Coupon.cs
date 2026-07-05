@@ -26,6 +26,11 @@ public class Coupon
     [Column("occasion")]
     public string Occasion { get; set; } = "none";
 
+    /// <summary>When set, this coupon is personal — only this customer may redeem it
+    /// (used for per-customer birthday/anniversary offer codes sent by SMS).</summary>
+    [Column("customer_id")]
+    public int? CustomerId { get; set; }
+
     [Column("min_order")]
     public decimal MinOrder { get; set; }
 

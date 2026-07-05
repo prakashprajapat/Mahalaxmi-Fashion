@@ -75,7 +75,7 @@ export default function BirthdayPage() {
         body: JSON.stringify({ phone: c.phone, occasion: type, slab: slabDays }),
       });
       const json = await res.json();
-      setResult(r => ({ ...r, [key]: res.ok ? '✅ SMS Sent!' : `❌ ${json.message}` }));
+      setResult(r => ({ ...r, [key]: res.ok ? `✅ Sent! Code: ${json.couponCode ?? '—'}` : `❌ ${json.message}` }));
       if (res.ok) {
         setSent(prev => {
           const next = { ...prev, [sentKey(c.id, type, slabDays)]: new Date().toISOString().slice(0, 10) };

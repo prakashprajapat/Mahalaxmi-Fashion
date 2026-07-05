@@ -129,14 +129,53 @@ public class CustomersController : ControllerBase
         if (string.IsNullOrWhiteSpace(req.Phone))
             return BadRequest(new { success = false, message = "Phone number is required." });
 
+        var occasion = (req.Occasion ?? "birthday").Trim().ToLowerInvariant();
+        occasion = occasion == "anniversary" ? "anniversary" : "birthday";
+
+        // Find the customer this offer is for (match on the last 10 digits of the phone).
+        var digits = new string(req.Phone.Where(char.IsDigit).ToArray());
+        var last10 = digits.Length >= 10 ? digits[^10..] : digits;
+        var customer = await _db.Customers.FirstOrDefaultAsync(c => c.Phone != null && c.Phone.EndsWith(last10));
+
+        // Reuse an existing unused personal code for this customer+occasion, else mint a new one.
+        Coupon? coupon = null;
+        if (customer != null)
+        {
+            coupon = await _db.Coupons.FirstOrDefaultAsync(c =>
+                c.CustomerId == customer.Id && c.Occasion == occasion && c.IsActive
+                && c.UsedCount < (c.MaxUses ?? 1)
+                && (c.ExpiresAt == null || c.ExpiresAt > DateTimeOffset.UtcNow));
+        }
+        if (coupon is null)
+        {
+            var pctStr = await _db.SiteSettings.Where(s => s.Key == "celebrationOfferPercent").Select(s => s.Value).FirstOrDefaultAsync();
+            var pct = decimal.TryParse(pctStr, out var p) && p > 0 ? p : 10m;   // default 10% off
+            var prefix = occasion == "anniversary" ? "AN" : "BD";
+            string code;
+            do { code = $"{prefix}-{RandCode(5)}"; }
+            while (await _db.Coupons.AnyAsync(c => c.Code == code));
+            coupon = new Coupon
+            {
+                Code = code, Type = "percent", Value = pct, MinOrder = 0,
+                Occasion = occasion, CustomerId = customer?.Id,
+                MaxUses = 1, UsedCount = 0,
+                ExpiresAt = DateTimeOffset.UtcNow.AddDays(40),   // covers the 30-day slab + buffer
+                IsActive = true, CreatedAt = DateTimeOffset.UtcNow,
+            };
+            _db.Coupons.Add(coupon);
+            await _db.SaveChangesAsync();
+        }
+
         var phone = req.Phone.TrimStart('+').Replace(" ", "");
         if (!phone.StartsWith("91")) phone = "91" + phone;
 
         using var http = new System.Net.Http.HttpClient();
+        // The coupon code is passed as template variables — add ##coupon## (or ##code##) to your
+        // MSG91 template so the customer receives their personal code.
         var payload = new {
             template_id = templateId,
             short_url   = "1",
-            recipients  = new[] { new { mobiles = phone } }
+            recipients  = new[] { new { mobiles = phone, coupon = coupon.Code, code = coupon.Code } }
         };
         var body = System.Text.Json.JsonSerializer.Serialize(payload);
         var httpReq = new System.Net.Http.HttpRequestMessage(System.Net.Http.HttpMethod.Post, "https://api.msg91.com/api/v5/flow/")
@@ -148,7 +187,15 @@ public class CustomersController : ControllerBase
         var res = await http.SendAsync(httpReq);
         var resBody = await res.Content.ReadAsStringAsync();
 
-        return Ok(new { success = true, message = $"SMS sent to {req.Phone}.", response = resBody });
+        return Ok(new { success = true, message = $"SMS sent to {req.Phone}.", couponCode = coupon.Code, response = resBody });
+    }
+
+    // Short, unambiguous random code (no easily-confused chars like 0/O/1/I).
+    private static string RandCode(int n)
+    {
+        const string chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+        var rng = Random.Shared;
+        return new string(Enumerable.Range(0, n).Select(_ => chars[rng.Next(chars.Length)]).ToArray());
     }
 
     private static int? DaysUntil(DateOnly today, DateOnly? date)

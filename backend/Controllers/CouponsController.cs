@@ -35,6 +35,10 @@ public class CouponsController : ControllerBase
         if (coupon.MaxUses.HasValue && coupon.UsedCount >= coupon.MaxUses.Value)
             return BadRequest(new { success = false, message = "This coupon has reached its usage limit." });
 
+        // Personal coupon (birthday/anniversary) — only the owner may redeem it.
+        if (coupon.CustomerId.HasValue && coupon.CustomerId.Value != (req.CustomerId ?? -1))
+            return BadRequest(new { success = false, message = "This is a personal offer code and can only be used by the account it was sent to. Please log in with that account." });
+
         if (req.OrderAmount < coupon.MinOrder)
             return BadRequest(new { success = false, message = $"Minimum order of ₹{coupon.MinOrder:0} required for this coupon." });
 
@@ -134,7 +138,7 @@ public class CouponsController : ControllerBase
     }
 }
 
-public record ValidateCouponRequest(string Code, decimal OrderAmount);
+public record ValidateCouponRequest(string Code, decimal OrderAmount, int? CustomerId = null);
 public record CouponRequest(
     string Code, string Type, decimal Value, decimal MinOrder,
     int? MaxUses, DateTimeOffset? ExpiresAt, bool IsActive = true,

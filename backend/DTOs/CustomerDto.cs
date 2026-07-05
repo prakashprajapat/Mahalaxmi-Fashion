@@ -73,7 +73,8 @@ public record AdminLoginRequest(
 
 public record CelebrationSmsRequest(
     string Phone,
-    string? Message  // optional custom message; backend uses template if null
+    string? Message = null,   // optional custom message; backend uses template if null
+    string? Occasion = null   // "birthday" | "anniversary" — picks the code prefix
 );
 
 public record SocialLoginRequest(

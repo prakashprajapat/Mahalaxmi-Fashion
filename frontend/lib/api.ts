@@ -216,9 +216,9 @@ export const paymentsApi = {
 
 // ── Coupons ───────────────────────────────────────────────────────────────────
 export const couponsApi = {
-  validate: (code: string, orderAmount: number) =>
+  validate: (code: string, orderAmount: number, customerId?: number) =>
     request<{ success: boolean; code: string; type: string; value: number; discount: number; message: string }>(
-      '/coupons/validate', { method: 'POST', body: JSON.stringify({ code, orderAmount }) }
+      '/coupons/validate', { method: 'POST', body: JSON.stringify({ code, orderAmount, customerId }) }
     ),
   list: (token: string) =>
     request<unknown[]>('/coupons', undefined, token),
