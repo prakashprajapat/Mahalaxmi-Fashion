@@ -834,6 +834,18 @@ export default function EditProductPage() {
           </div>
 
           <div>
+            <label style={lbl}>
+              Final Rate Customer Pays (₹) <span style={{ fontWeight:400, color:'#888', fontSize:'.75rem' }}>Auto — yahi customer ko dikhega</span>
+            </label>
+            <input
+              type="text"
+              readOnly
+              value={`₹${((discPrice ? Number(discPrice) : Number(price || 0)) + Number(shipCharge || 0)).toLocaleString('en-IN')}`}
+              style={{ ...inp, background:'#f0fdf4', color:'#166534', fontWeight:800, cursor:'not-allowed', borderColor:'#86efac' }}
+            />
+          </div>
+
+          <div>
             <label style={lbl}>GST Rate</label>
             <select value={gstRate} onChange={e => setGstRate(e.target.value)} style={inp}>
               {GST_RATES.map(r => <option key={r} value={r}>{r}%</option>)}
