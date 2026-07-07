@@ -1,12 +1,14 @@
 import type { Metadata } from 'next';
 import { productsApi } from '@/lib/api';
 import CategoryPageContent from '@/components/product/CategoryPageContent';
+import CategorySeoBlock from '@/components/product/CategorySeoBlock';
+import { CATEGORY_SEO } from '@/lib/categorySeo';
 
 export const revalidate = 60;
 
 export const metadata: Metadata = {
-  title: 'Fabrics | Mahalaxmi Fashion Hub',
-  description: 'Premium fabrics & cloth materials',
+  title: { absolute: CATEGORY_SEO.fabrics.title },
+  description: CATEGORY_SEO.fabrics.description,
   alternates: { canonical: '/fabrics' },
 };
 
@@ -20,6 +22,7 @@ export default async function FabricsPage() {
         <p>Premium fabrics & cloth materials</p>
       </section>
       <CategoryPageContent products={products as any} category="Fabrics" icon="🧵" desc="Premium fabrics & cloth materials" allHref="/products?category=fabrics" />
+      <CategorySeoBlock slug="fabrics" />
     </>
   );
 }

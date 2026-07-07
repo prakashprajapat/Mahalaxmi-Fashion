@@ -1,12 +1,14 @@
 import type { Metadata } from 'next';
 import { productsApi } from '@/lib/api';
 import CategoryPageContent from '@/components/product/CategoryPageContent';
+import CategorySeoBlock from '@/components/product/CategorySeoBlock';
+import { CATEGORY_SEO } from '@/lib/categorySeo';
 
 export const revalidate = 60;
 
 export const metadata: Metadata = {
-  title: 'Men | Mahalaxmi Fashion Hub',
-  description: "Men's fabric and ethnic wear",
+  title: { absolute: CATEGORY_SEO.men.title },
+  description: CATEGORY_SEO.men.description,
   alternates: { canonical: '/men' },
 };
 
@@ -20,6 +22,7 @@ export default async function MenPage() {
         <p>Men&apos;s fabric and ethnic wear</p>
       </section>
       <CategoryPageContent products={products as any} category="Men" icon="👔" desc="Men's fabric and ethnic wear" allHref="/products?category=men" />
+      <CategorySeoBlock slug="men" />
     </>
   );
 }
