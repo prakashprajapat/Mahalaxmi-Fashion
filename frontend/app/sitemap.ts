@@ -1,5 +1,6 @@
 import { MetadataRoute } from 'next';
 import { productsApi } from '@/lib/api';
+import { POSTS } from '@/lib/blog';
 
 const BASE = 'https://mahalaxmifashionhub.com';
 
@@ -27,6 +28,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // ── Info pages ────────────────────────────────────────────────────────────
     { url: `${BASE}/about-us`,                     lastModified: new Date(), changeFrequency: 'monthly', priority: 0.6 },
     { url: `${BASE}/contact`,                      lastModified: new Date(), changeFrequency: 'monthly', priority: 0.6 },
+    { url: `${BASE}/blog`,                         lastModified: new Date(), changeFrequency: 'weekly',  priority: 0.6 },
+
+    // ── Blog articles ─────────────────────────────────────────────────────────
+    ...POSTS.map(p => ({
+      url: `${BASE}/blog/${p.slug}`,
+      lastModified: new Date(p.date),
+      changeFrequency: 'monthly' as const,
+      priority: 0.6,
+    })),
 
     // ── Policy pages ──────────────────────────────────────────────────────────
     { url: `${BASE}/privacy-policy`,               lastModified: new Date(), changeFrequency: 'yearly',  priority: 0.4 },

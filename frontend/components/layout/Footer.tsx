@@ -72,6 +72,7 @@ export default function Footer() {
           <Link href="/shipping-delivery-policy">Shipping Policy</Link>
           <Link href="/cancellation-policy">Cancellation</Link>
           <Link href="/safety-center">Safety Center</Link>
+          <Link href="/blog">Blog &amp; Style Guides</Link>
           <Link href="/about-us">About Us</Link>
           <Link href="/contact">Contact Us</Link>
           <a href="https://affiliate.mahalaxmifashionhub.com/">💸 Earn With Us</a>
