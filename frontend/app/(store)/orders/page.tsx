@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { getCustomer, getToken } from '@/lib/auth';
 import { ordersApi } from '@/lib/api';
 import { productImageSrc } from '@/lib/productImages';
+import { productSlug } from '@/lib/productSlug';
 import type { Order, Customer } from '@/types';
 
 const HOURS_12 = 12 * 60 * 60 * 1000;
@@ -481,7 +482,7 @@ export default function OrdersPage() {
                       </button>
                     )}
                     {order.status === 'Delivered' && order.cart[0] && (
-                      <Link href={`/products/${order.cart[0].id}`} className="button secondary" style={{ fontSize: '.82rem', padding: '.4rem .85rem', borderColor: '#f59e0b', color: '#c77800' }}>
+                      <Link href={`/products/${productSlug(order.cart[0].name, order.cart[0].id)}`} className="button secondary" style={{ fontSize: '.82rem', padding: '.4rem .85rem', borderColor: '#f59e0b', color: '#c77800' }}>
                         ★ Write a Review
                       </Link>
                     )}

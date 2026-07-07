@@ -8,6 +8,7 @@ import { finalUnitPrice } from '@/lib/price';
 import { addToWishlist, isInWishlist, removeFromWishlist } from '@/lib/wishlist';
 import { getCustomer, getToken } from '@/lib/auth';
 import { productImageSrc } from '@/lib/productImages';
+import { productSlug, parseProductId } from '@/lib/productSlug';
 import type { Product, Review } from '@/types';
 
 interface ExtraJson {
@@ -59,7 +60,7 @@ export default function ProductPage({ params }: { params: { id: string } }) {
 
   useEffect(() => {
     let cancelled = false;
-    const requestedId = Number(params.id);
+    const requestedId = parseProductId(params.id);
 
     const loadProduct = async () => {
       setLoading(true);
@@ -242,7 +243,7 @@ export default function ProductPage({ params }: { params: { id: string } }) {
     brand: { '@type': 'Brand', name: 'Mahalaxmi Fashion Hub' },
     offers: {
       '@type': 'Offer',
-      url: `https://mahalaxmifashionhub.com/products/${product.dbId}`,
+      url: `https://mahalaxmifashionhub.com/products/${productSlug(product.name, product.dbId)}`,
       priceCurrency: 'INR',
       price: price,
       priceValidUntil: new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0],

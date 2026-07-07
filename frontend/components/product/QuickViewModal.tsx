@@ -5,6 +5,7 @@ import type { Product } from '@/types';
 import { addToCart, finalUnitPrice } from '@/lib/cart';
 import { addToWishlist, removeFromWishlist, isInWishlist } from '@/lib/wishlist';
 import { productImageSrc } from '@/lib/productImages';
+import { productSlug } from '@/lib/productSlug';
 
 interface ExtraJson {
   sizes?: string[];
@@ -446,7 +447,7 @@ export default function QuickViewModal({ product, onClose }: Props) {
                   <span>✅ <strong>Genuine product</strong> — 100% original</span>
                 </div>
                 {/* Link to full page */}
-                <a href={`/products/${product.dbId}`} target="_blank" rel="noopener"
+                <a href={`/products/${productSlug(product.name, product.dbId)}`} target="_blank" rel="noopener"
                   style={{ fontSize: '.82rem', color: '#a7354d', textDecoration: 'underline' }}>
                   Open full product page ↗
                 </a>

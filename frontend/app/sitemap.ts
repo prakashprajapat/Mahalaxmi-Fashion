@@ -1,6 +1,7 @@
 import { MetadataRoute } from 'next';
 import { productsApi } from '@/lib/api';
 import { POSTS } from '@/lib/blog';
+import { productSlug } from '@/lib/productSlug';
 
 const BASE = 'https://mahalaxmifashionhub.com';
 
@@ -53,7 +54,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   try {
     const { products } = await productsApi.getAll({ pageSize: 1000 });
     productEntries = (products ?? []).map(p => ({
-      url: `${BASE}/products/${p.dbId}`,
+      url: `${BASE}/products/${productSlug(p.name, p.dbId)}`,
       lastModified: new Date(),
       changeFrequency: 'weekly' as const,
       priority: 0.7,
