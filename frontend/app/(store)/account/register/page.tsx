@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { customersApi } from '@/lib/api';
 import { setCustomer, setToken } from '@/lib/auth';
+import { trackEvent } from '@/lib/analytics';
 import { INDIA_STATES, getDistrictsForState } from '@/lib/indianLocations';
 import type { Customer } from '@/types';
 
@@ -108,6 +109,7 @@ export default function RegisterPage() {
         otp,
       });
       if (res.token) { setToken(res.token); setCustomer(res.customer); }
+      trackEvent('sign_up', { method: 'mobile_otp' });   // GA4
       setSavedCustomer(res.customer);
       setSavedToken(res.token);
       setStep('birthday');

@@ -4,7 +4,15 @@ import { useRouter } from 'next/navigation';
 import { getCart, cartTotal, clearCart, cartShipping, finalUnitPrice, unitBase } from '@/lib/cart';
 import { getCustomer, getToken } from '@/lib/auth';
 import { ordersApi, paymentsApi, couponsApi } from '@/lib/api';
+import { trackEvent, toGa4Items } from '@/lib/analytics';
 import type { CartItem, Customer } from '@/types';
+
+// Map cart items → GA4 ecommerce items.
+const cartToItems = (lines: CartItem[]) =>
+  toGa4Items(lines.map(i => ({
+    dbId: i.dbId, sku: (i as any).sku, name: i.name,
+    category: (i as any).category, quantity: i.quantity, price: finalUnitPrice(i),
+  })));
 
 function getPincodeState(pincode: string): string {
   if (pincode.length < 2) return '';
@@ -72,6 +80,8 @@ export default function CheckoutPage() {
     const c = getCart();
     if (c.length === 0) { router.push('/cart'); return; }
     setCart(c);
+    // GA4: user has reached checkout with items in the cart.
+    trackEvent('begin_checkout', { currency: 'INR', value: cartTotal(c), items: cartToItems(c) });
     const cust = getCustomer();
     if (cust) applyCustomer(cust);
     const onAuth = () => {
@@ -271,6 +281,14 @@ export default function CheckoutPage() {
             shippingPincode: shipping.pincode,
             shippingState: shipping.state,
             placedAt: new Date().toISOString(),
+          });
+          // GA4: successful purchase (fired before clearing the cart so items are still available).
+          trackEvent('purchase', {
+            transaction_id: res.localOrderId,
+            currency: 'INR',
+            value: total,
+            coupon: attributionCode() || undefined,
+            items: cartToItems(cart),
           });
           clearCart();
           setOrderId(res.localOrderId);

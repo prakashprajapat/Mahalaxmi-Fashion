@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { getCustomer, getToken, logout, setCustomer as saveCustomer, setToken } from '@/lib/auth';
 import { customersApi, settingsApi } from '@/lib/api';
+import { trackEvent } from '@/lib/analytics';
 import type { Customer } from '@/types';
 
 function AccountContent() {
@@ -59,6 +60,7 @@ function AccountContent() {
       setToken(res.token);
       saveCustomer(res.customer);
       setCustomer(res.customer);
+      trackEvent('login', { method: 'password' });   // GA4
       window.dispatchEvent(new Event('auth-changed'));
       // After login, go to the home page by default (or back to wherever the user came from).
       router.push(returnTo.startsWith('/') ? returnTo : '/');
@@ -100,6 +102,7 @@ function AccountContent() {
       setToken(res.token);
       saveCustomer(res.customer);
       setCustomer(res.customer);
+      trackEvent('login', { method: 'otp' });   // GA4
       window.dispatchEvent(new Event('auth-changed'));
       router.push(returnTo.startsWith('/') ? returnTo : '/');
     } catch (err) {

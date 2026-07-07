@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { suppliersApi } from '@/lib/api';
+import { trackEvent } from '@/lib/analytics';
 
 const INDIA_STATES = [
   'Andhra Pradesh','Arunachal Pradesh','Assam','Bihar','Chhattisgarh','Goa','Gujarat',
@@ -36,6 +37,7 @@ export default function BecomeSupplierPage() {
     setLoading(true); setError('');
     try {
       await suppliersApi.apply(form);
+      trackEvent('generate_lead', { source: 'become_supplier' });   // GA4
       setDone(true);
     } catch (e) { setError((e as Error).message || 'Submission failed. Please try again.'); }
     finally { setLoading(false); }

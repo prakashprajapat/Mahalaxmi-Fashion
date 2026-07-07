@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
+import { trackEvent } from '@/lib/analytics';
 
 const POPUP_KEY = 'mfh_popup_shown';
 const POPUP_TTL = 7 * 24 * 60 * 60 * 1000; // 7 days
@@ -31,6 +32,7 @@ export default function WelcomePopup() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: form.name, email: form.email, phone: form.phone }),
       });
+      trackEvent('generate_lead', { source: 'welcome_popup' });   // GA4
     } catch { /* silent fail — popup is non-critical */ }
     setSubmitted(true);
     setLoading(false);

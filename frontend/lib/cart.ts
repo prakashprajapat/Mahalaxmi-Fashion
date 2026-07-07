@@ -2,6 +2,7 @@
 import type { CartItem, Product } from '@/types';
 import { productImageSrc } from '@/lib/productImages';
 import { unitBase, finalUnitPrice } from '@/lib/price';
+import { trackEvent } from '@/lib/analytics';
 
 export { unitBase, finalUnitPrice };
 
@@ -33,6 +34,19 @@ export function addToCart(product: Product & { selectedColor?: string }, quantit
     cart.push({ ...normalizedProduct, quantity, selectedSize: size, selectedColor });
   }
   saveCart(cart);
+
+  // GA4 ecommerce event
+  trackEvent('add_to_cart', {
+    currency: 'INR',
+    value: finalUnitPrice(product) * quantity,
+    items: [{
+      item_id: (product as any).sku || String(product.dbId ?? ''),
+      item_name: product.name ?? '',
+      item_category: (product as any).category ?? '',
+      price: finalUnitPrice(product),
+      quantity,
+    }],
+  });
 }
 
 export function removeFromCart(dbId: number, size?: string, color?: string): void {

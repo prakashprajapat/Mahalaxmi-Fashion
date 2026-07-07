@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { getCart, cartCount } from '@/lib/cart';
 import { getCustomer, setCustomer as saveCustomer, setToken, logout } from '@/lib/auth';
 import { customersApi, settingsApi } from '@/lib/api';
+import { trackEvent } from '@/lib/analytics';
 
 // Module-level settings cache — survives re-renders and SPA navigation
 let _settingsCache: Record<string, string> | null = null;
@@ -122,6 +123,7 @@ export default function Navbar() {
       const res = await customersApi.login({ email: loginForm.email, password: loginForm.password });
       setToken(res.token);
       saveCustomer(res.customer);
+      trackEvent('login', { method: 'password' });   // GA4
       setIsLoggedIn(true);
       setLoginOpen(false);
       resetLoginForm();
@@ -161,6 +163,7 @@ export default function Navbar() {
       }
       setToken(res.token);
       saveCustomer(res.customer);
+      trackEvent('login', { method: 'otp' });   // GA4
       setIsLoggedIn(true);
       setLoginOpen(false);
       resetLoginForm();

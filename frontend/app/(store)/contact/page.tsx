@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { settingsApi } from '@/lib/api';
+import { trackEvent } from '@/lib/analytics';
 
 const DEFAULT_WA = '919429429880';
 const DEFAULT_ADDRESS_LINE1 = 'Ward No. 45, Near Mahadev Temple,';
@@ -33,6 +34,8 @@ export default function ContactPage() {
     // Build a WhatsApp message with all the form details
     const text = `*New Enquiry from Website*\n\n*Name:* ${name}\n*Email:* ${email}\n*Phone:* ${phone}\n\n*Message:*\n${message}`;
     const url  = `https://wa.me/${wa}?text=${encodeURIComponent(text)}`;
+    trackEvent('contact_form_submit', { method: 'whatsapp' });         // GA4
+    trackEvent('generate_lead', { source: 'contact_form' });           // GA4 (contact = a lead)
     window.open(url, '_blank');
     setSent(true);
     setName(''); setEmail(''); setPhone(''); setMessage('');
