@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import Image from 'next/image';
 import { productsApi, settingsApi } from '@/lib/api';
 import { BestSellersSection, NewArrivalsSection } from '@/components/home/HomeSections';
 import OfferBanner from '@/components/home/OfferBanner';
@@ -51,16 +52,14 @@ export default async function HomePage() {
     <>
       {/* Hero */}
       <section className="home-hero">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
+        <Image
           className="home-hero-image"
           src="/hero-bannernew.webp"
           alt="Mahalaxmi Fashion Hub - Ethnic Wear for the Entire Family"
           width={1200}
           height={600}
-          fetchPriority="high"
-          loading="eager"
-          decoding="sync"
+          priority
+          sizes="100vw"
           style={{ width: '100%', display: 'block', height: 'auto' }}
         />
 

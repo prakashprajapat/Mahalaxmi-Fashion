@@ -1,5 +1,6 @@
 'use client';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useEffect, useState } from 'react';
 import { settingsApi } from '@/lib/api';
 
@@ -42,13 +43,12 @@ export default function Footer() {
       <div className="site-footer-grid">
         <div className="site-footer-brand">
           <Link className="brand footer-brand" href="/" style={{ display: 'inline-block' }}>
-            <img
+            <Image
               src="/logo-color.webp"
               alt={storeName}
               width={210}
               height={90}
               loading="lazy"
-              decoding="async"
               style={{ width: '210px', maxWidth: '100%', height: 'auto' }}
             />
           </Link>
