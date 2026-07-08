@@ -94,6 +94,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <link rel="dns-prefetch" href="https://res.cloudinary.com" />
         <link rel="dns-prefetch" href="https://www.googletagmanager.com" />
 
+        {/* Hero heading font (elegant serif, close to the Mahalaxmi wordmark) — runtime load, no build dependency */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&display=swap" rel="stylesheet" />
+
         {/* Google Analytics 4 — loaded lazily (after page is interactive/idle). */}
         {GA4_ID && (
           <>

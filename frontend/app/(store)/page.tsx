@@ -1,6 +1,10 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { productsApi, settingsApi } from '@/lib/api';
+
+// Elegant serif for the hero — close to the "Mahalaxmi" wordmark in the logo.
+// Loaded via <link> in layout.tsx (runtime), so it never blocks the build.
+const HERO_FONT = "'Playfair Display', Georgia, serif";
 import { BestSellersSection, NewArrivalsSection } from '@/components/home/HomeSections';
 import OfferBanner from '@/components/home/OfferBanner';
 import TrustStrip from '@/components/home/TrustStrip';
@@ -42,29 +46,33 @@ export default async function HomePage() {
     <>
       {/* Hero — left copy + CTA, right admin-managed video (logo fallback) */}
       <section style={{
+        position: 'relative',
         background: 'linear-gradient(180deg, #faf3e6 0%, #f3e6cb 100%)',
-        padding: 'clamp(1.25rem, 3.5vw, 2.5rem) 1.25rem',
+        padding: 'clamp(1.5rem, 3vw, 2.25rem) 1.5rem',
       }}>
+        {/* thin decorative border frame */}
+        <div aria-hidden="true" style={{ position: 'absolute', inset: '10px', border: '1.5px solid rgba(122,10,34,.20)', borderRadius: '14px', pointerEvents: 'none' }} />
+
         <div className="hero-grid" style={{
-          maxWidth: 1180, margin: '0 auto',
-          display: 'grid', gridTemplateColumns: '1fr 1fr',
-          gap: 'clamp(1.25rem, 4vw, 3rem)', alignItems: 'center',
+          maxWidth: 1180, margin: '0 auto', position: 'relative',
+          display: 'grid', gridTemplateColumns: '1.05fr 1fr',
+          gap: 'clamp(1rem, 3vw, 2.25rem)', alignItems: 'center',
         }}>
           {/* Left: copy + CTA + trust */}
           <div>
-            <h1 style={{ fontSize: 'clamp(1.9rem, 4.6vw, 3.1rem)', fontWeight: 800, lineHeight: 1.12, color: '#5c1a28', margin: '0 0 .7rem' }}>
-              Premium Quality<br />You Can Trust.
+            <h1 style={{ fontFamily: HERO_FONT, fontSize: 'clamp(1.6rem, 4vw, 2.6rem)', fontWeight: 800, lineHeight: 1.18, color: '#5c1a28', margin: '0 0 .45rem' }}>
+              Premium Quality You Can Trust.
             </h1>
-            <p style={{ fontSize: 'clamp(1rem, 2vw, 1.2rem)', color: 'rgba(92,26,40,.85)', margin: '0 0 1.3rem', fontWeight: 500 }}>
+            <p style={{ fontFamily: HERO_FONT, fontSize: 'clamp(1.6rem, 4vw, 2.6rem)', fontWeight: 600, lineHeight: 1.18, color: 'rgba(92,26,40,.8)', margin: '0 0 1.1rem' }}>
               Thoughtfully Crafted for Every Need.
             </p>
 
-            <Link href="/best-sellers" style={{ display: 'inline-block', background: '#7a0a22', color: '#fff', fontWeight: 800, fontSize: '1rem', letterSpacing: '.03em', padding: '.8rem 2.2rem', borderRadius: '10px', textDecoration: 'none', boxShadow: '0 6px 18px rgba(122,10,34,.28)' }}>
+            <Link href="/best-sellers" style={{ display: 'inline-block', background: '#7a0a22', color: '#fff', fontWeight: 800, fontSize: '1rem', letterSpacing: '.03em', padding: '.75rem 2.1rem', borderRadius: '10px', textDecoration: 'none', boxShadow: '0 6px 18px rgba(122,10,34,.28)' }}>
               Shop Now
             </Link>
 
             {/* Quality badges */}
-            <div style={{ display: 'flex', gap: 'clamp(.9rem, 3vw, 1.8rem)', flexWrap: 'wrap', marginTop: '1.4rem' }}>
+            <div style={{ display: 'flex', gap: 'clamp(.8rem, 2.5vw, 1.6rem)', flexWrap: 'wrap', marginTop: '1.1rem' }}>
               {[
                 { icon: '🏅', label: 'Premium Quality' },
                 { icon: '🌿', label: 'Comfort Fabrics' },
@@ -77,7 +85,7 @@ export default async function HomePage() {
               ))}
             </div>
 
-            <p style={{ fontSize: '.72rem', textTransform: 'uppercase', letterSpacing: '.24em', color: '#8a2a3e', fontWeight: 800, margin: '.9rem 0 0' }}>
+            <p style={{ fontSize: '.72rem', textTransform: 'uppercase', letterSpacing: '.24em', color: '#8a2a3e', fontWeight: 800, margin: '.7rem 0 0' }}>
               Tradition &nbsp;|&nbsp; Style &nbsp;|&nbsp; Quality
             </p>
           </div>
