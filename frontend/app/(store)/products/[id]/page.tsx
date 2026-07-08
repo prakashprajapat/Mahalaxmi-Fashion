@@ -55,6 +55,7 @@ export default function ProductPage({ params }: { params: { id: string } }) {
   // Review form
   const [rating, setRating] = useState(5);
   const [reviewText, setReviewText] = useState('');
+  const [reviewFiles, setReviewFiles] = useState<File[]>([]);
   const [reviewMsg, setReviewMsg] = useState('');
   const [submittingReview, setSubmittingReview] = useState(false);
 
@@ -227,9 +228,14 @@ export default function ProductPage({ params }: { params: { id: string } }) {
     if (!reviewText.trim()) { setReviewMsg('Please write your review.'); return; }
     setSubmittingReview(true); setReviewMsg('');
     try {
-      await reviewsApi.submit({ productId: product.dbId, rating, text: reviewText.trim() }, getToken() ?? '');
+      const token = getToken() ?? '';
+      let images: string[] = [];
+      if (reviewFiles.length > 0) {
+        images = await Promise.all(reviewFiles.slice(0, 3).map(f => reviewsApi.uploadImage(f, token)));
+      }
+      await reviewsApi.submit({ productId: product.dbId, rating, text: reviewText.trim(), images }, token);
       setReviewMsg('✅ Review submitted! It will appear after approval.');
-      setReviewText(''); setRating(5);
+      setReviewText(''); setRating(5); setReviewFiles([]);
     } catch (e) { setReviewMsg('❌ ' + (e as Error).message); }
     finally { setSubmittingReview(false); }
   };
@@ -549,6 +555,20 @@ export default function ProductPage({ params }: { params: { id: string } }) {
                         )}
                       </div>
                       <p style={{ fontSize: '.88rem', color: '#555', lineHeight: 1.6, margin: 0 }}>{r.text}</p>
+                      {(() => {
+                        let imgs: string[] = [];
+                        try { const parsed = JSON.parse((r as any).imageUrls || '[]'); if (Array.isArray(parsed)) imgs = parsed; } catch {}
+                        return imgs.length > 0 ? (
+                          <div style={{ display: 'flex', gap: '.4rem', marginTop: '.6rem', flexWrap: 'wrap' }}>
+                            {imgs.map((u, i) => (
+                              <a key={i} href={u} target="_blank" rel="noopener noreferrer">
+                                <img src={u} alt="Customer review photo" width={64} height={64}
+                                  style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 8, border: '1px solid #eee' }} />
+                              </a>
+                            ))}
+                          </div>
+                        ) : null;
+                      })()}
                     </div>
                   ))}
                 </div>
@@ -569,6 +589,20 @@ export default function ProductPage({ params }: { params: { id: string } }) {
                     <textarea value={reviewText} onChange={e => setReviewText(e.target.value)} rows={4}
                       placeholder="Share your experience..."
                       style={{ width: '100%', border: '1.5px solid #ddd', borderRadius: '8px', padding: '.6rem .75rem', fontSize: '.88rem', resize: 'vertical', boxSizing: 'border-box', fontFamily: 'inherit' }} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '.82rem', fontWeight: 600, display: 'block', marginBottom: '.35rem' }}>Add Photos <span style={{ color: '#888', fontWeight: 400 }}>(optional, up to 3)</span></label>
+                    <input type="file" accept="image/*" multiple
+                      onChange={e => setReviewFiles(Array.from(e.target.files ?? []).slice(0, 3))}
+                      style={{ fontSize: '.82rem' }} />
+                    {reviewFiles.length > 0 && (
+                      <div style={{ display: 'flex', gap: '.4rem', marginTop: '.5rem', flexWrap: 'wrap' }}>
+                        {reviewFiles.map((f, i) => (
+                          <img key={i} src={URL.createObjectURL(f)} alt="" width={52} height={52}
+                            style={{ width: 52, height: 52, objectFit: 'cover', borderRadius: 6, border: '1px solid #eee' }} />
+                        ))}
+                      </div>
+                    )}
                   </div>
                   {reviewMsg && <p style={{ fontSize: '.85rem', color: reviewMsg.startsWith('✅') ? '#27ae60' : '#c0392b', fontWeight: 600 }}>{reviewMsg}</p>}
                   <button type="submit" disabled={submittingReview} className="button primary" style={{ alignSelf: 'flex-start' }}>

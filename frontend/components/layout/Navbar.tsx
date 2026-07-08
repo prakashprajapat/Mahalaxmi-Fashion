@@ -3,10 +3,16 @@ import Link from 'next/link';
 import { useState, useEffect, useRef } from 'react';
 import type { FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
-import { getCart, cartCount } from '@/lib/cart';
+import { getCart, cartCount, finalUnitPrice } from '@/lib/cart';
 import { getCustomer, setCustomer as saveCustomer, setToken, logout } from '@/lib/auth';
-import { customersApi, settingsApi } from '@/lib/api';
+import { customersApi, settingsApi, productsApi } from '@/lib/api';
 import { trackEvent } from '@/lib/analytics';
+import { productSlug } from '@/lib/productSlug';
+import { productImageSrc } from '@/lib/productImages';
+import type { Product } from '@/types';
+
+// Cache the catalogue once (module-level) so search suggestions don't refetch on every keystroke.
+let _searchCache: Product[] | null = null;
 
 // Module-level settings cache — survives re-renders and SPA navigation
 let _settingsCache: Record<string, string> | null = null;
@@ -17,6 +23,8 @@ export default function Navbar() {
   const [count, setCount] = useState(0);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [search, setSearch] = useState('');
+  const [suggestions, setSuggestions] = useState<Product[]>([]);
+  const [showSuggest, setShowSuggest] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [loginOpen, setLoginOpen] = useState(false);
   const [loginForm, setLoginForm] = useState({ email: '', password: '' });
@@ -113,6 +121,22 @@ export default function Navbar() {
   const closeLogin = () => {
     setLoginOpen(false);
     resetLoginForm();
+  };
+
+  // Instant search suggestions: filter the (cached) catalogue by name / category / SKU.
+  const runSuggest = async (q: string) => {
+    const query = q.trim().toLowerCase();
+    if (query.length < 2) { setSuggestions([]); return; }
+    if (!_searchCache) {
+      try { const r = await productsApi.getAll({ pageSize: 200 }); _searchCache = r.products ?? []; }
+      catch { _searchCache = []; }
+    }
+    const matches = _searchCache.filter(p =>
+      (p.name ?? '').toLowerCase().includes(query) ||
+      (p.category ?? '').toLowerCase().includes(query) ||
+      ((p as any).sku ?? '').toLowerCase().includes(query)
+    ).slice(0, 6);
+    setSuggestions(matches);
   };
 
   const handleLogin = async (e: FormEvent) => {
@@ -214,8 +238,8 @@ export default function Navbar() {
             </span>
           </Link>
 
-          <form className="search" role="search"
-            onSubmit={e => { e.preventDefault(); if (search.trim()) router.push(`/products?q=${encodeURIComponent(search)}`); }}>
+          <form className="search" role="search" style={{ position: 'relative' }}
+            onSubmit={e => { e.preventDefault(); setShowSuggest(false); if (search.trim()) router.push(`/products?q=${encodeURIComponent(search)}`); }}>
             <input
               id="searchInput"
               name="q"
@@ -223,9 +247,39 @@ export default function Navbar() {
               placeholder="Search saree, nighty, petticoat..."
               aria-label="Search products"
               value={search}
-              onChange={e => setSearch(e.target.value)}
+              autoComplete="off"
+              onChange={e => { setSearch(e.target.value); setShowSuggest(true); runSuggest(e.target.value); }}
+              onFocus={() => { if (suggestions.length) setShowSuggest(true); }}
+              onBlur={() => setTimeout(() => setShowSuggest(false), 150)}
             />
             <button type="submit">Search</button>
+
+            {showSuggest && suggestions.length > 0 && (
+              <div style={{
+                position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 60,
+                background: '#fff', border: '1px solid #eee', borderRadius: '10px',
+                boxShadow: '0 8px 28px rgba(0,0,0,.14)', overflow: 'hidden',
+              }}>
+                {suggestions.map(p => {
+                  const img = productImageSrc(p.image);
+                  return (
+                    <Link key={p.dbId} href={`/products/${productSlug(p.name, p.dbId)}`}
+                      onClick={() => { setShowSuggest(false); setSearch(''); }}
+                      style={{ display: 'flex', alignItems: 'center', gap: '.6rem', padding: '.5rem .7rem', textDecoration: 'none', color: '#1a1a1a', borderBottom: '1px solid #f5f5f5' }}>
+                      {img && <img src={img} alt="" width={38} height={38} style={{ width: 38, height: 38, objectFit: 'cover', borderRadius: 6, flexShrink: 0, background: '#f6f6f6' }} />}
+                      <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                        <span style={{ fontSize: '.85rem', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</span>
+                        <span style={{ fontSize: '.78rem', color: '#a7354d', fontWeight: 700 }}>₹{finalUnitPrice(p).toLocaleString('en-IN')}</span>
+                      </span>
+                    </Link>
+                  );
+                })}
+                <button type="submit"
+                  style={{ width: '100%', textAlign: 'left', padding: '.55rem .7rem', background: '#faf6f2', border: 'none', color: '#a7354d', fontWeight: 700, fontSize: '.82rem', cursor: 'pointer' }}>
+                  See all results for “{search.trim()}” →
+                </button>
+              </div>
+            )}
           </form>
 
           <div className="brand-actions">

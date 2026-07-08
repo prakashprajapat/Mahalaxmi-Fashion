@@ -194,6 +194,8 @@ using (var scope = app.Services.CreateScope())
         ALTER TABLE customers ADD COLUMN IF NOT EXISTS anniversary_offer_used BOOLEAN NOT NULL DEFAULT FALSE;
         -- Manual per-product shipping charge, folded into the final customer price (hidden as a line).
         ALTER TABLE products  ADD COLUMN IF NOT EXISTS shipping_charge NUMERIC NOT NULL DEFAULT 0;
+        -- Customer-uploaded review photos (JSON array of image URLs).
+        ALTER TABLE reviews   ADD COLUMN IF NOT EXISTS image_urls TEXT;
         CREATE TABLE IF NOT EXISTS supplier_applications (
             id                SERIAL PRIMARY KEY,
             firm_name         VARCHAR(255) NOT NULL,

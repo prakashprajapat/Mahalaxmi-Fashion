@@ -284,8 +284,24 @@ export const reviewsApi = {
     request<{ success: boolean; reviews: import('@/types').Review[] }>('/reviews/pending', undefined, token),
   getByProduct: (productId: number) =>
     request<{ success: boolean; reviews: import('@/types').Review[] }>(`/reviews/product/${productId}`),
-  submit: (data: { productId: number; rating: number; text: string; orderId?: string }, token: string) =>
+  submit: (data: { productId: number; rating: number; text: string; orderId?: string; images?: string[] }, token: string) =>
     request<{ success: boolean }>('/reviews', { method: 'POST', body: JSON.stringify(data) }, token),
+  // Upload ONE review photo (called per file); returns its URL to include in submit().
+  uploadImage: async (file: File, token: string): Promise<string> => {
+    const fd = new FormData();
+    fd.append('file', file);
+    const res = await fetch(`${API_BASE}/reviews/upload`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      body: fd,
+    });
+    if (!res.ok) {
+      const e = await res.json().catch(() => ({ message: res.statusText }));
+      throw new Error(e.message || `Upload failed (${res.status})`);
+    }
+    const j = await res.json();
+    return j.url as string;
+  },
   approve: (id: number, token: string) =>
     request(`/reviews/${id}/approve`, { method: 'PATCH' }, token),
   reject: (id: number, token: string) =>

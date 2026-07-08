@@ -29,6 +29,10 @@ public class Review
     [Column("body")]
     public string? Body { get; set; }
 
+    // Customer-uploaded review photos, stored as a JSON array of image URLs (up to 3).
+    [Column("image_urls")]
+    public string? ImageUrls { get; set; }
+
     [Column("status")]
     public string Status { get; set; } = "pending";
 
