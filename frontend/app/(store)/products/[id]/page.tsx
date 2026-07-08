@@ -10,6 +10,8 @@ import { getCustomer, getToken } from '@/lib/auth';
 import { productImageSrc } from '@/lib/productImages';
 import { productSlug, parseProductId } from '@/lib/productSlug';
 import RelatedProducts from '@/components/product/RelatedProducts';
+import DeliveryEstimate from '@/components/product/DeliveryEstimate';
+import SizeGuideButton from '@/components/product/SizeGuideButton';
 import type { Product, Review } from '@/types';
 
 interface ExtraJson {
@@ -488,6 +490,12 @@ export default function ProductPage({ params }: { params: { id: string } }) {
               ))}
             </div>
 
+            {/* Size guide + delivery date estimate */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <SizeGuideButton />
+            </div>
+            <DeliveryEstimate />
+
 
             {/* Description */}
             {product.description && (
@@ -579,6 +587,27 @@ export default function ProductPage({ params }: { params: { id: string } }) {
 
       {/* You may also like — same-category cross-sell + internal linking */}
       <RelatedProducts category={product.category} currentId={product.dbId} />
+
+      {/* Sticky Add-to-Cart bar — mobile only */}
+      <div className="pdp-sticky-cart">
+        <span className="pdp-sticky-price">₹{price.toLocaleString('en-IN')}</span>
+        <button onClick={handleAddToCart} disabled={outOfStock} className="button primary" style={{ flex: 1, margin: 0 }}>
+          {outOfStock ? 'Out of Stock' : added ? '✓ Added!' : '🛒 Add to Cart'}
+        </button>
+      </div>
+      <style>{`
+        .pdp-sticky-cart { display: none; }
+        @media (max-width: 768px) {
+          .pdp-sticky-cart {
+            display: flex; align-items: center; gap: .75rem;
+            position: fixed; left: 0; right: 0; bottom: 0; z-index: 900;
+            background: #fff; border-top: 1px solid #eee;
+            padding: .55rem .9rem .55rem .9rem; padding-right: 76px;
+            box-shadow: 0 -2px 12px rgba(0,0,0,.08);
+          }
+          .pdp-sticky-price { font-weight: 800; color: #a7354d; font-size: 1.1rem; white-space: nowrap; }
+        }
+      `}</style>
     </>
   );
 }
