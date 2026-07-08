@@ -40,11 +40,13 @@ export default function Footer() {
         if (s.facebook)  list.push({ name: 'Facebook',  url: s.facebook });
         if (s.instagram) list.push({ name: 'Instagram', url: s.instagram });
       }
-      // Ensure the brand's Instagram & Facebook always show if the admin hasn't set them.
+      // Ensure the brand's Instagram, Facebook & YouTube always show if the admin hasn't set them.
       if (!list.some(x => x.name.toLowerCase().includes('instagram')))
         list.push({ name: 'Instagram', url: 'https://www.instagram.com/mahalaxmifashionhub.blt/' });
       if (!list.some(x => x.name.toLowerCase().includes('facebook')))
         list.push({ name: 'Facebook', url: 'https://www.facebook.com/mahalaxmifashionhub.blt/' });
+      if (!list.some(x => x.name.toLowerCase().includes('youtube')))
+        list.push({ name: 'YouTube', url: 'https://www.youtube.com/@Mahalaxmifashionhub' });
       setSocials(list);
     }).catch(() => {});
   }, []);
