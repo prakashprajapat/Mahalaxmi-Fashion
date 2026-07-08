@@ -39,57 +39,69 @@ export default async function HomePage() {
 
   return (
     <>
-      {/* Hero — pure CSS/text (no image → instant load) */}
+      {/* Hero — banner-style composition in pure code (logo on top, no heavy photo) */}
       <section style={{
         position: 'relative',
         overflow: 'hidden',
-        background: 'radial-gradient(circle at 22% 18%, #f5e6cc 0%, rgb(227,186,127) 52%, #d6a563 100%)',
-        padding: 'clamp(2.75rem, 7vw, 5rem) 1.25rem',
+        background: 'radial-gradient(circle at 50% 0%, #faf1de 0%, #f0dcb6 45%, rgb(227,186,127) 100%)',
+        padding: 'clamp(2rem, 6vw, 3.75rem) 1.25rem',
       }}>
-        {/* decorative soft circles */}
-        <div aria-hidden="true" style={{ position: 'absolute', top: '-70px', right: '-50px', width: 240, height: 240, borderRadius: '50%', background: 'rgba(122,10,34,.08)' }} />
-        <div aria-hidden="true" style={{ position: 'absolute', bottom: '-90px', left: '-60px', width: 280, height: 280, borderRadius: '50%', background: 'rgba(122,10,34,.06)' }} />
+        {/* decorative border frame */}
+        <div aria-hidden="true" style={{ position: 'absolute', inset: '14px', border: '1.5px solid rgba(122,10,34,.22)', borderRadius: '14px', pointerEvents: 'none' }} />
+        <div aria-hidden="true" style={{ position: 'absolute', top: '-70px', right: '-50px', width: 240, height: 240, borderRadius: '50%', background: 'rgba(122,10,34,.06)' }} />
 
-        <div style={{ maxWidth: 900, margin: '0 auto', position: 'relative', textAlign: 'center' }}>
-          <p style={{ fontSize: '.74rem', textTransform: 'uppercase', letterSpacing: '.28em', color: '#8a2a3e', fontWeight: 800, margin: '0 0 .7rem' }}>
-            Tradition &nbsp;•&nbsp; Style &nbsp;•&nbsp; Quality
-          </p>
+        <div style={{ maxWidth: 760, margin: '0 auto', position: 'relative', textAlign: 'center' }}>
+          {/* Logo on top (Mahalaxmi Fashion Hub — the brand font lives in the logo) */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo.webp?v=4" alt="Mahalaxmi Fashion Hub" loading="eager"
+            style={{ height: 'clamp(88px, 15vw, 140px)', width: 'auto', maxWidth: '90%', margin: '0 auto .5rem', display: 'block' }} />
 
-          <h1 style={{ fontSize: 'clamp(1.9rem, 6vw, 3.4rem)', fontWeight: 800, lineHeight: 1.12, color: '#5c1a28', margin: '0 0 1rem', letterSpacing: '-.01em' }}>
-            Ethnic Wear for the<br /><span style={{ color: '#7a0a22' }}>Entire Family</span>
-          </h1>
-
-          <p style={{ fontSize: 'clamp(.92rem, 2.2vw, 1.12rem)', color: 'rgba(92,26,40,.9)', maxWidth: 620, margin: '0 auto 1.6rem', lineHeight: 1.6, fontWeight: 500 }}>
-            Designer sarees, daily nightwear, petticoats &amp; premium fabrics — curated with a boutique touch and delivered across India.
-          </p>
-
-          {/* Buttons */}
-          <div style={{ display: 'flex', gap: '.75rem', justifyContent: 'center', flexWrap: 'wrap', marginBottom: '2rem' }}>
-            <Link href="/best-sellers" style={{ background: '#7a0a22', color: '#fff', fontWeight: 800, fontSize: '1rem', padding: '.85rem 2.1rem', borderRadius: '10px', textDecoration: 'none', boxShadow: '0 6px 18px rgba(122,10,34,.28)' }}>
-              🛍️ Shop Now
-            </Link>
-            <Link href="/women" style={{ background: 'rgba(255,255,255,.75)', color: '#5c1a28', fontWeight: 700, fontSize: '1rem', padding: '.85rem 1.8rem', borderRadius: '10px', textDecoration: 'none', border: '1.5px solid rgba(92,26,40,.35)' }}>
-              Explore Collection
-            </Link>
+          {/* Ornament divider */}
+          <div aria-hidden="true" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '.6rem', color: '#b98a3e', margin: '.2rem 0 1rem' }}>
+            <span style={{ height: 1, width: 46, background: 'currentColor', opacity: .6 }} />
+            <span style={{ fontSize: '.9rem' }}>✦</span>
+            <span style={{ height: 1, width: 46, background: 'currentColor', opacity: .6 }} />
           </div>
 
-          {/* Category quick-tiles */}
-          <div style={{ display: 'flex', gap: '.6rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+          <h1 style={{ fontSize: 'clamp(1.5rem, 4.5vw, 2.5rem)', fontWeight: 800, lineHeight: 1.15, color: '#5c1a28', margin: '0 0 1.1rem' }}>
+            Ethnic Wear for the <span style={{ color: '#7a0a22' }}>Entire Family</span>
+          </h1>
+
+          {/* Category icons */}
+          <div style={{ display: 'flex', gap: 'clamp(.6rem, 3vw, 1.6rem)', justifyContent: 'center', flexWrap: 'wrap', marginBottom: '1.1rem' }}>
             {[
               { emoji: '🥻', label: 'Sarees', href: '/products?category=saree' },
               { emoji: '🌙', label: 'Nighty', href: '/products?category=nighty' },
               { emoji: '👗', label: 'Petticoat', href: '/products?category=petticoat' },
-              { emoji: '🧵', label: 'Fabrics', href: '/fabrics' },
-              { emoji: '👶', label: 'Kids', href: '/kids' },
+              { emoji: '👔', label: 'Ethnic Wear', href: '/men' },
             ].map(c => (
-              <Link key={c.label} href={c.href} style={{
-                display: 'inline-flex', alignItems: 'center', gap: '.4rem',
-                background: 'rgba(255,255,255,.65)', border: '1px solid rgba(92,26,40,.18)',
-                color: '#5c1a28', fontWeight: 700, fontSize: '.85rem',
-                padding: '.5rem .95rem', borderRadius: '30px', textDecoration: 'none',
-              }}>
-                <span aria-hidden="true">{c.emoji}</span>{c.label}
+              <Link key={c.label} href={c.href} style={{ textDecoration: 'none', color: '#5c1a28', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '.25rem', minWidth: 66 }}>
+                <span style={{ fontSize: '1.7rem', lineHeight: 1 }} aria-hidden="true">{c.emoji}</span>
+                <span style={{ fontSize: '.68rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.08em' }}>{c.label}</span>
               </Link>
+            ))}
+          </div>
+
+          <p style={{ fontSize: '.74rem', textTransform: 'uppercase', letterSpacing: '.26em', color: '#8a2a3e', fontWeight: 800, margin: '0 0 1.2rem' }}>
+            Tradition &nbsp;|&nbsp; Style &nbsp;|&nbsp; Quality
+          </p>
+
+          {/* Shop Now */}
+          <Link href="/best-sellers" style={{ display: 'inline-block', background: '#7a0a22', color: '#fff', fontWeight: 800, fontSize: '1.02rem', letterSpacing: '.04em', padding: '.85rem 2.6rem', borderRadius: '10px', textDecoration: 'none', boxShadow: '0 6px 18px rgba(122,10,34,.3)' }}>
+            SHOP NOW
+          </Link>
+
+          {/* Quality badges */}
+          <div style={{ display: 'flex', gap: 'clamp(.8rem, 4vw, 2.2rem)', justifyContent: 'center', flexWrap: 'wrap', marginTop: '1.6rem' }}>
+            {[
+              { icon: '🏅', label: 'Premium Quality' },
+              { icon: '🌿', label: 'Comfort Fabrics' },
+              { icon: '🛍️', label: 'Trusted Shopping' },
+            ].map(b => (
+              <div key={b.label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '.3rem', color: '#5c1a28' }}>
+                <span style={{ fontSize: '1.4rem' }} aria-hidden="true">{b.icon}</span>
+                <span style={{ fontSize: '.66rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em' }}>{b.label}</span>
+              </div>
             ))}
           </div>
         </div>
