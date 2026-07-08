@@ -34,20 +34,9 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function HomePage() {
-  const [{ products }, settingsRes] = await Promise.all([
-    productsApi.getAll({ pageSize: 200 }).catch(() => ({ products: [] as any[] })),
-    settingsApi.getAll().catch(() => ({ settings: {} as Record<string, string> })),
-  ]);
-  const s = settingsRes.settings ?? {};
+  const { products } = await productsApi.getAll({ pageSize: 200 }).catch(() => ({ products: [] as any[] }));
 
   const bestSellers = products.filter((p: any) => p.bestSeller);
-
-  // Admin-editable "Why Customers Stay" heading + optional 3-stat strip (Settings → "Why Customers Stay").
-  const statCards = [
-    { value: s.stat1Value?.trim(), label: s.stat1Label?.trim() },
-    { value: s.stat2Value?.trim(), label: s.stat2Label?.trim() },
-    { value: s.stat3Value?.trim(), label: s.stat3Label?.trim() },
-  ].filter(c => c.value);
 
   return (
     <>
@@ -165,45 +154,6 @@ export default async function HomePage() {
 
       {/* New Arrivals — client component */}
       <NewArrivalsSection products={products} />
-
-      {/* Why Shop With Us */}
-      <section style={{ background: '#fafafa', padding: '1.25rem 1.5rem', borderTop: '1px solid #eee' }}>
-        <div className="section-wrap">
-          {s.statEyebrow?.trim() && (
-            <p style={{ fontSize: '.72rem', textTransform: 'uppercase', letterSpacing: '.16em', color: '#a7354d', fontWeight: 700, margin: '0 0 .3rem' }}>{s.statEyebrow.trim()}</p>
-          )}
-          <h2 className="section-heading" style={{ marginBottom: '.9rem' }}>{s.statHeading?.trim() || 'Why Customers Stay'}</h2>
-
-          {/* Optional stat strip — shows only when admin fills at least one stat value */}
-          {statCards.length > 0 && (
-            <div style={{ display: 'grid', gridTemplateColumns: `repeat(${statCards.length}, 1fr)`, gap: '1rem', marginBottom: '1.1rem', maxWidth: '540px' }}>
-              {statCards.map((c, i) => (
-                <div key={i} style={{ background: '#fff', borderRadius: '10px', padding: '1rem .75rem', border: '1px solid #eee', textAlign: 'center' }}>
-                  <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#a7354d', lineHeight: 1.1 }}>{c.value}</div>
-                  {c.label && <div style={{ fontSize: '.75rem', color: '#666', marginTop: '.25rem' }}>{c.label}</div>}
-                </div>
-              ))}
-            </div>
-          )}
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '1rem' }}>
-            {[
-              { icon: '🧵', title: 'Premium Fabrics', desc: 'Every piece curated for quality — festive & daily wear.' },
-              { icon: '💬', title: 'WhatsApp Support', desc: 'Chat 1:1 before ordering — size, fabric, availability.' },
-              { icon: '🚚', title: 'Fast Shipping', desc: 'Pan-India delivery with careful packing & tracking.' },
-              { icon: '🔒', title: 'Secure Payment', desc: 'Encrypted checkout for safe & worry-free payments.' },
-              { icon: '🔄', title: 'Easy Returns', desc: '7-day hassle-free return & exchange on all orders.' },
-            ].map(f => (
-              <div key={f.title} style={{ background: '#fff', borderRadius: '10px', padding: '1rem', border: '1px solid #eee' }}>
-                <div style={{ fontSize: '1.7rem', marginBottom: '.5rem' }}>{f.icon}</div>
-                <h3 style={{ fontWeight: 700, fontSize: '.92rem', marginBottom: '.3rem', color: '#1a1a1a' }}>{f.title}</h3>
-                <p style={{ color: '#666', fontSize: '.8rem', lineHeight: 1.5, margin: 0 }}>{f.desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
     </>
   );
 }
