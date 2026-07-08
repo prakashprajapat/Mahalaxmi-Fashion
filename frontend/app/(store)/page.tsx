@@ -48,22 +48,22 @@ export default async function HomePage() {
       <section style={{
         position: 'relative',
         background: 'linear-gradient(180deg, #faf3e6 0%, #f3e6cb 100%)',
-        padding: 'clamp(1.5rem, 3vw, 2.25rem) 1.5rem',
+        padding: 'clamp(.75rem, 1.6vw, 1.15rem) 1.15rem',
       }}>
         {/* thin decorative border frame */}
-        <div aria-hidden="true" style={{ position: 'absolute', inset: '10px', border: '1.5px solid rgba(122,10,34,.20)', borderRadius: '14px', pointerEvents: 'none' }} />
+        <div aria-hidden="true" style={{ position: 'absolute', inset: '7px', border: '1.5px solid rgba(122,10,34,.20)', borderRadius: '12px', pointerEvents: 'none' }} />
 
         <div className="hero-grid" style={{
           maxWidth: 1180, margin: '0 auto', position: 'relative',
-          display: 'grid', gridTemplateColumns: '1.05fr 1fr',
-          gap: 'clamp(1rem, 3vw, 2.25rem)', alignItems: 'center',
+          display: 'grid', gridTemplateColumns: '1.25fr .75fr',
+          gap: 'clamp(.75rem, 2.5vw, 1.75rem)', alignItems: 'center',
         }}>
           {/* Left: copy + CTA + trust */}
           <div>
-            <h1 style={{ fontFamily: HERO_FONT, fontSize: 'clamp(1.6rem, 4vw, 2.6rem)', fontWeight: 800, lineHeight: 1.18, color: '#5c1a28', margin: '0 0 .45rem' }}>
+            <h1 className="hero-copy" style={{ fontFamily: HERO_FONT, fontSize: 'clamp(1.05rem, 2.7vw, 1.9rem)', fontWeight: 800, lineHeight: 1.25, color: '#5c1a28', margin: '0 0 .3rem' }}>
               Premium Quality You Can Trust.
             </h1>
-            <p style={{ fontFamily: HERO_FONT, fontSize: 'clamp(1.6rem, 4vw, 2.6rem)', fontWeight: 600, lineHeight: 1.18, color: 'rgba(92,26,40,.8)', margin: '0 0 1.1rem' }}>
+            <p className="hero-copy" style={{ fontFamily: HERO_FONT, fontSize: 'clamp(1.05rem, 2.7vw, 1.9rem)', fontWeight: 600, lineHeight: 1.25, color: 'rgba(92,26,40,.8)', margin: '0 0 1rem' }}>
               Thoughtfully Crafted for Every Need.
             </p>
 
@@ -94,7 +94,13 @@ export default async function HomePage() {
           <HeroMedia />
         </div>
       </section>
-      <style>{`@media (max-width: 768px) { .hero-grid { grid-template-columns: 1fr !important; } }`}</style>
+      <style>{`
+        .hero-copy { white-space: nowrap; }
+        @media (max-width: 768px) {
+          .hero-grid { grid-template-columns: 1fr !important; }
+          .hero-copy { white-space: normal; }
+        }
+      `}</style>
 
       {/* Trust signals — payment, returns, authenticity, delivery */}
       <TrustStrip />

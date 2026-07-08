@@ -29,7 +29,7 @@ export default function HeroMedia() {
 
   // Logo fallback — no box, no border, blends with the hero background.
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 'clamp(220px, 30vw, 420px)' }}>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 'clamp(150px, 20vw, 260px)' }}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src="/logo.webp?v=4" alt="Mahalaxmi Fashion Hub"
         style={{ maxWidth: '92%', maxHeight: '100%', width: 'auto', height: 'auto', objectFit: 'contain' }} />
