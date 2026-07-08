@@ -16,6 +16,13 @@ const SECTIONS = [
     ]
   },
   {
+    title: 'Homepage Hero',
+    desc: 'Homepage ke hero (upar) ki right side me chalne wala video. Ek direct video URL (.mp4 / .webm) daalo. Khaali chhodo to wahan logo dikhega.',
+    fields: [
+      { key: 'heroVideoUrl', label: 'Hero Video URL (.mp4 / .webm — blank = logo fallback)', type: 'text' },
+    ]
+  },
+  {
     title: 'SEO — Homepage & Google',
     desc: 'Ye text Google search results aur browser tab me dikhta hai. Khaali chhodoge to default use hoga. (Product pages ka SEO product ke naam/description se apne aap banta hai.)',
     fields: [

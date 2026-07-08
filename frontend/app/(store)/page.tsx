@@ -4,6 +4,7 @@ import { productsApi, settingsApi } from '@/lib/api';
 import { BestSellersSection, NewArrivalsSection } from '@/components/home/HomeSections';
 import OfferBanner from '@/components/home/OfferBanner';
 import TrustStrip from '@/components/home/TrustStrip';
+import HeroMedia from '@/components/home/HeroMedia';
 
 // No searchParams = page is fully ISR-cached (served from cache, no DB call per request)
 export const revalidate = 300;
@@ -39,73 +40,53 @@ export default async function HomePage() {
 
   return (
     <>
-      {/* Hero — banner-style composition in pure code (logo on top, no heavy photo) */}
+      {/* Hero — left copy + CTA, right admin-managed video (logo fallback) */}
       <section style={{
-        position: 'relative',
-        overflow: 'hidden',
-        background: 'radial-gradient(circle at 50% 0%, #faf1de 0%, #f0dcb6 45%, rgb(227,186,127) 100%)',
-        padding: 'clamp(2rem, 6vw, 3.75rem) 1.25rem',
+        background: 'linear-gradient(180deg, #faf3e6 0%, #f3e6cb 100%)',
+        padding: 'clamp(1.25rem, 3.5vw, 2.5rem) 1.25rem',
       }}>
-        {/* decorative border frame */}
-        <div aria-hidden="true" style={{ position: 'absolute', inset: '14px', border: '1.5px solid rgba(122,10,34,.22)', borderRadius: '14px', pointerEvents: 'none' }} />
-        <div aria-hidden="true" style={{ position: 'absolute', top: '-70px', right: '-50px', width: 240, height: 240, borderRadius: '50%', background: 'rgba(122,10,34,.06)' }} />
+        <div className="hero-grid" style={{
+          maxWidth: 1180, margin: '0 auto',
+          display: 'grid', gridTemplateColumns: '1fr 1fr',
+          gap: 'clamp(1.25rem, 4vw, 3rem)', alignItems: 'center',
+        }}>
+          {/* Left: copy + CTA + trust */}
+          <div>
+            <h1 style={{ fontSize: 'clamp(1.9rem, 4.6vw, 3.1rem)', fontWeight: 800, lineHeight: 1.12, color: '#5c1a28', margin: '0 0 .7rem' }}>
+              Premium Quality<br />You Can Trust.
+            </h1>
+            <p style={{ fontSize: 'clamp(1rem, 2vw, 1.2rem)', color: 'rgba(92,26,40,.85)', margin: '0 0 1.3rem', fontWeight: 500 }}>
+              Thoughtfully Crafted for Every Need.
+            </p>
 
-        <div style={{ maxWidth: 760, margin: '0 auto', position: 'relative', textAlign: 'center' }}>
-          {/* Logo on top (Mahalaxmi Fashion Hub — the brand font lives in the logo) */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.webp?v=4" alt="Mahalaxmi Fashion Hub" loading="eager"
-            style={{ height: 'clamp(88px, 15vw, 140px)', width: 'auto', maxWidth: '90%', margin: '0 auto .5rem', display: 'block' }} />
+            <Link href="/best-sellers" style={{ display: 'inline-block', background: '#7a0a22', color: '#fff', fontWeight: 800, fontSize: '1rem', letterSpacing: '.03em', padding: '.8rem 2.2rem', borderRadius: '10px', textDecoration: 'none', boxShadow: '0 6px 18px rgba(122,10,34,.28)' }}>
+              Shop Now
+            </Link>
 
-          {/* Ornament divider */}
-          <div aria-hidden="true" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '.6rem', color: '#b98a3e', margin: '.2rem 0 1rem' }}>
-            <span style={{ height: 1, width: 46, background: 'currentColor', opacity: .6 }} />
-            <span style={{ fontSize: '.9rem' }}>✦</span>
-            <span style={{ height: 1, width: 46, background: 'currentColor', opacity: .6 }} />
+            {/* Quality badges */}
+            <div style={{ display: 'flex', gap: 'clamp(.9rem, 3vw, 1.8rem)', flexWrap: 'wrap', marginTop: '1.4rem' }}>
+              {[
+                { icon: '🏅', label: 'Premium Quality' },
+                { icon: '🌿', label: 'Comfort Fabrics' },
+                { icon: '🛍️', label: 'Trusted Shopping' },
+              ].map(b => (
+                <div key={b.label} style={{ display: 'flex', alignItems: 'center', gap: '.4rem', color: '#5c1a28' }}>
+                  <span style={{ fontSize: '1.15rem' }} aria-hidden="true">{b.icon}</span>
+                  <span style={{ fontSize: '.72rem', fontWeight: 700 }}>{b.label}</span>
+                </div>
+              ))}
+            </div>
+
+            <p style={{ fontSize: '.72rem', textTransform: 'uppercase', letterSpacing: '.24em', color: '#8a2a3e', fontWeight: 800, margin: '.9rem 0 0' }}>
+              Tradition &nbsp;|&nbsp; Style &nbsp;|&nbsp; Quality
+            </p>
           </div>
 
-          <h1 style={{ fontSize: 'clamp(1.5rem, 4.5vw, 2.5rem)', fontWeight: 800, lineHeight: 1.15, color: '#5c1a28', margin: '0 0 1.1rem' }}>
-            Ethnic Wear for the <span style={{ color: '#7a0a22' }}>Entire Family</span>
-          </h1>
-
-          {/* Category icons */}
-          <div style={{ display: 'flex', gap: 'clamp(.6rem, 3vw, 1.6rem)', justifyContent: 'center', flexWrap: 'wrap', marginBottom: '1.1rem' }}>
-            {[
-              { emoji: '🥻', label: 'Sarees', href: '/products?category=saree' },
-              { emoji: '🌙', label: 'Nighty', href: '/products?category=nighty' },
-              { emoji: '👗', label: 'Petticoat', href: '/products?category=petticoat' },
-              { emoji: '👔', label: 'Ethnic Wear', href: '/men' },
-            ].map(c => (
-              <Link key={c.label} href={c.href} style={{ textDecoration: 'none', color: '#5c1a28', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '.25rem', minWidth: 66 }}>
-                <span style={{ fontSize: '1.7rem', lineHeight: 1 }} aria-hidden="true">{c.emoji}</span>
-                <span style={{ fontSize: '.68rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.08em' }}>{c.label}</span>
-              </Link>
-            ))}
-          </div>
-
-          <p style={{ fontSize: '.74rem', textTransform: 'uppercase', letterSpacing: '.26em', color: '#8a2a3e', fontWeight: 800, margin: '0 0 1.2rem' }}>
-            Tradition &nbsp;|&nbsp; Style &nbsp;|&nbsp; Quality
-          </p>
-
-          {/* Shop Now */}
-          <Link href="/best-sellers" style={{ display: 'inline-block', background: '#7a0a22', color: '#fff', fontWeight: 800, fontSize: '1.02rem', letterSpacing: '.04em', padding: '.85rem 2.6rem', borderRadius: '10px', textDecoration: 'none', boxShadow: '0 6px 18px rgba(122,10,34,.3)' }}>
-            SHOP NOW
-          </Link>
-
-          {/* Quality badges */}
-          <div style={{ display: 'flex', gap: 'clamp(.8rem, 4vw, 2.2rem)', justifyContent: 'center', flexWrap: 'wrap', marginTop: '1.6rem' }}>
-            {[
-              { icon: '🏅', label: 'Premium Quality' },
-              { icon: '🌿', label: 'Comfort Fabrics' },
-              { icon: '🛍️', label: 'Trusted Shopping' },
-            ].map(b => (
-              <div key={b.label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '.3rem', color: '#5c1a28' }}>
-                <span style={{ fontSize: '1.4rem' }} aria-hidden="true">{b.icon}</span>
-                <span style={{ fontSize: '.66rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em' }}>{b.label}</span>
-              </div>
-            ))}
-          </div>
+          {/* Right: admin video or logo fallback */}
+          <HeroMedia />
         </div>
       </section>
+      <style>{`@media (max-width: 768px) { .hero-grid { grid-template-columns: 1fr !important; } }`}</style>
 
       {/* Trust signals — payment, returns, authenticity, delivery */}
       <TrustStrip />
