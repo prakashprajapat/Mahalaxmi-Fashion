@@ -9,6 +9,7 @@ import { addToWishlist, isInWishlist, removeFromWishlist } from '@/lib/wishlist'
 import { getCustomer, getToken } from '@/lib/auth';
 import { productImageSrc } from '@/lib/productImages';
 import { productSlug, parseProductId } from '@/lib/productSlug';
+import RelatedProducts from '@/components/product/RelatedProducts';
 import type { Product, Review } from '@/types';
 
 interface ExtraJson {
@@ -561,6 +562,9 @@ export default function ProductPage({ params }: { params: { id: string } }) {
           </div>
         </div>
       </main>
+
+      {/* You may also like — same-category cross-sell + internal linking */}
+      <RelatedProducts category={product.category} currentId={product.dbId} />
     </>
   );
 }
