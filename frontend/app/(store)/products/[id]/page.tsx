@@ -474,6 +474,20 @@ export default function ProductPage({ params }: { params: { id: string } }) {
               {wishlisted ? '❤️ Saved to Wishlist' : '🤍 Add to Wishlist'}
             </button>
 
+            {/* Trust signals near the buy buttons */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '.5rem', background: '#faf6f2', border: '1px solid #f0e6ea', borderRadius: '10px', padding: '.8rem' }}>
+              {[
+                { icon: '🔒', text: 'Secure Checkout' },
+                { icon: '🔄', text: 'Easy 7-Day Returns' },
+                { icon: '✅', text: '100% Genuine Product' },
+                { icon: '🚚', text: 'Fast Pan-India Delivery' },
+              ].map(b => (
+                <div key={b.text} style={{ display: 'flex', alignItems: 'center', gap: '.45rem', fontSize: '.8rem', color: '#5c1a28', fontWeight: 600 }}>
+                  <span aria-hidden="true">{b.icon}</span>{b.text}
+                </div>
+              ))}
+            </div>
+
 
             {/* Description */}
             {product.description && (

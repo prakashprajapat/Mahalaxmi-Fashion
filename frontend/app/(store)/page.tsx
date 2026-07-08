@@ -4,6 +4,7 @@ import Image from 'next/image';
 import { productsApi, settingsApi } from '@/lib/api';
 import { BestSellersSection, NewArrivalsSection } from '@/components/home/HomeSections';
 import OfferBanner from '@/components/home/OfferBanner';
+import TrustStrip from '@/components/home/TrustStrip';
 
 // No searchParams = page is fully ISR-cached (served from cache, no DB call per request)
 export const revalidate = 300;
@@ -152,6 +153,9 @@ export default async function HomePage() {
           zIndex: 2,
         }} />
       </section>
+
+      {/* Trust signals — payment, returns, authenticity, delivery */}
+      <TrustStrip />
 
       {/* Dynamic Offer Banner — client-rendered so admin toggle reflects instantly */}
       <OfferBanner />
