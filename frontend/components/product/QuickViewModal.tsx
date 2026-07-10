@@ -207,7 +207,7 @@ export default function QuickViewModal({ product, onClose }: Props) {
               }}
             >
               {activeImg
-                ? <img src={activeImg} alt={product.name} style={{ width: '100%', height: 'auto', maxHeight: '78vh', objectFit: 'contain', display: 'block' }} />
+                ? <img src={activeImg} alt={product.name} style={{ maxWidth: '100%', maxHeight: 'clamp(260px, 52vh, 460px)', width: 'auto', height: 'auto', objectFit: 'contain', display: 'block' }} />
                 : <div style={{ width: '100%', aspectRatio: '1/1', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '3rem', color: '#ddd', background: '#f8f8f8' }}>👗</div>
               }
               {/* Circular magnifier — fixed so no parent overflow can clip it */}

@@ -10,8 +10,8 @@ import OfferBanner from '@/components/home/OfferBanner';
 import TrustStrip from '@/components/home/TrustStrip';
 import HeroMedia from '@/components/home/HeroMedia';
 
-// No searchParams = page is fully ISR-cached (served from cache, no DB call per request)
-export const revalidate = 300;
+// No searchParams = page is fully ISR-cached; 60s so new products appear quickly.
+export const revalidate = 60;
 
 // Homepage SEO — admin-editable from Settings → "SEO — Homepage & Google".
 // Falls back to the site defaults (in layout.tsx) when a field is left blank.

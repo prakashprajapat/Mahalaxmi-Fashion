@@ -293,6 +293,7 @@ public class ProductsController : ControllerBase
 
     private async Task<Product?> FindUpsertTarget(ProductCreateRequest dto)
     {
+        // Match an existing product ONLY by its database id (explicit edit) or by its unique SKU.
         if (dto.DbId.GetValueOrDefault() > 0)
             return await _db.Products.FindAsync(dto.DbId!.Value);
 
@@ -303,9 +304,11 @@ public class ProductsController : ControllerBase
             if (bySku.Count == 1) return bySku[0];
         }
 
-        var name = dto.Name.Trim();
-        var category = dto.Category.Trim();
-        return await _db.Products.FirstOrDefaultAsync(p => p.Name == name && p.Category == category);
+        // No id and no matching SKU → this is a NEW product. Do NOT fall back to matching by
+        // name+category — many products share a name (e.g. "Premium Cotton Nighty For Women"),
+        // and matching by name would make a new product overwrite an existing one (it would
+        // "disappear"). Returning null here forces a fresh insert.
+        return null;
     }
 
     // Auto-convert base64 image to file on disk; returns file path or original value

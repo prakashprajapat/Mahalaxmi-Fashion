@@ -12,10 +12,11 @@ async function request<T>(
   };
   if (token) headers['Authorization'] = `Bearer ${token}`;
 
-  // Server-side GET requests: use Next.js Data Cache (revalidate every 300s)
+  // Server-side GET requests: use Next.js Data Cache (revalidate every 60s so newly-added
+  // products/settings show up quickly on cached pages like the homepage).
   const isServer = typeof window === 'undefined';
   const isGet = !options?.method || options.method === 'GET';
-  const cacheOpts: RequestInit = isServer && isGet ? { next: { revalidate: 300 } } as RequestInit : {};
+  const cacheOpts: RequestInit = isServer && isGet ? { next: { revalidate: 60 } } as RequestInit : {};
 
   const res = await fetch(`${API_BASE}${path}`, { ...cacheOpts, ...options, headers });
   if (!res.ok) {
