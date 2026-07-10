@@ -207,7 +207,7 @@ export default function QuickViewModal({ product, onClose }: Props) {
               }}
             >
               {activeImg
-                ? <img src={activeImg} alt={product.name} style={{ maxWidth: '100%', maxHeight: 'clamp(260px, 52vh, 460px)', width: 'auto', height: 'auto', objectFit: 'contain', display: 'block' }} />
+                ? <img src={activeImg} alt={product.name} style={{ maxWidth: '100%', maxHeight: 'clamp(300px, 60vh, 540px)', width: 'auto', height: 'auto', objectFit: 'contain', display: 'block' }} />
                 : <div style={{ width: '100%', aspectRatio: '1/1', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '3rem', color: '#ddd', background: '#f8f8f8' }}>👗</div>
               }
               {/* Circular magnifier — fixed so no parent overflow can clip it */}
@@ -238,9 +238,9 @@ export default function QuickViewModal({ product, onClose }: Props) {
                     style={{
                       width: '56px', height: '56px', borderRadius: '8px',
                       overflow: 'hidden', border: activeImg === img ? '2.5px solid #a7354d' : '2px solid #eee',
-                      padding: 0, cursor: 'pointer', background: '#f8f8f8', flexShrink: 0,
+                      padding: 0, cursor: 'pointer', background: '#fff', flexShrink: 0,
                     }}>
-                    <img src={img} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <img src={img} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                   </button>
                 ))}
               </div>
