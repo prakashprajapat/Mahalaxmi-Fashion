@@ -166,6 +166,22 @@ public class OrdersController : ControllerBase
         if (!string.IsNullOrEmpty(jwtCustomerId) && jwtCustomerId != "0")
             req = req with { CustomerId = jwtCustomerId };
 
+        // GUEST ORDER: if the buyer isn't logged in, link this order to an EXISTING account whose
+        // email or mobile matches the checkout details — so the order appears in that customer's
+        // profile and we don't create a duplicate identity.
+        if (string.IsNullOrEmpty(req.CustomerId) || req.CustomerId == "0")
+        {
+            var oEmail = req.CustomerEmail?.Trim().ToLowerInvariant();
+            var oPhone10 = new string((req.CustomerPhone ?? "").Where(char.IsDigit).ToArray());
+            if (oPhone10.Length > 10) oPhone10 = oPhone10[^10..];
+
+            var match = await _db.Customers.FirstOrDefaultAsync(x =>
+                (!string.IsNullOrEmpty(oEmail) && x.Email == oEmail)
+                || (oPhone10.Length == 10 && x.Phone != null && x.Phone.EndsWith(oPhone10)));
+            if (match is not null)
+                req = req with { CustomerId = match.Id.ToString() };
+        }
+
         var cart = JsonSerializer.Serialize(req.Cart, _json);
         var customerJson = JsonSerializer.Serialize(new
         {

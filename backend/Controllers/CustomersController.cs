@@ -517,12 +517,25 @@ public class CustomersController : ControllerBase
         var c = await _db.Customers.FindAsync(id);
         if (c is null) return NotFound();
 
+        // NO DUPLICATES: reject if the new phone/email is already used by a DIFFERENT account.
+        var newPhone = req.Phone?.Trim();
+        if (!string.IsNullOrWhiteSpace(newPhone) && newPhone != c.Phone
+            && await _db.Customers.AnyAsync(x => x.Id != id && x.Phone == newPhone))
+            return Conflict(new { success = false, message = "This mobile number is already used by another account." });
+
+        var newEmail = req.Email?.Trim().ToLower();
+        if (!string.IsNullOrWhiteSpace(newEmail) && newEmail != c.Email
+            && await _db.Customers.AnyAsync(x => x.Id != id && x.Email == newEmail))
+            return Conflict(new { success = false, message = "This email is already used by another account." });
+
         // Partial update: only change fields that were actually provided (non-null),
         // so a partial request (e.g. only birthday dates) does not wipe other fields.
         if (req.FirstName    != null) c.FirstName    = req.FirstName.Trim();
         if (req.LastName     != null) c.LastName     = req.LastName.Trim();
         if (req.Gender       != null) c.Gender       = req.Gender;
         if (req.Phone        != null) c.Phone        = req.Phone.Trim();
+        // Email is editable by an admin (used to fix/merge duplicate accounts).
+        if (isAdmin && !string.IsNullOrWhiteSpace(newEmail)) c.Email = newEmail;
         // Birthday & anniversary stay editable until the customer redeems the matching
         // date-based coupon; once that offer is used the date locks (stops repeat claims).
         if (req.DateOfBirth  != null && !c.BirthdayOfferUsed)    c.DateOfBirth  = ParseDate(req.DateOfBirth);
@@ -599,6 +612,13 @@ public class CustomersController : ControllerBase
 
         var c = await _db.Customers.FindAsync(id);
         if (c is null) return NotFound();
+
+        // Detach dependent rows first so the account can be removed without a foreign-key error.
+        // Reviews are kept (as content) but their customer link is cleared; wishlist rows are removed.
+        var custReviews = await _db.Reviews.Where(r => r.CustomerId == id).ToListAsync();
+        foreach (var r in custReviews) r.CustomerId = null;
+        try { await _db.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM wishlists WHERE customer_id = {id}"); }
+        catch { /* wishlists table may be unused — ignore */ }
 
         _db.Customers.Remove(c);
         await _db.SaveChangesAsync();

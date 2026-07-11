@@ -90,6 +90,7 @@ public record UpdateProfileRequest(
     string? DateOfBirth,
     string? MarriageDate,
     string? Phone,
+    string? Email,
     string? AddrLine1,
     string? AddrLine2,
     string? Pincode,

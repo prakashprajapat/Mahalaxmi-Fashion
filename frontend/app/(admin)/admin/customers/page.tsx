@@ -41,6 +41,11 @@ export default function AdminCustomersPage() {
   const [message, setMessage] = useState('');
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
+  // Edit customer (fix/merge duplicates — change name / email / mobile)
+  const [editCust, setEditCust] = useState<Customer | null>(null);
+  const [editForm, setEditForm] = useState({ firstName: '', lastName: '', email: '', phone: '' });
+  const [editMsg, setEditMsg] = useState('');
+  const [editSaving, setEditSaving] = useState(false);
   const [form, setForm] = useState({
     firstName: '',
     lastName: '',
@@ -66,6 +71,39 @@ export default function AdminCustomersPage() {
     fetchCustomers();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search, page]);
+
+  const openEdit = (c: Customer) => {
+    setEditCust(c);
+    setEditForm({ firstName: c.firstName || '', lastName: c.lastName || '', email: c.email || '', phone: c.phone || '' });
+    setEditMsg('');
+  };
+
+  const saveEdit = async () => {
+    if (!editCust) return;
+    setEditSaving(true); setEditMsg('');
+    try {
+      await customersApi.updateProfile(editCust.id, {
+        firstName: editForm.firstName.trim(),
+        lastName: editForm.lastName.trim(),
+        email: editForm.email.trim(),
+        phone: editForm.phone.trim(),
+      }, getAdminToken() ?? '');
+      setEditCust(null);
+      fetchCustomers();
+    } catch (e) {
+      setEditMsg((e as Error).message || 'Update failed.');
+    } finally { setEditSaving(false); }
+  };
+
+  const handleDelete = async (c: Customer) => {
+    if (!confirm(`Delete customer "${c.firstName} ${c.lastName}" (${c.email || c.phone})?\nThis permanently removes the account.`)) return;
+    try {
+      await customersApi.delete(c.id, getAdminToken() ?? '');
+      fetchCustomers();
+    } catch (e) {
+      alert((e as Error).message || 'Delete failed.');
+    }
+  };
 
   const handleAddCustomer = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -192,14 +230,14 @@ export default function AdminCustomersPage() {
         <table className="w-full text-sm">
           <thead className="bg-gray-50 text-xs uppercase text-gray-500">
             <tr>
-              {['Code', 'Name', 'Email', 'Phone', 'Birthday', 'Anniv.', 'District', 'State', 'Status', 'Offer', 'Joined', 'Time'].map(h => (
+              {['Code', 'Name', 'Email', 'Phone', 'Birthday', 'Anniv.', 'District', 'State', 'Status', 'Offer', 'Joined', 'Time', 'Actions'].map(h => (
                 <th key={h} className="px-4 py-3 text-left">{h}</th>
               ))}
             </tr>
           </thead>
           <tbody className="divide-y">
             {loading ? (
-              <tr><td colSpan={12} className="text-center py-10 text-gray-400">Loading...</td></tr>
+              <tr><td colSpan={13} className="text-center py-10 text-gray-400">Loading...</td></tr>
             ) : customers.map(c => (
               <tr key={c.id} className="hover:bg-gray-50">
                 <td className="px-4 py-3 font-mono text-xs">{c.customerCode}</td>
@@ -233,6 +271,12 @@ export default function AdminCustomersPage() {
                 <td className="px-4 py-3 text-xs text-gray-400">
                   {new Date(c.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
                 </td>
+                <td className="px-4 py-3 text-xs whitespace-nowrap">
+                  <button onClick={() => openEdit(c)}
+                    className="px-2 py-1 rounded bg-blue-50 text-blue-700 font-semibold mr-1">Edit</button>
+                  <button onClick={() => handleDelete(c)}
+                    className="px-2 py-1 rounded bg-red-50 text-red-600 font-semibold">Delete</button>
+                </td>
               </tr>
             ))}
           </tbody>
@@ -249,6 +293,36 @@ export default function AdminCustomersPage() {
             className="px-3 py-1 border rounded disabled:opacity-40">Next →</button>
         </div>
       </div>
+
+      {/* Edit customer modal — fix name / email / mobile (to resolve duplicates) */}
+      {editCust && (
+        <div onClick={() => setEditCust(null)}
+          style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+          <div onClick={e => e.stopPropagation()}
+            style={{ background: '#fff', borderRadius: 12, padding: '1.5rem', width: '100%', maxWidth: 420 }}>
+            <h2 className="text-lg font-bold text-gray-800 mb-1">Edit Customer</h2>
+            <p className="text-xs text-gray-500 mb-4">Code: {editCust.customerCode}</p>
+            <div className="grid grid-cols-2 gap-3">
+              <input className="border rounded-lg px-3 py-2 text-sm" placeholder="First name"
+                value={editForm.firstName} onChange={e => setEditForm(f => ({ ...f, firstName: e.target.value }))} />
+              <input className="border rounded-lg px-3 py-2 text-sm" placeholder="Last name"
+                value={editForm.lastName} onChange={e => setEditForm(f => ({ ...f, lastName: e.target.value }))} />
+              <input className="border rounded-lg px-3 py-2 text-sm col-span-2" placeholder="Email" type="email"
+                value={editForm.email} onChange={e => setEditForm(f => ({ ...f, email: e.target.value }))} />
+              <input className="border rounded-lg px-3 py-2 text-sm col-span-2" placeholder="Mobile"
+                value={editForm.phone} onChange={e => setEditForm(f => ({ ...f, phone: e.target.value }))} />
+            </div>
+            {editMsg && <p className="text-sm text-red-600 font-semibold mt-3">{editMsg}</p>}
+            <div className="flex gap-2 justify-end mt-4">
+              <button onClick={() => setEditCust(null)} className="px-4 py-2 rounded-lg border text-sm">Cancel</button>
+              <button onClick={saveEdit} disabled={editSaving}
+                className="px-4 py-2 rounded-lg bg-pink-700 text-white text-sm font-semibold">
+                {editSaving ? 'Saving…' : 'Save'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
