@@ -19,6 +19,7 @@ builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<EmailService>();
 builder.Services.AddScoped<SmsService>();
 builder.Services.AddScoped<DelhiveryService>();
+builder.Services.AddScoped<AdminNotifier>();
 builder.Services.AddHttpClient("razorpay");
 builder.Services.AddHttpClient("delhivery");
 builder.Services.AddControllers();

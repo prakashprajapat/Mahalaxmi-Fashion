@@ -19,14 +19,16 @@ public class CustomersController : ControllerBase
     private readonly IWebHostEnvironment _env;
     private readonly EmailService _email;
     private readonly SmsService _sms;
+    private readonly AdminNotifier _notify;
 
-    public CustomersController(AppDbContext db, AuthService auth, IWebHostEnvironment env, EmailService email, SmsService sms)
+    public CustomersController(AppDbContext db, AuthService auth, IWebHostEnvironment env, EmailService email, SmsService sms, AdminNotifier notify)
     {
         _db = db;
         _auth = auth;
         _env = env;
         _email = email;
         _sms = sms;
+        _notify = notify;
     }
 
     // Generates the next sequential customer code: MFHCUS1005, MFHCUS1006, ...
@@ -275,6 +277,14 @@ public class CustomersController : ControllerBase
 
         _db.Customers.Add(customer);
         await _db.SaveChangesAsync();
+
+        // Notify admin of the new customer registration (email — fire-and-forget).
+        await _notify.NotifyAsync($"New customer - {customer.FirstName} {customer.LastName}".Trim(),
+            AdminNotifier.Wrap("New Customer Registered", $@"
+                <p><strong>Name:</strong> {System.Net.WebUtility.HtmlEncode($"{customer.FirstName} {customer.LastName}".Trim())}</p>
+                <p><strong>Email:</strong> {System.Net.WebUtility.HtmlEncode(customer.Email ?? "")}</p>
+                <p><strong>Mobile:</strong> {System.Net.WebUtility.HtmlEncode(customer.Phone ?? "")}</p>
+                <p><strong>Code:</strong> {customer.CustomerCode}</p>"));
 
         var token = _auth.GenerateJwt(customer.Id.ToString(), customer.Email ?? "", "customer");
         return Ok(new { success = true, token, customer = ToDto(customer) });

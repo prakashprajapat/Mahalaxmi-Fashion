@@ -58,14 +58,17 @@ export default function WelcomePopup() {
         .mfh-welcome-popup {
           animation: popupIn .35s ease;
           width: 100%; max-width: 720px;
+          max-height: 92vh;                 /* never taller than the screen */
           background: #fff; border-radius: 20px;
           display: grid; grid-template-columns: 260px 1fr;
           overflow: hidden; position: relative;
           box-shadow: 0 28px 80px rgba(0,0,0,.35);
         }
+        .mfh-popup-content { min-height: 0; overflow-y: auto; }  /* scrolls on short screens */
         @media (max-width: 560px) {
           .mfh-welcome-popup { grid-template-columns: 1fr !important; }
           .mfh-popup-img { display: none !important; }
+          .mfh-popup-content { padding: 1.5rem 1.25rem !important; justify-content: flex-start !important; }
         }
       `}</style>
 
@@ -105,7 +108,7 @@ export default function WelcomePopup() {
         </div>
 
         {/* Right — form */}
-        <div style={{ padding: '2rem 1.75rem', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+        <div className="mfh-popup-content" style={{ padding: '2rem 1.75rem', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
           {submitted ? (
             <div style={{ textAlign: 'center', padding: '1rem 0' }}>
               <div style={{ fontSize: '3.5rem', marginBottom: '.75rem' }}>🎁</div>

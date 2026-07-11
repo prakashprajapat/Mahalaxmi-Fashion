@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MahalaxmiApi.Data;
 using MahalaxmiApi.Models;
+using MahalaxmiApi.Services;
 
 namespace MahalaxmiApi.Controllers;
 
@@ -11,7 +12,12 @@ namespace MahalaxmiApi.Controllers;
 public class PopupLeadsController : ControllerBase
 {
     private readonly AppDbContext _db;
-    public PopupLeadsController(AppDbContext db) => _db = db;
+    private readonly AdminNotifier _notify;
+    public PopupLeadsController(AppDbContext db, AdminNotifier notify)
+    {
+        _db = db;
+        _notify = notify;
+    }
 
     // Public — called from WelcomePopup form
     [HttpPost]
@@ -37,6 +43,14 @@ public class PopupLeadsController : ControllerBase
                 Source = req.Source ?? "welcome_popup",
             });
             await _db.SaveChangesAsync();
+
+            // Notify admin of the new popup lead (email — fire-and-forget).
+            await _notify.NotifyAsync("New popup lead",
+                AdminNotifier.Wrap("New Lead Captured", $@"
+                    <p><strong>Name:</strong> {System.Net.WebUtility.HtmlEncode(req.Name ?? "")}</p>
+                    <p><strong>Email:</strong> {System.Net.WebUtility.HtmlEncode(req.Email ?? "")}</p>
+                    <p><strong>Mobile:</strong> {System.Net.WebUtility.HtmlEncode(req.Phone ?? "")}</p>
+                    <p><strong>Source:</strong> {System.Net.WebUtility.HtmlEncode(req.Source ?? "welcome_popup")}</p>"));
         }
 
         return Ok(new { success = true });

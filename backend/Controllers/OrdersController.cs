@@ -26,12 +26,14 @@ public class OrdersController : ControllerBase
 
     private readonly IWebHostEnvironment _env;
     private readonly Services.DelhiveryService _delhivery;
+    private readonly Services.AdminNotifier _notify;
 
-    public OrdersController(AppDbContext db, IWebHostEnvironment env, Services.DelhiveryService delhivery)
+    public OrdersController(AppDbContext db, IWebHostEnvironment env, Services.DelhiveryService delhivery, Services.AdminNotifier notify)
     {
         _db = db;
         _env = env;
         _delhivery = delhivery;
+        _notify = notify;
     }
 
     // Deploy-safe uploads root: /var/www/mahalaxmi-uploads/returns (outside repo & publish dir).
@@ -383,6 +385,17 @@ public class OrdersController : ControllerBase
         }
 
         await _db.SaveChangesAsync();
+
+        // Notify admin of the new order (email — fire-and-forget, never blocks the response).
+        var itemsSummary = string.Join(", ", (req.Cart ?? new List<CartLineDto>()).Take(6).Select(c => $"{c.Name} x{Math.Max(1, c.Quantity)}"));
+        await _notify.NotifyAsync($"New Order {orderId} - Rs.{serverTotal:0}",
+            Services.AdminNotifier.Wrap("New Order Received", $@"
+                <p><strong>Order:</strong> {orderId}</p>
+                <p><strong>Amount:</strong> Rs.{serverTotal:0} ({method.ToUpper()})</p>
+                <p><strong>Customer:</strong> {System.Net.WebUtility.HtmlEncode(req.CustomerName ?? "")} &middot; {System.Net.WebUtility.HtmlEncode(req.CustomerPhone ?? "")}</p>
+                <p><strong>Ship to:</strong> {System.Net.WebUtility.HtmlEncode(req.ShippingAddress ?? "")}, {System.Net.WebUtility.HtmlEncode(req.ShippingCity ?? "")} - {System.Net.WebUtility.HtmlEncode(req.ShippingPincode ?? "")}</p>
+                <p><strong>Items:</strong> {System.Net.WebUtility.HtmlEncode(itemsSummary)}</p>"));
+
         return Ok(new { success = true, orderId });
     }
 
@@ -571,6 +584,35 @@ public class OrdersController : ControllerBase
         order.Status = "Return Requested";
         order.UpdatedAt = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync();
+
+        // Repeat-return alert: if this customer now has 2+ orders in a return flow, flag possible abuse.
+        try
+        {
+            var oc = ParseJson(order.CustomerJson);
+            var custEmail = (GetJsonStr(oc, "email") ?? "").Trim().ToLowerInvariant();
+            var custPhone = NormalizePhone(GetJsonStr(oc, "phone"));
+            var returnStates = new[] { "Return Requested", "Return Transit", "Return" };
+            var candidates = await _db.SiteOrders.Where(o => returnStates.Contains(o.Status)).ToListAsync();
+            var count = candidates.Count(o =>
+            {
+                var c = ParseJson(o.CustomerJson);
+                var e = (GetJsonStr(c, "email") ?? "").Trim().ToLowerInvariant();
+                var p = NormalizePhone(GetJsonStr(c, "phone"));
+                return (!string.IsNullOrEmpty(custEmail) && e == custEmail)
+                    || (!string.IsNullOrEmpty(custPhone) && p == custPhone);
+            });
+            if (count >= 2)
+            {
+                var name = GetJsonStr(oc, "name") ?? "Customer";
+                await _notify.NotifyAsync($"Repeat return alert - {name} ({count})",
+                    Services.AdminNotifier.Wrap("Repeat Return Alert", $@"
+                        <p><strong>{System.Net.WebUtility.HtmlEncode(name)}</strong> has now made/requested <strong>{count} returns</strong>.</p>
+                        <p><strong>Contact:</strong> {System.Net.WebUtility.HtmlEncode(custEmail)} &middot; {System.Net.WebUtility.HtmlEncode(GetJsonStr(oc, "phone") ?? "")}</p>
+                        <p><strong>Latest order:</strong> {order.OrderId}</p>
+                        <p>Please review this customer for possible return abuse.</p>"));
+            }
+        }
+        catch { /* alert is best-effort */ }
 
         return Ok(new { success = true, order = MapOrder(order) });
     }
