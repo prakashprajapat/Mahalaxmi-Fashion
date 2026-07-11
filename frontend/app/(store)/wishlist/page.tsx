@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import type { Product } from '@/types';
 import { getWishlist, removeFromWishlist } from '@/lib/wishlist';
 import { addToCart, finalUnitPrice } from '@/lib/cart';
@@ -50,7 +51,7 @@ export default function WishlistPage() {
                     <div key={product.dbId} className="product-card" style={{ display: 'block' }}>
                       <div style={{ position: 'relative', overflow: 'hidden', aspectRatio: '3/4', background: '#f5f5f5' }}>
                         {product.image ? (
-                          <img src={product.image} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          <Image src={product.image} alt={product.name} fill sizes="(max-width: 768px) 50vw, 220px" style={{ objectFit: 'cover' }} />
                         ) : (
                           <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '4rem', color: '#ddd' }}>👗</div>
                         )}
