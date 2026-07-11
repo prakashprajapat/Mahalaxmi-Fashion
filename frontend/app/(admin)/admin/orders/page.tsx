@@ -69,6 +69,7 @@ export default function AdminOrdersPage() {
   const [awbModal, setAwbModal] = useState(false);
   const [newStatus, setNewStatus] = useState('');           // holds the chosen courier
   const [awbMap, setAwbMap] = useState<Record<string, string>>({}); // per-order AWB
+  const [genAwbId, setGenAwbId] = useState<string | null>(null);    // order currently auto-generating an AWB
   const [updating, setUpdating] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   // Return-details modal (view media + approve/reject)
@@ -81,6 +82,25 @@ export default function AdminOrdersPage() {
   const [retCourier, setRetCourier] = useState('Delhivery');
 
   const closeReturnModal = () => { setReturnModalId(null); setShowReject(false); setRejectReason(''); setRetAwb(''); };
+
+  // Auto-generate a forward Delhivery AWB for a single order (fills the AWB box on success).
+  const generateAwbFor = async (orderId: string) => {
+    setGenAwbId(orderId);
+    try {
+      const r = await ordersApi.generateAwb(orderId, getAdminToken() ?? '');
+      if (r.awb) {
+        setAwbMap(m => ({ ...m, [orderId]: r.awb! }));
+        setNewStatus('Delhivery');
+        if (r.order) setOrders(prev => prev.map(o => (o.id === orderId ? r.order! : o)));
+      } else {
+        alert(r.message || 'Could not generate AWB. Enter it manually.');
+      }
+    } catch (e) {
+      alert((e as Error).message || 'AWB generation failed. Enter it manually.');
+    } finally {
+      setGenAwbId(null);
+    }
+  };
 
   const assignReturnAwb = async (order: Order, mode: 'manual' | 'auto') => {
     if (mode === 'manual' && !retAwb.trim()) { alert('Enter the return AWB / tracking number.'); return; }
@@ -625,6 +645,11 @@ export default function AdminOrdersPage() {
                   <input value={awbMap[o.id] ?? ''} onChange={e => setAwbMap(m => ({ ...m, [o.id]: e.target.value }))}
                     placeholder="AWB / tracking no."
                     style={{ flex: 1, border: '1.5px solid #ddd', borderRadius: '8px', padding: '.5rem .65rem', fontSize: '.85rem', boxSizing: 'border-box' }} />
+                  <button type="button" onClick={() => generateAwbFor(o.id)} disabled={genAwbId === o.id}
+                    title="Auto-generate AWB via Delhivery"
+                    style={{ flexShrink: 0, background: '#0b6b3a', color: '#fff', border: 'none', borderRadius: '8px', padding: '.5rem .7rem', fontSize: '.78rem', fontWeight: 700, cursor: genAwbId === o.id ? 'wait' : 'pointer', whiteSpace: 'nowrap' }}>
+                    {genAwbId === o.id ? '…' : '⚡ Generate'}
+                  </button>
                 </div>
               ))}
             </div>

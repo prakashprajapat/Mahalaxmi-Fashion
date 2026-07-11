@@ -837,6 +837,41 @@ public class OrdersController : ControllerBase
         return Ok(new { success = true, order = MapOrder(order), awb, courier });
     }
 
+    // POST /api/orders/{orderId}/generate-awb  (Admin/Staff)
+    // Auto-creates a FORWARD Delhivery shipment for the order and stores the generated AWB.
+    // Falls back with a clear message if Delhivery isn't configured — admin can then enter manually.
+    [HttpPost("{orderId}/generate-awb")]
+    [Authorize(Policy = "AdminOrStaff")]
+    public async Task<IActionResult> GenerateAwb(string orderId)
+    {
+        var order = await _db.SiteOrders.FirstOrDefaultAsync(o => o.OrderId == orderId);
+        if (order is null)
+            return NotFound(new { success = false, message = "Order not found." });
+        if (!string.IsNullOrWhiteSpace(order.Awb))
+            return Ok(new { success = true, awb = order.Awb, order = MapOrder(order), message = "This order already has an AWB." });
+
+        var ship = ParseJson(order.ShippingJson);
+        var cust = ParseJson(order.CustomerJson);
+        var to = new Services.DelhiveryService.ShipTo(
+            Name:    GetJsonStr(ship, "name") ?? GetJsonStr(cust, "name") ?? "",
+            Address: GetJsonStr(ship, "address") ?? "",
+            Pincode: GetJsonStr(ship, "pincode") ?? "",
+            City:    GetJsonStr(ship, "city") ?? "",
+            State:   GetJsonStr(ship, "state") ?? "",
+            Phone:   GetJsonStr(cust, "phone") ?? "");
+
+        var isCod = string.Equals(order.Method, "cod", StringComparison.OrdinalIgnoreCase);
+        var result = await _delhivery.CreateForwardShipmentAsync(order.OrderId, to, isCod ? order.Total : 0m, "Fashion item");
+        if (!result.Success || string.IsNullOrWhiteSpace(result.Awb))
+            return BadRequest(new { success = false, message = result.Error ?? "Delhivery AWB generation failed." });
+
+        order.Awb = result.Awb;
+        order.Courier = "Delhivery";
+        order.UpdatedAt = DateTimeOffset.UtcNow;
+        await _db.SaveChangesAsync();
+        return Ok(new { success = true, awb = result.Awb, order = MapOrder(order) });
+    }
+
     // Best-effort delete of an order's stored return media directory (instance helper).
     private void DeleteReturnMediaDir(string orderId) => PurgeReturnMediaDir(ReturnsRoot(), orderId);
 

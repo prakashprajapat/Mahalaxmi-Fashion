@@ -26,10 +26,93 @@ public class DelhiveryService
     }
 
     public record PickupAddress(string Name, string Address, string Pincode, string City, string State, string Phone);
+    public record ShipTo(string Name, string Address, string Pincode, string City, string State, string Phone);
     public record ReverseResult(bool Success, string? Awb, string? Error);
 
     private async Task<Dictionary<string, string>> SettingsAsync() =>
         await _db.SiteSettings.ToDictionaryAsync(s => s.Key, s => s.Value);
+
+    /// <summary>
+    /// Creates a FORWARD Delhivery shipment (from the seller warehouse TO the customer) and
+    /// returns the generated AWB / waybill. Config (token + registered pickup warehouse name)
+    /// is read from admin Settings; if missing or the API fails, returns a clear message and
+    /// the admin can still enter the AWB manually.
+    /// </summary>
+    public async Task<ReverseResult> CreateForwardShipmentAsync(string orderId, ShipTo to, decimal codAmount, string productDesc)
+    {
+        var cfg = await SettingsAsync();
+        string Get(string k) => cfg.TryGetValue(k, out var v) ? (v ?? "").Trim() : "";
+
+        var token      = Get("delhivery_token");
+        var pickupName = Get("delhivery_pickup_name"); // your registered Delhivery warehouse name
+        if (string.IsNullOrEmpty(token) || string.IsNullOrEmpty(pickupName))
+            return new(false, null, "Delhivery not configured. Add 'delhivery_token' and 'delhivery_pickup_name' in Settings, or enter the AWB manually.");
+
+        if (string.IsNullOrWhiteSpace(to.Pincode) || string.IsNullOrWhiteSpace(to.Address))
+            return new(false, null, "Shipping address is incomplete on this order; enter the AWB manually.");
+
+        var isCod = codAmount > 0m;
+        var payload = new
+        {
+            pickup_location = new { name = pickupName },
+            shipments = new[]
+            {
+                new
+                {
+                    name          = to.Name,
+                    add           = to.Address,
+                    pin           = to.Pincode,
+                    city          = to.City,
+                    state         = to.State,
+                    country       = "India",
+                    phone         = to.Phone,
+                    order         = orderId,
+                    payment_mode  = isCod ? "COD" : "Prepaid",
+                    cod_amount    = isCod ? ((int)codAmount).ToString() : "0",
+                    total_amount  = ((int)codAmount).ToString(),
+                    products_desc = productDesc,
+                    quantity      = "1",
+                }
+            }
+        };
+
+        try
+        {
+            var json = JsonSerializer.Serialize(payload);
+            var body = $"format=json&data={Uri.EscapeDataString(json)}";
+            var client = _http.CreateClient("delhivery");
+            using var reqMsg = new HttpRequestMessage(HttpMethod.Post, CreateUrl)
+            {
+                Content = new StringContent(body, Encoding.UTF8, "application/x-www-form-urlencoded")
+            };
+            reqMsg.Headers.TryAddWithoutValidation("Authorization", $"Token {token}");
+            reqMsg.Headers.TryAddWithoutValidation("Accept", "application/json");
+
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+            var resp = await client.SendAsync(reqMsg, cts.Token);
+            var text = await resp.Content.ReadAsStringAsync(cts.Token);
+
+            using var doc = JsonDocument.Parse(text);
+            var root = doc.RootElement;
+            if (root.TryGetProperty("packages", out var pkgs) && pkgs.ValueKind == JsonValueKind.Array && pkgs.GetArrayLength() > 0)
+            {
+                var pkg = pkgs[0];
+                var awb = pkg.TryGetProperty("waybill", out var wb) ? wb.GetString() : null;
+                var status = pkg.TryGetProperty("status", out var st) ? st.GetString() : null;
+                if (!string.IsNullOrWhiteSpace(awb) && !string.Equals(status, "Fail", StringComparison.OrdinalIgnoreCase))
+                    return new(true, awb, null);
+                var remark = pkg.TryGetProperty("remarks", out var rm) ? rm.ToString() : status;
+                return new(false, null, $"Delhivery rejected the shipment: {remark}");
+            }
+            var rmk = root.TryGetProperty("rmk", out var r) ? r.GetString()
+                    : root.TryGetProperty("error", out var e) ? e.ToString() : text;
+            return new(false, null, $"Delhivery error: {Trim(rmk, 300)}");
+        }
+        catch (Exception ex)
+        {
+            return new(false, null, $"Could not reach Delhivery ({ex.Message}). Enter the AWB manually.");
+        }
+    }
 
     /// <param name="from">The customer address the courier picks up FROM.</param>
     public async Task<ReverseResult> CreateReversePickupAsync(string orderId, PickupAddress from, string productDesc)

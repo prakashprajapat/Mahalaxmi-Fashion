@@ -23,6 +23,14 @@ const SECTIONS = [
     ]
   },
   {
+    title: 'Delhivery Shipping (Auto AWB)',
+    desc: 'Orders me "⚡ Generate" se apne aap AWB banane ke liye. Delhivery business account se API Token, aur Delhivery me registered pickup warehouse ka exact naam. Khaali chhodo to manual AWB entry chalegi.',
+    fields: [
+      { key: 'delhivery_token', label: 'Delhivery API Token', type: 'password' },
+      { key: 'delhivery_pickup_name', label: 'Registered Pickup / Warehouse Name (exact)', type: 'text' },
+    ]
+  },
+  {
     title: 'SEO — Homepage & Google',
     desc: 'Ye text Google search results aur browser tab me dikhta hai. Khaali chhodoge to default use hoga. (Product pages ka SEO product ke naam/description se apne aap banta hai.)',
     fields: [

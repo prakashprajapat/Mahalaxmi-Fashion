@@ -86,6 +86,11 @@ export const ordersApi = {
     request<{ success: boolean; order: import('@/types').Order }>(
       `/orders/${orderId}/cancel`, { method: 'PATCH' }, token
     ),
+  // Auto-generate a forward Delhivery AWB for an order.
+  generateAwb: (orderId: string, token: string) =>
+    request<{ success: boolean; awb?: string; order?: import('@/types').Order; message?: string }>(
+      `/orders/${orderId}/generate-awb`, { method: 'POST' }, token
+    ),
   requestReturn: (orderId: string, details: { issue?: string; invoiceNumber?: string; awb?: string; paymentMethod?: string; description?: string; callback?: string; openingVideo?: string; closingVideo?: string; openingPhotos?: string[]; closingPhotos?: string[] } | string, token: string) =>
     request<{ success: boolean; order: import('@/types').Order }>(
       `/orders/${orderId}/return`,
