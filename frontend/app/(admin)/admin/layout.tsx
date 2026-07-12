@@ -16,6 +16,7 @@ const ALL_NAV: { href?: string; label?: string; exact?: boolean; heading?: strin
   { href: '/admin/stock',       label: '🔄 Stock Manager' },
   { href: '/admin/customers',   label: '👥 Customers' },
   { href: '/admin/reports',     label: '📈 Reports & GSTR-1' },
+  { href: '/admin/reconcile',   label: '💰 Payment Reconcile' },
   { href: '/admin/reviews',     label: '⭐ Reviews' },
   { href: '/admin/staff',       label: '👤 Staff Management' },
   { href: '/admin/birthday',    label: '🎂 Birthday & Anniversary Offers' },

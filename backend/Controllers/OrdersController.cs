@@ -27,13 +27,15 @@ public class OrdersController : ControllerBase
     private readonly IWebHostEnvironment _env;
     private readonly Services.DelhiveryService _delhivery;
     private readonly Services.AdminNotifier _notify;
+    private readonly Services.SmsService _sms;
 
-    public OrdersController(AppDbContext db, IWebHostEnvironment env, Services.DelhiveryService delhivery, Services.AdminNotifier notify)
+    public OrdersController(AppDbContext db, IWebHostEnvironment env, Services.DelhiveryService delhivery, Services.AdminNotifier notify, Services.SmsService sms)
     {
         _db = db;
         _env = env;
         _delhivery = delhivery;
         _notify = notify;
+        _sms = sms;
     }
 
     // Deploy-safe uploads root: /var/www/mahalaxmi-uploads/returns (outside repo & publish dir).
@@ -395,6 +397,11 @@ public class OrdersController : ControllerBase
                 <p><strong>Customer:</strong> {System.Net.WebUtility.HtmlEncode(req.CustomerName ?? "")} &middot; {System.Net.WebUtility.HtmlEncode(req.CustomerPhone ?? "")}</p>
                 <p><strong>Ship to:</strong> {System.Net.WebUtility.HtmlEncode(req.ShippingAddress ?? "")}, {System.Net.WebUtility.HtmlEncode(req.ShippingCity ?? "")} - {System.Net.WebUtility.HtmlEncode(req.ShippingPincode ?? "")}</p>
                 <p><strong>Items:</strong> {System.Net.WebUtility.HtmlEncode(itemsSummary)}</p>"));
+
+        // Customer "New Order" SMS (MSG91) — only for freshly created orders.
+        // No-op until msg91OrderTemplateId is configured in Settings; never throws.
+        if (existing is null)
+            await _sms.SendNewOrderSmsAsync(req.CustomerPhone, orderId, serverTotal);
 
         return Ok(new { success = true, orderId });
     }

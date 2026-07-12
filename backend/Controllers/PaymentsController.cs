@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Cryptography;
@@ -157,6 +158,135 @@ public class PaymentsController : ControllerBase
         catch { /* malformed payload — still return 200 so Razorpay doesn't retry endlessly */ }
 
         return Ok(new { success = true });
+    }
+
+    // GET /api/payments/reconcile?from=2026-07-01&to=2026-07-13  (Admin only)
+    // Razorpay payments vs site_orders match — mismatch/missing turant dikhta hai.
+    [HttpGet("reconcile")]
+    [Authorize(Policy = "AdminOnly")]
+    public async Task<IActionResult> Reconcile([FromQuery] string? from, [FromQuery] string? to)
+    {
+        var keyId     = _config["Razorpay:KeyId"] ?? "";
+        var keySecret = _config["Razorpay:KeySecret"] ?? "";
+        if (!keyId.StartsWith("rzp_") || string.IsNullOrEmpty(keySecret))
+            return StatusCode(500, new { success = false, message = "Razorpay not configured." });
+
+        var toDate   = string.IsNullOrWhiteSpace(to)   ? DateTimeOffset.UtcNow : DateTimeOffset.Parse(to).AddDays(1);
+        var fromDate = string.IsNullOrWhiteSpace(from) ? toDate.AddDays(-31)   : DateTimeOffset.Parse(from);
+        if ((toDate - fromDate).TotalDays > 92)
+            return BadRequest(new { success = false, message = "Max 92 din ka range allowed hai." });
+
+        // ── 1. Razorpay se saare payments fetch (paginated) ──────────────────
+        var credentials = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{keyId}:{keySecret}"));
+        var payments = new List<JsonElement>();
+        for (var skip = 0; skip < 10000; skip += 100)
+        {
+            var url = $"https://api.razorpay.com/v1/payments?from={fromDate.ToUnixTimeSeconds()}&to={toDate.ToUnixTimeSeconds()}&count=100&skip={skip}";
+            using var rq = new HttpRequestMessage(HttpMethod.Get, url);
+            rq.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", credentials);
+            using var rs = await _http.SendAsync(rq);
+            if (!rs.IsSuccessStatusCode)
+                return StatusCode(502, new { success = false, message = $"Razorpay API error ({(int)rs.StatusCode})." });
+            var page = JsonSerializer.Deserialize<JsonElement>(await rs.Content.ReadAsStringAsync());
+            var items = page.GetProperty("items").EnumerateArray().ToList();
+            payments.AddRange(items);
+            if (items.Count < 100) break;
+        }
+
+        // ── 2. DB orders (same window, thoda buffer) ─────────────────────────
+        var orders = await _db.SiteOrders
+            .Where(o => o.PlacedAt >= fromDate.AddDays(-2) && o.PlacedAt <= toDate.AddDays(2))
+            .Select(o => new { o.OrderId, o.PaymentId, o.Total, o.Status, o.Method, o.PlacedAt })
+            .ToListAsync();
+        var ordersByPaymentId = orders
+            .Where(o => !string.IsNullOrEmpty(o.PaymentId))
+            .GroupBy(o => o.PaymentId!)
+            .ToDictionary(g => g.Key, g => g.First());
+
+        // ── 3. Match ──────────────────────────────────────────────────────────
+        var rows = new List<object>();
+        var matchedPaymentIds = new HashSet<string>();
+        int matched = 0, mismatch = 0, paymentNoOrder = 0, refunded = 0, failed = 0;
+        decimal capturedTotal = 0, refundedTotal = 0;
+
+        foreach (var p in payments)
+        {
+            var pid       = p.GetProperty("id").GetString() ?? "";
+            var status    = p.GetProperty("status").GetString() ?? "";
+            var amount    = p.GetProperty("amount").GetDecimal() / 100m;
+            var refundAmt = p.TryGetProperty("amount_refunded", out var ar) ? ar.GetDecimal() / 100m : 0m;
+            var email     = p.TryGetProperty("email",   out var em) && em.ValueKind == JsonValueKind.String ? em.GetString() : "";
+            var contact   = p.TryGetProperty("contact", out var ct) && ct.ValueKind == JsonValueKind.String ? ct.GetString() : "";
+            var createdAt = DateTimeOffset.FromUnixTimeSeconds(p.GetProperty("created_at").GetInt64());
+
+            if (status == "failed") { failed++; continue; }
+            if (status is not ("captured" or "refunded")) continue; // authorized/created skip
+
+            if (refundAmt > 0) { refunded++; refundedTotal += refundAmt; }
+            capturedTotal += amount;
+
+            ordersByPaymentId.TryGetValue(pid, out var order);
+            string category;
+            if (order is null) { category = "PAYMENT_NO_ORDER"; paymentNoOrder++; }
+            else
+            {
+                matchedPaymentIds.Add(pid);
+                if (Math.Abs(order.Total - amount) > 0.5m) { category = "AMOUNT_MISMATCH"; mismatch++; }
+                else { category = "MATCHED"; matched++; }
+            }
+
+            rows.Add(new
+            {
+                category,
+                paymentId = pid,
+                paymentAmount = amount,
+                refundedAmount = refundAmt,
+                paymentStatus = status,
+                paymentDate = createdAt,
+                email, contact,
+                orderId = order?.OrderId,
+                orderTotal = order?.Total,
+                orderStatus = order?.Status,
+            });
+        }
+
+        // ── 4. Online orders jinke against koi captured payment nahi mila ────
+        var orphanOrders = orders
+            .Where(o => o.Method != "cod"
+                     && o.PlacedAt >= fromDate && o.PlacedAt <= toDate
+                     && (string.IsNullOrEmpty(o.PaymentId) || !matchedPaymentIds.Contains(o.PaymentId!))
+                     && o.Status is not ("Cancelled" or "Pending" or "Pending confirmation"))
+            .ToList();
+        foreach (var o in orphanOrders)
+            rows.Add(new
+            {
+                category = "ORDER_NO_PAYMENT",
+                paymentId = o.PaymentId,
+                paymentAmount = (decimal?)null,
+                refundedAmount = 0m,
+                paymentStatus = (string?)null,
+                paymentDate = (DateTimeOffset?)null,
+                email = "", contact = "",
+                orderId = (string?)o.OrderId,
+                orderTotal = (decimal?)o.Total,
+                orderStatus = (string?)o.Status,
+            });
+
+        return Ok(new
+        {
+            success = true,
+            from = fromDate, to = toDate,
+            summary = new
+            {
+                totalPayments = payments.Count,
+                matched, amountMismatch = mismatch,
+                paymentWithoutOrder = paymentNoOrder,
+                orderWithoutPayment = orphanOrders.Count,
+                refunded, failed,
+                capturedTotal, refundedTotal,
+            },
+            rows,
+        });
     }
 
     private static string HMACSHA256Hex(string data, string secret)

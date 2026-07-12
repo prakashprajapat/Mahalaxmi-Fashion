@@ -243,7 +243,31 @@ export const paymentsApi = {
     ),
   verify: (data: { razorpayOrderId: string; razorpayPaymentId: string; razorpaySignature: string }) =>
     request('/payments/verify', { method: 'POST', body: JSON.stringify(data) }),
+  reconcile: (from: string, to: string, token: string) =>
+    request<{
+      success: boolean;
+      summary: {
+        totalPayments: number; matched: number; amountMismatch: number;
+        paymentWithoutOrder: number; orderWithoutPayment: number;
+        refunded: number; failed: number; capturedTotal: number; refundedTotal: number;
+      };
+      rows: ReconcileRow[];
+    }>(`/payments/reconcile?from=${from}&to=${to}`, undefined, token),
 };
+
+export interface ReconcileRow {
+  category: 'MATCHED' | 'AMOUNT_MISMATCH' | 'PAYMENT_NO_ORDER' | 'ORDER_NO_PAYMENT';
+  paymentId?: string | null;
+  paymentAmount?: number | null;
+  refundedAmount: number;
+  paymentStatus?: string | null;
+  paymentDate?: string | null;
+  email: string;
+  contact: string;
+  orderId?: string | null;
+  orderTotal?: number | null;
+  orderStatus?: string | null;
+}
 
 // ── Coupons ───────────────────────────────────────────────────────────────────
 export const couponsApi = {

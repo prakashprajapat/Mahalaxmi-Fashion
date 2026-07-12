@@ -102,4 +102,80 @@ public class SmsService
             return false;
         }
     }
+
+    // Sends the "New Order" confirmation SMS via MSG91 Flow API using a
+    // DLT-approved template. Configured from admin Settings:
+    //   msg91AuthKey, msg91OrderTemplateId, msg91SenderId
+    // No-op (returns false) until msg91OrderTemplateId is set — safe to deploy
+    // before DLT approval. Template variables: ##order_id## and ##amount##.
+    public async Task<bool> SendNewOrderSmsAsync(string? mobile, string orderId, decimal amount)
+    {
+        var authKey    = await Setting("msg91AuthKey");
+        var templateId = await Setting("msg91OrderTemplateId");
+        var sender     = await Setting("msg91SenderId");
+        if (string.IsNullOrWhiteSpace(sender)) sender = "MAHFHB";
+
+        if (string.IsNullOrWhiteSpace(authKey) || string.IsNullOrWhiteSpace(templateId))
+        {
+            _logger.LogInformation("Order SMS skipped for {OrderId} — MSG91 order template not configured (msg91OrderTemplateId).", orderId);
+            return false;
+        }
+        if (string.IsNullOrWhiteSpace(mobile))
+        {
+            _logger.LogWarning("Order SMS skipped for {OrderId} — no recipient mobile number.", orderId);
+            return false;
+        }
+
+        var phone = NormalisePhone(mobile);
+
+        try
+        {
+            using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
+
+            // Same Flow API as OTP. Values also sent as var1/var2 so it maps
+            // regardless of variable names in the approved template version.
+            var amountStr = amount.ToString("0");
+            var payload = new
+            {
+                template_id = templateId,
+                sender      = sender,
+                short_url   = "0",
+                recipients  = new[]
+                {
+                    new Dictionary<string, string>
+                    {
+                        ["mobiles"]  = phone,
+                        ["order_id"] = orderId,
+                        ["amount"]   = amountStr,
+                        ["var1"]     = orderId,
+                        ["var2"]     = amountStr,
+                    }
+                }
+            };
+
+            var json = System.Text.Json.JsonSerializer.Serialize(payload);
+
+            using var reqMsg = new HttpRequestMessage(HttpMethod.Post,
+                "https://control.msg91.com/api/v5/flow/")
+            {
+                Content = new StringContent(json, Encoding.UTF8, "application/json"),
+            };
+            reqMsg.Headers.Add("authkey", authKey);
+            reqMsg.Headers.Add("accept", "application/json");
+
+            var res      = await http.SendAsync(reqMsg);
+            var bodyText = await res.Content.ReadAsStringAsync();
+
+            _logger.LogInformation("MSG91 order SMS response ({Status}) for {OrderId} → {Phone}: {Body}",
+                (int)res.StatusCode, orderId, phone, bodyText);
+
+            return res.IsSuccessStatusCode
+                && bodyText.Contains("success", StringComparison.OrdinalIgnoreCase);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to send order SMS for {OrderId} to {Mobile}.", orderId, mobile);
+            return false;
+        }
+    }
 }
