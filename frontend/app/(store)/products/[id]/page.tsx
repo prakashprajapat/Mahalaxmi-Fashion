@@ -12,6 +12,7 @@ import { productSlug, parseProductId } from '@/lib/productSlug';
 import RelatedProducts from '@/components/product/RelatedProducts';
 import DeliveryEstimate from '@/components/product/DeliveryEstimate';
 import SizeGuideButton from '@/components/product/SizeGuideButton';
+import { trackEvent } from '@/lib/analytics';
 import type { Product, Review } from '@/types';
 
 interface ExtraJson {
@@ -136,6 +137,23 @@ export default function ProductPage({ params }: { params: { id: string } }) {
     loadProduct();
     return () => { cancelled = true; };
   }, [params.id]);
+
+  // GA4 / GTM ecommerce — fire view_item when a product detail page is viewed.
+  useEffect(() => {
+    if (!product) return;
+    trackEvent('view_item', {
+      currency: 'INR',
+      value: finalUnitPrice(product),
+      items: [{
+        item_id: (product as any).sku || String(product.dbId),
+        item_name: product.name,
+        item_category: product.category ?? '',
+        price: finalUnitPrice(product),
+        quantity: 1,
+      }],
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [product?.dbId]);
 
   if (loading) return (
     <div style={{ minHeight: '50vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#aaa' }}>Loading…</div>

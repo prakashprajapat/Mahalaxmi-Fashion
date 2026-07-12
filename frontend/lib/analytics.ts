@@ -14,10 +14,13 @@ export function trackEvent(name: string, params: Params = {}): void {
       gtag?: (...args: unknown[]) => void;
       dataLayer?: unknown[];
     };
+    // Push a GTM Custom Event to the dataLayer so Google Tag Manager triggers can fire
+    // (e.g. a GA4 "view_item" event tag). Ensure dataLayer exists even before GTM loads.
+    w.dataLayer = w.dataLayer || [];
+    w.dataLayer.push({ event: name, ...params });
+    // Also send directly to GA4 (gtag) when the direct GA4 tag is present.
     if (typeof w.gtag === 'function') {
       w.gtag('event', name, params);
-    } else if (Array.isArray(w.dataLayer)) {
-      w.dataLayer.push({ event: name, ...params });
     }
   } catch {
     /* analytics is best-effort — never throw */
