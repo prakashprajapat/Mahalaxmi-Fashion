@@ -2,6 +2,7 @@ import { MetadataRoute } from 'next';
 import { productsApi } from '@/lib/api';
 import { POSTS } from '@/lib/blog';
 import { productSlug } from '@/lib/productSlug';
+import { COLLECTION_SLUGS } from '@/lib/collections';
 
 const BASE = 'https://mahalaxmifashionhub.com';
 
@@ -25,6 +26,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${BASE}/products?category=nighty`,           lastModified: new Date(), changeFrequency: 'weekly', priority: 0.8 },
     { url: `${BASE}/products?category=petticoat`,        lastModified: new Date(), changeFrequency: 'weekly', priority: 0.8 },
     { url: `${BASE}/become-supplier`,                    lastModified: new Date(), changeFrequency: 'monthly', priority: 0.5 },
+
+    // ── SEO collection landing pages (Koskii-style keyword pages) ─────────────
+    ...COLLECTION_SLUGS.map(slug => ({
+      url: `${BASE}/collections/${slug}`,
+      lastModified: new Date(),
+      changeFrequency: 'weekly' as const,
+      priority: 0.8,
+    })),
 
     // ── Info pages ────────────────────────────────────────────────────────────
     { url: `${BASE}/about-us`,                     lastModified: new Date(), changeFrequency: 'monthly', priority: 0.6 },

@@ -110,9 +110,13 @@ export default function Footer() {
 
         <nav className="site-footer-col">
           <h2>Popular</h2>
-          <Link href="/products?category=saree">Wedding Sarees</Link>
-          <Link href="/products?category=saree">Silk Sarees</Link>
-          <Link href="/products?category=nighty">Cotton Nighty</Link>
+          <Link href="/collections/cotton-nighty">Cotton Nighty</Link>
+          <Link href="/collections/printed-nighty">Printed Nighty</Link>
+          <Link href="/collections/nighty-combo-pack">Nighty Combo Packs</Link>
+          <Link href="/collections/nighty-under-500">Nighty Under ₹500</Link>
+          <Link href="/collections/night-gown">Night Gowns</Link>
+          <Link href="/collections/cotton-petticoat">Cotton Petticoat</Link>
+          <Link href="/collections/saree-under-1000">Sarees Under ₹1000</Link>
           <Link href="/reviews">Customer Reviews</Link>
         </nav>
 
