@@ -54,9 +54,11 @@ public class ReturnMediaCleanupService : BackgroundService
         using var scope = _scopeFactory.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-        // Only orders that carry a purge marker are candidates (LIKE on the jsonb text).
+        // Only orders that carry a purge marker are candidates. The column is jsonb,
+        // so it must be cast to text before LIKE — a plain string Contains() made EF
+        // emit `jsonb ~~ text`, which Postgres rejects (SqlState 42883).
         var candidates = await db.SiteOrders
-            .Where(o => o.RawJson != null && o.RawJson.Contains("returnMediaPurgeAt"))
+            .FromSqlRaw("SELECT * FROM site_orders WHERE raw_json IS NOT NULL AND raw_json::text LIKE '%returnMediaPurgeAt%'")
             .ToListAsync(ct);
 
         var now = DateTimeOffset.UtcNow;
