@@ -95,7 +95,8 @@ export default function HeroMedia() {
           <button key={i} onClick={() => setIdx(i)} aria-label={`Slide ${i + 1}`}
             style={{
               width: idx === i ? 22 : 9, height: 9, borderRadius: 5, border: 'none', cursor: 'pointer',
-              background: idx === i ? '#7a0a22' : 'rgba(122,10,34,.35)', transition: 'all .3s', padding: 0,
+              background: idx === i ? '#fff' : 'rgba(255,255,255,.5)', transition: 'all .3s', padding: 0,
+              boxShadow: '0 1px 4px rgba(0,0,0,.35)',
             }} />
         ))}
       </div>
