@@ -290,12 +290,12 @@ public class OrdersController : ControllerBase
         {
             // Cashfree gate: order must be marked paid (via /cashfree/verify or webhook)
             // and the captured amount must cover the server-computed total.
-            var cf = await _db.CashfreeOrders.FirstOrDefaultAsync(c => c.LocalOrderId == orderId);
-            if (cf is null || cf.Status != "paid")
+            var cfOrder = await _db.CashfreeOrders.FirstOrDefaultAsync(c => c.LocalOrderId == orderId);
+            if (cfOrder is null || cfOrder.Status != "paid")
                 return BadRequest(new { success = false, message = "Payment could not be verified for this order." });
 
             var expectedPaiseCf = (int)Math.Round(serverTotal * 100m, MidpointRounding.AwayFromZero);
-            if (expectedPaiseCf - cf.AmountPaise > 100)
+            if (expectedPaiseCf - cfOrder.AmountPaise > 100)
                 return BadRequest(new { success = false, message = "Payment amount does not match the order total." });
 
             finalStatus = "Pending";
@@ -1035,4 +1035,64 @@ public class OrdersController : ControllerBase
             cartLines,
             o.Subtotal,
             o.ShippingCost,
-   
+            o.CodFee,
+            o.Total,
+            o.Awb,
+            GetJsonStr(customerJson, "id"),
+            GetJsonStr(customerJson, "name"),
+            GetJsonStr(customerJson, "email"),
+            GetJsonStr(customerJson, "phone"),
+            GetJsonStr(shippingJson, "name"),
+            GetJsonStr(shippingJson, "address"),
+            GetJsonStr(shippingJson, "city"),
+            GetJsonStr(shippingJson, "pincode"),
+            GetJsonStr(shippingJson, "state"),
+            o.PlacedAt,
+            // BUG-2: Use recorded DeliveredAt; fall back to UpdatedAt for legacy orders
+            o.DeliveredAt ?? (string.Equals(o.Status, "Delivered", StringComparison.OrdinalIgnoreCase) ? o.UpdatedAt : null),
+            o.CreatedAt,
+            o.UpdatedAt,
+            o.PanNumber,
+            o.PanName,
+            InvoiceNumber: o.InvoiceNumber,
+            Courier: o.Courier,
+            ReturnIssue: GetJsonStr(rawJson, "returnIssue"),
+            ReturnReason: GetJsonStr(rawJson, "returnReason"),
+            ReturnCallback: GetJsonStr(rawJson, "returnCallback"),
+            ReturnOpeningVideo: GetJsonStr(GetJsonObj(rawJson, "returnMedia"), "openingVideo"),
+            ReturnClosingVideo: GetJsonStr(GetJsonObj(rawJson, "returnMedia"), "closingVideo"),
+            ReturnOpeningPhotos: GetJsonArr(GetJsonObj(rawJson, "returnMedia"), "openingPhotos"),
+            ReturnClosingPhotos: GetJsonArr(GetJsonObj(rawJson, "returnMedia"), "closingPhotos"),
+            ReturnDecision: GetJsonStr(rawJson, "returnDecision"),
+            ReturnDecisionAt: GetJsonStr(rawJson, "returnDecisionAt"),
+            ReturnRejectReason: GetJsonStr(rawJson, "returnRejectReason"),
+            ReturnMediaPurgeAt: GetJsonStr(rawJson, "returnMediaPurgeAt"),
+            ReturnMediaDeleted: GetJsonBool(rawJson, "returnMediaDeleted")
+        );
+    }
+}
+
+public record ReturnRequest(
+    string? Reason,
+    string? Issue = null,
+    string? Description = null,
+    string? InvoiceNumber = null,
+    string? Awb = null,
+    string? PaymentMethod = null,
+    string? Callback = null,
+    string? OpeningVideo = null,
+    string? ClosingVideo = null,
+    List<string>? OpeningPhotos = null,
+    List<string>? ClosingPhotos = null
+);
+
+public record ReturnDecisionRequest(
+    string? Decision,      // "approve" | "reject"
+    string? Reason = null  // required when rejecting; shown to the customer
+);
+
+public record ReturnAwbRequest(
+    string? Mode,          // "manual" | "auto"
+    string? Awb = null,    // required for manual
+    string? Courier = null
+);
