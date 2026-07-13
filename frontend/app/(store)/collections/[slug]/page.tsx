@@ -72,9 +72,9 @@ export default async function CollectionPage({ params }: { params: { slug: strin
         <CategoryPageContent products={matched as any} category={def.label} icon="🛍️" desc={def.sub} allHref={`/products?category=${def.category}`} />
       ) : (
         <section style={{ textAlign: 'center', padding: '3rem 1.5rem' }}>
-          <p style={{ color: '#777' }}>Is collection me products jald aa rahe hain.</p>
+          <p style={{ color: '#777' }}>New products are being added to this collection soon.</p>
           <Link href={`/products?category=${def.category}`} className="button primary" style={{ display: 'inline-block', marginTop: '1rem' }}>
-            Saare {def.category} products dekhein →
+            Browse all {def.category} products →
           </Link>
         </section>
       )}
@@ -98,7 +98,7 @@ export default async function CollectionPage({ params }: { params: { slug: strin
           </div>
 
           {/* Internal links — Koskii-style collection cross-linking */}
-          <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: '#1a1a1a', margin: '1.6rem 0 .6rem' }}>Aur Collections Dekhein</h3>
+          <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: '#1a1a1a', margin: '1.6rem 0 .6rem' }}>Explore More Collections</h3>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '.5rem' }}>
             {others.map(s => (
               <Link key={s} href={`/collections/${s}`}

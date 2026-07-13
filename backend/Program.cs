@@ -21,6 +21,7 @@ builder.Services.AddScoped<SmsService>();
 builder.Services.AddScoped<DelhiveryService>();
 builder.Services.AddScoped<AdminNotifier>();
 builder.Services.AddHttpClient("razorpay");
+builder.Services.AddHttpClient("cashfree");
 builder.Services.AddHttpClient("delhivery");
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();

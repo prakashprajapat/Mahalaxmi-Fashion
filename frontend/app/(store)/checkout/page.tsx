@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { getCart, cartTotal, clearCart, cartShipping, finalUnitPrice, unitBase } from '@/lib/cart';
 import { getCustomer, getToken } from '@/lib/auth';
-import { ordersApi, paymentsApi, couponsApi } from '@/lib/api';
+import { ordersApi, paymentsApi, cashfreeApi, couponsApi, settingsApi } from '@/lib/api';
 import { trackEvent, toGa4Items } from '@/lib/analytics';
 import type { CartItem, Customer } from '@/types';
 
@@ -227,9 +227,110 @@ export default function CheckoutPage() {
     return true;
   };
 
-  const handleRazorpay = async () => {
+  // Shared success path — places the site order after a verified payment.
+  const placePaidOrder = async (localOrderId: string, method: string, paymentId: string, cartLines: ReturnType<typeof buildCartLines>) => {
+    await ordersApi.place({
+      id: localOrderId,
+      method,
+      status: 'Pending',
+      paymentId,
+      cart: cartLines,
+      subtotal,
+      shippingCost,
+      codFee: 0,
+      total,
+      customerId: customer?.id?.toString(),
+      customerName: shipping.name,
+      customerEmail: shipping.email,
+      customerPhone: shipping.phone,
+      panNumber: requiresPan ? panData.panNumber : undefined,
+      panName: requiresPan ? panData.panName : undefined,
+      couponCode: attributionCode(),
+      discountAmount: couponApplied?.discount ?? 0,
+      shippingName: shipping.name,
+      shippingAddress: shipping.address,
+      shippingCity: shipping.city,
+      shippingPincode: shipping.pincode,
+      shippingState: shipping.state,
+      placedAt: new Date().toISOString(),
+    });
+    trackEvent('purchase', {
+      transaction_id: localOrderId,
+      currency: 'INR',
+      value: total,
+      coupon: attributionCode() || undefined,
+      items: cartToItems(cart),
+    });
+    clearCart();
+    setOrderId(localOrderId);
+    setStep('confirm');
+    setLoading(false);
+  };
+
+  // ── Cashfree (PRIMARY online gateway) ──────────────────────────────────────
+  const handleCashfree = async (): Promise<boolean> => {
+    const cartLines = buildCartLines();
+    let res;
+    try {
+      res = await cashfreeApi.createOrder({
+        amount: total,
+        currency: 'INR',
+        cart: cartLines,
+        customer,
+        shipping,
+        customerId: customer?.id?.toString(),
+        customerName: shipping.name,
+        customerEmail: shipping.email || customer?.email || '',
+        customerPhone: shipping.phone,
+      });
+    } catch (e) {
+      // Cashfree not configured yet → signal caller to fall back to Razorpay.
+      if ((e as Error).message?.toLowerCase().includes('not configured')) return false;
+      throw e;
+    }
+
+    // @ts-expect-error Cashfree SDK loaded via script tag
+    const cashfree = window.Cashfree({ mode: res.mode === 'sandbox' ? 'sandbox' : 'production' });
+    const result = await cashfree.checkout({
+      paymentSessionId: res.paymentSessionId,
+      redirectTarget: '_modal',
+    });
+    if (result?.error) { setLoading(false); return true; } // user closed / failed — no fallback
+
+    const v = await cashfreeApi.verify(res.localOrderId);
+    if (!v.verified) {
+      alert('Payment is not confirmed yet. If money was deducted, your order will be created automatically — or contact us on WhatsApp with order id ' + res.localOrderId);
+      setLoading(false);
+      return true;
+    }
+    await placePaidOrder(res.localOrderId, 'cashfree', v.paymentId ?? '', cartLines);
+    return true;
+  };
+
+  // Pay Online: Cashfree first; falls back to Razorpay only if Cashfree keys
+  // are not configured (or admin has set paymentGateway=razorpay in Settings).
+  const handlePayOnline = async () => {
     if (!validateShipping()) return;
     setLoading(true);
+    try {
+      let gateway = 'cashfree';
+      try {
+        const s = await settingsApi.getAll();
+        if ((s.settings?.paymentGateway || '').toLowerCase() === 'razorpay') gateway = 'razorpay';
+      } catch { /* settings unavailable — keep cashfree-first */ }
+
+      if (gateway === 'cashfree') {
+        const handled = await handleCashfree();
+        if (handled) return;
+      }
+      await startRazorpay();
+    } catch (e) {
+      alert('Payment init failed: ' + (e as Error).message);
+      setLoading(false);
+    }
+  };
+
+  const startRazorpay = async () => {
     try {
       const cartLines = buildCartLines();
       const res = await paymentsApi.createOrder({
@@ -318,6 +419,7 @@ export default function CheckoutPage() {
 
   return (
     <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '2.5rem 1.5rem' }}>
+      <script src="https://sdk.cashfree.com/js/v3/cashfree.js" async />
       <script src="https://checkout.razorpay.com/v1/checkout.js" async />
       <style>{`
         @media (max-width: 700px) {
@@ -424,7 +526,7 @@ export default function CheckoutPage() {
           <div className="card" style={{ padding: '1.5rem' }}>
             <h2 style={{ fontWeight: 700, fontSize: '1.1rem', marginBottom: '1rem' }}>Payment Method</h2>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '.75rem' }}>
-              <button onClick={handleRazorpay} disabled={loading} className="button primary" style={{ width: '100%' }}>
+              <button onClick={handlePayOnline} disabled={loading} className="button primary" style={{ width: '100%' }}>
                 {loading ? 'Processing…' : '💳 Pay Online (UPI / Card / Net Banking)'}
               </button>
             </div>

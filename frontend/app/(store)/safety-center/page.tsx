@@ -18,7 +18,7 @@ export default function SafetyCenterPage() {
         <section className="safety-grid">
           <article className="policy-card safety-card">
             <p className="eyebrow">Account Safety</p>
-            <h2>Safe login aur profile use</h2>
+            <h2>Safe login and profile use</h2>
             <ul className="safety-list">
               <li>Do not share your login password with any seller, courier, or support person.</li>
               <li>If you sign in on a shared cyber cafe or public device, close the browser and log out after use.</li>

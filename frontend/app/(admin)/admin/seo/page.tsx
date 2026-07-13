@@ -122,8 +122,8 @@ export default function SeoAnalysisPage() {
       </div>
 
       <p style={{ fontSize: '.8rem', color: '#999', marginTop: '1rem' }}>
-        Tip: Har product ka <strong>naam</strong> Google title banta hai aur <strong>description</strong> Google snippet.
-        In dono ko accha aur unique rakho — SEO apne aap sudhrega.
+        Tip: Each product's <strong>name</strong> becomes its Google title and its <strong>description</strong> becomes the Google snippet.
+        Keep both clear and unique — SEO improves automatically.
       </p>
     </div>
   );

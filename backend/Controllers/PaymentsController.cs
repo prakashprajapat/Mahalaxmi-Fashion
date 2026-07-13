@@ -209,7 +209,7 @@ public class PaymentsController : ControllerBase
         var toDate   = string.IsNullOrWhiteSpace(to)   ? DateTimeOffset.UtcNow : DateTimeOffset.Parse(to).AddDays(1);
         var fromDate = string.IsNullOrWhiteSpace(from) ? toDate.AddDays(-31)   : DateTimeOffset.Parse(from);
         if ((toDate - fromDate).TotalDays > 92)
-            return BadRequest(new { success = false, message = "Max 92 din ka range allowed hai." });
+            return BadRequest(new { success = false, message = "Maximum allowed date range is 92 days." });
 
         // ── 1. Razorpay se saare payments fetch (paginated) ──────────────────
         var credentials = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{keyId}:{keySecret}"));
@@ -285,64 +285,4 @@ public class PaymentsController : ControllerBase
             });
         }
 
-        // ── 4. Online orders jinke against koi captured payment nahi mila ────
-        var orphanOrders = orders
-            .Where(o => o.Method != "cod"
-                     && o.PlacedAt >= fromDate && o.PlacedAt <= toDate
-                     && (string.IsNullOrEmpty(o.PaymentId) || !matchedPaymentIds.Contains(o.PaymentId!))
-                     && o.Status is not ("Cancelled" or "Pending" or "Pending confirmation"))
-            .ToList();
-        foreach (var o in orphanOrders)
-            rows.Add(new
-            {
-                category = "ORDER_NO_PAYMENT",
-                paymentId = o.PaymentId,
-                paymentAmount = (decimal?)null,
-                refundedAmount = 0m,
-                paymentStatus = (string?)null,
-                paymentDate = (DateTimeOffset?)null,
-                email = "", contact = "",
-                orderId = (string?)o.OrderId,
-                orderTotal = (decimal?)o.Total,
-                orderStatus = (string?)o.Status,
-            });
-
-        return Ok(new
-        {
-            success = true,
-            from = fromDate, to = toDate,
-            summary = new
-            {
-                totalPayments = payments.Count,
-                matched, amountMismatch = mismatch,
-                paymentWithoutOrder = paymentNoOrder,
-                orderWithoutPayment = orphanOrders.Count,
-                refunded, failed,
-                capturedTotal, refundedTotal,
-            },
-            rows,
-        });
-    }
-
-    private static string HMACSHA256Hex(string data, string secret)
-    {
-        var keyBytes = Encoding.UTF8.GetBytes(secret);
-        var dataBytes = Encoding.UTF8.GetBytes(data);
-        using var hmac = new HMACSHA256(keyBytes);
-        return Convert.ToHexString(hmac.ComputeHash(dataBytes)).ToLower();
-    }
-}
-
-public record CreateOrderRequest(
-    decimal Amount,
-    string? Currency,
-    object? Cart,
-    object? Customer,
-    object? Shipping
-);
-
-public record VerifyPaymentRequest(
-    string RazorpayOrderId,
-    string RazorpayPaymentId,
-    string RazorpaySignature
-);
+        // ── 4. Online orders jinke against koi ca

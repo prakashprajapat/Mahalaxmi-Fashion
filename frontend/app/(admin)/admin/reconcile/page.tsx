@@ -7,8 +7,8 @@ import * as XLSX from 'xlsx';
 const CATEGORY_LABEL: Record<ReconcileRow['category'], string> = {
   MATCHED:          '✅ Matched',
   AMOUNT_MISMATCH:  '⚠️ Amount Mismatch',
-  PAYMENT_NO_ORDER: '❌ Payment mila, Order nahi',
-  ORDER_NO_PAYMENT: '❌ Order hai, Payment nahi',
+  PAYMENT_NO_ORDER: '❌ Payment received, no Order',
+  ORDER_NO_PAYMENT: '❌ Order exists, no Payment',
 };
 
 const CATEGORY_COLOR: Record<ReconcileRow['category'], string> = {
@@ -118,7 +118,7 @@ export default function ReconcilePage() {
 
           <div style={{ marginBottom: '.7rem' }}>
             <select value={filter} onChange={e => setFilter(e.target.value as any)} style={{ padding: '.4rem' }}>
-              <option value="ALL">Sab dikhao ({data.rows.length})</option>
+              <option value="ALL">Show all ({data.rows.length})</option>
               {(Object.keys(CATEGORY_LABEL) as ReconcileRow['category'][]).map(c => (
                 <option key={c} value={c}>{CATEGORY_LABEL[c]} ({data.rows.filter(r => r.category === c).length})</option>
               ))}
@@ -148,7 +148,7 @@ export default function ReconcilePage() {
                   </tr>
                 ))}
                 {rows.length === 0 && (
-                  <tr><td colSpan={9} style={{ padding: '1rem', textAlign: 'center', color: '#888' }}>Koi row nahi</td></tr>
+                  <tr><td colSpan={9} style={{ padding: '1rem', textAlign: 'center', color: '#888' }}>No rows</td></tr>
                 )}
               </tbody>
             </table>
@@ -158,8 +158,8 @@ export default function ReconcilePage() {
 
       {!data && !loading && (
         <p style={{ color: '#777', fontSize: '.88rem' }}>
-          Date range chuno aur <b>Reconcile</b> dabao — Razorpay ke saare payments tumhare orders se match honge.
-          Red rows = paisa aaya par order nahi bana (ya order bana par payment nahi mila) — inko turant check karo.
+          Pick a date range and click <b>Reconcile</b> — every Razorpay payment will be matched against your orders.
+          Red rows = money received but no order was created (or an order exists without payment) — check these immediately.
         </p>
       )}
     </div>

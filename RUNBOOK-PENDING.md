@@ -41,6 +41,26 @@ Jab tak `msg91OrderTemplateId` set nahi, SMS silently skip hota hai — deploy s
 - `msg91SenderId` (DLT sender, e.g. MAHFHB)
 Test COD order lagakar SMS verify karo.
 
+## 4b. Cashfree Payment Gateway (PRIMARY)
+Code ready hai — activate karne ke liye:
+1. **DB migration (ek baar):**
+```bash
+psql -U postgres -d mahalaxmi_fashionhub -f database/migration_cashfree.sql
+```
+2. **Cashfree dashboard** (merchant.cashfree.com) → Developers → API Keys → App ID + Secret Key copy karo.
+3. **VPS appsettings.json** me add karo:
+```json
+"Cashfree": { "AppId": "<app id>", "SecretKey": "<secret>", "Mode": "production" }
+```
+(test karna ho to pehle "Mode": "sandbox" + sandbox keys)
+4. **Webhook** — Cashfree dashboard → Developers → Webhooks → URL:
+`https://mahalaxmifashionhub.com/api/cashfree/webhook` (version 2023-08-01, Payment events)
+5. `pm2 restart mahalaxmi-api` → test order lagao.
+
+**Behaviour:** Pay Online = Cashfree first. Keys configured nahi → apne aap Razorpay chalega
+(checkout kabhi nahi tootega). Force Razorpay karna ho: Admin → Settings → Payments →
+paymentGateway = "razorpay".
+
 ## 5. Deploy
 ```bash
 ssh <vps> && cd /var/www/mahalaxmi-nextjs && bash deploy.sh

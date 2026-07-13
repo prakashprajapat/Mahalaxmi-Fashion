@@ -11,6 +11,7 @@ public class AppDbContext : DbContext
     public DbSet<Customer>    Customers    { get; set; }
     public DbSet<SiteOrder>   SiteOrders   { get; set; }
     public DbSet<RazorpayOrder> RazorpayOrders { get; set; }
+    public DbSet<CashfreeOrder> CashfreeOrders { get; set; }
     public DbSet<AdminToken>  AdminTokens  { get; set; }
     public DbSet<OtpToken>    OtpTokens    { get; set; }
     public DbSet<SiteSetting> SiteSettings { get; set; }

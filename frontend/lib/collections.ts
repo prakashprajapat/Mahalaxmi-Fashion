@@ -74,7 +74,7 @@ export const COLLECTIONS: Record<string, CollectionDef> = {
       'Beautiful printed nighties for women — floral and fancy prints in soft fabrics. Daily wear comfort from Mahalaxmi Fashion Hub. Free shipping over ₹999.',
     eyebrow: 'Collection',
     h1: 'Printed Nighty for Women',
-    sub: 'Floral aur fancy prints me comfortable daily-wear nighties',
+    sub: 'Comfortable daily-wear nighties in floral and fancy prints',
     intro: [
       'Printed nighties bring a little joy to bedtime — cheerful florals, classic butis and fancy all-over prints on soft, skin-friendly fabric. Each design in this collection is picked for print quality that survives regular washing without fading.',
       'Every piece is quality-checked before dispatch from our Balotra, Rajasthan store, and shipped pan-India with tracking. Want to see more photos of a print before ordering? WhatsApp us the product name and we\'ll send them.',
@@ -95,7 +95,7 @@ export const COLLECTIONS: Record<string, CollectionDef> = {
       'Save more with nighty combo packs — pack of 2 cotton nighties at value prices. Quality-checked daily wear from Mahalaxmi Fashion Hub. COD available.',
     eyebrow: 'Best Value',
     h1: 'Nighty Combo Packs (Pack of 2)',
-    sub: 'Ek ke daam me do jaisi value — combo packs me sabse zyada bachat',
+    sub: 'Two quality nighties at the best per-piece price — maximum savings',
     intro: [
       'Combo packs are the smartest way to buy nightwear — you get two quality nighties at a much better per-piece price than buying separately. Perfect for daily rotation, gifting, or sharing with family. Each pack is quality-checked before dispatch.',
       'All combos ship pan-India from Balotra, Rajasthan with tracking and COD available. The photos show the exact designs you\'ll receive — what you see is what you get.',
@@ -116,7 +116,7 @@ export const COLLECTIONS: Record<string, CollectionDef> = {
       'Shop quality nighties under ₹500 — soft cotton daily wear at honest budget prices. Quality-checked before dispatch. COD available across India.',
     eyebrow: 'Budget Picks',
     h1: 'Nighty Under ₹500',
-    sub: '₹500 se kam me quality nightwear — bina compromise ke',
+    sub: 'Quality nightwear under ₹500 — with no compromise',
     intro: [
       'A good nighty doesn\'t have to be expensive. This collection brings together our best nightwear under ₹500 — soft fabrics, neat stitching and honest quality at a budget price. These are our most-ordered pieces for daily use.',
       'Every order is quality-checked before dispatch and shipped across India with tracking. Order above ₹999 (2-3 pieces) and shipping is free — which makes the value even better.',
@@ -158,7 +158,7 @@ export const COLLECTIONS: Record<string, CollectionDef> = {
       'Shop cotton petticoats for sarees — comfortable, durable inskirts in all essential colours. From Mahalaxmi Fashion Hub, Balotra. COD available.',
     eyebrow: 'Saree Essentials',
     h1: 'Cotton Petticoat for Saree',
-    sub: 'Har saree ke liye sahi rang ka comfortable cotton inskirt',
+    sub: 'Comfortable cotton inskirts in the right colour for every saree',
     intro: [
       'A well-fitted cotton petticoat is the foundation of a perfect saree drape. Our petticoats are made from soft, durable cotton that stays comfortable all day, with sturdy stitching and drawstrings that last. Available in the essential colours every saree wardrobe needs.',
       'We ship across India from Balotra with tracking. Ordering a saree from us? Add a matching petticoat to the same order and save on shipping.',
@@ -179,7 +179,7 @@ export const COLLECTIONS: Record<string, CollectionDef> = {
       'All saree petticoats & inskirts in one place — cotton and blended fabrics, all colours. Quality-checked, shipped pan-India from Balotra. COD available.',
     eyebrow: 'Saree Essentials',
     h1: 'Saree Petticoats & Inskirts',
-    sub: 'Sabhi fabrics aur colours ke petticoat ek jagah',
+    sub: 'All petticoat fabrics and colours in one place',
     intro: [
       'Browse our complete petticoat range — cotton for daily comfort, blends for extra flow, and all the essential colours to pair with any saree. Every piece is checked for stitching quality and drawstring strength before dispatch.',
       'Based in Balotra, Rajasthan, we ship pan-India with tracking and COD. Buying multiple colours? Orders above ₹999 ship free.',
@@ -199,7 +199,7 @@ export const COLLECTIONS: Record<string, CollectionDef> = {
       'Beautiful sarees under ₹1000 — daily wear and light festive designs at honest prices. Quality-checked at Mahalaxmi Fashion Hub, Balotra. COD available.',
     eyebrow: 'Budget Picks',
     h1: 'Sarees Under ₹1000',
-    sub: '₹1000 ke andar sundar sarees — daily aur light festive wear',
+    sub: 'Beautiful sarees under ₹1000 — daily and light festive wear',
     intro: [
       'You don\'t need a big budget for a beautiful saree. This collection curates our best sarees under ₹1000 — everyday drapes, office wear and light festive pieces with good fall and finish. Each saree is quality-checked before it ships.',
       'We\'re a Balotra, Rajasthan based store shipping pan-India with tracking. Want to see the live fall of a saree? WhatsApp us and we\'ll send a video before you order.',

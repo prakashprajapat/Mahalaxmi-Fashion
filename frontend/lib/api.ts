@@ -271,6 +271,21 @@ export const paymentsApi = {
     }>(`/payments/reconcile?from=${from}&to=${to}`, undefined, token),
 };
 
+// ── Cashfree (primary online gateway) ────────────────────────────────────────
+export const cashfreeApi = {
+  createOrder: (data: {
+    amount: number; currency?: string; cart?: unknown; customer?: unknown; shipping?: unknown;
+    customerId?: string; customerName?: string; customerEmail?: string; customerPhone?: string;
+  }) =>
+    request<{ success: boolean; setupRequired?: boolean; paymentSessionId: string; localOrderId: string; mode: string }>(
+      '/cashfree/create-order', { method: 'POST', body: JSON.stringify(data) }
+    ),
+  verify: (localOrderId: string) =>
+    request<{ success: boolean; verified: boolean; orderStatus: string; paymentId?: string | null }>(
+      '/cashfree/verify', { method: 'POST', body: JSON.stringify({ localOrderId }) }
+    ),
+};
+
 export interface ReconcileRow {
   category: 'MATCHED' | 'AMOUNT_MISMATCH' | 'PAYMENT_NO_ORDER' | 'ORDER_NO_PAYMENT';
   paymentId?: string | null;

@@ -17,17 +17,24 @@ const SECTIONS = [
   },
   {
     title: 'Homepage Hero',
-    desc: 'Hero ki right side ab SLIDER hai: pehli slide = video/logo (jo abhi hai), uske baad ye photos apne aap slide hoti hain (har 3.5 sec). Photo size: 1200×900px (4:3 landscape), JPG/WebP, 400KB se kam best. Yahi se upload karo — coding ki zaroorat nahi. Photo hatani ho to URL khaali karke Save karo.',
+    desc: 'The right side of the homepage hero is a SLIDER: slide 1 = video/logo (current look), followed by these photos auto-sliding every 3.5 sec. Photo size: 1200×900px (4:3 landscape), JPG/WebP, under 400KB is best. Upload here — no coding needed. To remove a photo, clear its URL and Save.',
     fields: [
       { key: 'heroImg1', label: 'Slider Photo 1 (1200×900, 4:3)', type: 'image' },
       { key: 'heroImg2', label: 'Slider Photo 2 (1200×900, 4:3)', type: 'image' },
       { key: 'heroImg3', label: 'Slider Photo 3 (1200×900, 4:3)', type: 'image' },
-      { key: 'heroVideoUrl', label: 'Hero Video URL (.mp4 / .webm — pehli slide banta hai; khaali = logo)', type: 'text' },
+      { key: 'heroVideoUrl', label: 'Hero Video URL (.mp4 / .webm — becomes slide 1; blank = logo)', type: 'text' },
+    ]
+  },
+  {
+    title: 'Payments',
+    desc: 'Online payment gateway selection. Default (blank) = Cashfree first; if Cashfree keys are not configured on the server, checkout automatically falls back to Razorpay. Type "razorpay" to force Razorpay. Cashfree AppId/SecretKey are set in the server appsettings.json (not here) for security.',
+    fields: [
+      { key: 'paymentGateway', label: 'Gateway ("cashfree" = default, or "razorpay")', type: 'text' },
     ]
   },
   {
     title: 'Delhivery Shipping (Auto AWB)',
-    desc: 'Orders me "⚡ Generate" se apne aap AWB banane ke liye. Delhivery business account se API Token, aur Delhivery me registered pickup warehouse ka exact naam. Khaali chhodo to manual AWB entry chalegi.',
+    desc: 'For automatic AWB generation via "⚡ Generate" in Orders. Enter the API Token from your Delhivery business account and the exact registered pickup warehouse name. Leave blank to use manual AWB entry.',
     fields: [
       { key: 'delhivery_token', label: 'Delhivery API Token', type: 'password' },
       { key: 'delhivery_pickup_name', label: 'Registered Pickup / Warehouse Name (exact)', type: 'text' },
@@ -35,7 +42,7 @@ const SECTIONS = [
   },
   {
     title: 'SEO — Homepage & Google',
-    desc: 'Ye text Google search results aur browser tab me dikhta hai. Khaali chhodoge to default use hoga. (Product pages ka SEO product ke naam/description se apne aap banta hai.)',
+    desc: 'This text appears in Google search results and the browser tab. Leave blank to use defaults. (Product page SEO is generated automatically from each product\'s name/description.)',
     fields: [
       { key: 'seoHomeTitle', label: 'Homepage Meta Title (Google title — best under 60 chars)', type: 'text' },
       { key: 'seoHomeDescription', label: 'Homepage Meta Description (Google snippet — best under 160 chars)', type: 'textarea' },
@@ -46,7 +53,7 @@ const SECTIONS = [
   },
   {
     title: 'SEO — Verification, Analytics & Robots',
-    desc: 'Site verification codes, tracking IDs aur robots rules. Ye sab HTML head me apne aap lag jayenge. Khaali chhodo to disable.',
+    desc: 'Site verification codes, tracking IDs and robots rules. These are added to the HTML head automatically. Leave blank to disable.',
     fields: [
       { key: 'googleSiteVerification', label: 'Google Search Console Verification Code (content value only)', type: 'text' },
       { key: 'bingSiteVerification', label: 'Bing Webmaster Verification Code (content value only)', type: 'text' },
@@ -144,7 +151,7 @@ export default function AdminSettingsPage() {
     try {
       const url = await settingsApi.uploadImage(file, getAdminToken() ?? '');
       set(key, url);
-      setMsg('✅ Photo uploaded — ab "Save All Settings" dabao.');
+      setMsg('✅ Photo uploaded — now click "Save All Settings".');
     } catch (e) {
       setMsg('❌ Upload failed: ' + (e as Error).message);
     } finally { setUploadingKey(null); }
@@ -268,7 +275,7 @@ export default function AdminSettingsPage() {
                       <div>
                         <div style={{ display: 'flex', gap: '.5rem', alignItems: 'center' }}>
                           <input type="text" value={form[f.key] ?? ''} onChange={e => set(f.key, e.target.value)}
-                            placeholder="URL ya Upload dabao"
+                            placeholder="Paste URL or click Upload"
                             style={{ flex: 1, border: '1.5px solid #ddd', borderRadius: '8px', padding: '.6rem .75rem', fontSize: '.82rem', boxSizing: 'border-box' }} />
                           <label style={{ background: '#a7354d', color: '#fff', borderRadius: '8px', padding: '.55rem .9rem', fontSize: '.82rem', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', opacity: uploadingKey === f.key ? .6 : 1 }}>
                             {uploadingKey === f.key ? 'Uploading…' : '📤 Upload'}
