@@ -233,6 +233,22 @@ export const settingsApi = {
     _settingsCache = null;                                  // invalidate so the change shows up
     return request('/settings/bulk', { method: 'POST', body: JSON.stringify(settings) }, token);
   },
+  // Upload a site image (hero photos etc.) — admin only; returns its URL.
+  uploadImage: async (file: File, token: string): Promise<string> => {
+    const fd = new FormData();
+    fd.append('file', file);
+    const res = await fetch(`${API_BASE}/settings/upload-image`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      body: fd,
+    });
+    if (!res.ok) {
+      const e = await res.json().catch(() => ({ message: res.statusText }));
+      throw new Error(e.message || `Upload failed (${res.status})`);
+    }
+    const j = await res.json();
+    return j.url as string;
+  },
 };
 
 // ── Payments ─────────────────────────────────────────────────────────────────

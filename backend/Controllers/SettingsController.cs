@@ -13,12 +13,65 @@ public class SettingsController : ControllerBase
 {
     private readonly AppDbContext _db;
     private readonly IMemoryCache _cache;
+    private readonly IWebHostEnvironment _env;
     private const string PublicSettingsCacheKey = "public_settings";
 
-    public SettingsController(AppDbContext db, IMemoryCache cache)
+    public SettingsController(AppDbContext db, IMemoryCache cache, IWebHostEnvironment env)
     {
         _db = db;
         _cache = cache;
+        _env = env;
+    }
+
+    // Site images (hero banners etc.) live outside repo & publish dir — survives redeploys.
+    private string SiteImagesRoot() =>
+        Path.GetFullPath(Path.Combine(_env.ContentRootPath, "..", "mahalaxmi-uploads", "site"));
+
+    // POST /api/settings/upload-image — admin uploads a site image (hero photo etc.), returns URL.
+    [HttpPost("upload-image")]
+    [Authorize(Policy = "AdminOnly")]
+    [RequestSizeLimit(9_000_000)]
+    [RequestFormLimits(MultipartBodyLengthLimit = 9_000_000)]
+    public async Task<IActionResult> UploadImage([FromForm] IFormFile? file)
+    {
+        if (file is null || file.Length == 0)
+            return BadRequest(new { success = false, message = "No file received." });
+        if (!(file.ContentType ?? "").StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+            return BadRequest(new { success = false, message = "Only image files are allowed." });
+        if (file.Length > 8L * 1024 * 1024)
+            return BadRequest(new { success = false, message = "Image too large (max 8 MB)." });
+
+        var ext = Path.GetExtension(file.FileName ?? "");
+        ext = new string(ext.Where(c => char.IsLetterOrDigit(c) || c == '.').ToArray()).ToLowerInvariant();
+        if (string.IsNullOrWhiteSpace(ext) || ext.Length > 6) ext = ".jpg";
+
+        Directory.CreateDirectory(SiteImagesRoot());
+        var name = $"site_{Guid.NewGuid():N}{ext}";
+        await using (var fs = System.IO.File.Create(Path.Combine(SiteImagesRoot(), name)))
+            await file.CopyToAsync(fs);
+
+        return Ok(new { success = true, url = $"/api/settings/image/{name}" });
+    }
+
+    // GET /api/settings/image/{file} — stream a stored site image (public).
+    [HttpGet("image/{file}")]
+    [AllowAnonymous]
+    public IActionResult GetImage(string file)
+    {
+        var safe = new string((file ?? "").Where(c => char.IsLetterOrDigit(c) || c == '_' || c == '.' || c == '-').ToArray());
+        if (string.IsNullOrEmpty(safe) || safe.Contains(".."))
+            return NotFound();
+        var full = Path.Combine(SiteImagesRoot(), safe);
+        if (!System.IO.File.Exists(full))
+            return NotFound();
+        var mime = Path.GetExtension(full).ToLowerInvariant() switch
+        {
+            ".png" => "image/png",
+            ".webp" => "image/webp",
+            ".gif" => "image/gif",
+            _ => "image/jpeg"
+        };
+        return File(System.IO.File.OpenRead(full), mime, enableRangeProcessing: true);
     }
 
     // GET /api/settings  (Public read)

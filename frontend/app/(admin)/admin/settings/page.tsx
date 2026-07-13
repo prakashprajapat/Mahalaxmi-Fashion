@@ -17,9 +17,12 @@ const SECTIONS = [
   },
   {
     title: 'Homepage Hero',
-    desc: 'Homepage ke hero (upar) ki right side me chalne wala video. Ek direct video URL (.mp4 / .webm) daalo. Khaali chhodo to wahan logo dikhega.',
+    desc: 'Hero ki right side ab SLIDER hai: pehli slide = video/logo (jo abhi hai), uske baad ye photos apne aap slide hoti hain (har 3.5 sec). Photo size: 1200×900px (4:3 landscape), JPG/WebP, 400KB se kam best. Yahi se upload karo — coding ki zaroorat nahi. Photo hatani ho to URL khaali karke Save karo.',
     fields: [
-      { key: 'heroVideoUrl', label: 'Hero Video URL (.mp4 / .webm — blank = logo fallback)', type: 'text' },
+      { key: 'heroImg1', label: 'Slider Photo 1 (1200×900, 4:3)', type: 'image' },
+      { key: 'heroImg2', label: 'Slider Photo 2 (1200×900, 4:3)', type: 'image' },
+      { key: 'heroImg3', label: 'Slider Photo 3 (1200×900, 4:3)', type: 'image' },
+      { key: 'heroVideoUrl', label: 'Hero Video URL (.mp4 / .webm — pehli slide banta hai; khaali = logo)', type: 'text' },
     ]
   },
   {
@@ -132,6 +135,20 @@ export default function AdminSettingsPage() {
   };
 
   const set = (key: string, value: string) => setForm(prev => ({ ...prev, [key]: value }));
+
+  // ── Image upload (hero photos etc.) ──
+  const [uploadingKey, setUploadingKey] = useState<string | null>(null);
+  const handleImageUpload = async (key: string, file: File | undefined) => {
+    if (!file) return;
+    setUploadingKey(key);
+    try {
+      const url = await settingsApi.uploadImage(file, getAdminToken() ?? '');
+      set(key, url);
+      setMsg('✅ Photo uploaded — ab "Save All Settings" dabao.');
+    } catch (e) {
+      setMsg('❌ Upload failed: ' + (e as Error).message);
+    } finally { setUploadingKey(null); }
+  };
 
   // ── Dynamic social links (stored as JSON in form.socialLinks; migrates legacy facebook/instagram) ──
   const socialLinks: { name: string; url: string }[] = (() => {
@@ -247,6 +264,25 @@ export default function AdminSettingsPage() {
                       <textarea value={form[f.key] ?? ''} onChange={e => set(f.key, e.target.value)}
                         rows={3}
                         style={{ width: '100%', border: '1.5px solid #ddd', borderRadius: '8px', padding: '.6rem .75rem', fontSize: '.88rem', resize: 'vertical', boxSizing: 'border-box', fontFamily: 'inherit' }} />
+                    ) : f.type === 'image' ? (
+                      <div>
+                        <div style={{ display: 'flex', gap: '.5rem', alignItems: 'center' }}>
+                          <input type="text" value={form[f.key] ?? ''} onChange={e => set(f.key, e.target.value)}
+                            placeholder="URL ya Upload dabao"
+                            style={{ flex: 1, border: '1.5px solid #ddd', borderRadius: '8px', padding: '.6rem .75rem', fontSize: '.82rem', boxSizing: 'border-box' }} />
+                          <label style={{ background: '#a7354d', color: '#fff', borderRadius: '8px', padding: '.55rem .9rem', fontSize: '.82rem', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', opacity: uploadingKey === f.key ? .6 : 1 }}>
+                            {uploadingKey === f.key ? 'Uploading…' : '📤 Upload'}
+                            <input type="file" accept="image/*" style={{ display: 'none' }}
+                              disabled={uploadingKey === f.key}
+                              onChange={e => { handleImageUpload(f.key, e.target.files?.[0]); e.target.value = ''; }} />
+                          </label>
+                        </div>
+                        {(form[f.key] ?? '').trim() && (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={form[f.key]} alt="preview"
+                            style={{ marginTop: '.5rem', width: 90, height: 120, objectFit: 'cover', borderRadius: 8, border: '1px solid #eee', display: 'block' }} />
+                        )}
+                      </div>
                     ) : f.type === 'password' ? (
                       <input type="text" value={form[f.key] ?? ''} onChange={e => set(f.key, e.target.value)}
                         placeholder="Paste key here"
