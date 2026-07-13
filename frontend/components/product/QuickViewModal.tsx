@@ -6,6 +6,7 @@ import { addToCart, finalUnitPrice } from '@/lib/cart';
 import { addToWishlist, removeFromWishlist, isInWishlist } from '@/lib/wishlist';
 import { productImageSrc } from '@/lib/productImages';
 import { productSlug } from '@/lib/productSlug';
+import { presetColourCode } from '@/lib/presetColours';
 
 interface ExtraJson {
   sizes?: string[];
@@ -57,10 +58,12 @@ export default function QuickViewModal({ product, onClose }: Props) {
   // One swatch per colour (preset = circle, custom = photo) so ALL custom
   // colours show — even if they share a name — and without a text label.
   const swatchList: { key: string; name: string; photo?: string; code: string }[] = isPackProduct ? [] : [
-    // Preset colours: only show ones that actually have a colour code (skip the blank/grey dot).
+    // Preset colours: use the saved colour code, else derive one from the colour
+    // NAME ("Dark Green" → darkgreen). Pehle bina-code wale colours skip ho jate
+    // the — isliye customer ko sirf custom colours dikhte the.
     ...((extra.colors ?? [])
-        .filter(name => name && name.trim() && extra.colorCodes?.[name])
-        .map((name, i) => ({ key: 'p' + i, name, code: extra.colorCodes![name] }))),
+        .filter(name => name && name.trim() && (extra.colorCodes?.[name] || presetColourCode(name)))
+        .map((name, i) => ({ key: 'p' + i, name, code: extra.colorCodes?.[name] || presetColourCode(name)! }))),
     // Custom colours: show if they have a photo OR a real colour code.
     ...((extra.customColors ?? [])
         .filter(cc => cc.photo || cc.code)

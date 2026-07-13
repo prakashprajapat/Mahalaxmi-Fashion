@@ -9,6 +9,7 @@ import { addToWishlist, isInWishlist, removeFromWishlist } from '@/lib/wishlist'
 import { getCustomer, getToken } from '@/lib/auth';
 import { productImageSrc } from '@/lib/productImages';
 import { productSlug, parseProductId } from '@/lib/productSlug';
+import { presetColourCode } from '@/lib/presetColours';
 import RelatedProducts from '@/components/product/RelatedProducts';
 import DeliveryEstimate from '@/components/product/DeliveryEstimate';
 import SizeGuideButton from '@/components/product/SizeGuideButton';
@@ -213,7 +214,7 @@ export default function ProductPage({ params }: { params: { id: string } }) {
   // colours show, even if they share a name, and without a text label.
   const customNames = new Set((extra.customColors ?? []).map(c => c.name));
   const swatchList: { key: string; name: string; photo?: string; code: string }[] = isPackProduct ? [] : [
-    ...normalColors.filter((n: string) => !customNames.has(n)).map((name: string, i: number) => ({ key: 'p' + i, name, code: colorCodes[name] || '#ddd' })),
+    ...normalColors.filter((n: string) => !customNames.has(n)).map((name: string, i: number) => ({ key: 'p' + i, name, code: colorCodes[name] || presetColourCode(name) || '#ddd' })),
     ...((extra.customColors ?? []).map((cc, i) => ({ key: 'c' + i, name: cc.name ?? '', photo: cc.photo, code: cc.code || '#ddd' }))),
   ];
 
