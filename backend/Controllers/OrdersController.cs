@@ -301,12 +301,27 @@ public class OrdersController : ControllerBase
             finalStatus = "Pending";
         }
 
+        // Everything from here to SaveChanges runs in ONE transaction so the coupon
+        // consume, stock deduction (row-locked) and order insert commit atomically.
+        await using var tx = await _db.Database.BeginTransactionAsync();
+
         var existing = await _db.SiteOrders.FirstOrDefaultAsync(o => o.OrderId == orderId);
+        // Razorpay webhook race: agar webhook ne pehle hi recovery order bana diya
+        // (browser slow tha), to usi order ko yahan complete karo — duplicate nahi.
+        if (existing is null && !string.IsNullOrWhiteSpace(req.PaymentId))
+            existing = await _db.SiteOrders.FirstOrDefaultAsync(o => o.PaymentId == req.PaymentId);
+        var isWebhookRecovery = existing?.RawJson is not null && existing.RawJson.Contains("webhook_recovery");
         if (existing is not null)
         {
-            // CQ-5: Never re-open a finalized order
-            if (existing.Status is "Paid" or "Delivered" or "Cancelled")
+            orderId = existing.OrderId;   // respond with the order we actually updated
+
+            // CQ-5: Never re-open a finalized order (webhook-recovery "Paid" placeholder is the
+            // one exception — the customer's real PlaceOrder call fills in its details once).
+            if (!isWebhookRecovery && existing.Status is "Paid" or "Delivered" or "Cancelled")
                 return Conflict(new { success = false, message = $"Order is already {existing.Status} and cannot be modified." });
+
+            if (isWebhookRecovery)
+                existing.RawJson = null;   // marker consumed — future updates blocked as usual
 
             existing.Method = method;
             existing.Status = finalStatus;
@@ -386,7 +401,23 @@ public class OrdersController : ControllerBase
             });
         }
 
+        // ── STOCK: deduct variant qty for fresh orders (and webhook-recovery completion).
+        // Rows are locked FOR UPDATE inside this transaction, so concurrent checkouts
+        // can't oversell. COD me insufficient stock par order reject hota hai; prepaid
+        // me paisa already capture ho chuka hai isliye order accept hota hai aur qty 0
+        // par clamp ho jati hai (admin ko 'Out of Stock' dikh jayega).
+        if (existing is null || isWebhookRecovery)
+        {
+            var shortNames = await Services.StockHelper.DeductAsync(_db, cartLines);
+            if (shortNames.Count > 0 && method == "cod")
+            {
+                await tx.RollbackAsync();
+                return Conflict(new { success = false, message = $"'{shortNames[0]}' abhi-abhi out of stock ho gaya. Cart update karke dobara try karein." });
+            }
+        }
+
         await _db.SaveChangesAsync();
+        await tx.CommitAsync();
 
         // Notify admin of the new order (email — fire-and-forget, never blocks the response).
         var itemsSummary = string.Join(", ", (req.Cart ?? new List<CartLineDto>()).Take(6).Select(c => $"{c.Name} x{Math.Max(1, c.Quantity)}"));
@@ -398,9 +429,10 @@ public class OrdersController : ControllerBase
                 <p><strong>Ship to:</strong> {System.Net.WebUtility.HtmlEncode(req.ShippingAddress ?? "")}, {System.Net.WebUtility.HtmlEncode(req.ShippingCity ?? "")} - {System.Net.WebUtility.HtmlEncode(req.ShippingPincode ?? "")}</p>
                 <p><strong>Items:</strong> {System.Net.WebUtility.HtmlEncode(itemsSummary)}</p>"));
 
-        // Customer "New Order" SMS (MSG91) — only for freshly created orders.
+        // Customer "New Order" SMS (MSG91) — only for freshly created orders
+        // (webhook-recovery completion bhi customer ke liye naya order hi hai).
         // No-op until msg91OrderTemplateId is configured in Settings; never throws.
-        if (existing is null)
+        if (existing is null || isWebhookRecovery)
             await _sms.SendNewOrderSmsAsync(req.CustomerPhone, orderId, serverTotal);
 
         return Ok(new { success = true, orderId });
@@ -429,6 +461,13 @@ public class OrdersController : ControllerBase
             return Conflict(new { success = false, message =
                 $"Order {order.OrderId} is in a return flow ({order.Status}); it can't be marked \"{req.Status}\". Use the return actions instead." });
         }
+
+        // STOCK RESTORE: order Cancelled/Return hote hi cart ki quantities wapas
+        // variantMatrix me jud jati hain (sirf pehli baar — dobara same status pe nahi).
+        var wasReturnedOrCancelled = order.Status is "Cancelled" or "Return";
+        var nowReturnedOrCancelled = req.Status is "Cancelled" or "Return";
+        if (!wasReturnedOrCancelled && nowReturnedOrCancelled)
+            await Services.StockHelper.RestoreAsync(_db, order.CartJson);
 
         order.Status = req.Status;
         if (req.Awb is not null)

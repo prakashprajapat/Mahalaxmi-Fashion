@@ -153,6 +153,41 @@ public class PaymentsController : ControllerBase
                     order.RawVerifyJson = body;
                     await _db.SaveChangesAsync();
                 }
+
+                // ── ORDER RECOVERY (Critical fix) ─────────────────────────────────
+                // Paisa capture ho gaya par customer ka browser PlaceOrder se pehle
+                // band ho gaya → pehle site_order banta hi nahi tha (paisa aaya, order
+                // gayab). Ab webhook stored cart/customer/shipping se ek "Paid"
+                // placeholder order bana deta hai. Marker (webhook_recovery) ki wajah
+                // se customer ka asli PlaceOrder call aane par yahi order complete ho
+                // jata hai — duplicate nahi banta (order_id unique constraint bhi hai).
+                if (order is not null)
+                {
+                    var localId = order.LocalOrderId;
+                    var alreadyExists = await _db.SiteOrders.AnyAsync(o =>
+                        o.OrderId == localId
+                        || (rpPaymentId != null && o.PaymentId == rpPaymentId));
+                    if (!alreadyExists)
+                    {
+                        _db.SiteOrders.Add(new SiteOrder
+                        {
+                            OrderId      = localId,
+                            Method       = "online",
+                            Status       = "Paid",
+                            PaymentId    = rpPaymentId,
+                            Subtotal     = order.AmountPaise / 100m,
+                            ShippingCost = 0m,
+                            CodFee       = 0m,
+                            Total        = order.AmountPaise / 100m,
+                            CartJson     = order.CartJson,
+                            CustomerJson = order.CustomerJson,
+                            ShippingJson = order.ShippingJson,
+                            RawJson      = "{\"source\":\"webhook_recovery\"}",
+                            PlacedAt     = DateTimeOffset.UtcNow,
+                        });
+                        await _db.SaveChangesAsync();
+                    }
+                }
             }
         }
         catch { /* malformed payload — still return 200 so Razorpay doesn't retry endlessly */ }
