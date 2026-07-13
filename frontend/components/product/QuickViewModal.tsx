@@ -55,14 +55,16 @@ export default function QuickViewModal({ product, onClose }: Props) {
   const colours = isPackProduct
     ? []
     : [...new Set([...(extra.colors ?? []), ...((extra.customColors ?? []).map(c => c.name ?? '').filter(Boolean))])];
-  // One swatch per colour (preset = circle, custom = photo) so ALL custom
-  // colours show — even if they share a name — and without a text label.
+  // One swatch per colour (preset = circle, custom = photo). A name that also
+  // exists as a custom colour renders ONLY as the custom swatch (same dedupe as
+  // the full product page) — otherwise it appeared twice.
+  const customColourNames = new Set((extra.customColors ?? []).map(c => c.name));
   const swatchList: { key: string; name: string; photo?: string; code: string }[] = isPackProduct ? [] : [
     // Preset colours: use the saved colour code, else derive one from the colour
     // NAME ("Dark Green" → darkgreen). Pehle bina-code wale colours skip ho jate
     // the — isliye customer ko sirf custom colours dikhte the.
     ...((extra.colors ?? [])
-        .filter(name => name && name.trim() && (extra.colorCodes?.[name] || presetColourCode(name)))
+        .filter(name => name && name.trim() && !customColourNames.has(name) && (extra.colorCodes?.[name] || presetColourCode(name)))
         .map((name, i) => ({ key: 'p' + i, name, code: extra.colorCodes?.[name] || presetColourCode(name)! }))),
     // Custom colours: show if they have a photo OR a real colour code.
     ...((extra.customColors ?? [])
