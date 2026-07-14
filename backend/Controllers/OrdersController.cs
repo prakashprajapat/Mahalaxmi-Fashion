@@ -971,7 +971,19 @@ public class OrdersController : ControllerBase
         order.Courier = "Delhivery";
         order.UpdatedAt = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync();
-        return Ok(new { success = true, awb = result.Awb, order = MapOrder(order) });
+
+        // AUTO PICKUP: din ke pehle AWB ke saath Delhivery pickup bhi khud schedule ho
+        // jata hai (ek hi baar per date) — Delhivery One pe "Create New Pickup" click
+        // karne ki zaroorat nahi. Fail ho to AWB phir bhi ban chuka hai; message dikha do.
+        string? pickupMessage = null;
+        try
+        {
+            var pickup = await _delhivery.AutoRequestPickupAsync();
+            pickupMessage = pickup.Message;
+        }
+        catch { /* pickup best-effort — AWB result ko kabhi na roke */ }
+
+        return Ok(new { success = true, awb = result.Awb, order = MapOrder(order), pickupMessage });
     }
 
     // Best-effort delete of an order's stored return media directory (instance helper).

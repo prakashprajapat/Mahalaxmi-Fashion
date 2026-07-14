@@ -114,6 +114,79 @@ public class DelhiveryService
         }
     }
 
+    public record PickupResult(bool Success, string? Message);
+
+    /// <summary>
+    /// Schedules a First-Mile pickup with Delhivery (courier comes to the warehouse to
+    /// collect the day's packages) — replaces the manual "Create New Pickup" click on
+    /// the Delhivery One website. Runs at most ONCE per pickup date: the scheduled date
+    /// is remembered in site_settings (delhivery_last_pickup_date). Before ~1 PM IST the
+    /// pickup is booked for today, after that for tomorrow morning.
+    /// </summary>
+    public async Task<PickupResult> AutoRequestPickupAsync(int expectedPackages = 1)
+    {
+        var cfg = await SettingsAsync();
+        string Get(string k) => cfg.TryGetValue(k, out var v) ? (v ?? "").Trim() : "";
+
+        var token      = Get("delhivery_token");
+        var pickupName = Get("delhivery_pickup_name");
+        if (string.IsNullOrEmpty(token) || string.IsNullOrEmpty(pickupName))
+            return new(false, null); // not configured — AWB flow already reported this
+
+        // Before 13:00 IST → today's pickup at 14:00; after → tomorrow at 11:00.
+        var ist = DateTimeOffset.UtcNow.ToOffset(TimeSpan.FromHours(5.5));
+        var pickupDate = (ist.Hour < 13 ? ist.Date : ist.Date.AddDays(1)).ToString("yyyy-MM-dd");
+        var pickupTime = ist.Hour < 13 ? "14:00:00" : "11:00:00";
+
+        // Once per date — skip silently if already scheduled.
+        if (Get("delhivery_last_pickup_date") == pickupDate)
+            return new(true, null);
+
+        var payload = new
+        {
+            pickup_location        = pickupName,
+            pickup_date            = pickupDate,
+            pickup_time            = pickupTime,
+            expected_package_count = expectedPackages,
+        };
+
+        try
+        {
+            var client = _http.CreateClient("delhivery");
+            using var reqMsg = new HttpRequestMessage(HttpMethod.Post, "https://track.delhivery.com/fm/request/new/")
+            {
+                Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json")
+            };
+            reqMsg.Headers.TryAddWithoutValidation("Authorization", $"Token {token}");
+            reqMsg.Headers.TryAddWithoutValidation("Accept", "application/json");
+
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+            var resp = await client.SendAsync(reqMsg, cts.Token);
+            var text = await resp.Content.ReadAsStringAsync(cts.Token);
+
+            // Duplicate request for the same date also counts as scheduled.
+            var ok = resp.IsSuccessStatusCode || text.Contains("already", StringComparison.OrdinalIgnoreCase);
+            if (!ok)
+                return new(false, $"Pickup request failed: {Trim(text, 200)}");
+
+            var setting = await _db.SiteSettings.FirstOrDefaultAsync(s => s.Key == "delhivery_last_pickup_date");
+            if (setting is null)
+                _db.SiteSettings.Add(new Models.SiteSetting { Key = "delhivery_last_pickup_date", Value = pickupDate });
+            else
+            {
+                setting.Value = pickupDate;
+                setting.UpdatedAt = DateTimeOffset.UtcNow;
+            }
+            await _db.SaveChangesAsync();
+
+            return new(true, $"Pickup scheduled for {pickupDate} at {pickupTime[..5]}.");
+        }
+        catch (Exception ex)
+        {
+            return new(false, $"Pickup request error: {ex.Message}");
+        }
+    }
+
     /// <param name="from">The customer address the courier picks up FROM.</param>
     public async Task<ReverseResult> CreateReversePickupAsync(string orderId, PickupAddress from, string productDesc)
     {
