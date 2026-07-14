@@ -187,6 +187,52 @@ public class DelhiveryService
         }
     }
 
+    /// <summary>
+    /// Fetches the current Delhivery tracking status for up to ~40 AWBs in one call.
+    /// Returns AWB → status text (e.g. "In Transit", "Delivered"). Missing/failed AWBs
+    /// are simply absent from the result — callers treat that as "no change".
+    /// </summary>
+    public async Task<Dictionary<string, string>> TrackAsync(IEnumerable<string> awbs)
+    {
+        var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var list = awbs.Where(a => !string.IsNullOrWhiteSpace(a)).Distinct().ToList();
+        if (list.Count == 0) return result;
+
+        var cfg = await SettingsAsync();
+        var token = cfg.TryGetValue("delhivery_token", out var t) ? (t ?? "").Trim() : "";
+        if (string.IsNullOrEmpty(token)) return result;
+
+        try
+        {
+            var url = $"https://track.delhivery.com/api/v1/packages/json/?waybill={Uri.EscapeDataString(string.Join(",", list))}";
+            var client = _http.CreateClient("delhivery");
+            using var reqMsg = new HttpRequestMessage(HttpMethod.Get, url);
+            reqMsg.Headers.TryAddWithoutValidation("Authorization", $"Token {token}");
+            reqMsg.Headers.TryAddWithoutValidation("Accept", "application/json");
+
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+            var resp = await client.SendAsync(reqMsg, cts.Token);
+            if (!resp.IsSuccessStatusCode) return result;
+            var text = await resp.Content.ReadAsStringAsync(cts.Token);
+
+            using var doc = JsonDocument.Parse(text);
+            if (!doc.RootElement.TryGetProperty("ShipmentData", out var data) || data.ValueKind != JsonValueKind.Array)
+                return result;
+
+            foreach (var item in data.EnumerateArray())
+            {
+                if (!item.TryGetProperty("Shipment", out var ship)) continue;
+                var awb = ship.TryGetProperty("AWB", out var a) ? a.GetString() : null;
+                var status = ship.TryGetProperty("Status", out var st) && st.TryGetProperty("Status", out var ss)
+                    ? ss.GetString() : null;
+                if (!string.IsNullOrWhiteSpace(awb) && !string.IsNullOrWhiteSpace(status))
+                    result[awb!] = status!;
+            }
+        }
+        catch { /* tracking is best-effort — sync service will retry next cycle */ }
+        return result;
+    }
+
     /// <param name="from">The customer address the courier picks up FROM.</param>
     public async Task<ReverseResult> CreateReversePickupAsync(string orderId, PickupAddress from, string productDesc)
     {

@@ -29,6 +29,7 @@ builder.Services.AddMemoryCache(); // PERF-2: for settings caching
 
 // Auto-deletes rejected return media after its 30-day retention window.
 builder.Services.AddHostedService<ReturnMediaCleanupService>();
+builder.Services.AddHostedService<DelhiveryTrackingSyncService>();
 
 // Return-media uploads: allow videos up to ~80 MB per file (Kestrel + multipart limits)
 builder.Services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(o =>
