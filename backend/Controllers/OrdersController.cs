@@ -939,6 +939,62 @@ public class OrdersController : ControllerBase
         return Ok(new { success = true, order = MapOrder(order), awb, courier });
     }
 
+    // GET /api/orders/live-track/{awb}  (Public)
+    // Live Delhivery tracking timeline for the customer tracking page — shipment-safe
+    // fields only (status, expected date, scans), no customer PII. Also forward-syncs
+    // the site order status instantly so the two never disagree.
+    [HttpGet("live-track/{awb}")]
+    [AllowAnonymous]
+    public async Task<IActionResult> LiveTrack(string awb)
+    {
+        var safe = new string((awb ?? "").Where(char.IsLetterOrDigit).ToArray());
+        if (safe.Length < 8)
+            return BadRequest(new { success = false, message = "Invalid AWB." });
+
+        var order = await _db.SiteOrders.FirstOrDefaultAsync(o => o.Awb == safe);
+        if (order is null)
+            return NotFound(new { success = false, message = "No shipment found with this AWB." });
+
+        var detail = await _delhivery.TrackDetailAsync(safe);
+        if (!detail.Success)
+            return Ok(new { success = true, live = false, orderId = order.OrderId, siteStatus = order.Status });
+
+        // Instant forward-only sync (same mapping as the background sync service).
+        var s = (detail.Status ?? "").ToLowerInvariant();
+        var changed = false;
+        if (s.Contains("delivered") && !s.Contains("undelivered") && !s.Contains("rto"))
+        {
+            if (order.Status != "Delivered")
+            {
+                order.Status = "Delivered";
+                order.DeliveredAt ??= DateTimeOffset.UtcNow;
+                changed = true;
+            }
+        }
+        else if ((s.Contains("picked") || s.Contains("transit") || s.Contains("dispatched") || s.Contains("reached") || s.Contains("out for delivery"))
+                 && order.Status is "Order Packed" or "Ready for Shipping" or "Shipped")
+        {
+            order.Status = "Transit";
+            changed = true;
+        }
+        if (changed)
+        {
+            order.UpdatedAt = DateTimeOffset.UtcNow;
+            await _db.SaveChangesAsync();
+        }
+
+        return Ok(new
+        {
+            success = true,
+            live = true,
+            orderId = order.OrderId,
+            siteStatus = order.Status,
+            courierStatus = detail.Status,
+            expectedDate = detail.ExpectedDate,
+            scans = detail.Scans.Select(x => new { time = x.Time, location = x.Location, remark = x.Remark }),
+        });
+    }
+
     // POST /api/orders/{orderId}/generate-awb  (Admin/Staff)
     // Auto-creates a FORWARD Delhivery shipment for the order and stores the generated AWB.
     // Falls back with a clear message if Delhivery isn't configured — admin can then enter manually.

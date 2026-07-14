@@ -77,6 +77,13 @@ export const ordersApi = {
   },
   getById: (id: string, token?: string) =>
     request<{ success: boolean; order: import('@/types').Order }>(`/orders/${id}`, undefined, token),
+  // Live Delhivery tracking timeline (public, shipment-safe fields only).
+  liveTrack: (awb: string) =>
+    request<{
+      success: boolean; live: boolean; orderId: string; siteStatus: string;
+      courierStatus?: string; expectedDate?: string;
+      scans?: Array<{ time: string; location: string; remark: string }>;
+    }>(`/orders/live-track/${encodeURIComponent(awb)}`),
   place: (order: unknown) =>
     request<{ success: boolean; orderId: string }>('/orders', {
       method: 'POST',

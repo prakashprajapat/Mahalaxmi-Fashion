@@ -233,6 +233,66 @@ public class DelhiveryService
         return result;
     }
 
+    public record TrackScan(string Time, string Location, string Remark);
+    public record TrackDetail(bool Success, string? Status, string? ExpectedDate, List<TrackScan> Scans);
+
+    /// <summary>
+    /// Full live tracking detail for ONE AWB — current status, expected delivery date and
+    /// the scan history (time / location / remark) — used by the customer tracking page
+    /// to show a Delhivery-style live timeline on our own site.
+    /// </summary>
+    public async Task<TrackDetail> TrackDetailAsync(string awb)
+    {
+        var none = new TrackDetail(false, null, null, new List<TrackScan>());
+        if (string.IsNullOrWhiteSpace(awb)) return none;
+
+        var cfg = await SettingsAsync();
+        var token = cfg.TryGetValue("delhivery_token", out var t) ? (t ?? "").Trim() : "";
+        if (string.IsNullOrEmpty(token)) return none;
+
+        try
+        {
+            var url = $"https://track.delhivery.com/api/v1/packages/json/?waybill={Uri.EscapeDataString(awb)}";
+            var client = _http.CreateClient("delhivery");
+            using var reqMsg = new HttpRequestMessage(HttpMethod.Get, url);
+            reqMsg.Headers.TryAddWithoutValidation("Authorization", $"Token {token}");
+            reqMsg.Headers.TryAddWithoutValidation("Accept", "application/json");
+
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+            var resp = await client.SendAsync(reqMsg, cts.Token);
+            if (!resp.IsSuccessStatusCode) return none;
+            var text = await resp.Content.ReadAsStringAsync(cts.Token);
+
+            using var doc = JsonDocument.Parse(text);
+            if (!doc.RootElement.TryGetProperty("ShipmentData", out var data)
+                || data.ValueKind != JsonValueKind.Array || data.GetArrayLength() == 0)
+                return none;
+            if (!data[0].TryGetProperty("Shipment", out var ship)) return none;
+
+            string? GetStr(JsonElement el, string key) =>
+                el.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
+
+            var status = ship.TryGetProperty("Status", out var st) ? GetStr(st, "Status") : null;
+            var expected = GetStr(ship, "ExpectedDeliveryDate") ?? GetStr(ship, "PromisedDeliveryDate");
+
+            var scans = new List<TrackScan>();
+            if (ship.TryGetProperty("Scans", out var scansEl) && scansEl.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var item in scansEl.EnumerateArray())
+                {
+                    var d = item.TryGetProperty("ScanDetail", out var sd) ? sd : item;
+                    var remark = GetStr(d, "Instructions") ?? GetStr(d, "Scan") ?? "";
+                    scans.Add(new TrackScan(
+                        GetStr(d, "ScanDateTime") ?? GetStr(d, "StatusDateTime") ?? "",
+                        GetStr(d, "ScannedLocation") ?? "",
+                        remark));
+                }
+            }
+            return new TrackDetail(true, status, expected, scans);
+        }
+        catch { return none; }
+    }
+
     /// <param name="from">The customer address the courier picks up FROM.</param>
     public async Task<ReverseResult> CreateReversePickupAsync(string orderId, PickupAddress from, string productDesc)
     {
