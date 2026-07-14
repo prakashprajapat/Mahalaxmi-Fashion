@@ -11,7 +11,7 @@ const ORDER_STATUS_TABS: { key: string; label: string; hidden?: boolean }[] = [
   { key: 'Pending',              label: 'Pending' },
   { key: 'On Hold',              label: 'On Hold' },
   { key: 'Ready for Shipping',   label: 'Ready to Ship' },
-  { key: 'Shipped',              label: 'Shipped' },
+  // "Shipped" tab removed — AWB bante hi Delhivery sync order ko seedha Transit me le jata hai.
   { key: 'Transit',              label: 'Transit' },
   { key: 'Delivered',            label: 'Delivered' },
   { key: 'Cancel Requested',     label: 'Cancel Req.' },
@@ -162,6 +162,22 @@ export default function AdminOrdersPage() {
       .then(r => setOrders(r.orders))
       .catch(console.error)
       .finally(() => setLoading(false));
+  };
+
+  // ── Live Delhivery tracking modal (AWB number pe click karte hi) ──
+  const [liveModal, setLiveModal] = useState<null | {
+    awb: string; loading: boolean;
+    data?: Awaited<ReturnType<typeof ordersApi.liveTrack>>;
+  }>(null);
+  const openLiveTrack = async (awbNo: string) => {
+    setLiveModal({ awb: awbNo, loading: true });
+    try {
+      const data = await ordersApi.liveTrack(awbNo);
+      setLiveModal({ awb: awbNo, loading: false, data });
+      fetchOrders(); // live check order status bhi sync kar deta hai — list refresh
+    } catch {
+      setLiveModal({ awb: awbNo, loading: false });
+    }
   };
 
   useEffect(() => { fetchOrders(); }, []);
@@ -596,7 +612,12 @@ export default function AdminOrdersPage() {
                     <td style={{ padding: '.65rem 1rem', fontWeight: 600, whiteSpace: 'nowrap' }}>₹{o.total.toLocaleString('en-IN')}</td>
                     <td style={{ padding: '.65rem 1rem', textTransform: 'capitalize', fontSize: '.78rem' }}>{o.method}</td>
                     <td style={{ padding: '.65rem 1rem', fontSize: '.75rem', fontFamily: 'monospace', color: o.awb ? '#333' : '#ccc' }}>
-                      {o.awb || '—'}
+                      {o.awb ? (
+                        <button onClick={() => openLiveTrack(o.awb!)} title="Live Delhivery tracking"
+                          style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'monospace', fontSize: '.75rem', color: '#1565c0', textDecoration: 'underline' }}>
+                          {o.awb}
+                        </button>
+                      ) : '—'}
                     </td>
                     <td style={{ padding: '.65rem 1rem', whiteSpace: 'nowrap' }}>
                       <button onClick={() => downloadShippingLabel(o)}
@@ -617,6 +638,77 @@ export default function AdminOrdersPage() {
           </table>
         </div>
       </div>
+
+      {/* Live Delhivery tracking modal — AWB pe click karne par */}
+      {liveModal && (
+        <div onClick={() => setLiveModal(null)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 320, padding: '1rem' }}>
+          <div onClick={e => e.stopPropagation()}
+            style={{ background: '#fff', borderRadius: 12, padding: '1.3rem 1.5rem', width: '100%', maxWidth: 520, maxHeight: '85vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '.8rem' }}>
+              <h3 style={{ margin: 0, fontSize: '1.05rem' }}>📍 Live Tracking — {liveModal.awb}</h3>
+              <button onClick={() => setLiveModal(null)} style={{ background: 'none', border: 'none', fontSize: '1.3rem', cursor: 'pointer', color: '#888' }}>✕</button>
+            </div>
+
+            {liveModal.loading && <p style={{ color: '#888' }}>Fetching live status from Delhivery…</p>}
+
+            {!liveModal.loading && !liveModal.data?.live && (
+              <p style={{ color: '#c62828' }}>Live tracking unavailable right now. Delhivery portal pe check karein.</p>
+            )}
+
+            {!liveModal.loading && liveModal.data?.live && (() => {
+              const d = liveModal.data!;
+              const s = (d.courierStatus ?? '').toLowerCase();
+              const stage = s.includes('delivered') && !s.includes('undelivered') ? 4
+                : (s.includes('out for delivery') || s.includes('dispatched')) ? 3
+                : (s.includes('transit') || s.includes('reached')) ? 2
+                : (s.includes('picked') || s.includes('manifest')) ? 1 : 0;
+              const steps = ['Order Placed', 'Picked Up', 'On the Way', 'Out for Delivery', 'Delivered'];
+              const scans = (d.scans ?? []).slice().reverse();
+              return (
+                <>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '.4rem', marginBottom: '.9rem' }}>
+                    <span style={{ fontSize: '.85rem', color: '#555' }}>Order: <strong>{d.orderId}</strong> · Site status: <strong>{d.siteStatus}</strong></span>
+                    {d.expectedDate && <span style={{ color: '#2e7d32', fontWeight: 700, fontSize: '.85rem' }}>Expected: {new Date(d.expectedDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</span>}
+                  </div>
+
+                  {steps.map((label, i) => {
+                    const done = i <= stage;
+                    const isLast = i === steps.length - 1;
+                    return (
+                      <div key={label} style={{ display: 'flex', gap: '.7rem' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                          <span style={{ width: 13, height: 13, borderRadius: '50%', marginTop: 3, flexShrink: 0,
+                            background: done ? '#2e7d32' : '#fff', border: done ? '2px solid #2e7d32' : '2px solid #ccc' }} />
+                          {!isLast && <span style={{ width: 2, flex: 1, minHeight: 18, background: i < stage ? '#2e7d32' : '#ddd' }} />}
+                        </div>
+                        <div style={{ paddingBottom: isLast ? 0 : '.35rem' }}>
+                          <p style={{ margin: 0, fontWeight: done ? 700 : 500, color: done ? '#1a1a1a' : '#999', fontSize: '.9rem' }}>{label}</p>
+                          {i === stage && d.courierStatus && <p style={{ margin: '.1rem 0 0', color: '#2e7d32', fontSize: '.78rem', fontWeight: 600 }}>{d.courierStatus}</p>}
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {scans.length > 0 && (
+                    <div style={{ marginTop: '.9rem', borderTop: '1px solid #f0f0f0', paddingTop: '.7rem' }}>
+                      <p style={{ margin: '0 0 .5rem', fontWeight: 700, fontSize: '.85rem' }}>All updates ({scans.length})</p>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '.5rem' }}>
+                        {scans.map((sc, i) => (
+                          <div key={i} style={{ fontSize: '.8rem', borderLeft: '3px solid #eee', paddingLeft: '.6rem' }}>
+                            <p style={{ margin: 0, color: '#333' }}>{sc.remark}</p>
+                            <p style={{ margin: 0, color: '#999' }}>{(() => { const dt = new Date(sc.time); return isNaN(dt.getTime()) ? sc.time : dt.toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }); })()}{sc.location ? ` · ${sc.location}` : ''}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
+          </div>
+        </div>
+      )}
 
       {/* Assign AWB / Delivery Partner Modal (one or many orders) */}
       {awbModal && (() => {
