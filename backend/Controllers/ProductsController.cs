@@ -64,10 +64,11 @@ public class ProductsController : ControllerBase
             int total;
             if (bestSeller == true)
             {
-                // Best Sellers = automatically the top-selling products (by quantity
-                // sold, from orders) — not a manual flag.
-                var ranked = (await query.ToListAsync())
-                    .Where(p => sales.GetValueOrDefault(p.Id) > 0)
+                // Best Sellers = products the admin marked with the "Best Seller" flag
+                // (same as the homepage + admin), ranked by actual sales so genuine
+                // top-sellers appear first. This keeps the /best-sellers page and the
+                // homepage "Best Sellers" section showing the SAME products.
+                var ranked = (await query.Where(p => p.BestSeller).ToListAsync())
                     .OrderByDescending(p => sales.GetValueOrDefault(p.Id))
                     .ThenByDescending(p => p.Id)
                     .ToList();
