@@ -196,7 +196,9 @@ export default function ProductsClient({ products, title, initialQ = '' }: Props
   const [priceMin, setPriceMin] = useState(globalMin);
   const [priceMax, setPriceMax] = useState(globalMax);
 
-  // Reset ALL filters when navigating to a new category (products array changes)
+  // Reset ALL filters when navigating to a new category/search (products or the URL's
+  // q changes). IMPORTANT: reset q to the URL's search term (initialQ), NOT '' — else a
+  // /products?q=trunk load would wipe the search on mount and show every product.
   useEffect(() => {
     setPriceMin(globalMin);
     setPriceMax(globalMax);
@@ -205,9 +207,9 @@ export default function ProductsClient({ products, title, initialQ = '' }: Props
     setSelectedSizes([]);
     setSelectedColors([]);
     setSort('position');
-    setQ('');
+    setQ(initialQ);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [products]);
+  }, [products, initialQ]);
 
   const subcatMap = useMemo(() => {
     const map = new Map<string, string>();

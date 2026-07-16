@@ -315,7 +315,7 @@ export default function Navbar() {
               📍 Check Pincode
             </button>
             {pinOpen && (
-              <div style={{ position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 70, width: 290,
+              <div style={{ position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 200, width: 290,
                 background: '#fff', border: '1px solid #eee', borderRadius: 12, boxShadow: '0 8px 28px rgba(0,0,0,.16)', padding: '.9rem' }}>
                 <p style={{ margin: '0 0 .5rem', fontSize: '.82rem', fontWeight: 700, color: '#5c1a28' }}>🚚 Check delivery at your pincode</p>
                 <div style={{ display: 'flex', gap: '.4rem' }}>
