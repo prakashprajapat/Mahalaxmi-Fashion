@@ -21,9 +21,16 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
       ? '/best-sellers'
       : '/products';
 
+  // Internal search-result pages (?q=...) are thin/duplicate — keep them out of the
+  // index so they don't dilute ranking, but still let Google follow the links.
+  const isSearch = !!searchParams.q;
+
   return {
-    title: `${label} | Mahalaxmi Fashion Hub`,
+    title: searchParams.q
+      ? `Search: ${searchParams.q} | Mahalaxmi Fashion Hub`
+      : `${label} | Mahalaxmi Fashion Hub`,
     alternates: { canonical },
+    ...(isSearch ? { robots: { index: false, follow: true } } : {}),
   };
 }
 

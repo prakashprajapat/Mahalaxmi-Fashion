@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import { productsApi } from '@/lib/api';
 import { COLLECTIONS, COLLECTION_SLUGS, matchesCollection } from '@/lib/collections';
 import CategoryPageContent from '@/components/product/CategoryPageContent';
+import { productSlug } from '@/lib/productSlug';
 
 // Koskii-style SEO landing pages: /collections/cotton-nighty, /collections/nighty-under-500 ...
 // Har page ka apna title/description/H1/intro/FAQ hai (lib/collections.ts me define),
@@ -54,6 +55,19 @@ export default async function CollectionPage({ params }: { params: { slug: strin
       { '@type': 'ListItem', position: 3, name: def.label },
     ],
   };
+  // ItemList of the products on this collection page — helps Google surface the list.
+  const itemListJsonLd = matched.length > 0 ? {
+    '@context': 'https://schema.org',
+    '@type': 'ItemList',
+    name: def.h1,
+    numberOfItems: matched.length,
+    itemListElement: (matched as any[]).slice(0, 30).map((p, i) => ({
+      '@type': 'ListItem',
+      position: i + 1,
+      url: `https://mahalaxmifashionhub.com/products/${productSlug(p.name, p.dbId)}`,
+      name: p.name,
+    })),
+  } : null;
 
   // Cross-links (Koskii-style internal linking) — same category first, phir baaki
   const others = COLLECTION_SLUGS
@@ -112,6 +126,9 @@ export default async function CollectionPage({ params }: { params: { slug: strin
 
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }} />
+      {itemListJsonLd && (
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(itemListJsonLd) }} />
+      )}
     </>
   );
 }

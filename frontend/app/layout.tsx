@@ -23,11 +23,12 @@ async function getSeoSettings(): Promise<Record<string, string>> {
 export async function generateMetadata(): Promise<Metadata> {
   const s = await getSeoSettings();
 
-  const defaultTitle = s.seoHomeTitle?.trim() || 'Mahalaxmi Fashion Hub';
+  const defaultTitle = s.seoHomeTitle?.trim()
+    || 'Mahalaxmi Fashion Hub – Sarees, Nighty & Petticoat Online';
   const defaultDesc  = s.seoHomeDescription?.trim()
-    || 'Premium Indian Fashion — Sarees, Nighty, Petticoat & More. Shop ethnic wear online from Balotra, Rajasthan.';
+    || 'Shop cotton nighties, sarees, petticoats, innerwear & fabrics online at Mahalaxmi Fashion Hub, Balotra (Rajasthan). Quality-checked, COD available, free shipping over ₹999, pan-India delivery.';
   const keywords     = s.seoKeywords?.trim()
-    || 'saree, nighty, petticoat, indian fashion, women clothing, ethnic wear, balotra, rajasthan';
+    || 'cotton nighty online, nighty for women, saree online, petticoat online, nighty combo pack, mahalaxmi fashion hub, fashion store balotra, online fashion rajasthan, innerwear online, ethnic wear women';
   const ogImage      = s.seoOgImage?.trim() || '/og-image.jpg';
   const twitterSite  = s.seoTwitterSite?.trim();
   const googleVerif  = s.googleSiteVerification?.trim();
