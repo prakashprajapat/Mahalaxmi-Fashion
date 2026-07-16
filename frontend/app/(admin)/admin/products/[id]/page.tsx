@@ -3,6 +3,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { productsApi } from '@/lib/api';
+import { runProductQC } from '@/lib/productQC';
 import { getAdminToken } from '@/lib/auth';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -578,14 +579,41 @@ export default function EditProductPage() {
 
   // ── Save ──
   const handleSave = async () => {
-    if (!name.trim())            { alert('Product name is required.'); return; }
-    if (!price || Number(price) <= 0) { alert('Price must be greater than 0.'); return; }
     setSaving(true);
     try {
       const packValue     = getPackOfNumber(packOf);
       const normalizedPackCols = normalizePackColumns(packCols, packValue);
       const filledPackCols = normalizedPackCols.filter(hasPackPhoto);
       const galleryImages  = [mainPhotos.front, mainPhotos.side, mainPhotos.back, mainPhotos.zoomed].filter(Boolean);
+
+      // ── QC GATE (edit): apne aap ko duplicate check se exclude karo ──
+      const allPhotos = [
+        ...galleryImages,
+        ...filledPackCols.flatMap(c => [c.front, c.side, c.back, c.zoomed].filter(Boolean)),
+      ];
+      let existingProducts: import('@/lib/productQC').ExistingProduct[] = [];
+      try {
+        const r = await productsApi.getAll({ pageSize: 2000 } as any);
+        existingProducts = ((r as any).products ?? [])
+          .filter((p: any) => String(p.dbId) !== String(productId))
+          .map((p: any) => ({ id: p.dbId, name: p.name, image: p.image, extraJson: p.extraJson }));
+      } catch { /* offline — QC still runs on own fields */ }
+
+      const qc = runProductQC(
+        { name, description: desc, price: Number(price) || 0, sku, photos: allPhotos, category },
+        existingProducts
+      );
+      const fails = qc.filter(i => i.level === 'fail');
+      const warns = qc.filter(i => i.level === 'warn');
+      if (fails.length > 0) {
+        setSaving(false);
+        alert('❌ Catalogue QC failed — fix these before saving:\n\n• ' + fails.map(f => f.message).join('\n• '));
+        return;
+      }
+      if (warns.length > 0) {
+        const proceed = window.confirm('⚠️ QC warnings:\n\n• ' + warns.map(w => w.message).join('\n• ') + '\n\nSave anyway?');
+        if (!proceed) { setSaving(false); return; }
+      }
       const stockMatrix    = Object.fromEntries(stockKeys.map(key => [key, Number(variantStock[key]) || 0]));
       const saveQty        = stockKeys.length > 0 ? stockTotal : (Number(totalQty) || 0);
       const packImages     = filledPackCols.map(col => ({

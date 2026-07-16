@@ -939,6 +939,58 @@ public class OrdersController : ControllerBase
         return Ok(new { success = true, order = MapOrder(order), awb, courier });
     }
 
+    // GET /api/orders/pincode/{pin}  (Public)
+    // Delhivery serviceability + COD availability + honest delivery-day estimate for a
+    // pincode (origin: Balotra 344022). Result is safe to cache — serviceability rarely changes.
+    private static readonly Dictionary<string, (bool known, bool ok, bool cod, string? city, string? state, DateTimeOffset at)> _pinCache = new();
+    [HttpGet("pincode/{pin}")]
+    [AllowAnonymous]
+    public async Task<IActionResult> CheckPincode(string pin)
+    {
+        var p = new string((pin ?? "").Where(char.IsDigit).ToArray());
+        if (p.Length != 6)
+            return BadRequest(new { success = false, message = "Enter a valid 6-digit pincode." });
+
+        (bool known, bool ok, bool cod, string? city, string? state) r;
+        lock (_pinCache)
+        {
+            if (_pinCache.TryGetValue(p, out var hit) && DateTimeOffset.UtcNow - hit.at < TimeSpan.FromHours(12))
+                r = (hit.known, hit.ok, hit.cod, hit.city, hit.state);
+            else r = default;
+        }
+        if (r == default)
+        {
+            var chk = await _delhivery.CheckPincodeAsync(p);
+            r = (chk.Known, chk.Serviceable, chk.Cod, chk.City, chk.State);
+            lock (_pinCache)
+            {
+                if (_pinCache.Count > 5000) _pinCache.Clear();
+                _pinCache[p] = (r.known, r.ok, r.cod, r.city, r.state, DateTimeOffset.UtcNow);
+            }
+        }
+
+        // Honest ETA heuristic from Balotra (Rajasthan) origin.
+        int minDays, maxDays;
+        var st = (r.state ?? "").ToUpperInvariant();
+        if (p.StartsWith("344")) (minDays, maxDays) = (1, 2);
+        else if (st == "RJ" || p.StartsWith("3")) (minDays, maxDays) = (2, 4);
+        else if (st is "GJ" or "DL" or "HR" or "MP" or "UP" or "PB" or "CH" or "UK" or "MH") (minDays, maxDays) = (3, 5);
+        else if (st is "AS" or "AR" or "MN" or "ML" or "MZ" or "NL" or "TR" or "SK" or "JK" or "LA" or "AN") (minDays, maxDays) = (5, 9);
+        else (minDays, maxDays) = (4, 7);
+
+        return Ok(new
+        {
+            success = true,
+            known = r.known,
+            serviceable = r.ok,
+            cod = r.cod,
+            city = r.city,
+            state = r.state,
+            etaMinDays = minDays,
+            etaMaxDays = maxDays,
+        });
+    }
+
     // GET /api/orders/live-track/{awb}  (Public)
     // Live Delhivery tracking timeline for the customer tracking page — shipment-safe
     // fields only (status, expected date, scans), no customer PII. Also forward-syncs

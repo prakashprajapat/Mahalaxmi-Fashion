@@ -77,6 +77,18 @@ export const ordersApi = {
   },
   getById: (id: string, token?: string) =>
     request<{ success: boolean; order: import('@/types').Order }>(`/orders/${id}`, undefined, token),
+  // Delhivery pincode serviceability + COD + delivery-day estimate.
+  checkPincode: (pin: string) =>
+    request<{
+      success: boolean; known: boolean; serviceable: boolean; cod: boolean;
+      city?: string | null; state?: string | null; etaMinDays: number; etaMaxDays: number;
+    }>(`/orders/pincode/${encodeURIComponent(pin)}`),
+  // Delhivery pincode serviceability + COD + delivery-day estimate (public).
+  checkPincode: (pin: string) =>
+    request<{
+      success: boolean; known: boolean; serviceable: boolean; cod: boolean;
+      city?: string; state?: string; etaMinDays: number; etaMaxDays: number;
+    }>(`/orders/pincode/${encodeURIComponent(pin)}`),
   // Live Delhivery tracking timeline (public, shipment-safe fields only).
   liveTrack: (awb: string) =>
     request<{

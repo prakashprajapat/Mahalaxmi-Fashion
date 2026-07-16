@@ -233,6 +233,55 @@ public class DelhiveryService
         return result;
     }
 
+    public record PinCheck(bool Known, bool Serviceable, bool Cod, string? City, string? State);
+
+    /// <summary>
+    /// Checks whether Delhivery services a pincode (and whether COD is available there).
+    /// Known=false means the API/token wasn't available — treat as "couldn't verify",
+    /// NOT as "not serviceable".
+    /// </summary>
+    public async Task<PinCheck> CheckPincodeAsync(string pincode)
+    {
+        var none = new PinCheck(false, false, false, null, null);
+        var pin = new string((pincode ?? "").Where(char.IsDigit).ToArray());
+        if (pin.Length != 6) return none;
+
+        var cfg = await SettingsAsync();
+        var token = cfg.TryGetValue("delhivery_token", out var t) ? (t ?? "").Trim() : "";
+        if (string.IsNullOrEmpty(token)) return none;
+
+        try
+        {
+            var url = $"https://track.delhivery.com/c/api/pin-codes/json/?filter_codes={pin}";
+            var client = _http.CreateClient("delhivery");
+            using var reqMsg = new HttpRequestMessage(HttpMethod.Get, url);
+            reqMsg.Headers.TryAddWithoutValidation("Authorization", $"Token {token}");
+            reqMsg.Headers.TryAddWithoutValidation("Accept", "application/json");
+
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+            var resp = await client.SendAsync(reqMsg, cts.Token);
+            if (!resp.IsSuccessStatusCode) return none;
+            var text = await resp.Content.ReadAsStringAsync(cts.Token);
+
+            using var doc = JsonDocument.Parse(text);
+            if (!doc.RootElement.TryGetProperty("delivery_codes", out var codes)
+                || codes.ValueKind != JsonValueKind.Array)
+                return none;
+
+            if (codes.GetArrayLength() == 0)
+                return new PinCheck(true, false, false, null, null); // verified: NOT serviceable
+
+            var pc = codes[0].TryGetProperty("postal_code", out var p) ? p : codes[0];
+            string? GetStr(string key) =>
+                pc.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
+
+            var cod = string.Equals(GetStr("cod"), "Y", StringComparison.OrdinalIgnoreCase)
+                   || string.Equals(GetStr("cash"), "Y", StringComparison.OrdinalIgnoreCase);
+            return new PinCheck(true, true, cod, GetStr("district"), GetStr("state_code"));
+        }
+        catch { return none; }
+    }
+
     public record TrackScan(string Time, string Location, string Remark);
     public record TrackDetail(bool Success, string? Status, string? ExpectedDate, List<TrackScan> Scans);
 

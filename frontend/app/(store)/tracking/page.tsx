@@ -33,6 +33,8 @@ function fmtScanTime(raw: string): string {
 export default function TrackingPage() {
   const [awb, setAwb] = useState('');
   const [pincode, setPincode] = useState('');
+  const [pinResult, setPinResult] = useState<{ kind: 'ok' | 'no' | 'err'; text: string } | null>(null);
+  const [pinChecking, setPinChecking] = useState(false);
   const [order, setOrder] = useState<Order | null>(null);
   const [live, setLive] = useState<LiveTrack | null>(null);
   const [trackMsg, setTrackMsg] = useState('');
@@ -158,18 +160,42 @@ export default function TrackingPage() {
 
         <section className="tracking-card">
           <h2>Check Serviceability</h2>
-          <p>Not sure if we deliver to your area? Enter your pincode to check delivery serviceability.</p>
-          <form className="tracking-form" onSubmit={e => { e.preventDefault(); window.open(`https://www.delhivery.com/`, '_blank'); }}>
+          <p>Not sure if we deliver to your area? Enter your pincode to check delivery serviceability and estimated delivery date.</p>
+          <form className="tracking-form" onSubmit={async e => {
+            e.preventDefault();
+            const p = pincode.replace(/\D/g, '');
+            if (p.length !== 6) { setPinResult({ kind: 'err', text: 'Please enter a valid 6-digit pincode.' }); return; }
+            setPinChecking(true); setPinResult(null);
+            try {
+              const r = await ordersApi.checkPincode(p);
+              if (r.known && !r.serviceable) {
+                setPinResult({ kind: 'no', text: 'Delivery is not available at this pincode. Message us on WhatsApp — we may still arrange it.' });
+              } else {
+                const d1 = new Date(); d1.setDate(d1.getDate() + r.etaMinDays);
+                const d2 = new Date(); d2.setDate(d2.getDate() + r.etaMaxDays);
+                const f = (d: Date) => d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+                setPinResult({ kind: 'ok', text: `✓ Yes, we deliver here! Estimated delivery by ${f(d1)} – ${f(d2)}${r.cod ? ' · COD available' : ' · Prepaid only'}` });
+              }
+            } catch {
+              setPinResult({ kind: 'err', text: 'Could not check right now. Please try again or WhatsApp us.' });
+            } finally { setPinChecking(false); }
+          }}>
             <input
               type="text"
               placeholder="Enter 6-digit pincode"
               inputMode="numeric"
               maxLength={6}
               value={pincode}
-              onChange={e => setPincode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              onChange={e => { setPincode(e.target.value.replace(/\D/g, '').slice(0, 6)); setPinResult(null); }}
             />
-            <button type="submit">Check</button>
+            <button type="submit">{pinChecking ? 'Checking…' : 'Check'}</button>
           </form>
+          {pinResult && (
+            <p style={{ marginTop: '.6rem', fontWeight: 600, fontSize: '.9rem',
+              color: pinResult.kind === 'ok' ? '#2e7d32' : '#c0392b' }}>
+              {pinResult.text}
+            </p>
+          )}
         </section>
 
         <section className="tracking-card">
