@@ -41,7 +41,6 @@ export default function Navbar() {
   const [cartBounce, setCartBounce] = useState(false);
   const [customerName, setCustomerName] = useState('');
   // Pincode serviceability check (next to search bar)
-  const [pinOpen, setPinOpen] = useState(false);
   const [pin, setPin] = useState('');
   const [pinChecking, setPinChecking] = useState(false);
   const [pinResult, setPinResult] = useState<{ ok: boolean; text: string } | null>(null);
@@ -271,15 +270,15 @@ export default function Navbar() {
               aria-label="Search products"
               value={search}
               autoComplete="off"
-              onChange={e => { setSearch(e.target.value); setShowSuggest(true); runSuggest(e.target.value); }}
-              onFocus={() => { if (suggestions.length) setShowSuggest(true); }}
+              onChange={e => { setSearch(e.target.value); setShowSuggest(true); runSuggest(e.target.value); setPinResult(null); }}
+              onFocus={() => { setPinResult(null); if (suggestions.length) setShowSuggest(true); }}
               onBlur={() => setTimeout(() => setShowSuggest(false), 150)}
             />
             <button type="submit">Search</button>
 
             {showSuggest && suggestions.length > 0 && (
               <div style={{
-                position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 60,
+                position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 300,
                 background: '#fff', border: '1px solid #eee', borderRadius: '10px',
                 boxShadow: '0 8px 28px rgba(0,0,0,.14)', overflow: 'hidden',
               }}>
@@ -305,35 +304,32 @@ export default function Navbar() {
             )}
           </form>
 
-          {/* Pincode serviceability check — next to search */}
-          <div style={{ position: 'relative' }}>
-            <button type="button" onClick={() => { setPinOpen(o => !o); setPinResult(null); }}
-              title="Check delivery to your pincode"
-              style={{ display: 'flex', alignItems: 'center', gap: '.35rem', whiteSpace: 'nowrap',
-                background: '#fff', border: '1.5px solid #e5d5d5', color: '#7a0a22', borderRadius: 8,
-                padding: '.5rem .8rem', fontSize: '.85rem', fontWeight: 700, cursor: 'pointer' }}>
-              📍 Check Pincode
+          {/* Pincode serviceability — inline (like the search bar), not a popup */}
+          <div className="pin-check" style={{ position: 'relative', display: 'flex', alignItems: 'center',
+            border: '1.5px solid #e5d5d5', borderRadius: 8, background: '#fff', overflow: 'hidden', height: 42 }}>
+            <span style={{ padding: '0 .1rem 0 .55rem', fontSize: '.95rem' }} aria-hidden="true">📍</span>
+            <input type="text" inputMode="numeric" maxLength={6} value={pin}
+              aria-label="Check delivery pincode"
+              onChange={e => { setPin(e.target.value.replace(/\D/g, '').slice(0, 6)); setPinResult(null); }}
+              onKeyDown={e => { if (e.key === 'Enter') checkPin(); }}
+              onFocus={() => setShowSuggest(false)}
+              placeholder="Pincode"
+              style={{ width: 92, border: 'none', outline: 'none', padding: '.5rem .4rem', fontSize: '.86rem', background: 'transparent' }} />
+            <button type="button" onClick={checkPin} disabled={pinChecking}
+              style={{ background: '#a7354d', color: '#fff', border: 'none', height: '100%', padding: '0 .8rem', fontWeight: 700, fontSize: '.82rem', cursor: 'pointer', opacity: pinChecking ? .6 : 1, whiteSpace: 'nowrap' }}>
+              {pinChecking ? '…' : 'Check'}
             </button>
-            {pinOpen && (
-              <div style={{ position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 200, width: 290,
-                background: '#fff', border: '1px solid #eee', borderRadius: 12, boxShadow: '0 8px 28px rgba(0,0,0,.16)', padding: '.9rem' }}>
-                <p style={{ margin: '0 0 .5rem', fontSize: '.82rem', fontWeight: 700, color: '#5c1a28' }}>🚚 Check delivery at your pincode</p>
-                <div style={{ display: 'flex', gap: '.4rem' }}>
-                  <input type="text" inputMode="numeric" maxLength={6} value={pin} autoFocus
-                    onChange={e => { setPin(e.target.value.replace(/\D/g, '').slice(0, 6)); setPinResult(null); }}
-                    onKeyDown={e => { if (e.key === 'Enter') checkPin(); }}
-                    placeholder="6-digit pincode"
-                    style={{ flex: 1, minWidth: 0, border: '1.5px solid #ddd', borderRadius: 8, padding: '.5rem .6rem', fontSize: '.88rem', boxSizing: 'border-box' }} />
-                  <button type="button" onClick={checkPin} disabled={pinChecking}
-                    style={{ background: '#a7354d', color: '#fff', border: 'none', borderRadius: 8, padding: '.5rem .8rem', fontWeight: 600, fontSize: '.82rem', cursor: 'pointer', opacity: pinChecking ? .6 : 1 }}>
-                    {pinChecking ? '…' : 'Check'}
-                  </button>
-                </div>
-                {pinResult && (
-                  <p style={{ margin: '.55rem 0 0', fontSize: '.82rem', fontWeight: 600, color: pinResult.ok ? '#2e7d32' : '#c0392b' }}>
-                    {pinResult.ok ? '✓ ' : '✗ '}{pinResult.text}
-                  </p>
-                )}
+            {pinResult && (
+              <div style={{ position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 90, width: 260,
+                background: '#fff', border: `1.5px solid ${pinResult.ok ? '#c8e6c9' : '#f5c6cb'}`, borderRadius: 10,
+                boxShadow: '0 8px 28px rgba(0,0,0,.16)', padding: '.7rem .85rem' }}>
+                <p style={{ margin: 0, fontSize: '.83rem', fontWeight: 600, color: pinResult.ok ? '#2e7d32' : '#c0392b' }}>
+                  {pinResult.ok ? '✓ ' : '✗ '}{pinResult.text}
+                </p>
+                <button type="button" onClick={() => setPinResult(null)}
+                  style={{ marginTop: '.4rem', background: 'none', border: 'none', color: '#999', fontSize: '.75rem', cursor: 'pointer', padding: 0 }}>
+                  Close
+                </button>
               </div>
             )}
           </div>
