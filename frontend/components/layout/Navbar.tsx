@@ -5,7 +5,7 @@ import type { FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { getCart, cartCount, finalUnitPrice } from '@/lib/cart';
 import { getCustomer, setCustomer as saveCustomer, setToken, logout } from '@/lib/auth';
-import { customersApi, settingsApi, productsApi } from '@/lib/api';
+import { customersApi, settingsApi, productsApi, ordersApi } from '@/lib/api';
 import { trackEvent } from '@/lib/analytics';
 import { productSlug } from '@/lib/productSlug';
 import { productImageSrc } from '@/lib/productImages';
@@ -40,6 +40,29 @@ export default function Navbar() {
   const [otpMsg, setOtpMsg] = useState('');
   const [cartBounce, setCartBounce] = useState(false);
   const [customerName, setCustomerName] = useState('');
+  // Pincode serviceability check (next to search bar)
+  const [pinOpen, setPinOpen] = useState(false);
+  const [pin, setPin] = useState('');
+  const [pinChecking, setPinChecking] = useState(false);
+  const [pinResult, setPinResult] = useState<{ ok: boolean; text: string } | null>(null);
+  const checkPin = async () => {
+    const p = pin.replace(/\D/g, '');
+    if (p.length !== 6) { setPinResult({ ok: false, text: 'Enter a valid 6-digit pincode.' }); return; }
+    setPinChecking(true); setPinResult(null);
+    try {
+      const r = await ordersApi.checkPincode(p);
+      if (r.known && !r.serviceable) {
+        setPinResult({ ok: false, text: 'Delivery not available at this pincode. WhatsApp us — we may still arrange it.' });
+      } else {
+        const d1 = new Date(); d1.setDate(d1.getDate() + r.etaMinDays);
+        const d2 = new Date(); d2.setDate(d2.getDate() + r.etaMaxDays);
+        const f = (d: Date) => d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+        setPinResult({ ok: true, text: `Delivery by ${f(d1)} – ${f(d2)}${r.cod ? ' · COD available' : ' · Prepaid only'}` });
+      }
+    } catch {
+      setPinResult({ ok: false, text: 'Could not check right now. Please try again.' });
+    } finally { setPinChecking(false); }
+  };
   const [showWaLogin, setShowWaLogin] = useState(true);
   const [enableGoogleLogin, setEnableGoogleLogin] = useState(false);
   const [googleClientId, setGoogleClientId] = useState('');
@@ -281,6 +304,39 @@ export default function Navbar() {
               </div>
             )}
           </form>
+
+          {/* Pincode serviceability check — next to search */}
+          <div style={{ position: 'relative' }}>
+            <button type="button" onClick={() => { setPinOpen(o => !o); setPinResult(null); }}
+              title="Check delivery to your pincode"
+              style={{ display: 'flex', alignItems: 'center', gap: '.35rem', whiteSpace: 'nowrap',
+                background: '#fff', border: '1.5px solid #e5d5d5', color: '#7a0a22', borderRadius: 8,
+                padding: '.5rem .8rem', fontSize: '.85rem', fontWeight: 700, cursor: 'pointer' }}>
+              📍 Check Pincode
+            </button>
+            {pinOpen && (
+              <div style={{ position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 70, width: 290,
+                background: '#fff', border: '1px solid #eee', borderRadius: 12, boxShadow: '0 8px 28px rgba(0,0,0,.16)', padding: '.9rem' }}>
+                <p style={{ margin: '0 0 .5rem', fontSize: '.82rem', fontWeight: 700, color: '#5c1a28' }}>🚚 Check delivery at your pincode</p>
+                <div style={{ display: 'flex', gap: '.4rem' }}>
+                  <input type="text" inputMode="numeric" maxLength={6} value={pin} autoFocus
+                    onChange={e => { setPin(e.target.value.replace(/\D/g, '').slice(0, 6)); setPinResult(null); }}
+                    onKeyDown={e => { if (e.key === 'Enter') checkPin(); }}
+                    placeholder="6-digit pincode"
+                    style={{ flex: 1, minWidth: 0, border: '1.5px solid #ddd', borderRadius: 8, padding: '.5rem .6rem', fontSize: '.88rem', boxSizing: 'border-box' }} />
+                  <button type="button" onClick={checkPin} disabled={pinChecking}
+                    style={{ background: '#a7354d', color: '#fff', border: 'none', borderRadius: 8, padding: '.5rem .8rem', fontWeight: 600, fontSize: '.82rem', cursor: 'pointer', opacity: pinChecking ? .6 : 1 }}>
+                    {pinChecking ? '…' : 'Check'}
+                  </button>
+                </div>
+                {pinResult && (
+                  <p style={{ margin: '.55rem 0 0', fontSize: '.82rem', fontWeight: 600, color: pinResult.ok ? '#2e7d32' : '#c0392b' }}>
+                    {pinResult.ok ? '✓ ' : '✗ '}{pinResult.text}
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
 
           <div className="brand-actions">
             <Link className="cart-link" href="/cart" style={{ position: 'relative' }}>

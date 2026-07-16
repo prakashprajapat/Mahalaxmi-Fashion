@@ -5,7 +5,8 @@ import Link from 'next/link';
 import { productsApi } from '@/lib/api';
 import { getAdminToken } from '@/lib/auth';
 import { getTaxonomy } from '@/lib/womenTaxonomy';
-import { runProductQC } from '@/lib/productQC';
+import { runProductQC, type QcIssue } from '@/lib/productQC';
+import QcPanel from '@/components/admin/QcPanel';
 import TaxonomyCombo from '@/components/admin/TaxonomyCombo';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -470,6 +471,8 @@ export default function AddProductPage() {
   const [availColours, setAvailColours] = useState('');
   const [desc, setDesc]         = useState('');
   const [saving, setSaving]     = useState(false);
+  const [qcIssues, setQcIssues] = useState<QcIssue[]>([]);
+  const [qcOpen, setQcOpen]     = useState(false);
 
   // Subcategory autocomplete
   const [allSubcats, setAllSubcats] = useState<{ cat: string; sub: string }[]>([]);
@@ -562,8 +565,9 @@ export default function AddProductPage() {
   const updateCol = (idx: number, field: keyof PackColumn, val: string) =>
     setPackCols(prev => prev.map((c, i) => i === idx ? { ...c, [field]: val } : c));
 
-  // ── Save ──
-  const handleSave = async () => {
+  // ── Save (with automatic QC gate) ──
+  // force=true means the admin chose "Upload anyway" on a warnings-only result.
+  const handleSave = async (force = false) => {
     setSaving(true);
     try {
       const packValue = getPackOfNumber(packOf);
@@ -571,7 +575,7 @@ export default function AddProductPage() {
       const filledPackCols = normalizedPackCols.filter(hasPackPhoto);
       const galleryImages = [mainPhotos.front, mainPhotos.side, mainPhotos.back, mainPhotos.zoomed].filter(Boolean);
 
-      // ── QC GATE: sirf saaf catalogue hi upload ho ──
+      // ── QC GATE: Duplicate Name / Duplicate Photo / Description / SEO checks ──
       const allPhotos = [
         ...galleryImages,
         ...filledPackCols.flatMap(c => [c.front, c.side, c.back, c.zoomed].filter(Boolean)),
@@ -588,15 +592,15 @@ export default function AddProductPage() {
       );
       const fails = qc.filter(i => i.level === 'fail');
       const warns = qc.filter(i => i.level === 'warn');
-      if (fails.length > 0) {
+      // Any fail, or warnings-not-yet-acknowledged → show the inline QC panel and stop.
+      if (fails.length > 0 || (warns.length > 0 && !force)) {
+        setQcIssues(qc);
+        setQcOpen(true);
         setSaving(false);
-        alert('❌ Catalogue QC failed — fix these before uploading:\n\n• ' + fails.map(f => f.message).join('\n• '));
+        window.scrollTo({ top: 0, behavior: 'smooth' });
         return;
       }
-      if (warns.length > 0) {
-        const proceed = window.confirm('⚠️ QC warnings:\n\n• ' + warns.map(w => w.message).join('\n• ') + '\n\nUpload anyway?');
-        if (!proceed) { setSaving(false); return; }
-      }
+      setQcOpen(false);
       const stockMatrix = Object.fromEntries(stockKeys.map(key => [key, Number(variantStock[key]) || 0]));
       const saveQty = stockKeys.length > 0
         ? stockKeys.reduce((sum, key) => sum + (Number(variantStock[key]) || 0), 0)
@@ -697,6 +701,17 @@ export default function AddProductPage() {
 
   return (
     <div>
+      {/* ── Automatic QC checklist (Duplicate Name/Photo, Description, SEO) ── */}
+      {qcOpen && (
+        <QcPanel
+          issues={qcIssues}
+          checking={saving}
+          onRecheck={() => handleSave(false)}
+          onForceUpload={() => handleSave(true)}
+          onClose={() => setQcOpen(false)}
+        />
+      )}
+
       {/* ── Page Header ── */}
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'1.5rem', flexWrap:'wrap', gap:'1rem' }}>
         <div>
@@ -1147,7 +1162,7 @@ export default function AddProductPage() {
 
         {/* ── Action Buttons ── */}
         <div style={{ display:'flex', gap:'.75rem', marginTop:'1.5rem' }}>
-          <button onClick={handleSave} disabled={saving}
+          <button onClick={() => handleSave()} disabled={saving}
             style={{ background:'#a7354d', color:'#fff', border:'none', borderRadius:'8px', padding:'.7rem 2rem', fontSize:'.95rem', fontWeight:700, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? .7 : 1 }}>
             {saving ? 'Adding…' : 'Add Product'}
           </button>

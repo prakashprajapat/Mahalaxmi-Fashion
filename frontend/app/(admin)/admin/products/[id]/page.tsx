@@ -3,7 +3,8 @@ import { useState, useRef, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { productsApi } from '@/lib/api';
-import { runProductQC } from '@/lib/productQC';
+import { runProductQC, type QcIssue } from '@/lib/productQC';
+import QcPanel from '@/components/admin/QcPanel';
 import { getAdminToken } from '@/lib/auth';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -416,6 +417,8 @@ export default function EditProductPage() {
   const [availColours, setAvailColours] = useState('');
   const [desc, setDesc]           = useState('');
   const [saving, setSaving]       = useState(false);
+  const [qcIssues, setQcIssues]   = useState<QcIssue[]>([]);
+  const [qcOpen, setQcOpen]       = useState(false);
 
   // Sizes / colours
   const [selSizes, setSelSizes]         = useState<string[]>([]);
@@ -578,7 +581,7 @@ export default function EditProductPage() {
     setPackCols(prev => prev.map((c, i) => i === idx ? { ...c, [field]: val } : c));
 
   // ── Save ──
-  const handleSave = async () => {
+  const handleSave = async (force = false) => {
     setSaving(true);
     try {
       const packValue     = getPackOfNumber(packOf);
@@ -605,15 +608,14 @@ export default function EditProductPage() {
       );
       const fails = qc.filter(i => i.level === 'fail');
       const warns = qc.filter(i => i.level === 'warn');
-      if (fails.length > 0) {
+      if (fails.length > 0 || (warns.length > 0 && !force)) {
+        setQcIssues(qc);
+        setQcOpen(true);
         setSaving(false);
-        alert('❌ Catalogue QC failed — fix these before saving:\n\n• ' + fails.map(f => f.message).join('\n• '));
+        window.scrollTo({ top: 0, behavior: 'smooth' });
         return;
       }
-      if (warns.length > 0) {
-        const proceed = window.confirm('⚠️ QC warnings:\n\n• ' + warns.map(w => w.message).join('\n• ') + '\n\nSave anyway?');
-        if (!proceed) { setSaving(false); return; }
-      }
+      setQcOpen(false);
       const stockMatrix    = Object.fromEntries(stockKeys.map(key => [key, Number(variantStock[key]) || 0]));
       const saveQty        = stockKeys.length > 0 ? stockTotal : (Number(totalQty) || 0);
       const packImages     = filledPackCols.map(col => ({
@@ -707,6 +709,17 @@ export default function EditProductPage() {
 
   return (
     <div>
+      {/* ── Automatic QC checklist (Duplicate Name/Photo, Description, SEO) ── */}
+      {qcOpen && (
+        <QcPanel
+          issues={qcIssues}
+          checking={saving}
+          onRecheck={() => handleSave(false)}
+          onForceUpload={() => handleSave(true)}
+          onClose={() => setQcOpen(false)}
+        />
+      )}
+
       {/* ── Page Header ── */}
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'1.5rem', flexWrap:'wrap', gap:'1rem' }}>
         <div>
@@ -1127,7 +1140,7 @@ export default function EditProductPage() {
 
         {/* ── Action Buttons ── */}
         <div style={{ display:'flex', gap:'.75rem', marginTop:'1.5rem' }}>
-          <button onClick={handleSave} disabled={saving}
+          <button onClick={() => handleSave()} disabled={saving}
             style={{ background:'#a7354d', color:'#fff', border:'none', borderRadius:'8px', padding:'.7rem 2rem', fontSize:'.95rem', fontWeight:700, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? .7 : 1 }}>
             {saving ? 'Saving…' : '✅ Update Product'}
           </button>
