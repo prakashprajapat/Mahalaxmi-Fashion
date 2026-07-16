@@ -334,6 +334,15 @@ export default function Navbar() {
             )}
           </div>
 
+          {/* Pincode box: inline on desktop, full-width row (between logo/cart & content) on mobile */}
+          <style>{`
+            @media (max-width: 768px) {
+              .brand-row { flex-wrap: wrap; }
+              .pin-check { order: 6; flex: 1 0 100%; margin-top: .55rem; height: 42px; }
+              .pin-check input { flex: 1; width: auto !important; }
+            }
+          `}</style>
+
           <div className="brand-actions">
             <Link className="cart-link" href="/cart" style={{ position: 'relative' }}>
               Cart{' '}
