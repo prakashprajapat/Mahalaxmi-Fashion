@@ -93,7 +93,7 @@ export default function Footer() {
           <Link href="/kids">Kids</Link>
           <Link href="/beauty">Beauty</Link>
           <Link href="/fabrics">Fabrics</Link>
-          <Link href="/more">More</Link>
+          <Link href="/more">More Collections</Link>
         </nav>
 
         <nav className="site-footer-col">

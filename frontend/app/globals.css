@@ -621,11 +621,11 @@ button { cursor: pointer; font-family: inherit; }
 .product-card-placeholder { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 4rem; color: #ddd; }
 .product-card-top-left { position: absolute; top: 8px; left: 8px; display: flex; flex-direction: column; gap: 4px; }
 .product-badge-new { background: #a7354d; color: #fff; font-size: .7rem; font-weight: 700; padding: .2rem .55rem; border-radius: 4px; }
-.product-badge-sale { background: #e53935; color: #fff; font-size: .7rem; font-weight: 700; padding: .2rem .55rem; border-radius: 4px; }
+.product-badge-sale { background: #c62828; color: #fff; font-size: .7rem; font-weight: 700; padding: .2rem .55rem; border-radius: 4px; }
 .product-wishlist-btn { position: absolute; top: 8px; right: 8px; background: #fff; border: none; border-radius: 50%; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,.15); font-size: 1rem; transition: transform .2s; }
 .product-wishlist-btn:hover { transform: scale(1.15); }
 .product-card-body { padding: .85rem; display: flex; flex-direction: column; gap: .35rem; flex: 1; }
-.product-card-cat { font-size: .7rem; color: #aaa; text-transform: uppercase; letter-spacing: .06em; margin: 0; }
+.product-card-cat { font-size: .7rem; color: #767676; text-transform: uppercase; letter-spacing: .06em; margin: 0; }
 .product-stock-badge { display: inline-block; font-size: .72rem; font-weight: 700; padding: .18rem .55rem; border-radius: 20px; width: fit-content; }
 .product-stock-badge.in-stock { background: #e8f5e9; color: #2e7d32; }
 .product-stock-badge.limited-stock { background: #fff3e0; color: #e65100; }
@@ -637,7 +637,7 @@ button { cursor: pointer; font-family: inherit; }
 .product-rating .rating-val { font-size: .78rem; color: #888; font-weight: 600; }
 .product-price-row { display: flex; align-items: baseline; gap: .5rem; flex-wrap: wrap; }
 .product-price-row .price, .price { color: var(--brand); font-weight: 800; }
-.product-price-row .price-orig, .price-orig { color: #777; text-decoration: line-through; text-decoration-thickness: 1.5px; }
+.product-price-row .price-orig, .price-orig { color: #6b6b6b; text-decoration: line-through; text-decoration-thickness: 1.5px; }
 .btn-add-cart { background: #1b5e20; color: #fff; border: none; border-radius: 8px; padding: .6rem; font-size: .88rem; font-weight: 700; cursor: pointer; width: 100%; transition: background .2s; margin-top: .2rem; }
 .btn-add-cart:hover { background: #2e7d32; }
 .btn-details { display: block; text-align: center; border: 1.5px solid #ddd; border-radius: 8px; padding: .55rem; font-size: .82rem; font-weight: 600; color: #444; text-decoration: none; transition: all .2s; }

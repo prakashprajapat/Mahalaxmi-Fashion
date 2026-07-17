@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next';
+import { Playfair_Display } from 'next/font/google';
 import Script from 'next/script';
 import { settingsApi } from '@/lib/api';
 import './globals.css';
@@ -6,6 +7,8 @@ import './globals.css';
 export const viewport: Viewport = {
   themeColor: '#a7354d',
 };
+
+const playfair = Playfair_Display({ subsets: ['latin'], weight: ['600', '700', '800'], display: 'swap', variable: '--font-playfair' });
 
 const SITE_URL = 'https://www.mahalaxmifashionhub.com';
 const GA4_ID   = process.env.NEXT_PUBLIC_GA4_ID ?? 'G-SFMFYD4NE6';
@@ -88,17 +91,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const fbPixelId = s.facebookPixelId?.trim();
 
   return (
-    <html lang="en">
+    <html lang="en" className={playfair.variable}>
       <head>
         {/* Preconnect to external image/asset hosts for faster product images */}
         <link rel="preconnect" href="https://res.cloudinary.com" />
         <link rel="dns-prefetch" href="https://res.cloudinary.com" />
         <link rel="dns-prefetch" href="https://www.googletagmanager.com" />
-
-        {/* Hero heading font (elegant serif, close to the Mahalaxmi wordmark) — runtime load, no build dependency */}
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&display=swap" rel="stylesheet" />
 
         {/* Google Analytics 4 — loaded lazily (after page is interactive/idle). */}
         {GA4_ID && (

@@ -73,6 +73,7 @@ function FilterContent({
       {subcategories.length > 0 && (
         <FilterSection title="Subcategory">
           <select
+            aria-label="Filter by subcategory"
             value={normalizeSub(selectedSubcat)}
             onChange={e => {
               const chosen = subcategories.find(({ key }: any) => key === e.target.value);
@@ -107,6 +108,7 @@ function FilterContent({
       {allVariants.length > 0 && (
         <FilterSection title="Variant">
           <select
+            aria-label="Filter by variant"
             value={selectedVariant}
             onChange={e => setSelectedVariant(e.target.value)}
             style={{
@@ -378,8 +380,8 @@ export default function ProductsClient({ products, title, initialQ = '' }: Props
 
             {/* Desktop sort dropdown */}
             <div className="pf-sort-desktop" style={{ alignItems: 'center', gap: '.5rem' }}>
-              <span style={{ fontSize: '.82rem', color: '#888', whiteSpace: 'nowrap' }}>Sort by:</span>
-              <select value={sort} onChange={e => setSort(e.target.value)}
+              <span style={{ fontSize: '.82rem', color: '#616161', whiteSpace: 'nowrap' }}>Sort by:</span>
+              <select value={sort} aria-label="Sort products" onChange={e => setSort(e.target.value)}
                 style={{ border: '1.5px solid #ddd', borderRadius: 8, padding: '.35rem .75rem', fontSize: '.85rem', cursor: 'pointer', color: '#333', background: '#fff' }}>
                 {sortOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>

@@ -33,6 +33,14 @@ const nextConfig = {
   async headers() {
     return [
       {
+        // Static images: cache 7 days at the browser/CDN edge, then revalidate in
+        // the background. Product photos rarely change under the same filename.
+        source: '/:all*(svg|jpg|jpeg|png|webp|avif|gif|ico)',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=604800, stale-while-revalidate=86400' },
+        ],
+      },
+      {
         source: '/:path*',
         headers: [
           { key: 'X-Frame-Options', value: 'DENY' },

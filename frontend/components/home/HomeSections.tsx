@@ -33,8 +33,8 @@ export function BestSellersSection({ products }: { products: Product[] }) {
           <h2 className="section-heading" style={{ margin: 0 }}>Best Sellers</h2>
           <div style={{ display: 'flex', alignItems: 'center', gap: '.75rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '.4rem' }}>
-              <span style={{ fontSize: '.8rem', color: '#888' }}>Sort:</span>
-              <select value={sort} onChange={e => setSort(e.target.value)}
+              <span style={{ fontSize: '.8rem', color: '#616161' }}>Sort:</span>
+              <select value={sort} aria-label="Sort products" onChange={e => setSort(e.target.value)}
                 style={{ border: '1.5px solid #ddd', borderRadius: '8px', padding: '.28rem .65rem', fontSize: '.82rem', cursor: 'pointer', background: '#fff' }}>
                 <option value="default">Default</option>
                 <option value="price-low">Price ↑</option>

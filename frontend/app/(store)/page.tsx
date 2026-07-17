@@ -4,7 +4,7 @@ import { productsApi, settingsApi } from '@/lib/api';
 
 // Elegant serif for the hero — close to the "Mahalaxmi" wordmark in the logo.
 // Loaded via <link> in layout.tsx (runtime), so it never blocks the build.
-const HERO_FONT = "'Playfair Display', Georgia, serif";
+const HERO_FONT = "var(--font-playfair), Georgia, serif";
 import { BestSellersSection, NewArrivalsSection } from '@/components/home/HomeSections';
 import OfferBanner from '@/components/home/OfferBanner';
 import TrustStrip from '@/components/home/TrustStrip';

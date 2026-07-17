@@ -259,7 +259,7 @@ public class ProductsController : ControllerBase
         if (p is null) return NotFound(new { success = false, message = "Product not found." });
 
         var status = (req.Stock ?? "").Trim();
-        var allowed = new[] { "In Stock", "Out of Stock", "Limited Stock" };
+        var allowed = new[] { "In Stock", "Out of Stock", "Limited Stock", "Inactive" };
         if (!allowed.Contains(status))
             return BadRequest(new { success = false, message = "Invalid stock status." });
 

@@ -407,7 +407,7 @@ export default function AdminProductsPage() {
   const handleInactive = async (id: number, sku: string) => {
     if (!confirm(`Mark product SKU ${sku} as Inactive?\nThis product will be removed from the website but not deleted.`)) return;
     const token = getAdminToken() ?? '';
-    await productsApi.update(id, { stock: 'Inactive' }, token).catch(e => alert(e.message));
+    await productsApi.updateStock(id, 'Inactive', token).catch(e => alert(e.message));
     await fetchProducts();
   };
 
@@ -704,7 +704,7 @@ export default function AdminProductsPage() {
                       {isInactive ? (
                         <button onClick={async () => {
                           if (!confirm(`Set ${p.sku ?? p.name} back to Active?`)) return;
-                          await productsApi.update(p.dbId, { stock: 'In Stock' }, getAdminToken() ?? '').catch(e => alert(e.message));
+                          await productsApi.updateStock(p.dbId, 'In Stock', getAdminToken() ?? '').catch(e => alert(e.message));
                           await fetchProducts();
                         }} style={{ color: '#2e7d32', background: 'none', border: 'none', cursor: 'pointer', fontSize: '.82rem', fontWeight: 600 }}>Activate</button>
                       ) : (

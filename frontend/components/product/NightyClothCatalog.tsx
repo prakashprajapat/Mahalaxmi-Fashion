@@ -84,7 +84,7 @@ export default function NightyClothCatalog({ products }: { products: Product[] }
             <div style={{ display: 'flex', alignItems: 'center', gap: '.5rem', flexWrap: 'wrap' }}>
               <span style={{ fontWeight: 700, fontSize: '1rem', color: '#333' }}>{sorted.length} products</span>
               {subcategories.length > 0 && (
-                <select value={subcatFilter} onChange={e => setSubcatFilter(e.target.value)}
+                <select value={subcatFilter} aria-label="Filter by subcategory" onChange={e => setSubcatFilter(e.target.value)}
                   style={{ border: '1.5px solid #ddd', borderRadius: '8px', padding: '.35rem .75rem', fontSize: '.85rem' }}>
                   <option value="">All Subcategories</option>
                   {subcategories.map(s => <option key={s}>{s}</option>)}
@@ -92,8 +92,8 @@ export default function NightyClothCatalog({ products }: { products: Product[] }
               )}
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '.5rem' }}>
-              <span style={{ fontSize: '.82rem', color: '#888' }}>Sort:</span>
-              <select value={sort} onChange={e => setSort(e.target.value)}
+              <span style={{ fontSize: '.82rem', color: '#616161' }}>Sort:</span>
+              <select value={sort} aria-label="Sort products" onChange={e => setSort(e.target.value)}
                 style={{ border: '1.5px solid #ddd', borderRadius: '8px', padding: '.35rem .75rem', fontSize: '.85rem' }}>
                 <option value="position">Default</option>
                 <option value="price-low">Price: Low → High</option>

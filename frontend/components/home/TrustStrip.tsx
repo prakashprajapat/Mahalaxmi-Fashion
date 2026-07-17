@@ -19,7 +19,7 @@ export default function TrustStrip() {
             <span style={{ fontSize: '1.5rem', lineHeight: 1 }} aria-hidden="true">{it.icon}</span>
             <span>
               <span style={{ display: 'block', fontWeight: 700, fontSize: '.86rem', color: '#5c1a28' }}>{it.title}</span>
-              <span style={{ display: 'block', fontSize: '.74rem', color: '#888' }}>{it.sub}</span>
+              <span style={{ display: 'block', fontSize: '.74rem', color: '#616161' }}>{it.sub}</span>
             </span>
           </div>
         ))}

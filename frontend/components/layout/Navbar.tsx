@@ -401,7 +401,7 @@ export default function Navbar() {
           { href: '/kids', img: '/nav-icons/kids.webp', emoji: '👶', label: 'Kids' },
           { href: '/beauty', img: '/nav-icons/beauty.webp', emoji: '💄', label: 'Beauty' },
           { href: '/fabrics', img: '/nav-icons/fabrics.webp', emoji: '🧵', label: 'Fabrics' },
-          { href: '/more', img: '/nav-icons/more.webp', emoji: '🛍️', label: 'More' },
+          { href: '/more', img: '/nav-icons/more.webp', emoji: '🛍️', label: 'More Styles' },
         ].map(item => (
           <Link key={item.href} href={item.href} style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", minWidth: 60 }}>
             <span>{item.label}</span>
