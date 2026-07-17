@@ -3,6 +3,8 @@
 // hoga — sirf saaf catalogue hi live jayega. Warnings block nahi karti (sirf
 // aagah karti hain).
 
+import { hashDataUrl, hashUrl, hammingDistance, DUP_THRESHOLD } from './imageHash';
+
 export interface QcInput {
   name: string;
   description: string;
@@ -25,16 +27,20 @@ export interface ExistingProduct {
   extraJson?: string;
 }
 
-// Photo ka "signature" — base64 data URL me content ka pehla+aakhri hissa
-// (poora string bahut lamba hota hai). Server URL ho to file ka basename.
-function photoSig(src: string): string {
-  const s = (src || '').trim();
-  if (!s) return '';
-  if (s.startsWith('data:')) {
-    const body = s.slice(s.indexOf(',') + 1);
-    return body.length > 120 ? body.slice(0, 60) + body.slice(-60) : body;
-  }
-  return s.split('/').pop()!.split('?')[0].toLowerCase();
+// Ek existing product ke SAARE image URLs/dataURLs nikaalo (main image +
+// extraJson me gallery/pack photos) — deep duplicate check ke liye.
+function existingImages(e: ExistingProduct): string[] {
+  const out: string[] = [];
+  if (e.image) out.push(e.image);
+  try {
+    const ex = e.extraJson ? JSON.parse(e.extraJson) : null;
+    (ex?.images ?? []).forEach((im: string) => { if (im) out.push(im); });
+    if (ex?.productPhotos && typeof ex.productPhotos === 'object')
+      Object.values(ex.productPhotos).forEach((im: unknown) => { if (typeof im === 'string' && im) out.push(im); });
+    (ex?.packImages ?? []).forEach((pk: Record<string, string>) =>
+      ['front', 'side', 'back', 'zoomed'].forEach(k => { if (pk?.[k]) out.push(pk[k]); }));
+  } catch { /* malformed extraJson — ignore */ }
+  return out;
 }
 
 export function runProductQC(input: QcInput, existing: ExistingProduct[] = []): QcIssue[] {
@@ -61,27 +67,57 @@ export function runProductQC(input: QcInput, existing: ExistingProduct[] = []): 
   // 5. At least one photo
   if (photos.length === 0) issues.push({ level: 'fail', message: 'At least one product photo is required.' });
 
-  // 6. Duplicate photos WITHIN this product
-  const sigs = photos.map(photoSig);
-  const seen = new Set<string>();
-  let internalDup = false;
-  for (const sig of sigs) {
-    if (sig && seen.has(sig)) internalDup = true;
-    seen.add(sig);
-  }
-  if (internalDup) issues.push({ level: 'fail', message: 'Duplicate photos — the same image is used more than once in this product. Remove the repeats.' });
+  // NOTE: Duplicate-photo detection ab yahan filename se NAHI hoti — vo unreliable
+  // thi (har upload pe naya AVIF filename banta hai). Asli PIXEL-level deep check
+  // deepImageDuplicateCheck() me hai (neeche), jise handleSave await karta hai.
 
-  // 7. Photo already used by ANOTHER product (reused catalogue image)
-  const existingSigs = new Set<string>();
-  for (const e of existing) {
-    if (e.image) existingSigs.add(photoSig(e.image));
-    try {
-      const ex = e.extraJson ? JSON.parse(e.extraJson) : null;
-      (ex?.images ?? []).forEach((im: string) => existingSigs.add(photoSig(im)));
-    } catch { /* ignore malformed */ }
+  return issues;
+}
+
+// ── Deep image duplicate check (PIXEL-level, async) ──────────────────────────
+// Har photo ka perceptual hash (aHash) nikaalta hai aur:
+//   (a) is product ki apni photos aapas me same to nahi,
+//   (b) kisi bhi PEHLE se uploaded product ki photo se same to nahi —
+// filename badalne / dobara-encode hone par bhi duplicate pakda jaata hai.
+export async function deepImageDuplicateCheck(
+  candidatePhotos: string[],
+  existing: ExistingProduct[] = [],
+): Promise<QcIssue[]> {
+  const issues: QcIssue[] = [];
+  const photos = (candidatePhotos || []).map(p => (p || '').trim()).filter(Boolean);
+  if (photos.length === 0) return issues;
+
+  const hashOf = (src: string) => (src.startsWith('data:') ? hashDataUrl(src) : hashUrl(src));
+
+  // Candidate photos ke hashes.
+  const candHashes: string[] = [];
+  for (const p of photos) {
+    const h = await hashOf(p);
+    if (h) candHashes.push(h);
   }
-  const reused = sigs.find(s => s && existingSigs.has(s));
-  if (reused) issues.push({ level: 'warn', message: 'A photo here looks identical to one already used on another product. Make sure this is intentional.' });
+
+  // (a) Within-product duplicates.
+  let internalDup = false;
+  for (let i = 0; i < candHashes.length && !internalDup; i++)
+    for (let j = i + 1; j < candHashes.length; j++)
+      if (hammingDistance(candHashes[i], candHashes[j]) <= DUP_THRESHOLD) { internalDup = true; break; }
+  if (internalDup)
+    issues.push({ level: 'fail', message: 'Duplicate photo — is product me ek hi image do baar lagi hai. Repeat hata do.' });
+
+  // (b) Kisi aur product ki photo se match.
+  let matchedName = '';
+  outer:
+  for (const e of existing) {
+    for (const url of existingImages(e)) {
+      const eh = await hashOf(url);
+      if (!eh) continue;
+      for (const ch of candHashes) {
+        if (hammingDistance(ch, eh) <= DUP_THRESHOLD) { matchedName = e.name || 'another product'; break outer; }
+      }
+    }
+  }
+  if (matchedName)
+    issues.push({ level: 'fail', message: `Duplicate photo — ye image pehle se "${matchedName}" product par lagi hai. Har product ki unique photo honi chahiye.` });
 
   return issues;
 }

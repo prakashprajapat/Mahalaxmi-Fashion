@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { productsApi } from '@/lib/api';
 import { getAdminToken } from '@/lib/auth';
 import { getTaxonomy } from '@/lib/womenTaxonomy';
-import { runProductQC, type QcIssue } from '@/lib/productQC';
+import { runProductQC, deepImageDuplicateCheck, type QcIssue } from '@/lib/productQC';
 import QcPanel from '@/components/admin/QcPanel';
 import TaxonomyCombo from '@/components/admin/TaxonomyCombo';
 
@@ -590,6 +590,11 @@ export default function AddProductPage() {
         { name, description: desc, price: Number(price) || 0, sku, photos: allPhotos, category },
         existingProducts
       );
+      // DEEP pixel-level duplicate-image check (filename badalne par bhi pakadta hai).
+      try {
+        const imgIssues = await deepImageDuplicateCheck(allPhotos, existingProducts);
+        qc.push(...imgIssues);
+      } catch { /* image load fail — baaki QC chalta rahe */ }
       const fails = qc.filter(i => i.level === 'fail');
       const warns = qc.filter(i => i.level === 'warn');
       // Any fail, or warnings-not-yet-acknowledged → show the inline QC panel and stop.
