@@ -150,6 +150,11 @@ export const ordersApi = {
 
 // ── Customers ────────────────────────────────────────────────────────────────
 export const customersApi = {
+  // Bulk-campaign phone export (admin) — de-duplicated 10-digit mobiles.
+  phones: (optedInOnly: boolean, token: string) =>
+    request<{ success: boolean; phones: string[]; count: number; totalCustomers: number; optedIn: number }>(
+      `/customers/phones?optedInOnly=${optedInOnly}`, undefined, token
+    ),
   // token is passed when an ADMIN creates a customer from the panel (bypasses OTP).
   register: (data: unknown, token?: string) =>
     request<{ success: boolean; token: string; customer: import('@/types').Customer }>(

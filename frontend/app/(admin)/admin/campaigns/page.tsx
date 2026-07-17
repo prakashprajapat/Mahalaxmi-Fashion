@@ -2,7 +2,6 @@
 import { useState } from 'react';
 import { customersApi } from '@/lib/api';
 import { getAdminToken } from '@/lib/auth';
-import type { Customer } from '@/types';
 
 const MSG91_CAMPAIGNS_URL = 'https://control.msg91.com/app/m/l/campaigns/flow?module=campaigns';
 
@@ -11,49 +10,26 @@ export default function BulkCampaignsPage() {
   const [msg, setMsg] = useState('');
   const [onlyConsent, setOnlyConsent] = useState(false);
 
-  // Pull every customer (paginated) and export phone numbers as a CSV that can be
-  // uploaded to MSG91 as the campaign contact list.
+  // Export the customer mobile numbers as a CSV to upload to MSG91.
   const exportContacts = async () => {
     const token = getAdminToken();
     if (!token) { setMsg('❌ Admin login required.'); return; }
     setDownloading(true); setMsg('');
     try {
-      const all: Customer[] = [];
-      // First page tells us the total; then loop the rest.
-      const first = await customersApi.getAll(token, { page: 1 });
-      all.push(...(first.customers ?? []));
-      const total = first.total ?? all.length;
-      const perPage = (first.customers?.length || 50);
-      const pages = Math.ceil(total / Math.max(1, perPage));
-      for (let p = 2; p <= pages; p++) {
-        const r = await customersApi.getAll(token, { page: p });
-        all.push(...(r.customers ?? []));
-      }
+      const res = await customersApi.phones(onlyConsent, token);
+      const phones = res.phones ?? [];
+      if (phones.length === 0) { setMsg('No valid mobile numbers found.'); setDownloading(false); return; }
 
-      // Normalise to unique 10-digit mobiles (MSG91 wants 91XXXXXXXXXX).
-      const seen = new Set<string>();
-      const rows: string[][] = [];
-      for (const c of all) {
-        if (onlyConsent && c.marketingConsent === false) continue;
-        let digits = (c.phone || '').replace(/\D/g, '');
-        if (digits.length > 10) digits = digits.slice(-10);
-        if (digits.length !== 10 || seen.has(digits)) continue;
-        seen.add(digits);
-        const name = `${c.firstName ?? ''}`.trim();
-        rows.push([`91${digits}`, name]);
-      }
-
-      if (rows.length === 0) { setMsg('No valid mobile numbers found.'); setDownloading(false); return; }
-
-      const csv = ['mobile,name', ...rows.map(r => r.map(v => `"${(v || '').replace(/"/g, '""')}"`).join(','))].join('\n');
+      // MSG91 wants numbers with the 91 country code.
+      const csv = 'mobile\n' + phones.map(p => `91${p}`).join('\n');
       const blob = new Blob([csv], { type: 'text/csv' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `mfh-contacts-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.download = `mfh-contacts-${onlyConsent ? 'optedin' : 'all'}-${new Date().toISOString().slice(0, 10)}.csv`;
       a.click();
       URL.revokeObjectURL(url);
-      setMsg(`✅ Exported ${rows.length} unique mobile number${rows.length > 1 ? 's' : ''}. Upload this CSV in MSG91 as your campaign contact list.`);
+      setMsg(`✅ Exported ${phones.length} unique mobile number${phones.length > 1 ? 's' : ''} (of ${res.totalCustomers} customers). Upload this CSV in MSG91 as your campaign contact list.`);
     } catch (e) {
       setMsg('❌ Export failed: ' + (e as Error).message);
     } finally { setDownloading(false); }

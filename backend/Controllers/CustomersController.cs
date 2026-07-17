@@ -93,6 +93,37 @@ public class CustomersController : ControllerBase
         return Ok(new { success = true, customers, total });
     }
 
+    // GET /api/customers/phones?optedInOnly=true  (Admin only)
+    // Returns just the 10-digit mobile numbers for a bulk SMS/WhatsApp campaign,
+    // de-duplicated. Used by the admin "Bulk Campaigns" page to export a list that
+    // is then uploaded to the MSG91 bulk panel.
+    [HttpGet("phones")]
+    [Authorize(Policy = "AdminOnly")]
+    public async Task<IActionResult> GetPhones([FromQuery] bool optedInOnly = false)
+    {
+        var query = _db.Customers.AsQueryable();
+        if (optedInOnly)
+            query = query.Where(c => c.MarketingConsent);
+
+        var raw = await query
+            .Where(c => c.Phone != null && c.Phone != "")
+            .Select(c => c.Phone!)
+            .ToListAsync();
+
+        // Normalise to last-10-digit, drop invalid, de-duplicate.
+        var phones = raw
+            .Select(p => new string(p.Where(char.IsDigit).ToArray()))
+            .Select(d => d.Length > 10 ? d[^10..] : d)
+            .Where(d => d.Length == 10)
+            .Distinct()
+            .ToList();
+
+        var totalCustomers = await _db.Customers.CountAsync();
+        var optedIn = await _db.Customers.CountAsync(c => c.MarketingConsent);
+
+        return Ok(new { success = true, phones, count = phones.Count, totalCustomers, optedIn });
+    }
+
     // GET /api/customers/celebrations?days=15
     [HttpGet("celebrations")]
     [Authorize(Policy = "AdminOnly")]
