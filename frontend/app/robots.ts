@@ -24,6 +24,6 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
     rules: [
       { userAgent: '*', allow: '/', disallow },
     ],
-    sitemap: 'https://mahalaxmifashionhub.com/sitemap.xml',
+    sitemap: 'https://www.mahalaxmifashionhub.com/sitemap.xml',
   };
 }

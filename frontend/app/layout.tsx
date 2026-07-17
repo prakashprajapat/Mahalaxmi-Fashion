@@ -7,7 +7,7 @@ export const viewport: Viewport = {
   themeColor: '#a7354d',
 };
 
-const SITE_URL = 'https://mahalaxmifashionhub.com';
+const SITE_URL = 'https://www.mahalaxmifashionhub.com';
 const GA4_ID   = process.env.NEXT_PUBLIC_GA4_ID ?? 'G-SFMFYD4NE6';
 
 async function getSeoSettings(): Promise<Record<string, string>> {

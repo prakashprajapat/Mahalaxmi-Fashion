@@ -4,7 +4,7 @@ import { POSTS } from '@/lib/blog';
 import { productSlug } from '@/lib/productSlug';
 import { COLLECTION_SLUGS } from '@/lib/collections';
 
-const BASE = 'https://mahalaxmifashionhub.com';
+const BASE = 'https://www.mahalaxmifashionhub.com';
 
 // Regenerate the sitemap periodically so newly-added products appear automatically.
 export const revalidate = 3600; // 1 hour

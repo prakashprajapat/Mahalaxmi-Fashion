@@ -94,8 +94,8 @@ const nextConfig = {
     return [
       {
         source: '/:path*',
-        has: [{ type: 'host', value: 'www.mahalaxmifashionhub.com' }],
-        destination: 'https://mahalaxmifashionhub.com/:path*',
+        has: [{ type: 'host', value: 'mahalaxmifashionhub.com' }],
+        destination: 'https://www.mahalaxmifashionhub.com/:path*',
         permanent: true,
       },
       ...legacy.map(([source, destination]) => ({

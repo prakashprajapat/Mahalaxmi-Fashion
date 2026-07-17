@@ -3,7 +3,7 @@ import { productsApi } from '@/lib/api';
 import { productImageSrc } from '@/lib/productImages';
 import { productSlug, parseProductId } from '@/lib/productSlug';
 
-const BASE = 'https://mahalaxmifashionhub.com';
+const BASE = 'https://www.mahalaxmifashionhub.com';
 
 // Server-rendered SEO for each product page. The page itself is a client component,
 // so this layout supplies per-product <title>/<meta>/OpenGraph that Google can read.

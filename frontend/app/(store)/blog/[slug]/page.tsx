@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { POSTS, getPost } from '@/lib/blog';
 
-const BASE = 'https://mahalaxmifashionhub.com';
+const BASE = 'https://www.mahalaxmifashionhub.com';
 
 export function generateStaticParams() {
   return POSTS.map(p => ({ slug: p.slug }));

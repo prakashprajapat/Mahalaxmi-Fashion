@@ -3,11 +3,11 @@ import { productSlug } from '@/lib/productSlug';
 
 /**
  * Google Merchant Center product feed (RSS 2.0)
- * URL: https://mahalaxmifashionhub.com/feed/google-merchant.xml
+ * URL: https://www.mahalaxmifashionhub.com/feed/google-merchant.xml
  * Merchant Center → Products → Feeds → Scheduled fetch pe ye URL daalo.
  */
 
-const BASE = 'https://mahalaxmifashionhub.com';
+const BASE = 'https://www.mahalaxmifashionhub.com';
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000/api';
 
 export const revalidate = 3600; // regenerate hourly

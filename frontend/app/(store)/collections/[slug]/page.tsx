@@ -50,8 +50,8 @@ export default async function CollectionPage({ params }: { params: { slug: strin
     '@context': 'https://schema.org',
     '@type': 'BreadcrumbList',
     itemListElement: [
-      { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://mahalaxmifashionhub.com' },
-      { '@type': 'ListItem', position: 2, name: 'Collections', item: 'https://mahalaxmifashionhub.com/products' },
+      { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://www.mahalaxmifashionhub.com' },
+      { '@type': 'ListItem', position: 2, name: 'Collections', item: 'https://www.mahalaxmifashionhub.com/products' },
       { '@type': 'ListItem', position: 3, name: def.label },
     ],
   };
@@ -64,7 +64,7 @@ export default async function CollectionPage({ params }: { params: { slug: strin
     itemListElement: (matched as any[]).slice(0, 30).map((p, i) => ({
       '@type': 'ListItem',
       position: i + 1,
-      url: `https://mahalaxmifashionhub.com/products/${productSlug(p.name, p.dbId)}`,
+      url: `https://www.mahalaxmifashionhub.com/products/${productSlug(p.name, p.dbId)}`,
       name: p.name,
     })),
   } : null;
