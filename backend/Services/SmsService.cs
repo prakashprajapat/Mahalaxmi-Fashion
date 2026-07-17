@@ -178,4 +178,79 @@ public class SmsService
             return false;
         }
     }
+
+    public record BulkResult(bool Configured, int Sent, int Failed, string? Error);
+
+    /// <summary>
+    /// Sends a bulk promotional SMS campaign via the MSG91 Flow API — entirely
+    /// server-side, no MSG91 website needed. Recipients are sent in batches of 100.
+    /// Uses a DLT-approved promotional template (templateId) and passes the given
+    /// variables (var1..varN + named) so they map regardless of template naming.
+    /// </summary>
+    public async Task<BulkResult> SendBulkCampaignAsync(
+        IEnumerable<string> mobiles, string templateId, Dictionary<string, string>? vars)
+    {
+        var authKey = await Setting("msg91AuthKey");
+        var sender  = await Setting("msg91SenderId");
+        if (string.IsNullOrWhiteSpace(sender)) sender = "MAHFHB";
+
+        if (string.IsNullOrWhiteSpace(authKey))
+            return new(false, 0, 0, "MSG91 Auth Key not set in Settings.");
+        if (string.IsNullOrWhiteSpace(templateId))
+            return new(false, 0, 0, "Campaign template ID is required (must be DLT-approved).");
+
+        var list = mobiles
+            .Select(NormalisePhone)
+            .Where(p => p.Length >= 12)
+            .Distinct()
+            .ToList();
+        if (list.Count == 0)
+            return new(true, 0, 0, "No valid recipients.");
+
+        int sent = 0, failed = 0;
+        using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+
+        foreach (var batch in list.Chunk(100))
+        {
+            var recipients = batch.Select(phone =>
+            {
+                var d = new Dictionary<string, string> { ["mobiles"] = phone };
+                if (vars is not null)
+                    foreach (var kv in vars) d[kv.Key] = kv.Value;
+                return d;
+            }).ToArray();
+
+            var payload = new { template_id = templateId, sender, short_url = "0", recipients };
+            var jsonBody = System.Text.Json.JsonSerializer.Serialize(payload);
+
+            try
+            {
+                using var reqMsg = new HttpRequestMessage(HttpMethod.Post, "https://control.msg91.com/api/v5/flow/")
+                {
+                    Content = new StringContent(jsonBody, Encoding.UTF8, "application/json"),
+                };
+                reqMsg.Headers.Add("authkey", authKey);
+                reqMsg.Headers.Add("accept", "application/json");
+
+                var res  = await http.SendAsync(reqMsg);
+                var body = await res.Content.ReadAsStringAsync();
+                if (res.IsSuccessStatusCode && body.Contains("success", StringComparison.OrdinalIgnoreCase))
+                {
+                    sent += batch.Length;
+                }
+                else
+                {
+                    failed += batch.Length;
+                    _logger.LogError("Bulk campaign batch failed ({Status}): {Body}", (int)res.StatusCode, body);
+                }
+            }
+            catch (Exception ex)
+            {
+                failed += batch.Length;
+                _logger.LogError(ex, "Bulk campaign batch exception.");
+            }
+        }
+
+        return new(true, sent, failed, failed > 0 ? "Some batches failed — check logs / MSG91 wallet balance." : null);
+    }
 }

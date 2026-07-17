@@ -3,12 +3,35 @@ import { useState } from 'react';
 import { customersApi } from '@/lib/api';
 import { getAdminToken } from '@/lib/auth';
 
-const MSG91_CAMPAIGNS_URL = 'https://control.msg91.com/app/m/l/campaigns/flow?module=campaigns';
-
 export default function BulkCampaignsPage() {
   const [downloading, setDownloading] = useState(false);
   const [msg, setMsg] = useState('');
   const [onlyConsent, setOnlyConsent] = useState(false);
+  // Send-from-website state
+  const [templateId, setTemplateId] = useState('');
+  const [var1, setVar1] = useState('');
+  const [var2, setVar2] = useState('');
+  const [sending, setSending] = useState(false);
+  const [sendResult, setSendResult] = useState('');
+
+  const sendCampaign = async () => {
+    const token = getAdminToken();
+    if (!token) { setSendResult('❌ Admin login required.'); return; }
+    if (!templateId.trim()) { setSendResult('❌ Enter your DLT-approved template ID first.'); return; }
+    if (!window.confirm(`Send this campaign to ${onlyConsent ? 'opted-in' : 'ALL'} customers now? This will send real SMS via MSG91.`)) return;
+    setSending(true); setSendResult('');
+    try {
+      const vars: Record<string, string> = {};
+      if (var1.trim()) { vars.var1 = var1.trim(); vars.coupon = var1.trim(); }
+      if (var2.trim()) { vars.var2 = var2.trim(); }
+      const r = await customersApi.sendCampaign({ templateId: templateId.trim(), optedInOnly: onlyConsent, vars }, token);
+      setSendResult(r.success
+        ? `✅ ${r.message} (${r.sent}/${r.total} sent)`
+        : `⚠️ ${r.message} — Sent: ${r.sent}, Failed: ${r.failed}`);
+    } catch (e) {
+      setSendResult('❌ ' + (e as Error).message);
+    } finally { setSending(false); }
+  };
 
   // Export the customer mobile numbers as a CSV to upload to MSG91.
   const exportContacts = async () => {
@@ -67,23 +90,46 @@ export default function BulkCampaignsPage() {
         )}
       </div>
 
-      {/* Step 2: MSG91 */}
+      {/* Step 2: Send from website (no MSG91 site needed) */}
       <div style={card}>
         <div style={{ display: 'flex', gap: '.7rem', alignItems: 'center', marginBottom: '.7rem' }}>
           <span style={stepNum}>2</span>
-          <h2 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700 }}>Create the campaign in MSG91</h2>
+          <h2 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700 }}>Send the campaign — right here</h2>
         </div>
-        <ol style={{ color: '#555', fontSize: '.88rem', lineHeight: 1.7, margin: '0 0 1rem', paddingLeft: '1.2rem' }}>
-          <li>Click the button below — MSG91 Campaigns page khulega (naye tab me).</li>
-          <li>Top-right <strong>+ New Campaign</strong> dabao.</li>
-          <li>Channel chuno (SMS / WhatsApp) aur apna <strong>DLT-approved template</strong> select karo.</li>
-          <li><strong>Contacts</strong> step me wo CSV upload karo jo Step 1 me download ki.</li>
-          <li>Preview karke <strong>Launch</strong> dabao — bulk message chala jayega.</li>
-        </ol>
-        <a href={MSG91_CAMPAIGNS_URL} target="_blank" rel="noopener noreferrer"
-          style={{ display: 'inline-block', background: '#a7354d', color: '#fff', borderRadius: 8, padding: '.6rem 1.4rem', fontWeight: 700, fontSize: '.9rem', textDecoration: 'none' }}>
-          🚀 Open MSG91 Campaigns →
-        </a>
+        <p style={{ color: '#555', fontSize: '.88rem', margin: '0 0 1rem' }}>
+          Enter your <strong>DLT-approved promotional template ID</strong> and its variable values, then send.
+          The SMS goes out directly through MSG91 — no need to open the MSG91 website.
+        </p>
+
+        <div style={{ display: 'grid', gap: '.9rem', maxWidth: 560 }}>
+          <div>
+            <label style={{ display: 'block', fontSize: '.82rem', fontWeight: 600, color: '#444', marginBottom: '.3rem' }}>DLT Template ID *</label>
+            <input value={templateId} onChange={e => setTemplateId(e.target.value)}
+              placeholder="e.g. 6612ab34cd..."
+              style={{ width: '100%', border: '1.5px solid #ddd', borderRadius: 8, padding: '.6rem .8rem', fontSize: '.9rem', boxSizing: 'border-box', fontFamily: 'monospace' }} />
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '.8rem' }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '.82rem', fontWeight: 600, color: '#444', marginBottom: '.3rem' }}>Variable 1 <span style={{ color: '#999', fontWeight: 400 }}>(e.g. coupon / discount)</span></label>
+              <input value={var1} onChange={e => setVar1(e.target.value)} placeholder="SAVE30"
+                style={{ width: '100%', border: '1.5px solid #ddd', borderRadius: 8, padding: '.6rem .8rem', fontSize: '.9rem', boxSizing: 'border-box' }} />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '.82rem', fontWeight: 600, color: '#444', marginBottom: '.3rem' }}>Variable 2 <span style={{ color: '#999', fontWeight: 400 }}>(optional)</span></label>
+              <input value={var2} onChange={e => setVar2(e.target.value)} placeholder=""
+                style={{ width: '100%', border: '1.5px solid #ddd', borderRadius: 8, padding: '.6rem .8rem', fontSize: '.9rem', boxSizing: 'border-box' }} />
+            </div>
+          </div>
+        </div>
+
+        <button onClick={sendCampaign} disabled={sending}
+          style={{ marginTop: '1.1rem', background: '#a7354d', color: '#fff', border: 'none', borderRadius: 8, padding: '.65rem 1.6rem', fontWeight: 700, fontSize: '.92rem', cursor: 'pointer', opacity: sending ? .6 : 1 }}>
+          {sending ? 'Sending…' : `🚀 Send Campaign to ${onlyConsent ? 'Opted-in' : 'All'} Customers`}
+        </button>
+
+        {sendResult && (
+          <p style={{ marginTop: '.9rem', fontSize: '.88rem', fontWeight: 600, color: sendResult.startsWith('✅') ? '#2e7d32' : sendResult.startsWith('⚠️') ? '#f57f17' : '#c0392b' }}>{sendResult}</p>
+        )}
       </div>
 
       <div style={{ ...card, background: '#fff8f9', borderColor: '#f3d5dc' }}>

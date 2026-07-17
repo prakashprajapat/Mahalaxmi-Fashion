@@ -155,6 +155,11 @@ export const customersApi = {
     request<{ success: boolean; phones: string[]; count: number; totalCustomers: number; optedIn: number }>(
       `/customers/phones?optedInOnly=${optedInOnly}`, undefined, token
     ),
+  // Send a bulk promotional SMS campaign via MSG91 (fully server-side).
+  sendCampaign: (data: { templateId: string; optedInOnly: boolean; vars?: Record<string, string> }, token: string) =>
+    request<{ success: boolean; sent: number; failed: number; total: number; message: string }>(
+      '/customers/campaign', { method: 'POST', body: JSON.stringify(data) }, token
+    ),
   // token is passed when an ADMIN creates a customer from the panel (bypasses OTP).
   register: (data: unknown, token?: string) =>
     request<{ success: boolean; token: string; customer: import('@/types').Customer }>(

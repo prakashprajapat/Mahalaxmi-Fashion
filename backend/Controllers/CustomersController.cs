@@ -124,6 +124,44 @@ public class CustomersController : ControllerBase
         return Ok(new { success = true, phones, count = phones.Count, totalCustomers, optedIn });
     }
 
+    // POST /api/customers/campaign  (Admin only)
+    // Sends a bulk promotional SMS to customers via MSG91 — fully server-side, no
+    // MSG91 website needed. templateId must be a DLT-approved promotional template.
+    [HttpPost("campaign")]
+    [Authorize(Policy = "AdminOnly")]
+    public async Task<IActionResult> SendCampaign([FromBody] BulkCampaignRequest req)
+    {
+        if (string.IsNullOrWhiteSpace(req.TemplateId))
+            return BadRequest(new { success = false, message = "DLT-approved template ID is required." });
+
+        var query = _db.Customers.AsQueryable();
+        if (req.OptedInOnly) query = query.Where(c => c.MarketingConsent);
+
+        var raw = await query.Where(c => c.Phone != null && c.Phone != "").Select(c => c.Phone!).ToListAsync();
+        var phones = raw
+            .Select(p => new string(p.Where(char.IsDigit).ToArray()))
+            .Select(d => d.Length > 10 ? d[^10..] : d)
+            .Where(d => d.Length == 10)
+            .Distinct()
+            .ToList();
+
+        if (phones.Count == 0)
+            return Ok(new { success = false, message = "No recipients found for this selection." });
+
+        var result = await _sms.SendBulkCampaignAsync(phones, req.TemplateId.Trim(), req.Vars);
+        if (!result.Configured)
+            return StatusCode(500, new { success = false, message = result.Error });
+
+        return Ok(new
+        {
+            success = result.Failed == 0,
+            sent = result.Sent,
+            failed = result.Failed,
+            total = phones.Count,
+            message = result.Error ?? $"Campaign sent to {result.Sent} number(s).",
+        });
+    }
+
     // GET /api/customers/celebrations?days=15
     [HttpGet("celebrations")]
     [Authorize(Policy = "AdminOnly")]

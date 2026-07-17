@@ -77,6 +77,13 @@ public record CelebrationSmsRequest(
     string? Occasion = null   // "birthday" | "anniversary" — picks the code prefix
 );
 
+// Bulk promotional SMS campaign — sent server-side via MSG91 (no MSG91 website).
+public record BulkCampaignRequest(
+    string TemplateId,                       // DLT-approved promotional flow/template id
+    bool OptedInOnly = false,                // send only to marketing-consented customers
+    Dictionary<string, string>? Vars = null  // template variables (e.g. {"var1":"30","coupon":"SAVE30"})
+);
+
 public record SocialLoginRequest(
     string Provider,    // "google" | "facebook"
     string Code,        // authorization code from OAuth redirect
