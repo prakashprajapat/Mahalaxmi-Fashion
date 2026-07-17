@@ -306,7 +306,7 @@ export default function Navbar() {
 
           {/* Pincode serviceability — inline (like the search bar), not a popup */}
           <div className="pin-check" style={{ position: 'relative', display: 'flex', alignItems: 'center',
-            border: '1.5px solid #e5d5d5', borderRadius: 8, background: '#fff', overflow: 'hidden', height: 42 }}>
+            border: '1.5px solid #e5d5d5', borderRadius: 8, background: '#fff', height: 42 }}>
             <span style={{ padding: '0 .1rem 0 .55rem', fontSize: '.95rem' }} aria-hidden="true">📍</span>
             <input type="text" inputMode="numeric" maxLength={6} value={pin}
               aria-label="Check delivery pincode"
@@ -316,11 +316,11 @@ export default function Navbar() {
               placeholder="Pincode"
               style={{ width: 92, border: 'none', outline: 'none', padding: '.5rem .4rem', fontSize: '.86rem', background: 'transparent' }} />
             <button type="button" onClick={checkPin} disabled={pinChecking}
-              style={{ background: '#a7354d', color: '#fff', border: 'none', height: '100%', padding: '0 .8rem', fontWeight: 700, fontSize: '.82rem', cursor: 'pointer', opacity: pinChecking ? .6 : 1, whiteSpace: 'nowrap' }}>
+              style={{ background: '#a7354d', color: '#fff', border: 'none', height: '100%', padding: '0 .8rem', fontWeight: 700, fontSize: '.82rem', cursor: 'pointer', opacity: pinChecking ? .6 : 1, whiteSpace: 'nowrap', borderRadius: '0 6px 6px 0' }}>
               {pinChecking ? '…' : 'Check'}
             </button>
             {pinResult && (
-              <div style={{ position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 90, width: 260,
+              <div style={{ position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 300, width: 260,
                 background: '#fff', border: `1.5px solid ${pinResult.ok ? '#c8e6c9' : '#f5c6cb'}`, borderRadius: 10,
                 boxShadow: '0 8px 28px rgba(0,0,0,.16)', padding: '.7rem .85rem' }}>
                 <p style={{ margin: 0, fontSize: '.83rem', fontWeight: 600, color: pinResult.ok ? '#2e7d32' : '#c0392b' }}>
@@ -335,13 +335,7 @@ export default function Navbar() {
           </div>
 
           {/* Pincode box: inline on desktop, full-width row (between logo/cart & content) on mobile */}
-          <style>{`
-            @media (max-width: 768px) {
-              .brand-row { flex-wrap: wrap; }
-              .pin-check { order: 6; flex: 1 0 100%; margin-top: .55rem; height: 42px; }
-              .pin-check input { flex: 1; width: auto !important; }
-            }
-          `}</style>
+          {/* Mobile: pincode is placed next to the search bar via the grid in globals.css (.pin-check grid-area). */}
 
           <div className="brand-actions">
             <Link className="cart-link" href="/cart" style={{ position: 'relative' }}>

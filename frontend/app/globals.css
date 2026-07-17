@@ -919,11 +919,21 @@ button { cursor: pointer; font-family: inherit; }
     grid-template-columns: 42px minmax(0, 1fr) auto;
     grid-template-areas:
       "menu brand actions"
-      "search search search";
+      "search search pin";
     gap: 10px;
     padding: 10px 12px;
     align-items: center;
   }
+  /* Pincode check sits next to the search bar on mobile (compact). */
+  .pin-check {
+    grid-area: pin;
+    align-self: stretch;
+    margin-top: 0 !important;
+    height: 42px !important;
+    flex: 0 0 auto !important;
+    width: auto !important;
+  }
+  .pin-check input { width: 58px !important; flex: 0 0 auto !important; }
 
   .brand {
     grid-area: brand;
