@@ -39,3 +39,16 @@ export function toGa4Items(
     quantity: l.quantity ?? 1,
   }));
 }
+
+// GA4 "Set up User ID" — tie a logged-in customer's sessions across devices to one identity.
+// Call after login (and on load if already logged in). Never send PII; use the internal id only.
+export function setAnalyticsUserId(id: string | number | null | undefined): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const w = window as unknown as { gtag?: (...args: unknown[]) => void; dataLayer?: unknown[] };
+    const uid = id ? String(id) : undefined;
+    if (typeof w.gtag === 'function') w.gtag('set', { user_id: uid });
+    w.dataLayer = w.dataLayer || [];
+    w.dataLayer.push({ user_id: uid });
+  } catch { /* best-effort */ }
+}

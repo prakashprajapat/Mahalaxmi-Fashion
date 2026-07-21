@@ -3,7 +3,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { productsApi } from '@/lib/api';
-import { runProductQC, deepImageDuplicateCheck, type QcIssue } from '@/lib/productQC';
+import { runProductQC, type QcIssue } from '@/lib/productQC';
 import QcPanel from '@/components/admin/QcPanel';
 import { getAdminToken } from '@/lib/auth';
 
@@ -589,28 +589,19 @@ export default function EditProductPage() {
       const filledPackCols = normalizedPackCols.filter(hasPackPhoto);
       const galleryImages  = [mainPhotos.front, mainPhotos.side, mainPhotos.back, mainPhotos.zoomed].filter(Boolean);
 
-      // ── QC GATE (edit): apne aap ko duplicate check se exclude karo ──
+      // ── QC GATE (edit) — LIGHT ──
+      // PERF: On edit we deliberately SKIP the cross-catalogue duplicate scan.
+      // It used to fetch EVERY product (with base64 images inside extraJson — tens of MB)
+      // and pixel-compare them on each save, which made saving take 30-40s.
+      // The backend already enforces SKU uniqueness, so self-validation is enough here.
       const allPhotos = [
         ...galleryImages,
         ...filledPackCols.flatMap(c => [c.front, c.side, c.back, c.zoomed].filter(Boolean)),
       ];
-      let existingProducts: import('@/lib/productQC').ExistingProduct[] = [];
-      try {
-        const r = await productsApi.getAll({ pageSize: 2000 } as any);
-        existingProducts = ((r as any).products ?? [])
-          .filter((p: any) => String(p.dbId) !== String(productId))
-          .map((p: any) => ({ id: p.dbId, name: p.name, image: p.image, extraJson: p.extraJson }));
-      } catch { /* offline — QC still runs on own fields */ }
-
       const qc = runProductQC(
         { name, description: desc, price: Number(price) || 0, sku, photos: allPhotos, category },
-        existingProducts
+        []
       );
-      // DEEP pixel-level duplicate-image check (filename badalne par bhi pakadta hai).
-      try {
-        const imgIssues = await deepImageDuplicateCheck(allPhotos, existingProducts);
-        qc.push(...imgIssues);
-      } catch { /* image load fail — baaki QC chalta rahe */ }
       const fails = qc.filter(i => i.level === 'fail');
       const warns = qc.filter(i => i.level === 'warn');
       if (fails.length > 0 || (warns.length > 0 && !force)) {

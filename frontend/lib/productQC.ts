@@ -102,7 +102,7 @@ export async function deepImageDuplicateCheck(
     for (let j = i + 1; j < candHashes.length; j++)
       if (hammingDistance(candHashes[i], candHashes[j]) <= DUP_THRESHOLD) { internalDup = true; break; }
   if (internalDup)
-    issues.push({ level: 'fail', message: 'Duplicate photo — is product me ek hi image do baar lagi hai. Repeat hata do.' });
+    issues.push({ level: 'warn', message: 'Photo repeat lag rahi hai — is product me do slots me same image ho sakti hai. Alag na ho to check kar lo (warning — chaho to override kar sakte ho).' });
 
   // (b) Kisi aur product ki photo se match.
   let matchedName = '';
@@ -117,7 +117,7 @@ export async function deepImageDuplicateCheck(
     }
   }
   if (matchedName)
-    issues.push({ level: 'fail', message: `Duplicate photo — ye image pehle se "${matchedName}" product par lagi hai. Har product ki unique photo honi chahiye.` });
+    issues.push({ level: 'warn', message: `Ye photo "${matchedName}" jaisi dikh rahi hai — agar ye alag product hai to ignore karo aur override kar do (ye sirf warning hai, block nahi).` });
 
   return issues;
 }

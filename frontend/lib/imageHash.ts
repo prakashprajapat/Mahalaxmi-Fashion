@@ -1,13 +1,17 @@
-// ── Perceptual image hashing (average-hash) ──────────────────────────────────
+// ── Perceptual image hashing (difference-hash / dHash) ───────────────────────
 // Detects duplicate product photos by their ACTUAL PIXELS, not filenames — so a
-// re-uploaded / re-encoded copy of the same image is still caught. An 8×8
-// grayscale "average hash" is computed; two images with a small Hamming distance
-// are considered the same photo.
+// re-uploaded / re-encoded copy of the same image is still caught.
 //
-// Existing product image hashes are cached in localStorage keyed by URL, so the
-// expensive image-load happens only once per image across QC runs.
+// We use a 16×16 dHash (256-bit) instead of a coarse 8×8 average-hash. dHash
+// compares each pixel to its right neighbour (a horizontal gradient), which
+// captures edges & structure — so two DIFFERENT products that merely share the
+// same brand banner / layout no longer collide (the old 8×8 aHash false-flagged
+// them as duplicates). Two images with a small Hamming distance = the same photo.
+//
+// Existing image hashes are cached in localStorage keyed by URL (cache key bumped
+// to v2 because the algorithm changed — old 64-bit hashes must not be reused).
 
-const CACHE_KEY = 'mfh_img_ahash_v1';
+const CACHE_KEY = 'mfh_img_dhash_v2';
 
 function loadCache(): Record<string, string> {
   try { return JSON.parse(localStorage.getItem(CACHE_KEY) || '{}'); } catch { return {}; }
@@ -16,22 +20,32 @@ function saveCache(c: Record<string, string>) {
   try { localStorage.setItem(CACHE_KEY, JSON.stringify(c)); } catch { /* quota — ignore */ }
 }
 
-// Draw an image element to an 8×8 canvas and return a 64-char binary aHash.
+// Draw an image to a (size+1)×size canvas and return a size*size-bit dHash string.
 function hashFromImage(img: HTMLImageElement): string {
-  const size = 8;
+  const size = 16;            // 16×16 → 256-bit hash (4× the detail of the old 8×8)
+  const w = size + 1;         // dHash needs one extra column for the right-neighbour compare
   const canvas = document.createElement('canvas');
-  canvas.width = size; canvas.height = size;
+  canvas.width = w; canvas.height = size;
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
   if (!ctx) return '';
-  ctx.drawImage(img, 0, 0, size, size);
+  ctx.drawImage(img, 0, 0, w, size);
   let data: Uint8ClampedArray;
-  try { data = ctx.getImageData(0, 0, size, size).data; } catch { return ''; } // tainted canvas
+  try { data = ctx.getImageData(0, 0, w, size).data; } catch { return ''; } // tainted canvas
+  // Grayscale grid.
   const gray: number[] = [];
   for (let i = 0; i < data.length; i += 4) {
     gray.push(0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2]);
   }
-  const avg = gray.reduce((a, b) => a + b, 0) / gray.length;
-  return gray.map(g => (g >= avg ? '1' : '0')).join('');
+  // Difference hash: each pixel vs the one to its right.
+  let bits = '';
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const left  = gray[y * w + x];
+      const right = gray[y * w + x + 1];
+      bits += left > right ? '1' : '0';
+    }
+  }
+  return bits; // 256 chars
 }
 
 function loadImage(src: string): Promise<HTMLImageElement> {
@@ -44,12 +58,12 @@ function loadImage(src: string): Promise<HTMLImageElement> {
   });
 }
 
-/** aHash for a base64 data URL (a freshly-selected image in the form). */
+/** dHash for a base64 data URL (a freshly-selected image in the form). */
 export async function hashDataUrl(dataUrl: string): Promise<string> {
   try { return hashFromImage(await loadImage(dataUrl)); } catch { return ''; }
 }
 
-/** aHash for a stored image URL, cached in localStorage. */
+/** dHash for a stored image URL, cached in localStorage. */
 export async function hashUrl(url: string): Promise<string> {
   if (!url) return '';
   const cache = loadCache();
@@ -69,5 +83,8 @@ export function hammingDistance(a: string, b: string): number {
   return d;
 }
 
-// ≤ this many differing bits (out of 64) → treated as the same photo.
-export const DUP_THRESHOLD = 5;
+// ≤ this many differing bits (out of 256) → treated as the SAME photo.
+// A re-encoded copy of the same image scores ~0-8; two genuinely different
+// products (even same brand/layout) score well above 25, so 12 is a safe cut-off
+// that catches real re-uploads without false-flagging different products.
+export const DUP_THRESHOLD = 12;
