@@ -4,7 +4,7 @@ const ITEMS = [
   { icon: '🔒', title: 'Secure Payment', sub: 'UPI · Card · Net Banking' },
   { icon: '🔄', title: 'Easy 7-Day Returns', sub: 'Hassle-free exchange' },
   { icon: '✅', title: '100% Genuine', sub: 'Quality-checked products' },
-  { icon: '🚚', title: 'Pan-India Delivery', sub: 'Free over ₹999 · Tracked' },
+  { icon: '🚚', title: 'Pan-India Delivery', sub: 'Free over · Tracked' },
 ];
 
 export default function TrustStrip() {
