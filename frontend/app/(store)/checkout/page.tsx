@@ -42,6 +42,9 @@ function getPincodeState(pincode: string): string {
 
 type Step = 'shipping' | 'payment' | 'confirm';
 
+// Flat handling fee added when the customer chooses Cash on Delivery.
+const COD_FEE = 50;
+
 export default function CheckoutPage() {
   const router = useRouter();
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -50,6 +53,7 @@ export default function CheckoutPage() {
   const [loading, setLoading] = useState(false);
   const [orderId, setOrderId] = useState('');
   const [honeypot, setHoneypot] = useState('');
+  const [payMethod, setPayMethod] = useState<'online' | 'cod'>('online');
 
   const [shipping, setShipping] = useState({
     name: '', email: '', phone: '', address: '', city: '', pincode: '', state: '',
@@ -127,7 +131,9 @@ export default function CheckoutPage() {
 
   const discount = couponApplied?.discount ?? 0;
   const shippingCost = 0;   // shipping is folded into item prices (or waived for Balotra); no separate charge
-  const total = Math.max(0, subtotal - discount);
+  // Cash on Delivery adds a flat ₹50 handling fee; online payment has none.
+  const codFee = payMethod === 'cod' ? COD_FEE : 0;
+  const total = Math.max(0, subtotal - discount) + codFee;
   const requiresPan = false;   // PAN no longer mandatory at checkout (disabled on request)
 
   const handleApplyCoupon = async () => {
@@ -330,6 +336,56 @@ export default function CheckoutPage() {
     }
   };
 
+  // Cash on Delivery: no gateway. Place the order directly with method 'cod'.
+  // The ₹50 COD fee is also enforced server-side, so it can't be bypassed.
+  const handlePlaceCod = async () => {
+    if (!validateShipping()) return;
+    setLoading(true);
+    try {
+      const cartLines = buildCartLines();
+      const localOrderId = 'MFH' + Date.now();
+      await ordersApi.place({
+        id: localOrderId,
+        method: 'cod',
+        status: 'Pending',
+        paymentId: '',
+        cart: cartLines,
+        subtotal,
+        shippingCost,
+        codFee: COD_FEE,
+        total,
+        customerId: customer?.id?.toString(),
+        customerName: shipping.name,
+        customerEmail: shipping.email,
+        customerPhone: shipping.phone,
+        panNumber: requiresPan ? panData.panNumber : undefined,
+        panName: requiresPan ? panData.panName : undefined,
+        couponCode: attributionCode(),
+        discountAmount: couponApplied?.discount ?? 0,
+        shippingName: shipping.name,
+        shippingAddress: shipping.address,
+        shippingCity: shipping.city,
+        shippingPincode: shipping.pincode,
+        shippingState: shipping.state,
+        placedAt: new Date().toISOString(),
+      });
+      trackEvent('purchase', {
+        transaction_id: localOrderId,
+        currency: 'INR',
+        value: total,
+        coupon: attributionCode() || undefined,
+        items: cartToItems(cart),
+      });
+      clearCart();
+      setOrderId(localOrderId);
+      setStep('confirm');
+      setLoading(false);
+    } catch (e) {
+      alert('Order failed: ' + (e as Error).message);
+      setLoading(false);
+    }
+  };
+
   const startRazorpay = async () => {
     try {
       const cartLines = buildCartLines();
@@ -525,10 +581,36 @@ export default function CheckoutPage() {
           {/* Payment */}
           <div className="card" style={{ padding: '1.5rem' }}>
             <h2 style={{ fontWeight: 700, fontSize: '1.1rem', marginBottom: '1rem' }}>Payment Method</h2>
+
+            {/* Choose Pay Online vs Cash on Delivery */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '.6rem', marginBottom: '1rem' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '.6rem', border: `1.5px solid ${payMethod === 'online' ? '#a7354d' : '#ddd'}`, background: payMethod === 'online' ? '#fff8f9' : '#fff', borderRadius: '10px', padding: '.75rem .9rem', cursor: 'pointer' }}>
+                <input type="radio" name="payMethod" checked={payMethod === 'online'} onChange={() => setPayMethod('online')} style={{ accentColor: '#a7354d' }} />
+                <span style={{ fontWeight: 600, fontSize: '.92rem' }}>💳 Pay Online</span>
+                <span style={{ fontSize: '.8rem', color: '#666' }}>UPI / Card / Net Banking</span>
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '.6rem', border: `1.5px solid ${payMethod === 'cod' ? '#a7354d' : '#ddd'}`, background: payMethod === 'cod' ? '#fff8f9' : '#fff', borderRadius: '10px', padding: '.75rem .9rem', cursor: 'pointer' }}>
+                <input type="radio" name="payMethod" checked={payMethod === 'cod'} onChange={() => setPayMethod('cod')} style={{ accentColor: '#a7354d' }} />
+                <span style={{ fontWeight: 600, fontSize: '.92rem' }}>🚚 Cash on Delivery</span>
+                <span style={{ fontSize: '.8rem', color: '#c0392b', fontWeight: 600 }}>+₹{COD_FEE} extra</span>
+              </label>
+            </div>
+
             <div style={{ display: 'flex', flexDirection: 'column', gap: '.75rem' }}>
-              <button onClick={handlePayOnline} disabled={loading} className="button primary" style={{ width: '100%' }}>
-                {loading ? 'Processing…' : '💳 Pay Online (UPI / Card / Net Banking)'}
-              </button>
+              {payMethod === 'online' ? (
+                <button onClick={handlePayOnline} disabled={loading} className="button primary" style={{ width: '100%' }}>
+                  {loading ? 'Processing…' : `💳 Pay Online — ₹${total.toLocaleString('en-IN')}`}
+                </button>
+              ) : (
+                <button onClick={handlePlaceCod} disabled={loading} className="button primary" style={{ width: '100%' }}>
+                  {loading ? 'Placing order…' : `🚚 Place COD Order — ₹${total.toLocaleString('en-IN')}`}
+                </button>
+              )}
+              {payMethod === 'cod' && (
+                <p style={{ fontSize: '.8rem', color: '#666', margin: 0, textAlign: 'center' }}>
+                  A ₹{COD_FEE} handling fee is added for Cash on Delivery. Pay the total in cash when your order arrives.
+                </p>
+              )}
             </div>
           </div>
         </div>
@@ -580,6 +662,11 @@ export default function CheckoutPage() {
             {isBalotra && shipWaiver > 0 && (
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '.9rem', marginBottom: '.4rem', color: '#27ae60' }}>
                 <span>Local delivery (Balotra)</span><span>FREE</span>
+              </div>
+            )}
+            {codFee > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '.9rem', marginBottom: '.4rem' }}>
+                <span>COD charge</span><span>+₹{codFee.toLocaleString('en-IN')}</span>
               </div>
             )}
             <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, fontSize: '1.1rem', paddingTop: '.5rem', borderTop: '1px solid #eee' }}>

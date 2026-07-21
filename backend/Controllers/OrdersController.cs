@@ -270,9 +270,11 @@ public class OrdersController : ControllerBase
             }
         }
 
-        // Shipping is folded into item prices (or waived for Balotra) — no separate charge. COD fee clamped ≥ 0.
+        // Shipping is folded into item prices (or waived for Balotra) — no separate charge.
+        // COD adds a flat ₹50 handling fee, enforced SERVER-SIDE (the client value is never
+        // trusted): COD orders always pay exactly ₹50 extra; prepaid orders never get a COD fee.
         decimal serverShipping = 0m;
-        decimal serverCodFee   = Math.Max(0m, req.CodFee);
+        decimal serverCodFee   = method == "cod" ? 50m : 0m;
         decimal serverTotal    = Math.Max(0m, serverSubtotal + serverShipping + serverCodFee - serverDiscount);
 
         // ── PAYMENT GATE ──────────────────────────────────────────────────────────────
