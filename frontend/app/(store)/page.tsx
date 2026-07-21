@@ -73,23 +73,9 @@ export default async function HomePage() {
               Shop Now
             </Link>
 
-            {/* Quality badges */}
-            <div style={{ display: 'flex', gap: 'clamp(.8rem, 2.5vw, 1.6rem)', flexWrap: 'wrap', marginTop: '1.1rem' }}>
-              {[
-                { icon: '🏅', label: 'Premium Quality' },
-                { icon: '🌿', label: 'Comfort Fabrics' },
-                { icon: '🛍️', label: 'Trusted Shopping' },
-              ].map(b => (
-                <div key={b.label} style={{ display: 'flex', alignItems: 'center', gap: '.4rem', color: '#5c1a28' }}>
-                  <span style={{ fontSize: '1.15rem' }} aria-hidden="true">{b.icon}</span>
-                  <span style={{ fontSize: '.72rem', fontWeight: 700 }}>{b.label}</span>
-                </div>
-              ))}
-            </div>
-
-            <p style={{ fontSize: '.72rem', textTransform: 'uppercase', letterSpacing: '.24em', color: '#8a2a3e', fontWeight: 800, margin: '.7rem 0 0' }}>
-              Tradition &nbsp;|&nbsp; Style &nbsp;|&nbsp; Quality
-            </p>
+            {/* Hero decluttered (Myntra-style single focus): the quality badges + "Tradition | Style |
+                Quality" line were removed here because the Trust Strip below already carries those
+                signals — keeping the hero to one message + one CTA. */}
           </div>
 
           {/* Right: admin video or logo fallback */}

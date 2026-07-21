@@ -125,11 +125,12 @@ export default function ProductCard({ product, priority = false }: { product: Pr
             {product.name}
           </span>
 
-          {/* Rating — real reviews only ("New" tag now sits next to the stock badge) */}
+          {/* Rating — real reviews only. Myntra-style compact pill showing the ACTUAL average
+              (not a fixed 5-star row), e.g. "★ 4.3 (12)". "New" tag sits next to the stock badge. */}
           {(product.reviewCount ?? 0) > 0 && (
             <div className="product-rating">
-              <span className="stars">★★★★★</span>
-              <span className="rating-val">{product.avgRating} ({product.reviewCount})</span>
+              <span className="stars">★</span>
+              <span className="rating-val">{Number(product.avgRating ?? 0).toFixed(1)} ({product.reviewCount})</span>
             </div>
           )}
 

@@ -264,12 +264,9 @@ export default function Navbar() {
 
       {/* Header */}
       <header className="site-header">
+        {/* Top strip decluttered (Myntra-style clean header). The policy links used to sit here
+            but are fully duplicated in the footer, so only the seller CTA stays up top. */}
         <nav className="policy-nav">
-          <Link href="/cancellation-policy">Cancellation Policy</Link>
-          <Link href="/return-policy">Return Policy</Link>
-          <Link href="/return-exchange">Refund &amp; Exchange Policy</Link>
-          <Link href="/privacy-policy">Privacy Policy</Link>
-          <Link href="/safety-center">Safety Center</Link>
           <Link href="/become-supplier" className="policy-nav-seller">🏪 Become a Seller</Link>
         </nav>
 
