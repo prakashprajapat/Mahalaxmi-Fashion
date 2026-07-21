@@ -51,7 +51,7 @@ function systemPrompt(catalog: string): string {
     '- All products are quality-checked and genuine.',
     '',
     'HOW TO BEHAVE:',
-    '- Reply in the SAME language the customer uses (Hindi, Hinglish or English). Keep replies short, warm and helpful.',
+    '- Your first message is in English. Then DETECT the language the customer writes in and ALWAYS reply in that SAME language (English, Hindi, or Hinglish). If unclear, use English. Keep replies short, warm and helpful.',
     '- When recommending products, pick from the CATALOG below and include the product link. Never invent products or prices.',
     '- If asked for something not in the catalog, say it may not be listed and offer WhatsApp for a custom request.',
     '- For order status/tracking, guide them to the Track Order page or WhatsApp.',
@@ -66,7 +66,7 @@ export async function POST(req: Request) {
   const key = process.env.OPENAI_API_KEY;
   if (!key) {
     return NextResponse.json({
-      reply: `Abhi live assistant set up ho raha hai 🙏 Turant help ke liye humein WhatsApp par message karein: https://wa.me/${WA}`,
+      reply: `Our live assistant is being set up 🙏 For quick help, message us on WhatsApp: https://wa.me/${WA}`,
     });
   }
 
@@ -96,16 +96,16 @@ export async function POST(req: Request) {
     });
     if (!resp.ok) {
       return NextResponse.json({
-        reply: `Maaf kijiye, abhi thodi dikkat aa rahi hai 🙏 WhatsApp par turant help milegi: https://wa.me/${WA}`,
+        reply: `Sorry, I'm having a little trouble right now 🙏 Get quick help on WhatsApp: https://wa.me/${WA}`,
       });
     }
     const data = (await resp.json()) as { choices?: Array<{ message?: { content?: string } }> };
     const reply = data.choices?.[0]?.message?.content?.trim()
-      || `Main samajh nahi paayi 🙏 WhatsApp par baat karein: https://wa.me/${WA}`;
+      || `Sorry, I didn't quite get that 🙏 Chat with us on WhatsApp: https://wa.me/${WA}`;
     return NextResponse.json({ reply });
   } catch {
     return NextResponse.json({
-      reply: `Connection issue aa raha hai 🙏 WhatsApp par message karein: https://wa.me/${WA}`,
+      reply: `We're having a connection issue 🙏 Please message us on WhatsApp: https://wa.me/${WA}`,
     });
   }
 }

@@ -6,7 +6,7 @@ type Msg = { role: 'user' | 'assistant'; content: string };
 
 const BRAND = '#a7354d';
 const BRAND_DARK = '#7d1f34';
-const GREETING = 'Namaste! 🙏 Main Laxmi hoon, Mahalaxmi Fashion Hub ki shopping assistant. Sarees, nighty, delivery, return ya kisi bhi product ke baare me poochho — main help karti hoon 😊';
+const GREETING = "Hi! 👋 I'm Laxmi, your shopping assistant at Mahalaxmi Fashion Hub. Ask me about sarees, nighty, delivery, returns, or any product — I'm here to help 😊";
 
 // Turn plain URLs in the bot reply into clickable links.
 function renderText(text: string) {
@@ -44,9 +44,9 @@ export default function AiChatWidget() {
         body: JSON.stringify({ messages: next }),
       });
       const data = (await r.json()) as { reply?: string };
-      setMsgs(m => [...m, { role: 'assistant', content: data.reply || 'Maaf kijiye, dobara try karein 🙏' }]);
+      setMsgs(m => [...m, { role: 'assistant', content: data.reply || 'Sorry, please try again 🙏' }]);
     } catch {
-      setMsgs(m => [...m, { role: 'assistant', content: 'Connection issue 🙏 WhatsApp par baat karein: https://wa.me/919429429880' }]);
+      setMsgs(m => [...m, { role: 'assistant', content: 'Connection issue 🙏 Chat with us on WhatsApp: https://wa.me/919429429880' }]);
     } finally {
       setBusy(false);
     }
@@ -121,7 +121,7 @@ export default function AiChatWidget() {
           {/* Quick chips (only before first user message) */}
           {msgs.length === 1 && (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '.4rem', padding: '.5rem .9rem 0' }}>
-              {['Delivery kitne din?', 'Return policy?', 'Best sarees dikhao'].map(q => (
+              {['Delivery time?', 'Return policy?', 'Show best sarees'].map(q => (
                 <button key={q} onClick={() => send(q)}
                   style={{ border: `1px solid ${BRAND}`, color: BRAND, background: '#fff', borderRadius: 16, padding: '.3rem .7rem', fontSize: '.76rem', cursor: 'pointer' }}>
                   {q}
@@ -136,7 +136,7 @@ export default function AiChatWidget() {
               value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') send(); }}
-              placeholder="Apna sawaal likhein..."
+              placeholder="Type your question..."
               aria-label="Type your message"
               style={{ flex: 1, border: '1.5px solid #e0d5d5', borderRadius: 20, padding: '.55rem .9rem', fontSize: '.86rem', outline: 'none' }}
             />
@@ -147,7 +147,7 @@ export default function AiChatWidget() {
           </div>
 
           <div style={{ textAlign: 'center', fontSize: '.68rem', color: '#999', padding: '0 0 .5rem' }}>
-            Ya <a href="https://wa.me/919429429880" target="_blank" rel="noopener noreferrer" style={{ color: BRAND_DARK, fontWeight: 600 }}>WhatsApp par baat karein</a>
+            Or <a href="https://wa.me/919429429880" target="_blank" rel="noopener noreferrer" style={{ color: BRAND_DARK, fontWeight: 600 }}>chat on WhatsApp</a>
           </div>
 
           <style>{`
