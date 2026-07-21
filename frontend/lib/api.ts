@@ -48,6 +48,11 @@ export const productsApi = {
   },
   getById: (id: number) =>
     request<{ success: boolean; product: import('@/types').Product }>(`/products/${id}`),
+  // Typo-tolerant fuzzy search (backend Levenshtein + synonyms). Covers the whole catalogue.
+  search: (q: string, limit = 24) =>
+    request<{ success: boolean; products: import('@/types').Product[]; total: number; query: string }>(
+      `/products/search?q=${encodeURIComponent(q)}&limit=${limit}`
+    ),
   nextSku: (token: string) =>
     request<{ sku: string }>('/products/next-sku', {}, token),
   bulkSave: (products: unknown[], token: string) =>
@@ -392,4 +397,19 @@ export const reviewsApi = {
     request(`/reviews/${id}/reject`, { method: 'PATCH' }, token),
   delete: (id: number, token: string) =>
     request(`/reviews/${id}`, { method: 'DELETE' }, token),
+};
+
+// ── Wishlist (server-synced for logged-in customers) ──────────────────────────
+export const wishlistApi = {
+  list: (token: string) =>
+    request<{ success: boolean; products: import('@/types').Product[] }>('/wishlist', undefined, token),
+  add: (productId: number, token: string) =>
+    request<{ success: boolean }>(`/wishlist/${productId}`, { method: 'POST' }, token),
+  remove: (productId: number, token: string) =>
+    request<{ success: boolean }>(`/wishlist/${productId}`, { method: 'DELETE' }, token),
+  // Union guest (localStorage) ids into the account, then return the merged list. Called on login.
+  merge: (productIds: number[], token: string) =>
+    request<{ success: boolean; products: import('@/types').Product[] }>(
+      '/wishlist/merge', { method: 'POST', body: JSON.stringify({ productIds }) }, token
+    ),
 };

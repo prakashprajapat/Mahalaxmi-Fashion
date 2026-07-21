@@ -21,10 +21,16 @@ public class AppDbContext : DbContext
     public DbSet<PopupLead>   PopupLeads   { get; set; }
     public DbSet<StaffMember> StaffMembers { get; set; }
     public DbSet<SupplierApplication> SupplierApplications { get; set; }
+    public DbSet<WishlistItem> Wishlists { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+
+        // One product can only be saved once per customer.
+        modelBuilder.Entity<WishlistItem>()
+            .HasIndex(w => new { w.CustomerId, w.ProductId })
+            .IsUnique();
 
         // Unique constraints
         modelBuilder.Entity<Customer>()

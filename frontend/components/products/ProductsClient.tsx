@@ -2,6 +2,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import ProductCard from '@/components/product/ProductCard';
 import { finalUnitPrice } from '@/lib/price';
+import { fuzzyScore, productHaystack } from '@/lib/fuzzy';
 
 interface Props {
   products: any[];
@@ -256,8 +257,13 @@ export default function ProductsClient({ products, title, initialQ = '' }: Props
   const filtered = useMemo(() => {
     let r = [...products];
     if (q) {
-      const lq = q.toLowerCase();
-      r = r.filter((p: any) => p.name?.toLowerCase().includes(lq) || p.description?.toLowerCase().includes(lq) || (p.subcategory ?? '').toLowerCase().includes(lq));
+      // Typo-tolerant search (matches "sari"→saree, "peticoat"→petticoat, etc.). When no
+      // explicit sort is chosen, order by relevance so the best matches come first.
+      const scored = r
+        .map((p: any) => ({ p, s: fuzzyScore(q, productHaystack(p)) }))
+        .filter(x => x.s > 0);
+      if (sort === 'position') scored.sort((a, b) => b.s - a.s);
+      r = scored.map(x => x.p);
     }
     if (selectedSubcat) r = r.filter((p: any) => normalizeSub(p.subcategory ?? '') === normalizeSub(selectedSubcat));
     if (selectedVariant) r = r.filter((p: any) => { try { return (JSON.parse(p.extraJson ?? '{}').variant ?? '') === selectedVariant; } catch { return false; } });

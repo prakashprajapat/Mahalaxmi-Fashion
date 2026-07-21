@@ -157,6 +157,163 @@ public class ProductsController : ControllerBase
         return Ok(new { success = true, product = ToDto(p) });
     }
 
+    // GET /api/products/search?q=...&limit=24
+    // Typo-tolerant fuzzy search across name / category / subcategory / sku / description.
+    // Tolerates misspellings ("sari"→saree, "peticoat"→petticoat, "nighty"→nightie) using a
+    // small synonym map + per-token Levenshtein distance. Public and cached 60s per query.
+    [HttpGet("search")]
+    public async Task<IActionResult> Search([FromQuery] string? q, [FromQuery] int limit = 24)
+    {
+        var query = (q ?? "").Trim();
+        if (query.Length < 2)
+            return Ok(new { success = true, products = new List<ProductDto>(), total = 0, query });
+
+        limit = Math.Clamp(limit, 1, 60);
+
+        var cacheKey = $"search_v{_cacheVer}_{query.ToLowerInvariant()}_{limit}";
+        if (_cache.TryGetValue(cacheKey, out object? cached) && cached is not null)
+            return Ok(cached);
+
+        var items = await _db.Products
+            .Where(p => p.StockStatus != "Inactive")
+            .ToListAsync();
+
+        var qNorm   = NormalizeText(query);
+        var qTokens = ExpandSynonyms(Tokenize(query));
+
+        var scored = new List<(Product P, double Score)>();
+        foreach (var p in items)
+        {
+            var score = ScoreProduct(p, qNorm, qTokens);
+            if (score > 0) scored.Add((p, score));
+        }
+
+        var top = scored
+            .OrderByDescending(x => x.Score)
+            .ThenByDescending(x => x.P.BestSeller)
+            .ThenByDescending(x => x.P.Newest)
+            .Take(limit)
+            .Select(x => x.P)
+            .ToList();
+
+        var reviews = await GetReviewAggAsync(top.Select(p => p.Id).ToList());
+        var products = top.Select(p =>
+        {
+            var dto = ToDto(p);
+            int rc = 0; double ar = 0;
+            if (reviews.TryGetValue(p.Id, out var r)) { rc = r.Count; ar = Math.Round(r.Avg, 1); }
+            return dto with { ReviewCount = rc, AvgRating = ar };
+        }).ToList();
+
+        var result = new { success = true, products, total = products.Count, query };
+        _cache.Set(cacheKey, (object)result, TimeSpan.FromSeconds(60));
+        return Ok(result);
+    }
+
+    // ── Fuzzy-search helpers ─────────────────────────────────────────────────────
+    // Common misspellings + Indian-fashion variants collapse to a single canonical token,
+    // applied to BOTH the query and each product's words so either spelling matches the other.
+    private static readonly Dictionary<string, string> _synonyms = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["sari"] = "saree", ["sarees"] = "saree", ["saris"] = "saree", ["sadi"] = "saree",
+        ["nighty"] = "nightie", ["nighties"] = "nightie", ["nightgown"] = "nightie",
+        ["nightwear"] = "nightie", ["nightsuit"] = "nightie", ["nightdress"] = "nightie",
+        ["peticoat"] = "petticoat", ["petticoats"] = "petticoat", ["underskirt"] = "petticoat",
+        ["kurti"] = "kurta", ["kurtis"] = "kurta", ["kurtas"] = "kurta",
+        ["leggings"] = "legging",
+        ["lehnga"] = "lehenga", ["lehanga"] = "lehenga", ["langa"] = "lehenga", ["lehengas"] = "lehenga",
+        ["duppata"] = "dupatta", ["chunni"] = "dupatta", ["chunri"] = "dupatta",
+        ["blouses"] = "blouse",
+        ["innerwear"] = "inner", ["undergarment"] = "inner", ["undergarments"] = "inner",
+        ["combos"] = "combo", ["combopack"] = "combo",
+        ["perfumes"] = "perfume", ["bodyspray"] = "spray", ["deo"] = "deodorant", ["deos"] = "deodorant",
+        ["mens"] = "men", ["womens"] = "women", ["ladies"] = "women", ["kid"] = "kids",
+        ["cloths"] = "fabric", ["clothes"] = "fabric", ["material"] = "fabric", ["materials"] = "fabric",
+        ["cotten"] = "cotton", ["coton"] = "cotton",
+    };
+
+    private static string NormalizeText(string? s)
+    {
+        if (string.IsNullOrEmpty(s)) return "";
+        var sb = new System.Text.StringBuilder(s.Length);
+        foreach (var ch in s.ToLowerInvariant())
+            sb.Append(char.IsLetterOrDigit(ch) ? ch : ' ');
+        return System.Text.RegularExpressions.Regex.Replace(sb.ToString(), @"\s+", " ").Trim();
+    }
+
+    private static List<string> Tokenize(string s)
+        => NormalizeText(s).Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            .Where(t => t.Length >= 2).Distinct().ToList();
+
+    private static List<string> ExpandSynonyms(List<string> tokens)
+        => tokens.Select(t => _synonyms.TryGetValue(t, out var canon) ? canon : t).Distinct().ToList();
+
+    private static int Levenshtein(string a, string b)
+    {
+        if (a == b) return 0;
+        if (a.Length == 0) return b.Length;
+        if (b.Length == 0) return a.Length;
+        var prev = new int[b.Length + 1];
+        var curr = new int[b.Length + 1];
+        for (int j = 0; j <= b.Length; j++) prev[j] = j;
+        for (int i = 1; i <= a.Length; i++)
+        {
+            curr[0] = i;
+            for (int j = 1; j <= b.Length; j++)
+            {
+                int cost = a[i - 1] == b[j - 1] ? 0 : 1;
+                curr[j] = Math.Min(Math.Min(curr[j - 1] + 1, prev[j] + 1), prev[j - 1] + cost);
+            }
+            (prev, curr) = (curr, prev);
+        }
+        return prev[b.Length];
+    }
+
+    // Best similarity (0..10) of one query token against all of a product's tokens.
+    private static double TokenScore(string qToken, string[] pTokens)
+    {
+        double best = 0;
+        foreach (var pt in pTokens)
+        {
+            double s;
+            if (pt == qToken) s = 10;
+            else if (pt.StartsWith(qToken, StringComparison.Ordinal) || qToken.StartsWith(pt, StringComparison.Ordinal)) s = 7;
+            else if (qToken.Length >= 3 && pt.Contains(qToken, StringComparison.Ordinal)) s = 6;
+            else
+            {
+                int allowed = qToken.Length <= 4 ? 1 : 2;   // longer words tolerate more typos
+                int d = Levenshtein(qToken, pt);
+                s = d <= allowed ? 5 - d : 0;               // 1 typo → 4, 2 typos → 3
+            }
+            if (s > best) best = s;
+        }
+        return best;
+    }
+
+    private static double ScoreProduct(Product p, string qNorm, List<string> qTokens)
+    {
+        var haystackName = NormalizeText(p.Name);
+        var haystackAll  = NormalizeText($"{p.Name} {p.Category} {p.Subcategory} {p.Sku} {p.Description}");
+        var pExpanded = haystackAll.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            .Select(t => _synonyms.TryGetValue(t, out var c) ? c : t).ToArray();
+
+        double score = 0;
+        if (qNorm.Length >= 2 && haystackName.Contains(qNorm, StringComparison.Ordinal)) score += 40;
+        else if (qNorm.Length >= 2 && haystackAll.Contains(qNorm, StringComparison.Ordinal)) score += 20;
+
+        int matchedTokens = 0;
+        foreach (var qt in qTokens)
+        {
+            var ts = TokenScore(qt, pExpanded);
+            if (ts > 0) matchedTokens++;
+            score += ts;
+        }
+        if (matchedTokens == 0 && score < 20) return 0;                       // nothing relevant matched
+        if (qTokens.Count > 0 && matchedTokens == qTokens.Count) score += 8;  // all words matched
+        if (p.BestSeller) score += 1;
+        return score;
+    }
+
     // POST /api/products  (Admin only — bulk replace)
     [HttpPost]
     [Authorize(Policy = "AdminOrStaff")]

@@ -9,6 +9,8 @@ import { BestSellersSection, NewArrivalsSection } from '@/components/home/HomeSe
 import OfferBanner from '@/components/home/OfferBanner';
 import TrustStrip from '@/components/home/TrustStrip';
 import HeroMedia from '@/components/home/HeroMedia';
+import RecommendedForYou from '@/components/product/RecommendedForYou';
+import RecentlyViewed from '@/components/product/RecentlyViewed';
 
 // No searchParams = page is fully ISR-cached; 60s so new products appear quickly.
 export const revalidate = 60;
@@ -113,6 +115,11 @@ export default async function HomePage() {
 
       {/* New Arrivals — client component */}
       <NewArrivalsSection products={products} />
+
+      {/* Personalization — history-based "For You" + recently viewed (client-side, per visitor).
+          Both render nothing for brand-new visitors, so the homepage stays clean for them. */}
+      <RecommendedForYou />
+      <RecentlyViewed />
     </>
   );
 }

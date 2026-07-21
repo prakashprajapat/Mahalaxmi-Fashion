@@ -3,14 +3,19 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import type { Product } from '@/types';
-import { getWishlist, removeFromWishlist } from '@/lib/wishlist';
+import { getWishlist, removeFromWishlist, loadServerWishlist } from '@/lib/wishlist';
 import { addToCart, finalUnitPrice } from '@/lib/cart';
 
 export default function WishlistPage() {
   const [items, setItems] = useState<Product[]>([]);
 
   useEffect(() => {
+    // Show the local cache instantly, then refresh from the server if logged in.
     setItems(getWishlist());
+    loadServerWishlist().then(setItems).catch(() => {});
+    const sync = () => setItems(getWishlist());
+    window.addEventListener('wishlist-updated', sync);
+    return () => window.removeEventListener('wishlist-updated', sync);
   }, []);
 
   const handleRemove = (id: number) => {

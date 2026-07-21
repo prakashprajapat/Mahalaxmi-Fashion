@@ -8,11 +8,13 @@ import { finalUnitPrice } from '@/lib/price';
 import { addToWishlist, isInWishlist, removeFromWishlist } from '@/lib/wishlist';
 import { getCustomer, getToken } from '@/lib/auth';
 import { productImageSrc } from '@/lib/productImages';
-import { productSlug, parseProductId } from '@/lib/productSlug';
+import { parseProductId } from '@/lib/productSlug';
 import { presetColourCode } from '@/lib/presetColours';
 import RelatedProducts from '@/components/product/RelatedProducts';
+import RecentlyViewed from '@/components/product/RecentlyViewed';
 import DeliveryEstimate from '@/components/product/DeliveryEstimate';
 import SizeGuideButton from '@/components/product/SizeGuideButton';
+import { addRecentlyViewed } from '@/lib/recentlyViewed';
 import { trackEvent } from '@/lib/analytics';
 import type { Product, Review } from '@/types';
 
@@ -92,6 +94,7 @@ export default function ProductPage({ params }: { params: { id: string } }) {
 
         setProduct(loaded);
         setWishlisted(isInWishlist(loaded.dbId));
+        addRecentlyViewed(loaded);   // browsing history → personalization
         let ex: ExtraJson = {};
         try { ex = JSON.parse((loaded as any).extraJson ?? '{}'); } catch { ex = {}; }
         setExtra(ex);
@@ -261,83 +264,12 @@ export default function ProductPage({ params }: { params: { id: string } }) {
 
   const avgRating = reviews.length > 0 ? (reviews.reduce((s, r) => s + r.rating, 0) / reviews.length).toFixed(1) : null;
 
-  const productJsonLd = {
-    '@context': 'https://schema.org',
-    '@type': 'Product',
-    name: product.name,
-    description: product.description ?? product.name,
-    image: activeImg || `https://www.mahalaxmifashionhub.com/icon-512.png`,
-    sku: String(product.dbId),
-    brand: { '@type': 'Brand', name: 'Mahalaxmi Fashion Hub' },
-    offers: {
-      '@type': 'Offer',
-      url: `https://www.mahalaxmifashionhub.com/products/${productSlug(product.name, product.dbId)}`,
-      priceCurrency: 'INR',
-      price: price,
-      priceValidUntil: new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0],
-      availability: outOfStock
-        ? 'https://schema.org/OutOfStock'
-        : 'https://schema.org/InStock',
-      itemCondition: 'https://schema.org/NewCondition',
-      seller: { '@type': 'Organization', name: 'Mahalaxmi Fashion Hub' },
-      // Shipping + returns → richer Google product results & free listing eligibility.
-      shippingDetails: {
-        '@type': 'OfferShippingDetails',
-        shippingRate: { '@type': 'MonetaryAmount', value: price >= 999 ? 0 : 60, currency: 'INR' },
-        shippingDestination: { '@type': 'DefinedRegion', addressCountry: 'IN' },
-        deliveryTime: {
-          '@type': 'ShippingDeliveryTime',
-          handlingTime: { '@type': 'QuantitativeValue', minValue: 0, maxValue: 1, unitCode: 'DAY' },
-          transitTime: { '@type': 'QuantitativeValue', minValue: 2, maxValue: 7, unitCode: 'DAY' },
-        },
-      },
-      hasMerchantReturnPolicy: {
-        '@type': 'MerchantReturnPolicy',
-        applicableCountry: 'IN',
-        returnPolicyCategory: 'https://schema.org/MerchantReturnFiniteReturnWindow',
-        merchantReturnDays: 7,
-        returnMethod: 'https://schema.org/ReturnByMail',
-        returnFees: 'https://schema.org/FreeReturn',
-      },
-    },
-    ...(avgRating
-      ? {
-          aggregateRating: {
-            '@type': 'AggregateRating',
-            ratingValue: avgRating,
-            reviewCount: reviews.length,
-            bestRating: 5,
-            worstRating: 1,
-          },
-        }
-      : {}),
-  };
+  // NOTE: Product + BreadcrumbList JSON-LD is now emitted server-side from layout.tsx, so it
+  // lands in the initial HTML (fully crawlable). Kept out of this client component to avoid
+  // duplicate structured data.
 
   return (
     <>
-      {/* Product JSON-LD */}
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd) }}
-      />
-
-      {/* Breadcrumb JSON-LD */}
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
-            '@context': 'https://schema.org',
-            '@type': 'BreadcrumbList',
-            itemListElement: [
-              { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://www.mahalaxmifashionhub.com' },
-              { '@type': 'ListItem', position: 2, name: 'Products', item: 'https://www.mahalaxmifashionhub.com/products' },
-              ...(product.category ? [{ '@type': 'ListItem', position: 3, name: product.category, item: `https://www.mahalaxmifashionhub.com/${product.category.toLowerCase().replace(' ','-')}` }] : []),
-              { '@type': 'ListItem', position: product.category ? 4 : 3, name: product.name },
-            ],
-          }),
-        }}
-      />
-
       {/* Breadcrumb */}
       <nav style={{ background: '#f9f9f9', borderBottom: '1px solid #eee', padding: '.6rem 1.5rem', fontSize: '.83rem', color: '#888' }}>
         <Link href="/" style={{ color: '#a7354d' }}>Home</Link> &rsaquo;{' '}
@@ -660,6 +592,9 @@ export default function ProductPage({ params }: { params: { id: string } }) {
 
       {/* You may also like — same-category cross-sell + internal linking */}
       <RelatedProducts category={product.category} currentId={product.dbId} />
+
+      {/* Personalization — the visitor's own browsing history (client-side only) */}
+      <RecentlyViewed excludeId={product.dbId} />
 
       {/* Sticky Add-to-Cart bar — mobile only */}
       <div className="pdp-sticky-cart">
