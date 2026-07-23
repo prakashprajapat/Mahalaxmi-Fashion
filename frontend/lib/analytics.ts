@@ -44,12 +44,14 @@ export function toGa4Items(
 // straight to Google Ads gives PMax/Search a faster, first-party conversion signal to bid on.
 // Env-gated like the FB Pixel / GTM tags: does nothing until BOTH the conversion id and label
 // are configured, so it can never break checkout.
-//   NEXT_PUBLIC_GADS_ID             = "AW-XXXXXXXXXX"
-//   NEXT_PUBLIC_GADS_PURCHASE_LABEL = "abcdEFGhijk"   (from the Google Ads conversion action)
+// Real values hard-coded as fallbacks (public — they ship in the client bundle anyway);
+// env vars can still override per-environment.
+//   NEXT_PUBLIC_GADS_ID             = "AW-18290575097"
+//   NEXT_PUBLIC_GADS_PURCHASE_LABEL = "6VznCIS7sdUcEPmN0JFE"
 export function trackAdsConversion(p: { value?: number; currency?: string; transactionId?: string }): void {
   if (typeof window === 'undefined') return;
-  const id = process.env.NEXT_PUBLIC_GADS_ID;
-  const label = process.env.NEXT_PUBLIC_GADS_PURCHASE_LABEL;
+  const id = process.env.NEXT_PUBLIC_GADS_ID ?? 'AW-18290575097';
+  const label = process.env.NEXT_PUBLIC_GADS_PURCHASE_LABEL ?? '6VznCIS7sdUcEPmN0JFE';
   if (!id || !label) return;                       // not configured yet → no-op
   try {
     const w = window as unknown as { gtag?: (...args: unknown[]) => void };

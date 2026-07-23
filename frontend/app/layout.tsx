@@ -9,9 +9,9 @@ export const viewport: Viewport = {
 
 const SITE_URL = 'https://mahalaxmifashionhub.com';
 const GA4_ID   = process.env.NEXT_PUBLIC_GA4_ID ?? 'G-SFMFYD4NE6';
-// Google Ads conversion account (e.g. "AW-1234567890"). Set in .env.local once the
-// conversion action is created; empty by default so nothing loads until configured.
-const GADS_ID  = process.env.NEXT_PUBLIC_GADS_ID ?? '';
+// Google Ads conversion account. Real ID hard-coded as the fallback (same pattern as GA4_ID
+// above — it's a public value that ships in the client bundle anyway); env can still override.
+const GADS_ID  = process.env.NEXT_PUBLIC_GADS_ID ?? 'AW-18290575097';
 
 async function getSeoSettings(): Promise<Record<string, string>> {
   try {
