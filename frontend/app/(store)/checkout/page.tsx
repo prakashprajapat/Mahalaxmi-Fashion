@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { getCart, cartTotal, clearCart, cartShipping, finalUnitPrice, unitBase } from '@/lib/cart';
 import { getCustomer, getToken } from '@/lib/auth';
 import { ordersApi, paymentsApi, cashfreeApi, couponsApi, settingsApi } from '@/lib/api';
-import { trackEvent, toGa4Items } from '@/lib/analytics';
+import { trackEvent, toGa4Items, trackAdsConversion } from '@/lib/analytics';
 import type { CartItem, Customer } from '@/types';
 
 // Map cart items → GA4 ecommerce items.
@@ -267,6 +267,7 @@ export default function CheckoutPage() {
       coupon: attributionCode() || undefined,
       items: cartToItems(cart),
     });
+    trackAdsConversion({ value: total, currency: 'INR', transactionId: localOrderId });
     clearCart();
     setOrderId(localOrderId);
     setStep('confirm');
@@ -376,6 +377,7 @@ export default function CheckoutPage() {
         coupon: attributionCode() || undefined,
         items: cartToItems(cart),
       });
+      trackAdsConversion({ value: total, currency: 'INR', transactionId: localOrderId });
       clearCart();
       setOrderId(localOrderId);
       setStep('confirm');
@@ -447,6 +449,7 @@ export default function CheckoutPage() {
             coupon: attributionCode() || undefined,
             items: cartToItems(cart),
           });
+          trackAdsConversion({ value: total, currency: 'INR', transactionId: res.localOrderId });
           clearCart();
           setOrderId(res.localOrderId);
           setStep('confirm');

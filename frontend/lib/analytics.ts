@@ -40,6 +40,30 @@ export function toGa4Items(
   }));
 }
 
+// Direct Google Ads conversion (in addition to the GA4-imported one). Sending purchases
+// straight to Google Ads gives PMax/Search a faster, first-party conversion signal to bid on.
+// Env-gated like the FB Pixel / GTM tags: does nothing until BOTH the conversion id and label
+// are configured, so it can never break checkout.
+//   NEXT_PUBLIC_GADS_ID             = "AW-XXXXXXXXXX"
+//   NEXT_PUBLIC_GADS_PURCHASE_LABEL = "abcdEFGhijk"   (from the Google Ads conversion action)
+export function trackAdsConversion(p: { value?: number; currency?: string; transactionId?: string }): void {
+  if (typeof window === 'undefined') return;
+  const id = process.env.NEXT_PUBLIC_GADS_ID;
+  const label = process.env.NEXT_PUBLIC_GADS_PURCHASE_LABEL;
+  if (!id || !label) return;                       // not configured yet → no-op
+  try {
+    const w = window as unknown as { gtag?: (...args: unknown[]) => void };
+    if (typeof w.gtag === 'function') {
+      w.gtag('event', 'conversion', {
+        send_to: `${id}/${label}`,
+        value: p.value ?? 0,
+        currency: p.currency ?? 'INR',
+        transaction_id: p.transactionId ?? '',     // same id as the GA4 purchase → dedupes
+      });
+    }
+  } catch { /* best-effort — never throw */ }
+}
+
 // GA4 "Set up User ID" — tie a logged-in customer's sessions across devices to one identity.
 // Call after login (and on load if already logged in). Never send PII; use the internal id only.
 export function setAnalyticsUserId(id: string | number | null | undefined): void {

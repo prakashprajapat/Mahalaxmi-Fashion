@@ -9,6 +9,9 @@ export const viewport: Viewport = {
 
 const SITE_URL = 'https://mahalaxmifashionhub.com';
 const GA4_ID   = process.env.NEXT_PUBLIC_GA4_ID ?? 'G-SFMFYD4NE6';
+// Google Ads conversion account (e.g. "AW-1234567890"). Set in .env.local once the
+// conversion action is created; empty by default so nothing loads until configured.
+const GADS_ID  = process.env.NEXT_PUBLIC_GADS_ID ?? '';
 
 async function getSeoSettings(): Promise<Record<string, string>> {
   try {
@@ -115,6 +118,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 function gtag(){dataLayer.push(arguments);}
                 gtag('js', new Date());
                 gtag('config', '${GA4_ID}', { page_path: window.location.pathname });
+                ${GADS_ID ? `gtag('config', '${GADS_ID}', { 'allow_enhanced_conversions': true });` : ''}
               `}
             </Script>
           </>
