@@ -212,6 +212,111 @@ export const COLLECTIONS: Record<string, CollectionDef> = {
     category: 'saree',
     maxPrice: 1000,
   },
+  'cotton-saree': {
+    slug: 'cotton-saree',
+    label: 'Cotton Sarees',
+    title: 'Cotton Saree Online — Soft, Daily-Wear Sarees',
+    description:
+      'Shop pure cotton sarees online at Mahalaxmi Fashion Hub — soft, breathable and easy to drape for daily and office wear. Quality-checked, COD, pan-India delivery.',
+    eyebrow: 'Saree Collection',
+    h1: 'Cotton Sarees Online',
+    sub: 'Soft, breathable cotton sarees for daily and office wear',
+    intro: [
+      'A good cotton saree is a wardrobe essential — light on the body, easy to manage all day and perfect for the Indian climate. Our cotton sarees are chosen for their soft feel, neat fall and clean finish, whether you want a plain everyday drape or a printed piece with a little character. Every saree is quality-checked before it leaves our store.',
+      'We are based in Balotra, Rajasthan and ship pan-India with tracking. Want to see how a saree really falls before buying? Message us on WhatsApp for a quick video, and add a matching petticoat to the same order to save on shipping.',
+    ],
+    faqs: [
+      { q: 'Are cotton sarees good for daily and office wear?', a: 'Yes — cotton is breathable, comfortable for long hours and easy to iron, which makes it ideal for daily, college and office wear.' },
+      { q: 'Do cotton sarees come with a blouse piece?', a: 'It depends on the saree — the product page clearly mentions whether a blouse piece is included.' },
+      { q: 'How do I care for a cotton saree?', a: 'Hand or machine wash in cold water with mild detergent and dry in shade. Light starching keeps the crispness and fall.' },
+    ],
+    category: 'saree',
+    terms: ['cotton'],
+  },
+  'printed-saree': {
+    slug: 'printed-saree',
+    label: 'Printed Sarees',
+    title: 'Printed Saree Online — Floral, Bandhani & More',
+    description:
+      'Shop printed sarees online — floral, bandhani, geometric and more in easy-to-drape fabrics at honest prices. Mahalaxmi Fashion Hub, Balotra. COD available.',
+    eyebrow: 'Saree Collection',
+    h1: 'Printed Sarees Online',
+    sub: 'Floral, bandhani and modern prints in easy-drape fabrics',
+    intro: [
+      'Prints bring a saree to life. This collection brings together our printed sarees — from soft florals and classic bandhani to modern geometric patterns — in light, easy-to-drape fabrics that work for daily wear and light occasions alike. Each design is checked for print quality and fall before dispatch.',
+      'Shipped pan-India with tracking from Balotra, Rajasthan, with COD available. Not sure a print will suit you? WhatsApp us and we\'ll send a live video of the saree before you order.',
+    ],
+    faqs: [
+      { q: 'What fabrics are these printed sarees made from?', a: 'Mostly georgette, chiffon, cotton and art silk — light fabrics that drape easily and are comfortable for daily and festive wear.' },
+      { q: 'Will the print colours fade after washing?', a: 'Our sarees are quality-checked for colour-fastness. Wash in cold water with mild detergent and dry in shade to keep the print vivid for longer.' },
+      { q: 'Can I get a matching blouse or petticoat?', a: 'Many sarees include a blouse piece (mentioned on the product page), and you can add a matching cotton petticoat to the same order.' },
+    ],
+    category: 'saree',
+    terms: ['print'],
+  },
+  'party-wear-saree': {
+    slug: 'party-wear-saree',
+    label: 'Party Wear Sarees',
+    title: 'Party Wear Sarees Online — Festive & Designer',
+    description:
+      'Shop party wear & festive sarees online — georgette, silk and net designs with a rich fall. Quality-checked at Mahalaxmi Fashion Hub, Balotra. COD & pan-India delivery.',
+    eyebrow: 'Festive Edit',
+    h1: 'Party Wear Sarees Online',
+    sub: 'Festive and designer sarees with a rich, graceful fall',
+    intro: [
+      'For weddings, festivals and celebrations, a saree with the right shine and fall makes all the difference. Our party wear edit features georgette, silk-blend and net sarees with graceful drape and detailing — pieces that photograph beautifully and feel special to wear, without a designer-store price tag.',
+      'Every saree is quality-checked and shipped pan-India with tracking from Balotra, Rajasthan. Ordering for a specific date? Message us on WhatsApp and we\'ll confirm delivery timelines and send a live video of the saree.',
+    ],
+    faqs: [
+      { q: 'Are these sarees suitable for weddings and receptions?', a: 'Yes — the party wear range is chosen for festive and wedding occasions, with richer fabrics, borders and detailing than daily-wear sarees.' },
+      { q: 'Do party wear sarees include a blouse piece?', a: 'Most do — the product page mentions whether a blouse piece is included and its fabric.' },
+      { q: 'Can you deliver before a specific festival or function?', a: 'In most pincodes, yes. WhatsApp us your delivery pincode and date and we\'ll confirm before you order.' },
+    ],
+    category: 'saree',
+    terms: ['georgette', 'silk', 'party', 'festive', 'net', 'designer', 'embroider'],
+  },
+  'saree-under-500': {
+    slug: 'saree-under-500',
+    label: 'Sarees Under ₹500',
+    title: 'Sarees Under ₹500 Online — Budget Daily Wear',
+    description:
+      'Sarees under ₹500 — light daily-wear drapes at honest prices, quality-checked before dispatch. Mahalaxmi Fashion Hub, Balotra. COD & pan-India delivery.',
+    eyebrow: 'Budget Picks',
+    h1: 'Sarees Under ₹500',
+    sub: 'Light, easy daily-wear sarees at budget-friendly prices',
+    intro: [
+      'Looking for a simple, everyday saree that won\'t stretch the budget? This collection curates our best sarees under ₹500 — light, easy-to-manage drapes for daily and casual wear. Even at this price, every saree is quality-checked for fabric and fall before it ships.',
+      'We ship pan-India with tracking from Balotra, Rajasthan, and COD is available. Buying a few? Orders above ₹999 ship free, so it\'s worth stocking up on your daily favourites.',
+    ],
+    faqs: [
+      { q: 'Are sarees under ₹500 good quality?', a: 'These are simple daily-wear sarees in light fabrics. They\'re quality-checked for fall and finish, but are meant for everyday use rather than heavy festive occasions.' },
+      { q: 'Is Cash on Delivery available on budget sarees?', a: 'Yes, COD is available across India, along with UPI, cards and net banking.' },
+      { q: 'Can I combine several sarees for free shipping?', a: 'Yes — add multiple sarees to one order; shipping is free above ₹999.' },
+    ],
+    category: 'saree',
+    maxPrice: 500,
+  },
+  'daily-wear-nighty': {
+    slug: 'daily-wear-nighty',
+    label: 'Daily Wear Nighty',
+    title: 'Daily Wear Nighty for Women — Soft Everyday Comfort',
+    description:
+      'Shop soft daily-wear nighties for women — cotton and printed styles for everyday comfort. Mahalaxmi Fashion Hub, Balotra. COD, free shipping over ₹999.',
+    eyebrow: 'Everyday Comfort',
+    h1: 'Daily Wear Nighty for Women',
+    sub: 'Soft, easy nighties made for everyday comfort',
+    intro: [
+      'A daily-wear nighty needs to be soft, breathable and completely fuss-free — something you reach for every single night. This collection brings together our most comfortable everyday nighties in cotton and cotton-blend fabrics, in simple solids and easy prints, all stitched for a relaxed full-length fit and checked for quality before dispatch.',
+      'We ship pan-India with tracking from Balotra, Rajasthan, and delivery is free on orders above ₹999. Unsure about size? WhatsApp us your usual kurti or dress size and we\'ll help you pick.',
+    ],
+    faqs: [
+      { q: 'Which fabric is best for a daily-wear nighty?', a: 'Cotton and cotton blends are best for daily wear — they\'re breathable, absorb sweat and stay soft wash after wash, which matters for something you wear every night.' },
+      { q: 'What sizes are available?', a: 'Most daily-wear nighties come in a relaxed free-size or L–XXL fit. Check the product page, or WhatsApp us your size and we\'ll guide you.' },
+      { q: 'Do you offer combo packs for daily wear?', a: 'Yes — we have nighty combo packs that are great value for daily rotation. Check our Nighty Combo Pack collection.' },
+    ],
+    category: 'nighty',
+    terms: ['cotton', 'printed', 'regular', 'daily', 'hosiery'],
+  },
 };
 
 export const COLLECTION_SLUGS = Object.keys(COLLECTIONS);
