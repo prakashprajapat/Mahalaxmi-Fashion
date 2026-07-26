@@ -21,16 +21,11 @@ public class AppDbContext : DbContext
     public DbSet<PopupLead>   PopupLeads   { get; set; }
     public DbSet<StaffMember> StaffMembers { get; set; }
     public DbSet<SupplierApplication> SupplierApplications { get; set; }
-    public DbSet<WishlistItem> Wishlists { get; set; }
+    public DbSet<WishlistItem> Wishlists   { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
-
-        // One product can only be saved once per customer.
-        modelBuilder.Entity<WishlistItem>()
-            .HasIndex(w => new { w.CustomerId, w.ProductId })
-            .IsUnique();
 
         // Unique constraints
         modelBuilder.Entity<Customer>()
@@ -70,6 +65,11 @@ public class AppDbContext : DbContext
 
         modelBuilder.Entity<SiteSetting>()
             .HasIndex(s => s.Key)
+            .IsUnique();
+
+        // Wishlist: one row per (customer, product) so a product is saved only once.
+        modelBuilder.Entity<WishlistItem>()
+            .HasIndex(w => new { w.CustomerId, w.ProductId })
             .IsUnique();
 
         modelBuilder.Entity<Review>()

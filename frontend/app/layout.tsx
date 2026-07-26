@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import Script from 'next/script';
 import { settingsApi } from '@/lib/api';
+import PWARegister from '@/components/pwa/PWARegister';
 import './globals.css';
 
 export const viewport: Viewport = {
@@ -9,9 +10,6 @@ export const viewport: Viewport = {
 
 const SITE_URL = 'https://mahalaxmifashionhub.com';
 const GA4_ID   = process.env.NEXT_PUBLIC_GA4_ID ?? 'G-SFMFYD4NE6';
-// Google Ads conversion account. Real ID hard-coded as the fallback (same pattern as GA4_ID
-// above — it's a public value that ships in the client bundle anyway); env can still override.
-const GADS_ID  = process.env.NEXT_PUBLIC_GADS_ID ?? 'AW-18290575097';
 
 async function getSeoSettings(): Promise<Record<string, string>> {
   try {
@@ -118,7 +116,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 function gtag(){dataLayer.push(arguments);}
                 gtag('js', new Date());
                 gtag('config', '${GA4_ID}', { page_path: window.location.pathname });
-                ${GADS_ID ? `gtag('config', '${GADS_ID}', { 'allow_enhanced_conversions': true });` : ''}
               `}
             </Script>
           </>
@@ -224,6 +221,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       </head>
       <body>
         {children}
+        <PWARegister />
       </body>
     </html>
   );

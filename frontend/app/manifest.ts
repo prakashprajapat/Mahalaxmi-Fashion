@@ -1,22 +1,33 @@
 import type { MetadataRoute } from 'next';
 
-// Web App Manifest → served at /manifest.webmanifest. Enables "Add to Home Screen"
-// (install as an app) on Android/Chrome and iOS Safari.
+// Web App Manifest — makes the site installable as an app (Add to Home Screen).
+// Next.js serves this at /manifest.webmanifest and auto-injects <link rel="manifest">.
+// Icons reference existing files in /public (icon-192.png, icon-512.png).
 export default function manifest(): MetadataRoute.Manifest {
   return {
     name: 'Mahalaxmi Fashion Hub',
     short_name: 'Mahalaxmi',
-    description: 'Premium Indian Fashion — Sarees, Nighty, Petticoat & More. Shop ethnic wear online.',
-    start_url: '/',
+    description:
+      'Sarees, Nighty, Petticoat & family ethnic wear — COD, free shipping over ₹999, pan-India delivery.',
+    start_url: '/?utm_source=pwa',
     scope: '/',
     display: 'standalone',
     orientation: 'portrait',
     background_color: '#ffffff',
     theme_color: '#a7354d',
+    lang: 'en-IN',
+    dir: 'ltr',
+    categories: ['shopping', 'lifestyle'],
     icons: [
-      { src: '/icon-192.png?v=9', sizes: '192x192', type: 'image/png', purpose: 'any' },
-      { src: '/icon-512.png?v=9', sizes: '512x512', type: 'image/png', purpose: 'any' },
-      { src: '/icon-512.png?v=9', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+      { src: '/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+      { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+      { src: '/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'maskable' },
+      { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+    ],
+    shortcuts: [
+      { name: 'New Arrivals', short_name: 'New', url: '/products?utm_source=pwa_shortcut' },
+      { name: 'Track Order', short_name: 'Track', url: '/tracking?utm_source=pwa_shortcut' },
+      { name: 'My Wishlist', short_name: 'Wishlist', url: '/wishlist?utm_source=pwa_shortcut' },
     ],
   };
 }

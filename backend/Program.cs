@@ -219,7 +219,7 @@ using (var scope = app.Services.CreateScope())
             status            VARCHAR(30)  NOT NULL DEFAULT 'new',
             created_at        TIMESTAMPTZ  NOT NULL DEFAULT NOW()
         );
-        -- Server-synced customer wishlists (localStorage merges up on login).
+        -- Server-synced customer wishlists (guest localStorage merges up on login).
         CREATE TABLE IF NOT EXISTS wishlists (
             id          SERIAL PRIMARY KEY,
             customer_id INT         NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
@@ -227,7 +227,6 @@ using (var scope = app.Services.CreateScope())
             added_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
             UNIQUE (customer_id, product_id)
         );
-        CREATE INDEX IF NOT EXISTS idx_wishlists_customer ON wishlists (customer_id);
         UPDATE site_orders SET status = 'Pending'
             WHERE status IN ('Order Received', 'Pending confirmation', 'Paid', 'Order Packed');
     ");
