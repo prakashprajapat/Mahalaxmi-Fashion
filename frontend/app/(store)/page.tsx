@@ -9,8 +9,7 @@ import { BestSellersSection, NewArrivalsSection } from '@/components/home/HomeSe
 import OfferBanner from '@/components/home/OfferBanner';
 import TrustStrip from '@/components/home/TrustStrip';
 import HeroMedia from '@/components/home/HeroMedia';
-import RecommendedForYou from '@/components/product/RecommendedForYou';
-import RecentlyViewed from '@/components/product/RecentlyViewed';
+import GoogleReviews from '@/components/reviews/GoogleReviews';
 
 // No searchParams = page is fully ISR-cached; 60s so new products appear quickly.
 export const revalidate = 60;
@@ -73,9 +72,23 @@ export default async function HomePage() {
               Shop Now
             </Link>
 
-            {/* Hero decluttered (Myntra-style single focus): the quality badges + "Tradition | Style |
-                Quality" line were removed here because the Trust Strip below already carries those
-                signals — keeping the hero to one message + one CTA. */}
+            {/* Quality badges */}
+            <div style={{ display: 'flex', gap: 'clamp(.8rem, 2.5vw, 1.6rem)', flexWrap: 'wrap', marginTop: '1.1rem' }}>
+              {[
+                { icon: '🏅', label: 'Premium Quality' },
+                { icon: '🌿', label: 'Comfort Fabrics' },
+                { icon: '🛍️', label: 'Trusted Shopping' },
+              ].map(b => (
+                <div key={b.label} style={{ display: 'flex', alignItems: 'center', gap: '.4rem', color: '#5c1a28' }}>
+                  <span style={{ fontSize: '1.15rem' }} aria-hidden="true">{b.icon}</span>
+                  <span style={{ fontSize: '.72rem', fontWeight: 700 }}>{b.label}</span>
+                </div>
+              ))}
+            </div>
+
+            <p style={{ fontSize: '.72rem', textTransform: 'uppercase', letterSpacing: '.24em', color: '#8a2a3e', fontWeight: 800, margin: '.7rem 0 0' }}>
+              Tradition &nbsp;|&nbsp; Style &nbsp;|&nbsp; Quality
+            </p>
           </div>
 
           {/* Right: admin video or logo fallback */}
@@ -102,10 +115,9 @@ export default async function HomePage() {
       {/* New Arrivals — client component */}
       <NewArrivalsSection products={products} />
 
-      {/* Personalization — history-based "For You" + recently viewed (client-side, per visitor).
-          Both render nothing for brand-new visitors, so the homepage stays clean for them. */}
-      <RecommendedForYou />
-      <RecentlyViewed />
+      {/* Live Google rating + reviews (trust signal). Renders only once configured
+          in admin Settings (googlePlaceId + googlePlacesApiKey). */}
+      <GoogleReviews />
     </>
   );
 }
