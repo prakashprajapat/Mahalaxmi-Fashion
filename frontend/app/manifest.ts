@@ -11,7 +11,12 @@ export default function manifest(): MetadataRoute.Manifest {
       'Sarees, Nighty, Petticoat & family ethnic wear — COD, free shipping over ₹999, pan-India delivery.',
     start_url: '/?utm_source=pwa',
     scope: '/',
-    display: 'standalone',
+    // 'browser' makes the site NON-installable in Chrome, so the "Install / Create
+    // shortcut" web prompt no longer appears (customers install the app from the Play
+    // Store instead). This does NOT affect the published Play Store (TWA) app — that
+    // verifies via /.well-known/assetlinks.json, not this manifest — and the service
+    // worker (offline) keeps working.
+    display: 'browser',
     orientation: 'portrait',
     background_color: '#ffffff',
     theme_color: '#a7354d',
