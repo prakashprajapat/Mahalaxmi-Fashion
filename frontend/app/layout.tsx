@@ -75,7 +75,17 @@ export async function generateMetadata(): Promise<Metadata> {
       apple: '/apple-touch-icon.png?v=9',
       shortcut: '/favicon.ico?v=8',
     },
-    robots: { index: true, follow: true, googleBot: { index: true, follow: true } },
+    robots: {
+      index: true,
+      follow: true,
+      googleBot: {
+        index: true,
+        follow: true,
+        'max-image-preview': 'large',
+        'max-snippet': -1,
+        'max-video-preview': -1,
+      },
+    },
     verification: {
       ...(googleVerif ? { google: googleVerif } : {}),
       ...(bingVerif ? { other: { 'msvalidate.01': bingVerif } } : {}),

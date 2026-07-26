@@ -2,6 +2,7 @@ import { MetadataRoute } from 'next';
 import { productsApi } from '@/lib/api';
 import { POSTS } from '@/lib/blog';
 import { productSlug } from '@/lib/productSlug';
+import { productImageSrc } from '@/lib/productImages';
 import { COLLECTION_SLUGS } from '@/lib/collections';
 
 const BASE = 'https://www.mahalaxmifashionhub.com';
@@ -62,12 +63,18 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   let productEntries: MetadataRoute.Sitemap = [];
   try {
     const { products } = await productsApi.getAll({ pageSize: 1000 });
-    productEntries = (products ?? []).map(p => ({
-      url: `${BASE}/products/${productSlug(p.name, p.dbId)}`,
-      lastModified: new Date(),
-      changeFrequency: 'weekly' as const,
-      priority: 0.7,
-    }));
+    productEntries = (products ?? []).map(p => {
+      // Image sitemap — helps product photos get indexed in Google Images (big for fashion).
+      const img = productImageSrc(p.image);
+      const imageUrl = img ? (/^https?:/i.test(img) ? img : `${BASE}${img}`) : undefined;
+      return {
+        url: `${BASE}/products/${productSlug(p.name, p.dbId)}`,
+        lastModified: new Date(),
+        changeFrequency: 'weekly' as const,
+        priority: 0.7,
+        ...(imageUrl ? { images: [imageUrl] } : {}),
+      };
+    });
   } catch {
     // If the API is unreachable at build time, still return the static sitemap.
   }
