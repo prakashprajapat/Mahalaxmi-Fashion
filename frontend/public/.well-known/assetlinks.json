@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.mahalaxmifashionhub.www.twa",
+      "sha256_cert_fingerprints": [
+        "8A:45:8A:8D:41:31:E2:D9:78:CB:20:E2:0B:48:36:04:F4:9C:43:5D:72:C1:D5:33:A5:33:26:2F:0A:2D:E3:73"
+      ]
+    }
+  }
+]
