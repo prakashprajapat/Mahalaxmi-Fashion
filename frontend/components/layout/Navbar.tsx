@@ -9,8 +9,6 @@ import { customersApi, settingsApi, productsApi, ordersApi } from '@/lib/api';
 import { trackEvent } from '@/lib/analytics';
 import { productSlug } from '@/lib/productSlug';
 import { productImageSrc } from '@/lib/productImages';
-import { fuzzyScore, productHaystack } from '@/lib/fuzzy';
-import { syncWishlistOnLogin, clearLocalWishlist } from '@/lib/wishlist';
 import type { Product } from '@/types';
 
 // Cache the catalogue once (module-level) so search suggestions don't refetch on every keystroke.
@@ -70,7 +68,6 @@ export default function Navbar() {
   const [enableFacebookLogin, setEnableFacebookLogin] = useState(false);
   const [facebookAppId, setFacebookAppId] = useState('');
   const prevCountRef = useRef(0);
-  const suggestTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const update = () => {
@@ -148,35 +145,20 @@ export default function Navbar() {
     resetLoginForm();
   };
 
-  // Typo-tolerant suggestions. Primary source is the backend fuzzy search (whole catalogue,
-  // Levenshtein + synonyms); if it errors or returns nothing we fall back to a client-side
-  // fuzzy match over the cached catalogue so "sari"/"peticoat"/"nighty" still surface results.
-  const clientFuzzy = async (query: string): Promise<Product[]> => {
+  // Instant search suggestions: filter the (cached) catalogue by name / category / SKU.
+  const runSuggest = async (q: string) => {
+    const query = q.trim().toLowerCase();
+    if (query.length < 2) { setSuggestions([]); return; }
     if (!_searchCache) {
-      try { const c = await productsApi.getAll({ pageSize: 200 }); _searchCache = c.products ?? []; }
+      try { const r = await productsApi.getAll({ pageSize: 200 }); _searchCache = r.products ?? []; }
       catch { _searchCache = []; }
     }
-    return (_searchCache ?? [])
-      .map(p => ({ p, s: fuzzyScore(query, productHaystack(p as any)) }))
-      .filter(x => x.s > 0)
-      .sort((a, b) => b.s - a.s)
-      .slice(0, 6)
-      .map(x => x.p);
-  };
-
-  const runSuggest = (raw: string) => {
-    const query = raw.trim();
-    if (suggestTimer.current) clearTimeout(suggestTimer.current);
-    if (query.length < 2) { setSuggestions([]); return; }
-    suggestTimer.current = setTimeout(async () => {
-      try {
-        const r = await productsApi.search(query, 6);
-        const list = (r.products ?? []).length ? r.products : await clientFuzzy(query);
-        setSuggestions(list.slice(0, 6));
-      } catch {
-        setSuggestions(await clientFuzzy(query));
-      }
-    }, 180);
+    const matches = _searchCache.filter(p =>
+      (p.name ?? '').toLowerCase().includes(query) ||
+      (p.category ?? '').toLowerCase().includes(query) ||
+      ((p as any).sku ?? '').toLowerCase().includes(query)
+    ).slice(0, 6);
+    setSuggestions(matches);
   };
 
   const handleLogin = async (e: FormEvent) => {
@@ -187,7 +169,6 @@ export default function Navbar() {
       const res = await customersApi.login({ email: loginForm.email, password: loginForm.password });
       setToken(res.token);
       saveCustomer(res.customer);
-      syncWishlistOnLogin();   // merge guest wishlist → account, hydrate back
       trackEvent('login', { method: 'password' });   // GA4
       setIsLoggedIn(true);
       setLoginOpen(false);
@@ -228,7 +209,6 @@ export default function Navbar() {
       }
       setToken(res.token);
       saveCustomer(res.customer);
-      syncWishlistOnLogin();   // merge guest wishlist → account, hydrate back
       trackEvent('login', { method: 'otp' });   // GA4
       setIsLoggedIn(true);
       setLoginOpen(false);
@@ -260,15 +240,18 @@ export default function Navbar() {
         <span>🚚 Free Shipping</span>
         <span className="offer-tagline">✨ Trending styles at unbeatable prices — new drops every week!</span>
         <Link href="/products?bestSeller=true">Shop Now</Link>
+        <Link
+          href="/become-supplier"
+          className="offer-seller-link"
+          style={{ marginLeft: '0.9rem', fontSize: '0.9em', fontWeight: 700, textDecoration: 'underline', whiteSpace: 'nowrap' }}
+        >
+          🏪 Become a Seller
+        </Link>
       </section>
 
-      {/* Header */}
+      {/* Header — policy-nav strip removed (declutter); policy links live in the footer,
+          and "Become a Seller" now sits in the offer strip above. */}
       <header className="site-header">
-        {/* Top strip decluttered (Myntra-style clean header). The policy links used to sit here
-            but are fully duplicated in the footer, so only the seller CTA stays up top. */}
-        <nav className="policy-nav">
-          <Link href="/become-supplier" className="policy-nav-seller">🏪 Become a Seller</Link>
-        </nav>
 
         <div className="brand-row">
           <Link href="/" className="brand" aria-label="Mahalaxmi Fashion Hub home">
@@ -459,7 +442,7 @@ export default function Navbar() {
                 ))}
                 <div style={{ borderTop: '1px solid #f0f0f0', marginTop: '.5rem', paddingTop: '.5rem' }}>
                   <button type="button"
-                    onClick={() => { logout(); clearLocalWishlist(); resetLoginForm(); setMenuOpen(false); window.dispatchEvent(new Event('auth-changed')); router.push('/account'); }}
+                    onClick={() => { logout(); resetLoginForm(); setMenuOpen(false); window.dispatchEvent(new Event('auth-changed')); router.push('/account'); }}
                     style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '.4rem', width: '100%', textAlign: 'center', padding: '.6rem .25rem', color: '#fff', fontSize: '.92rem', background: '#a7354d', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: 700, marginBottom: '.4rem' }}>
                     🔓 Logout
                   </button>
