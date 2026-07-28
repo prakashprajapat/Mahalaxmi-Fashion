@@ -131,9 +131,13 @@ export default function Footer() {
             ))}
           </div>
           <a href={`https://wa.me/${wa}`} target="_blank" rel="noopener noreferrer" style={{ fontSize: '.85rem' }}>WhatsApp {waDisplay}</a>
-          <div className="footer-app-row" aria-label="Mobile apps coming soon">
+          <div className="footer-app-row" aria-label="Get our mobile app">
             <span className="footer-app-btn"><small>Coming soon on</small><strong>App Store</strong></span>
-            <span className="footer-app-btn"><small>Coming soon on</small><strong>Play Store</strong></span>
+            <a className="footer-app-btn footer-app-live"
+               href="https://play.google.com/store/apps/details?id=com.mahalaxmifashionhub.www.twa"
+               target="_blank" rel="noopener noreferrer">
+              <small>GET IT ON</small><strong>&#9654; Google Play</strong>
+            </a>
           </div>
         </nav>
       </div>

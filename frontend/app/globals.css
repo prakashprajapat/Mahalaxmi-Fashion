@@ -1185,3 +1185,14 @@ button { cursor: pointer; font-family: inherit; }
 .cart-link{ display:inline-flex !important; align-items:center; justify-content:center; line-height:1; }
 .cart-count{ display:inline-flex !important; align-items:center; justify-content:center; }
 /* ==================== END CART FIX ==================== */
+
+/* ── Footer live "Google Play" download button (clickable, gold-accented) ── */
+a.footer-app-btn.footer-app-live{
+  cursor:pointer; opacity:1 !important; text-decoration:none;
+  border:1.5px solid var(--gold) !important;
+  background:rgba(201,162,75,.12) !important;
+  transition:background .2s, transform .2s;
+}
+a.footer-app-btn.footer-app-live:hover{ background:rgba(201,162,75,.22) !important; transform:translateY(-2px); }
+a.footer-app-btn.footer-app-live strong{ color:#fff !important; }
+/* ==================== END FOOTER APP BUTTON ==================== */
