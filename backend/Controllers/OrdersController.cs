@@ -15,7 +15,7 @@ namespace MahalaxmiApi.Controllers;
 public class OrdersController : ControllerBase
 {
     private readonly AppDbContext _db;
-    private static readonly JsonSerializerOptions _json = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+    private static readonly JsonSerializerOptions _json = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, PropertyNameCaseInsensitive = true, NumberHandling = System.Text.Json.Serialization.JsonNumberHandling.AllowReadingFromString };
     private static readonly string[] AllowedStatuses =
     [
         "Order Received", "Pending", "Pending confirmation", "Paid", "On Hold",
@@ -1412,9 +1412,16 @@ public class OrdersController : ControllerBase
         catch { return new JsonElement(); }
     }
 
-    private static string? GetJsonStr(JsonElement el, string key) =>
-        el.ValueKind == JsonValueKind.Object && el.TryGetProperty(key, out var v)
-            ? v.GetString() : null;
+    private static string? GetJsonStr(JsonElement el, string key)
+    {
+        if (el.ValueKind != JsonValueKind.Object || !el.TryGetProperty(key, out var v)) return null;
+        return v.ValueKind switch
+        {
+            JsonValueKind.String => v.GetString(),
+            JsonValueKind.Null or JsonValueKind.Undefined => null,
+            _ => v.ToString(),   // number/bool stored where a string was expected — don't throw
+        };
+    }
 
     private static bool GetJsonBool(JsonElement el, string key) =>
         el.ValueKind == JsonValueKind.Object && el.TryGetProperty(key, out var v)
@@ -1436,16 +1443,19 @@ public class OrdersController : ControllerBase
 
     private static OrderDto MapOrder(SiteOrder o)
     {
-        var customerJson = string.IsNullOrEmpty(o.CustomerJson)
-            ? new JsonElement()
-            : JsonSerializer.Deserialize<JsonElement>(o.CustomerJson);
-        var shippingJson = string.IsNullOrEmpty(o.ShippingJson)
-            ? new JsonElement()
-            : JsonSerializer.Deserialize<JsonElement>(o.ShippingJson);
+        // Defensive: one order with malformed/legacy JSON must NEVER crash the whole orders
+        // list. ParseJson + try/catch degrade gracefully instead of throwing a 500.
+        var customerJson = ParseJson(o.CustomerJson);
+        var shippingJson = ParseJson(o.ShippingJson);
         var rawJson = ParseJson(o.RawJson);
-        var cartLines = string.IsNullOrEmpty(o.CartJson)
-            ? new List<CartLineDto>()
-            : JsonSerializer.Deserialize<List<CartLineDto>>(o.CartJson, _json) ?? [];
+        List<CartLineDto> cartLines;
+        try
+        {
+            cartLines = string.IsNullOrEmpty(o.CartJson)
+                ? new List<CartLineDto>()
+                : JsonSerializer.Deserialize<List<CartLineDto>>(o.CartJson, _json) ?? new List<CartLineDto>();
+        }
+        catch { cartLines = new List<CartLineDto>(); }
 
         return new OrderDto(
             o.OrderId,
