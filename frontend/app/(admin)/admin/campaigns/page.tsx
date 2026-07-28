@@ -136,7 +136,7 @@ export default function BulkCampaignsPage() {
         <p style={{ margin: 0, fontSize: '.82rem', color: '#8a2a3e' }}>
           <strong>Note:</strong> Promotional bulk SMS needs a DLT-approved template and sufficient MSG91 wallet balance.
           Send only to customers who expect messages from you — spam messages may get blocked. For WhatsApp campaigns,
-          the customer's number must be active on WhatsApp.
+          the customer&apos;s number must be active on WhatsApp.
         </p>
       </div>
     </div>
