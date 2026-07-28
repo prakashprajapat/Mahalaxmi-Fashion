@@ -97,7 +97,7 @@ export default async function HomePage() {
         </div>
       </section>
       <style>{`
-        .hero-copy { white-space: nowrap; }
+        .hero-copy { white-space: normal; }
         @media (max-width: 768px) {
           .hero-grid { grid-template-columns: 1fr !important; }
           .hero-copy { white-space: normal; }
