@@ -570,7 +570,7 @@ public class OrdersController : ControllerBase
         string state = GetJsonStr(sj, "state") ?? "";
         string pin = GetJsonStr(sj, "pincode") ?? "";
         string invNo = string.IsNullOrWhiteSpace(o.InvoiceNumber) ? o.OrderId : o.InvoiceNumber!;
-        string awb = string.IsNullOrWhiteSpace(o.Awb) ? "[Pending]" : o.Awb!;
+        string awb = string.IsNullOrWhiteSpace(o.Awb) ? "Pending" : o.Awb!;
 
         // Store prices are GST-inclusive, so back-calculate the taxable value + tax for each line.
         decimal firstRate = (lines.Count > 0 && lines[0].GstRate > 0) ? lines[0].GstRate : 5m;
@@ -597,11 +597,11 @@ public class OrdersController : ControllerBase
             rows.Append(
                 "<tr>" +
                 "<td class='c'>" + idx + "</td>" +
-                "<td><div class='inm'>" + itemName + "</div><div class='ism'>SKU: " + sku + " &middot; Size: " + size + colour + "</div></td>" +
+                "<td><div class='inm'>" + itemName + "</div><div class='ism'>SKU: " + sku + " &bull; Size: " + size + colour + "</div></td>" +
                 "<td class='c'>" + hsnLine + "</td>" +
-                "<td class='c'>" + qty + "</td>" +
-                "<td class='r'>&#8377;" + unitRate.ToString("0.00") + "</td>" +
-                "<td class='c'>" + rate.ToString("0.#") + "%</td>" +
+                "<td class='c gold'>" + qty + "</td>" +
+                "<td class='r gold'>&#8377;" + unitRate.ToString("0.00") + "</td>" +
+                "<td class='c gold'>" + rate.ToString("0.#") + "%</td>" +
                 "<td class='r'>&#8377;" + lineTax.ToString("0.00") + "</td>" +
                 "<td class='r'>&#8377;" + lineIncl.ToString("0.00") + "</td>" +
                 "</tr>");
@@ -613,15 +613,16 @@ public class OrdersController : ControllerBase
 
         var extraRows = new System.Text.StringBuilder();
         if (o.DiscountAmount > 0)
-            extraRows.Append("<tr><td class='tl'>Discount"
+            extraRows.Append("<tr><td class='k'>Discount"
                 + (string.IsNullOrWhiteSpace(o.CouponCode) ? "" : " (" + System.Net.WebUtility.HtmlEncode(o.CouponCode) + ")")
-                + "</td><td class='tv'>-&#8377;" + o.DiscountAmount.ToString("0.00") + "</td></tr>");
+                + "</td><td class='v'>-&#8377;" + o.DiscountAmount.ToString("0.00") + "</td></tr>");
         if (o.CodFee > 0)
-            extraRows.Append("<tr><td class='tl'>COD Charges</td><td class='tv'>&#8377;" + o.CodFee.ToString("0.00") + "</td></tr>");
+            extraRows.Append("<tr><td class='k'>COD Charges</td><td class='v gold'>&#8377;" + o.CodFee.ToString("0.00") + "</td></tr>");
 
         var addrFull = System.Net.WebUtility.HtmlEncode(string.Join(", ",
             new[] { addr, city, state, pin }.Where(x => !string.IsNullOrWhiteSpace(x))));
         var payLabel = string.Equals(o.Method, "cod", StringComparison.OrdinalIgnoreCase) ? "Cash on Delivery (COD)" : "Prepaid (Online)";
+        string shipDisp = o.ShippingCost > 0 ? "&#8377;" + o.ShippingCost.ToString("0.00") : "-";
 
         return INVOICE_TEMPLATE
             .Replace("{INVNO}", System.Net.WebUtility.HtmlEncode(invNo))
@@ -638,7 +639,7 @@ public class OrdersController : ControllerBase
             .Replace("{HALFRATE}", halfRate.ToString("0.##"))
             .Replace("{CGST}", cgst.ToString("0.00"))
             .Replace("{SGST}", cgst.ToString("0.00"))
-            .Replace("{SHIP}", o.ShippingCost.ToString("0.00"))
+            .Replace("{SHIP}", shipDisp)
             .Replace("{TOTAL}", o.Total.ToString("0.00"))
             .Replace("{WORDS}", System.Net.WebUtility.HtmlEncode(AmountInWords(o.Total)))
             .Replace("{YEAR}", placed.Year.ToString());
@@ -708,110 +709,113 @@ public class OrdersController : ControllerBase
 <title>Tax Invoice {INVNO} - Mahalaxmi Fashion Hub</title>
 <style>
   *{box-sizing:border-box}
-  body{font-family:Arial,Helvetica,sans-serif;background:#e9e4da;color:#2b2b2b;margin:0;padding:16px;font-size:12px}
-  .bar{max-width:820px;margin:0 auto 12px;text-align:right}
-  .bar button{background:#7a5a2e;color:#fff;border:none;border-radius:8px;padding:.55rem 1.2rem;font-weight:700;font-size:13px;cursor:pointer}
-  .sheet{max-width:820px;margin:0 auto;background:#fff;border:1px solid #d8cbb2}
-  .hd{text-align:center;padding:16px 18px 14px;border-bottom:3px solid #7a5a2e}
-  .hd .logo{height:60px;width:auto;display:block;margin:0 auto 8px}
-  .hd .bn{font-size:21px;font-weight:800;color:#3a2c14;letter-spacing:.05em;white-space:nowrap}
-  .hd .tg{font-size:11px;color:#8a6a3a;margin-top:4px}
-  .hd .tg2{font-size:9.5px;color:#999;margin-top:1px}
-  .hd .ti{font-family:Georgia,serif;font-size:22px;font-weight:800;color:#7a5a2e;letter-spacing:.06em;margin-top:10px}
-  .hd .rs{font-size:11px;color:#555;margin-top:4px}
-  .hd .rs b{color:#3a2c14}
-  .cols{display:flex;border-bottom:1px solid #e5d9c3}
-  .cols>div{flex:1;padding:12px 18px}
-  .cols>div:first-child{border-right:1px solid #e5d9c3}
-  .st{font-size:11px;font-weight:800;color:#7a5a2e;letter-spacing:.05em;margin-bottom:6px;text-transform:uppercase}
-  .kv{font-size:11.5px;line-height:1.75;color:#333}
-  table{width:100%;border-collapse:collapse}
-  thead th{background:#7a5a2e;color:#fff;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.02em;padding:8px;text-align:left}
-  tbody td{padding:9px 8px;border-bottom:1px solid #eee;font-size:11.5px;vertical-align:top}
-  td.c{text-align:center}td.r{text-align:right}
-  .inm{font-weight:700;color:#2b2b2b}
-  .ism{font-size:10px;color:#777;margin-top:2px}
-  .tot{width:100%;border-collapse:collapse}
-  .tot td{padding:8px 18px;font-size:12px;border-bottom:1px solid #efe7d6}
-  .tot td.tl{text-align:right;color:#555;background:#faf6ee}
-  .tot td.tv{text-align:right;width:180px;font-weight:700;color:#7a5a2e;background:#faf6ee}
-  .tot tr.grand td{background:#7a5a2e;color:#fff;font-size:14px;font-weight:800}
-  .tot tr.grand td.tl{color:#fff}
-  .words{padding:10px 18px;border-bottom:1px solid #e5d9c3;font-size:11.5px}
-  .words b{color:#7a5a2e}
-  .foot2{display:flex;border-top:1px solid #e5d9c3}
-  .foot2>div{flex:1;padding:12px 18px;font-size:10.5px;color:#555;line-height:1.8}
-  .foot2>div:first-child{border-right:1px solid #e5d9c3}
-  .foot2 .st{margin-bottom:5px}
-  .sign{padding:12px 18px;text-align:center;color:#999;font-size:10px;border-top:1px dashed #d8cbb2}
-  @page{size:A4;margin:9mm}
-  @media print{body{background:#fff;padding:0}.bar{display:none}.sheet{border:none;max-width:100%}}
+  body{font-family:Arial,Helvetica,sans-serif;background:#eceae4;color:#2b2b2b;margin:0;padding:14px;font-size:11px}
+  .bar{max-width:820px;margin:0 auto 10px;text-align:right}
+  .bar button{background:#c19a4e;color:#fff;border:none;border-radius:7px;padding:.5rem 1.1rem;font-weight:700;font-size:12px;cursor:pointer}
+  .sheet{max-width:820px;margin:0 auto;background:#fff;padding:22px 24px}
+  .hd{display:flex;justify-content:space-between;align-items:flex-start;gap:14px}
+  .hd .l{flex:1.25}
+  .hd .l img{height:56px;width:auto;display:block}
+  .hd .l .addr{font-size:10px;color:#333;line-height:1.5;margin-top:6px;border-top:1px solid #e6ddc9;padding-top:5px}
+  .hd .l .addr b{color:#111}
+  .hd .c{flex:1;text-align:center;padding-top:16px}
+  .hd .c .ti{font-family:Georgia,serif;font-size:22px;font-weight:800;color:#b8892f;letter-spacing:.05em}
+  .hd .r{flex:1.05}
+  .hd .r .no,.hd .r .dt{font-size:11px;font-weight:700;text-align:right}
+  .hd .r .dt{margin:4px 0 6px}
+  .metabox{border:1px solid #e0d6bf}
+  .metabox .row{display:flex;border-top:1px solid #ede6d5;font-size:10px}
+  .metabox .row:first-child{border-top:none}
+  .metabox .k{width:46%;padding:4px 7px;color:#555;font-weight:700;border-right:1px solid #ede6d5}
+  .metabox .v{flex:1;padding:4px 7px}
+  .bs{display:flex;gap:16px;margin-top:16px}
+  .bs>div{flex:1}
+  .sect{background:#f3ead3;color:#8a6a2f;font-size:10px;font-weight:800;letter-spacing:.04em;padding:4px 8px;text-transform:uppercase}
+  .bs .body{font-size:10.5px;line-height:1.6;padding:7px 8px 0;color:#333}
+  .bs .body b{color:#111;font-size:11.5px}
+  .bs .body .g{color:#888}
+  table.it{width:100%;border-collapse:collapse;margin-top:16px}
+  table.it thead th{background:#1a1a1a;color:#fff;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.02em;padding:7px 6px;text-align:left}
+  table.it tbody td{padding:7px 6px;border-bottom:1px solid #eee;font-size:10.5px;vertical-align:top}
+  table.it td.c{text-align:center}table.it td.r{text-align:right}
+  .inm{font-weight:700;color:#222;line-height:1.25}
+  .ism{font-size:9px;color:#888;margin-top:2px}
+  .gold{color:#b8892f;font-weight:700}
+  .tot{width:300px;margin-left:auto;border-collapse:collapse;margin-top:12px}
+  .tot td{padding:5px 9px;font-size:11px;border-bottom:1px solid #eee}
+  .tot td.k{color:#555}.tot td.v{text-align:right;font-weight:700}
+  .tot tr.grand td{background:#c19a4e;color:#fff;font-size:13px;font-weight:800;border:none}
+  .words{font-size:11px;margin-top:12px;border-top:1px solid #eee;padding-top:8px}
+  .words b{color:#b8892f}
+  .cc{display:flex;gap:16px;margin-top:16px}
+  .cc>div{flex:1}
+  .cc .body{font-size:9.5px;color:#555;line-height:1.85;padding:6px 8px 0}
+  .thanks{text-align:center;margin-top:20px}
+  .thanks .ty{font-family:Georgia,serif;font-style:italic;font-size:17px;color:#b8892f;font-weight:700}
+  .thanks .links{font-size:10px;color:#555;margin-top:7px}
+  .thanks .fine{font-size:9px;color:#999;margin-top:5px;line-height:1.6}
+  .brandline{text-align:center;font-size:9px;color:#aaa;margin-top:16px;border-top:1px solid #eee;padding-top:8px}
+  @page{size:A4;margin:10mm}
+  @media print{body{background:#fff;padding:0}.bar{display:none}.sheet{max-width:100%;padding:6mm}}
 </style></head>
 <body>
   <div class='bar'><button onclick='window.print()'>&#128190; Download / Print Invoice (PDF)</button></div>
   <div class='sheet'>
     <div class='hd'>
-      <img class='logo' src='https://www.mahalaxmifashionhub.com/email-logo.png' alt='Mahalaxmi Fashion Hub'>
-      <div class='bn'>MAHALAXMI FASHION HUB</div>
-      <div class='tg'>Every Look, A New Experience</div>
-      <div class='tg2'>Fashion &middot; Beauty &middot; Fabrics &middot; Lifestyle</div>
-      <div class='ti'>TAX INVOICE</div>
-      <div class='rs'>Original for Recipient &nbsp;&middot;&nbsp; Invoice No.: <b>{INVNO}</b> &nbsp;&middot;&nbsp; Date: {DATE}</div>
-    </div>
-    <div class='cols'>
-      <div>
-        <div class='st'>Seller Details</div>
-        <div class='kv'><b>Mahalaxmi Fashion Hub</b><br>Ward No. 45, Prajapat Nagar, Balotra, Rajasthan - 344022<br>Phone: +91 94294 29880<br>Email: mahalaxmifashionhub@gmail.com<br>Website: www.mahalaxmifashionhub.com<br>GSTIN: <b>08MUEPS5079K1ZM</b> &nbsp;|&nbsp; State Code: 08</div>
+      <div class='l'>
+        <img src='https://www.mahalaxmifashionhub.com/email-logo.png' alt='Mahalaxmi Fashion Hub'>
+        <div class='addr'>Ward No. 45, Prajapat Nagar, Near Ex MLA Niwas<br>Balotra, Rajasthan - 344022 &nbsp; GSTIN: <b>08MUEPS5079K1ZM</b></div>
       </div>
-      <div>
-        <div class='st'>Invoice Information</div>
-        <div class='kv'>Order ID: <b>{ORDERNO}</b><br>Payment: {METHOD}<br>Place of Supply: Rajasthan (08)<br>Reverse Charge: No<br>Transport / AWB: {AWB}</div>
+      <div class='c'><div class='ti'>TAX INVOICE</div></div>
+      <div class='r'>
+        <div class='no'>Invoice No.: <b>{INVNO}</b></div>
+        <div class='dt'>Date: {DATE}</div>
+        <div class='metabox'>
+          <div class='row'><div class='k'>Order ID</div><div class='v'>{ORDERNO}</div></div>
+          <div class='row'><div class='k'>Payment</div><div class='v'>{METHOD}</div></div>
+          <div class='row'><div class='k'>Transport / AWB</div><div class='v'>{AWB}</div></div>
+        </div>
       </div>
     </div>
-    <div class='cols'>
+    <div class='bs'>
       <div>
-        <div class='st'>Bill To</div>
-        <div class='kv'><b>{NAME}</b><br>{ADDR}<br>Phone: {PHONE}<br>GSTIN (if any): Unregistered</div>
+        <div class='sect'>Billing &amp; Address</div>
+        <div class='body'><b>{NAME}</b><br>{ADDR}<br>Phone: {PHONE} &nbsp; <span class='g'>GSTIN: Unregistered</span></div>
       </div>
       <div>
-        <div class='st'>Ship To</div>
-        <div class='kv'><b>{NAME}</b><br>{ADDR}<br>Phone: {PHONE}<br>GSTIN (if any): Unregistered</div>
+        <div class='sect'>Shipping Address</div>
+        <div class='body'><b>{NAME}</b><br>{ADDR}<br>Phone: {PHONE}</div>
       </div>
     </div>
-    <table>
-      <thead><tr><th style='width:34px'>#</th><th>Item Description</th><th style='width:54px'>HSN</th><th style='width:38px'>Qty</th><th style='width:80px;text-align:right'>Rate</th><th style='width:50px;text-align:center'>GST %</th><th style='width:74px;text-align:right'>Tax</th><th style='width:88px;text-align:right'>Amount</th></tr></thead>
+    <table class='it'>
+      <thead><tr><th style='width:26px'>#</th><th>Item Description</th><th style='width:50px'>HSN</th><th style='width:32px'>Qty</th><th style='width:74px;text-align:right'>Rate (&#8377;)</th><th style='width:44px;text-align:center'>GST %</th><th style='width:80px;text-align:right'>Tax Amount (&#8377;)</th><th style='width:80px;text-align:right'>Amount (&#8377;)</th></tr></thead>
       <tbody>{ROWS}</tbody>
     </table>
     <table class='tot'>
-      <tr><td class='tl'>Taxable Value</td><td class='tv'>&#8377;{TAXABLE}</td></tr>
-      <tr><td class='tl'>CGST @ {HALFRATE}%</td><td class='tv'>&#8377;{CGST}</td></tr>
-      <tr><td class='tl'>SGST @ {HALFRATE}%</td><td class='tv'>&#8377;{SGST}</td></tr>
+      <tr><td class='k'>Taxable Value</td><td class='v'>&#8377;{TAXABLE}</td></tr>
+      <tr><td class='k'>CGST @ {HALFRATE}%</td><td class='v'>&#8377;{CGST}</td></tr>
+      <tr><td class='k'>SGST @ {HALFRATE}%</td><td class='v'>&#8377;{SGST}</td></tr>
       {EXTRAROWS}
-      <tr><td class='tl'>Shipping</td><td class='tv'>&#8377;{SHIP}</td></tr>
-      <tr class='grand'><td class='tl'>GRAND TOTAL</td><td class='tv'>&#8377;{TOTAL}</td></tr>
+      <tr><td class='k'>Shipping</td><td class='v'>{SHIP}</td></tr>
+      <tr class='grand'><td>GRAND TOTAL</td><td class='v' style='color:#fff'>&#8377;{TOTAL}</td></tr>
     </table>
     <div class='words'><b>Amount in Words:</b> {WORDS}</div>
-    <div class='foot2'>
+    <div class='cc'>
       <div>
-        <div class='st'>Terms, Returns &amp; Conditions</div>
-        &bull; Return/exchange request must be raised within 7 days of delivery.<br>
-        &bull; Product must be unused, unwashed, with original tags &amp; packaging.<br>
-        &bull; Wrong / damaged / missing item: share an unboxing video within 24 hours.<br>
-        &bull; Colour may vary slightly due to screen &amp; lighting differences.<br>
-        &bull; Shipping/COD charges are non-refundable unless the item is wrong or damaged.<br>
-        &bull; Refund is processed after quality check to the original payment method.
+        <div class='sect'>Terms &amp; Conditions</div>
+        <div class='body'>&bull; Return/exchange request within 7 days of delivery.<br>&bull; Product must be unused, unwashed and with original tags.<br>&bull; Unboxing video required for wrong/damaged/missing item.<br>&bull; Refund is processed after quality check.<br>&bull; Colour may vary slightly due to screen and lighting.</div>
       </div>
       <div>
-        <div class='st'>Why Shop With Us</div>
-        &#10003; Secure payment options<br>
-        &#10003; Quality-checked products<br>
-        &#10003; Transparent pricing &amp; GST invoice<br>
-        &#10003; Order support on phone &amp; email<br>
-        &#10003; Trusted Indian fashion store<br>
-        &#10003; www.mahalaxmifashionhub.com
+        <div class='sect'>Why Choose Us</div>
+        <div class='body'>&#10003; Secure payment options<br>&#10003; Quality-checked products<br>&#10003; Transparent pricing &amp; GST invoice<br>&#10003; Easy returns<br>&#10003; Dedicated customer support</div>
       </div>
     </div>
-    <div class='sign'>This is a computer-generated tax invoice and does not require a signature. &nbsp;&middot;&nbsp; &copy; {YEAR} Mahalaxmi Fashion Hub &nbsp;&middot;&nbsp; Downloadable for 12 months from the order date.</div>
+    <div class='thanks'>
+      <div class='ty'>Thank You for Shopping with Us!</div>
+      <div class='links'>www.mahalaxmifashionhub.com &nbsp;|&nbsp; Instagram: @mahalaxmifashionhub &nbsp;|&nbsp; WhatsApp: +91 94294 29880</div>
+      <div class='fine'>This is a computer-generated invoice and does not require a signature.<br>&copy; {YEAR} Mahalaxmi Fashion Hub &bull; Downloadable for 12 months from the order date.</div>
+    </div>
+    <div class='brandline'>Mahalaxmi Fashion Hub | Premium Tax Invoice</div>
   </div>
 </body></html>";
 
