@@ -1065,3 +1065,57 @@ button { cursor: pointer; font-family: inherit; }
     padding: 0 10px;
   }
 }
+
+/* ============================================================================
+   PREMIUM DESIGN SYSTEM  (site-wide, appended override — safe to revert as a block)
+   Inspired by the reel: cinematic gold-accent headers, elegant serif headings,
+   premium product-card hover. Applies to EVERY page via shared classes.
+   ============================================================================ */
+:root{ --gold:#c9a24b; --gold-soft:#e6c877; }
+
+/* ── Page header (every category / content page: Women, Men, Blog, Contact…) ── */
+.page-hero{
+  position:relative;
+  background:
+    radial-gradient(900px 300px at 82% 8%, rgba(201,162,75,.22), transparent 60%),
+    linear-gradient(180deg,#faf3e6 0%, #f3e6cb 100%) !important;
+  color:#5c1a28 !important;
+  padding:clamp(1.5rem,4vw,2.4rem) 1rem !important;
+  overflow:hidden;
+}
+.page-hero::before{
+  content:"";position:absolute;inset:9px;border:1.5px solid rgba(201,162,75,.5);
+  border-radius:10px;pointer-events:none;
+}
+.page-hero .eyebrow{ color:#7a0a22 !important; opacity:1 !important; letter-spacing:.24em; font-weight:800; }
+.page-hero h1{
+  font-family:var(--font-playfair),Georgia,serif;
+  color:#5c1a28 !important;
+  font-size:clamp(1.7rem,4vw,2.5rem) !important;
+}
+.page-hero h1::after{
+  content:"";display:block;width:62px;height:3px;margin:.55rem auto 0;
+  background:linear-gradient(90deg,var(--gold),var(--gold-soft));border-radius:3px;
+}
+.page-hero p{ color:rgba(92,26,40,.72) !important; opacity:1 !important; }
+
+/* ── Section headings (Best Sellers, New Arrivals…) — gold accent underline ── */
+.section-heading{
+  font-family:var(--font-playfair),Georgia,serif;
+  position:relative;padding-bottom:.5rem;
+}
+.section-heading::after{
+  content:"";position:absolute;left:0;bottom:0;width:56px;height:3px;
+  background:linear-gradient(90deg,var(--gold),transparent);border-radius:3px;
+}
+
+/* ── Product cards — premium hover (deeper lift + gold border) ── */
+.product-card{ transition:box-shadow .22s, transform .22s, border-color .22s; }
+.product-card:hover{
+  box-shadow:0 14px 34px rgba(122,10,34,.16) !important;
+  transform:translateY(-5px) !important;
+  border-color:var(--gold) !important;
+}
+/* subtle gold "New" badge upgrade */
+.product-badge-new{ background:linear-gradient(135deg,#a7354d,#7a0a22) !important; }
+/* ==================== END PREMIUM DESIGN SYSTEM ==================== */

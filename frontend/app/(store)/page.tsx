@@ -53,7 +53,7 @@ export default async function HomePage() {
         padding: 'clamp(.75rem, 1.6vw, 1.15rem) 1.15rem',
       }}>
         {/* thin decorative border frame */}
-        <div aria-hidden="true" style={{ position: 'absolute', inset: '7px', border: '1.5px solid rgba(122,10,34,.20)', borderRadius: '12px', pointerEvents: 'none' }} />
+        <div aria-hidden="true" style={{ position: 'absolute', inset: '7px', border: '1.5px solid rgba(201,162,75,.55)', borderRadius: '12px', pointerEvents: 'none' }} />
 
         <div className="hero-grid" style={{
           maxWidth: 1180, margin: '0 auto', position: 'relative',
