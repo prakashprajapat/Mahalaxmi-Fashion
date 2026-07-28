@@ -10,6 +10,7 @@ import OfferBanner from '@/components/home/OfferBanner';
 import TrustStrip from '@/components/home/TrustStrip';
 import HeroMedia from '@/components/home/HeroMedia';
 import GoogleReviews from '@/components/reviews/GoogleReviews';
+import FaqSection from '@/components/home/FaqSection';
 
 // No searchParams = page is fully ISR-cached; 60s so new products appear quickly.
 export const revalidate = 60;
@@ -118,6 +119,9 @@ export default async function HomePage() {
       {/* Live Google rating + reviews (trust signal). Renders only once configured
           in admin Settings (googlePlaceId + googlePlacesApiKey). */}
       <GoogleReviews />
+
+      {/* SEO: FAQ rich results + AI Overviews (visible accordion + FAQPage schema) */}
+      <FaqSection />
     </>
   );
 }
