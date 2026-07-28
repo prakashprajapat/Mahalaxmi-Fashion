@@ -345,7 +345,9 @@ export default function CheckoutPage() {
     setLoading(true);
     try {
       const cartLines = buildCartLines();
-      const localOrderId = 'MFH' + Date.now();
+      // Unique order number: timestamp + 4 random digits — two orders in the same
+      // millisecond can never collide (prevents duplicate order numbers site-wide).
+      const localOrderId = 'MFH' + Date.now() + Math.floor(1000 + Math.random() * 9000);
       await ordersApi.place({
         id: localOrderId,
         method: 'cod',

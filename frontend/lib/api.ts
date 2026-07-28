@@ -104,6 +104,19 @@ export const ordersApi = {
     request<{ success: boolean; order: import('@/types').Order }>(
       `/orders/${orderId}/cancel`, { method: 'PATCH' }, token
     ),
+
+  // Open the customer invoice (HTML) in a new tab. JWT can't ride a plain link, so we
+  // fetch with the auth header then render from a blob URL. Backend enforces 12-month expiry.
+  downloadInvoice: async (orderId: string, token: string) => {
+    const res = await fetch(`${API_BASE}/orders/${orderId}/invoice`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!res.ok) throw new Error(`invoice ${res.status}`);
+    const html = await res.text();
+    const url = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
+    window.open(url, '_blank');
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  },
   // Auto-generate a forward Delhivery AWB for an order.
   generateAwb: (orderId: string, token: string) =>
     request<{ success: boolean; awb?: string; order?: import('@/types').Order; message?: string }>(

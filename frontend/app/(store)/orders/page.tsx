@@ -55,6 +55,12 @@ function canCancel(order: Order): boolean {
   return Date.now() - placed < HOURS_12;
 }
 
+// Invoice is downloadable for 12 months from the order date; after that it expires.
+function invoiceValid(order: Order): boolean {
+  const placed = new Date(order.placedAt ?? order.createdAt).getTime();
+  return Date.now() - placed <= 365 * 24 * 60 * 60 * 1000;
+}
+
 function canReturn(order: Order): boolean {
   if (order.status !== 'Delivered') return false;
   const delivered = order.deliveredAt ? new Date(order.deliveredAt).getTime() : null;
@@ -107,6 +113,14 @@ export default function OrdersPage() {
     } catch (e) {
       setMsg('Failed to cancel order: ' + (e as Error).message);
     } finally { setCancellingId(''); }
+  };
+
+  const handleInvoice = async (orderId: string) => {
+    try {
+      await ordersApi.downloadInvoice(orderId, getToken() ?? '');
+    } catch {
+      setMsg('Invoice could not be opened. Please try again in a moment.');
+    }
   };
 
   const pickVideo = (which: 'open' | 'close', f: File | null) => {
@@ -464,6 +478,14 @@ export default function OrdersPage() {
 
                   {/* Action buttons */}
                   <div style={{ display: 'flex', gap: '.5rem', flexWrap: 'wrap' }}>
+                    {invoiceValid(order) ? (
+                      <button className="button secondary" onClick={() => handleInvoice(order.id)}
+                        style={{ fontSize: '.82rem', padding: '.4rem .85rem', borderColor: '#7a0a22', color: '#7a0a22' }}>
+                        🧾 Download Invoice
+                      </button>
+                    ) : (
+                      <span style={{ fontSize: '.78rem', color: '#999', alignSelf: 'center' }}>🧾 Invoice expired</span>
+                    )}
                     {canCancel(order) && (
                       <button
                         className="button secondary"

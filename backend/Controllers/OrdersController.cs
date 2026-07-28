@@ -522,6 +522,166 @@ public class OrdersController : ControllerBase
         return Ok(new { success = true, order = MapOrder(order) });
     }
 
+    // GET /api/orders/{orderId}/invoice — customer-downloadable HTML bill/invoice.
+    // Valid for 12 months from the order date; after that an "expired" page is returned.
+    [HttpGet("{orderId}/invoice")]
+    [Authorize]
+    public async Task<IActionResult> Invoice(string orderId)
+    {
+        var order = await _db.SiteOrders.FirstOrDefaultAsync(o => o.OrderId == orderId);
+        if (order is null)
+            return NotFound(new { success = false, message = "Order not found." });
+
+        // SEC-4 IDOR — only the buyer (or an admin) may download the invoice.
+        if (!User.HasClaim("role", "admin"))
+        {
+            var callerId = User.FindFirstValue("sub");
+            var callerEmail = User.FindFirstValue("email");
+            var cj0 = ParseJson(order.CustomerJson);
+            var orderCustomerId = GetJsonStr(cj0, "id");
+            var orderEmail = GetJsonStr(cj0, "email");
+            if (callerId != orderCustomerId &&
+                !string.Equals(callerEmail, orderEmail, StringComparison.OrdinalIgnoreCase))
+                return Forbid();
+        }
+
+        var placedAt = order.PlacedAt ?? order.CreatedAt;
+        var expired = DateTimeOffset.UtcNow - placedAt > TimeSpan.FromDays(365);
+        var html = expired ? BuildInvoiceExpiredHtml(order.OrderId) : BuildInvoiceHtml(order);
+        return Content(html, "text/html; charset=utf-8");
+    }
+
+    private string BuildInvoiceHtml(SiteOrder o)
+    {
+        var cj = ParseJson(o.CustomerJson);
+        var sj = ParseJson(o.ShippingJson);
+        var lines = string.IsNullOrEmpty(o.CartJson)
+            ? new List<CartLineDto>()
+            : (JsonSerializer.Deserialize<List<CartLineDto>>(o.CartJson, _json) ?? new List<CartLineDto>());
+
+        var placed = (o.PlacedAt ?? o.CreatedAt).ToOffset(TimeSpan.FromHours(5.5));
+
+        string name = GetJsonStr(sj, "name") ?? "";
+        if (string.IsNullOrWhiteSpace(name)) name = GetJsonStr(cj, "name") ?? "";
+        string phone = GetJsonStr(sj, "phone") ?? "";
+        if (string.IsNullOrWhiteSpace(phone)) phone = GetJsonStr(cj, "phone") ?? "";
+        string email = GetJsonStr(cj, "email") ?? "";
+        string addr = GetJsonStr(sj, "address") ?? "";
+        string city = GetJsonStr(sj, "city") ?? "";
+        string state = GetJsonStr(sj, "state") ?? "";
+        string pin = GetJsonStr(sj, "pincode") ?? "";
+        string invNo = string.IsNullOrWhiteSpace(o.InvoiceNumber) ? o.OrderId : o.InvoiceNumber!;
+
+        var rows = new System.Text.StringBuilder();
+        int idx = 1;
+        foreach (var l in lines)
+        {
+            var itemName = System.Net.WebUtility.HtmlEncode(l.Name ?? "Item");
+            var sz = string.IsNullOrWhiteSpace(l.Size) ? "" : " (" + System.Net.WebUtility.HtmlEncode(l.Size) + ")";
+            rows.Append("<tr><td>" + idx + "</td><td>" + itemName + sz + "</td><td class='c'>" + l.Quantity
+                + "</td><td class='r'>Rs. " + l.Price.ToString("0") + "</td><td class='r'>Rs. " + l.LineTotal.ToString("0") + "</td></tr>");
+            idx++;
+        }
+
+        var addrFull = System.Net.WebUtility.HtmlEncode(string.Join(", ",
+            new[] { addr, city, state, pin }.Where(x => !string.IsNullOrWhiteSpace(x))));
+        var emailLine = string.IsNullOrWhiteSpace(email) ? "" : "<br>" + System.Net.WebUtility.HtmlEncode(email);
+        var payLabel = string.Equals(o.Method, "cod", StringComparison.OrdinalIgnoreCase) ? "Cash on Delivery" : "Online / Prepaid";
+
+        return INVOICE_TEMPLATE
+            .Replace("{INVNO}", System.Net.WebUtility.HtmlEncode(invNo))
+            .Replace("{ORDERNO}", System.Net.WebUtility.HtmlEncode(o.OrderId))
+            .Replace("{DATE}", placed.ToString("dd MMM yyyy, hh:mm tt"))
+            .Replace("{STATUS}", System.Net.WebUtility.HtmlEncode(o.Status ?? ""))
+            .Replace("{METHOD}", payLabel)
+            .Replace("{NAME}", System.Net.WebUtility.HtmlEncode(name))
+            .Replace("{PHONE}", System.Net.WebUtility.HtmlEncode(phone))
+            .Replace("{EMAIL}", emailLine)
+            .Replace("{ADDR}", addrFull)
+            .Replace("{ROWS}", rows.ToString())
+            .Replace("{SUBTOTAL}", o.Subtotal.ToString("0"))
+            .Replace("{SHIP}", o.ShippingCost.ToString("0"))
+            .Replace("{COD}", o.CodFee.ToString("0"))
+            .Replace("{TOTAL}", o.Total.ToString("0"))
+            .Replace("{YEAR}", placed.Year.ToString());
+    }
+
+    private static string BuildInvoiceExpiredHtml(string orderId)
+    {
+        return "<!DOCTYPE html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'>"
+            + "<title>Invoice expired</title></head>"
+            + "<body style=\"font-family:sans-serif;background:#faf7f4;text-align:center;padding:14vh 1rem;color:#5c1a28;\">"
+            + "<div style=\"max-width:460px;margin:0 auto;background:#fff;border:1px solid #eee;border-radius:16px;padding:2rem;box-shadow:0 10px 30px rgba(0,0,0,.08);\">"
+            + "<div style=\"font-size:3rem;\">&#128220;</div>"
+            + "<h1 style=\"color:#7a0a22;font-size:1.3rem;margin:.4rem 0;\">Invoice Expired</h1>"
+            + "<p style=\"color:#666;font-size:.95rem;line-height:1.6;\">Order <b>" + System.Net.WebUtility.HtmlEncode(orderId) + "</b> ka downloadable invoice sirf <b>12 months</b> tak available rehta hai. Ye samay nikal chuka hai.</p>"
+            + "<p style=\"color:#888;font-size:.85rem;\">Copy chahiye to WhatsApp karein: <b>+91 9429429880</b>.</p>"
+            + "</div></body></html>";
+    }
+
+    private const string INVOICE_TEMPLATE = @"<!DOCTYPE html>
+<html lang=""en""><head><meta charset=""utf-8""><meta name=""viewport"" content=""width=device-width,initial-scale=1"">
+<title>Invoice {INVNO} - Mahalaxmi Fashion Hub</title>
+<style>
+  *{box-sizing:border-box}
+  body{font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:#f3eee7;color:#2a2a2a;margin:0;padding:18px}
+  .sheet{max-width:760px;margin:0 auto;background:#fff;border:1px solid #e6ddd3;border-radius:12px;overflow:hidden}
+  .top{background:linear-gradient(135deg,#7a0a22,#5c1420);color:#fff;padding:20px 24px;display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px}
+  .top h1{margin:0;font-size:1.35rem;font-family:Georgia,serif}
+  .top .tag{font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:#e6c877}
+  .top .inv{text-align:right;font-size:.82rem;line-height:1.6}
+  .top .inv b{color:#e6c877}
+  .meta{display:flex;flex-wrap:wrap;gap:22px;padding:14px 24px;border-bottom:1px solid #eee;font-size:.85rem}
+  .meta span{display:block;color:#999;font-size:.7rem;text-transform:uppercase;letter-spacing:.05em}
+  .bill{padding:14px 24px;font-size:.88rem}
+  .bill h3{margin:0 0 5px;color:#7a0a22;font-size:.78rem;text-transform:uppercase;letter-spacing:.06em}
+  table{width:100%;border-collapse:collapse;margin:10px 0}
+  th{background:#faf3e6;color:#5c1a28;font-size:.72rem;text-transform:uppercase;letter-spacing:.04em;padding:8px 10px;text-align:left;border-bottom:2px solid #eadfe2}
+  td{padding:8px 10px;border-bottom:1px solid #f2f2f2;font-size:.85rem}
+  td.c{text-align:center}td.r{text-align:right}
+  .totals{margin-left:auto;width:290px}
+  .totals td{border:none;padding:4px 10px}
+  .totals .grand td{border-top:2px solid #7a0a22;font-weight:800;color:#7a0a22;font-size:1rem;padding-top:8px}
+  .foot{padding:16px 24px 26px;color:#888;font-size:.78rem;text-align:center;border-top:1px dashed #ddd}
+  .btnbar{max-width:760px;margin:0 auto 14px;text-align:right}
+  .btn{background:#7a0a22;color:#fff;border:none;border-radius:9px;padding:.6rem 1.3rem;font-weight:700;font-size:.9rem;cursor:pointer}
+  @media print{.btnbar{display:none}body{background:#fff;padding:0}.sheet{border:none}}
+</style></head>
+<body>
+  <div class=""btnbar""><button class=""btn"" onclick=""window.print()"">&#128190; Download / Print Invoice</button></div>
+  <div class=""sheet"">
+    <div class=""top"">
+      <div><div class=""tag"">Tax Invoice</div><h1>Mahalaxmi Fashion Hub</h1>
+        <div style=""font-size:.76rem;opacity:.85;margin-top:4px"">Ward No. 45, Near Mahadev Temple, Balotra, Rajasthan<br>WhatsApp +91 9429429880 &middot; www.mahalaxmifashionhub.com</div></div>
+      <div class=""inv""><div><b>Invoice</b> {INVNO}</div><div><b>Order</b> {ORDERNO}</div><div><b>Date</b> {DATE}</div></div>
+    </div>
+    <div class=""meta"">
+      <div><span>Payment</span>{METHOD}</div>
+      <div><span>Status</span>{STATUS}</div>
+    </div>
+    <div class=""bill"">
+      <h3>Billed / Shipped To</h3>
+      <div><b>{NAME}</b><br>{ADDR}<br>{PHONE}{EMAIL}</div>
+      <table>
+        <thead><tr><th>#</th><th>Item</th><th style=""text-align:center"">Qty</th><th style=""text-align:right"">Price</th><th style=""text-align:right"">Total</th></tr></thead>
+        <tbody>{ROWS}</tbody>
+      </table>
+      <table class=""totals"">
+        <tr><td>Subtotal</td><td class=""r"">Rs. {SUBTOTAL}</td></tr>
+        <tr><td>Shipping</td><td class=""r"">Rs. {SHIP}</td></tr>
+        <tr><td>COD Fee</td><td class=""r"">Rs. {COD}</td></tr>
+        <tr class=""grand""><td>Grand Total</td><td class=""r"">Rs. {TOTAL}</td></tr>
+      </table>
+    </div>
+    <div class=""foot"">
+      This is a computer-generated invoice and does not require a signature.<br>
+      Thank you for shopping with Mahalaxmi Fashion Hub &#10084;<br>
+      <span style=""font-size:.72rem"">Available to download for 12 months from the order date &middot; &copy; {YEAR} Mahalaxmi Fashion Hub</span>
+    </div>
+  </div>
+</body></html>";
+
+
     // Invoice prefix for the current Indian financial year, e.g. "M/26-27/".
     // The FY runs 1 April → 31 March, so the counter resets each 1 April.
     private static string InvoicePrefix()
