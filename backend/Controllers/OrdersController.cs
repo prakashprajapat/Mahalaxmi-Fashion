@@ -699,8 +699,8 @@ public class OrdersController : ControllerBase
             + "<div style=\"max-width:460px;margin:0 auto;background:#fff;border:1px solid #eee;border-radius:16px;padding:2rem;box-shadow:0 10px 30px rgba(0,0,0,.08);\">"
             + "<div style=\"font-size:3rem;\">&#128220;</div>"
             + "<h1 style=\"color:#7a0a22;font-size:1.3rem;margin:.4rem 0;\">Invoice Expired</h1>"
-            + "<p style=\"color:#666;font-size:.95rem;line-height:1.6;\">Order <b>" + System.Net.WebUtility.HtmlEncode(orderId) + "</b> ka downloadable invoice sirf <b>12 months</b> tak available rehta hai. Ye samay nikal chuka hai.</p>"
-            + "<p style=\"color:#888;font-size:.85rem;\">Copy chahiye to WhatsApp karein: <b>+91 9429429880</b>.</p>"
+            + "<p style=\"color:#666;font-size:.95rem;line-height:1.6;\">The downloadable invoice for order <b>" + System.Net.WebUtility.HtmlEncode(orderId) + "</b> is only available for <b>12 months</b> from the order date. This period has now passed.</p>"
+            + "<p style=\"color:#888;font-size:.85rem;\">Need a copy? Contact us on WhatsApp: <b>+91 9429429880</b>.</p>"
             + "</div></body></html>";
     }
 

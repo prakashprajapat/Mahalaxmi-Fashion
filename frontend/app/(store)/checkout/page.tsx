@@ -67,7 +67,7 @@ async function ensureCashfreeSdk(): Promise<void> {
     await new Promise(r => setTimeout(r, 100));
   }
   if (typeof (window as any).Cashfree !== 'function') {
-    throw new Error('Payment gateway load nahi ho paya. Internet check karke dobara try karein.');
+    throw new Error('Payment gateway could not load. Please check your internet connection and try again.');
   }
 }
 
@@ -113,8 +113,8 @@ export default function CheckoutPage() {
       setLoading(true);
       cashfreeApi.verify(cfOrder).then(v => {
         if (v.verified) { clearCart(); setOrderId(cfOrder); setStep('confirm'); }
-        else { alert('Payment abhi confirm nahi hua. Agar paise cut gaye to order apne-aap ban jayega — ya WhatsApp karein order id ' + cfOrder); router.push('/cart'); }
-      }).catch(() => alert('Payment status check nahi ho paya. WhatsApp karein order id ' + cfOrder))
+        else { alert('Payment is not confirmed yet. If money was deducted, your order will be created automatically — or contact us on WhatsApp with order ID ' + cfOrder); router.push('/cart'); }
+      }).catch(() => alert('Could not check payment status. Please contact us on WhatsApp with order ID ' + cfOrder))
       .finally(() => { setLoading(false); try { window.history.replaceState({}, '', '/checkout'); } catch {} });
       return;
     }
@@ -307,7 +307,7 @@ export default function CheckoutPage() {
       redirectTarget: '_self',
     });
     if (result?.error) {
-      alert('Payment shuru nahi ho paya: ' + (result.error?.message || 'Please try again.'));
+      alert('Payment could not be started: ' + (result.error?.message || 'Please try again.'));
     }
     setLoading(false);
     return true;

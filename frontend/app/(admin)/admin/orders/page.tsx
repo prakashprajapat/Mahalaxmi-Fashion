@@ -535,7 +535,7 @@ export default function AdminOrdersPage() {
             {liveModal.loading && <p style={{ color: '#888' }}>Fetching live status from Delhivery…</p>}
 
             {!liveModal.loading && !liveModal.data?.live && (
-              <p style={{ color: '#c62828' }}>Live tracking unavailable right now. Delhivery portal pe check karein.</p>
+              <p style={{ color: '#c62828' }}>Live tracking unavailable right now. Please check the Delhivery portal.</p>
             )}
 
             {!liveModal.loading && liveModal.data?.live && (() => {
