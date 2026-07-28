@@ -1146,3 +1146,16 @@ button { cursor: pointer; font-family: inherit; }
 }
 .dept-nav-menu-btn{ color:#7a0a22 !important; }
 /* ==================== END PREMIUM NAV ==================== */
+
+/* ── Premium footer (consistent with nav/headers: gold border + accents) ── */
+.site-footer{
+  background:linear-gradient(180deg,#7a0a22 0%, #5c1420 100%) !important;
+  border-top:3px solid var(--gold) !important;
+}
+.site-footer-col h2{ position:relative; padding-bottom:.5rem; }
+.site-footer-col h2::after{
+  content:"";position:absolute;left:0;bottom:0;width:34px;height:2px;
+  background:linear-gradient(90deg,var(--gold),transparent);border-radius:2px;
+}
+.site-footer-brand .brand-tagline{ color:var(--gold-soft) !important; }
+/* ==================== END PREMIUM FOOTER ==================== */

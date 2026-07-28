@@ -231,7 +231,7 @@ export default function Navbar() {
               id="searchInput"
               name="q"
               type="search"
-              placeholder="Search saree, nighty, petticoat..."
+              placeholder="Search…"
               aria-label="Search products"
               value={search}
               autoComplete="off"
