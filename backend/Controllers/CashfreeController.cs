@@ -85,6 +85,8 @@ public class CashfreeController : ControllerBase
             order_meta = new
             {
                 notify_url = "https://mahalaxmifashionhub.com/api/cashfree/webhook",
+                // Full-page redirect back to the site after payment (mobile-reliable; no modal iframe).
+                return_url = $"https://www.mahalaxmifashionhub.com/checkout?cf_order={localOrderId}",
             },
             order_note = "Mahalaxmi Fashion Hub online order",
         });

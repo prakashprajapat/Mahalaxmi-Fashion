@@ -107,6 +107,17 @@ export default function CheckoutPage() {
   };
 
   useEffect(() => {
+    // Cashfree full-page redirect return: verify payment, show success, skip the empty-cart bounce.
+    const cfOrder = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('cf_order') : null;
+    if (cfOrder) {
+      setLoading(true);
+      cashfreeApi.verify(cfOrder).then(v => {
+        if (v.verified) { clearCart(); setOrderId(cfOrder); setStep('confirm'); }
+        else { alert('Payment abhi confirm nahi hua. Agar paise cut gaye to order apne-aap ban jayega — ya WhatsApp karein order id ' + cfOrder); router.push('/cart'); }
+      }).catch(() => alert('Payment status check nahi ho paya. WhatsApp karein order id ' + cfOrder))
+      .finally(() => { setLoading(false); try { window.history.replaceState({}, '', '/checkout'); } catch {} });
+      return;
+    }
     const c = getCart();
     if (c.length === 0) { router.push('/cart'); return; }
     setCart(c);
@@ -327,7 +338,7 @@ export default function CheckoutPage() {
     const cashfree = window.Cashfree({ mode: res.mode === 'sandbox' ? 'sandbox' : 'production' });
     const result = await cashfree.checkout({
       paymentSessionId: res.paymentSessionId,
-      redirectTarget: '_modal',
+      redirectTarget: '_self',
     });
     if (result?.error) { setLoading(false); return true; } // user closed / failed — no fallback
 
