@@ -1,7 +1,7 @@
 // Service worker for Mahalaxmi Fashion Hub PWA.
 //  - Installability (Add to Home Screen) + a light network-first cache with offline fallback.
 //  - Web Push: shows notifications for offers, restock, cart reminders, order updates.
-const CACHE = 'mfh-v3';
+const CACHE = 'mfh-v4';
 
 self.addEventListener('install', () => {
   self.skipWaiting();

@@ -46,6 +46,31 @@ type Step = 'shipping' | 'payment' | 'confirm';
 // Flat handling fee added when the customer chooses Cash on Delivery.
 const COD_FEE = 50;
 
+// Robustly load an external SDK <script> and wait until its global is ready.
+// (Fixes "window.Cashfree is not a function": React-rendered <script async> can execute
+//  late or not at all; we load it on demand at payment time instead.)
+function loadScriptOnce(src: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (typeof document === 'undefined') { resolve(); return; }
+    if (document.querySelector(`script[data-dyn="${src}"]`)) { resolve(); return; }
+    const el = document.createElement('script');
+    el.src = src; el.async = true; el.dataset.dyn = src;
+    el.onload = () => resolve();
+    el.onerror = () => reject(new Error('sdk-load-failed'));
+    document.head.appendChild(el);
+  });
+}
+async function ensureCashfreeSdk(): Promise<void> {
+  if (typeof (window as any).Cashfree === 'function') return;
+  try { await loadScriptOnce('https://sdk.cashfree.com/js/v3/cashfree.js'); } catch {}
+  for (let i = 0; i < 60 && typeof (window as any).Cashfree !== 'function'; i++) {
+    await new Promise(r => setTimeout(r, 100));
+  }
+  if (typeof (window as any).Cashfree !== 'function') {
+    throw new Error('Payment gateway load nahi ho paya. Internet check karke dobara try karein.');
+  }
+}
+
 export default function CheckoutPage() {
   const router = useRouter();
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -297,6 +322,7 @@ export default function CheckoutPage() {
       throw e;
     }
 
+    await ensureCashfreeSdk();
     // @ts-expect-error Cashfree SDK loaded via script tag
     const cashfree = window.Cashfree({ mode: res.mode === 'sandbox' ? 'sandbox' : 'production' });
     const result = await cashfree.checkout({

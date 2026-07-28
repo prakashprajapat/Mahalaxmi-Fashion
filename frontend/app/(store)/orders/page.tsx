@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { getCustomer, getToken } from '@/lib/auth';
 import { ordersApi } from '@/lib/api';
+import { openOrderLabels } from '@/lib/orderLabel';
 import { productImageSrc } from '@/lib/productImages';
 import { productSlug } from '@/lib/productSlug';
 import type { Order, Customer } from '@/types';
@@ -115,12 +116,10 @@ export default function OrdersPage() {
     } finally { setCancellingId(''); }
   };
 
-  const handleInvoice = async (orderId: string) => {
-    try {
-      await ordersApi.downloadInvoice(orderId, getToken() ?? '');
-    } catch {
-      setMsg('Invoice could not be opened. Please try again in a moment.');
-    }
+  // Customer invoice = the SAME "Tax Invoice / Label" the admin downloads (shared code).
+  const handleInvoice = (order: Order) => {
+    try { openOrderLabels([order]); }
+    catch { setMsg('Invoice could not be opened. Please try again in a moment.'); }
   };
 
   const pickVideo = (which: 'open' | 'close', f: File | null) => {
@@ -479,7 +478,7 @@ export default function OrdersPage() {
                   {/* Action buttons */}
                   <div style={{ display: 'flex', gap: '.5rem', flexWrap: 'wrap' }}>
                     {invoiceValid(order) ? (
-                      <button className="button secondary" onClick={() => handleInvoice(order.id)}
+                      <button className="button secondary" onClick={() => handleInvoice(order)}
                         style={{ fontSize: '.82rem', padding: '.4rem .85rem', borderColor: '#7a0a22', color: '#7a0a22' }}>
                         🧾 Download Invoice
                       </button>
