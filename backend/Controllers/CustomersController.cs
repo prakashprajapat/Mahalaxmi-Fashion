@@ -301,11 +301,13 @@ public class CustomersController : ControllerBase
         var email = req.Email.ToLower().Trim();
         var phone = req.Phone?.Trim() ?? "";
 
-        if (await _db.Customers.AnyAsync(c => c.Email == email))
-            return Conflict(new { success = false, message = "Email already registered." });
-
-        if (!string.IsNullOrWhiteSpace(phone) && await _db.Customers.AnyAsync(c => c.Phone == phone))
-            return Conflict(new { success = false, message = "Phone already registered." });
+        // Find any existing account for this email / mobile (last-10 match). A passwordless
+        // record is a GUEST auto-created from a past order — we ACTIVATE it below instead of
+        // blocking, so their previous orders carry into the new account.
+        var phone10 = Services.CustomerLinker.Digits10(phone);
+        var existing = await _db.Customers.FirstOrDefaultAsync(c =>
+            (c.Email != null && c.Email == email)
+            || (phone10.Length == 10 && c.Phone != null && c.Phone.EndsWith(phone10)));
 
         // OTP verification is MANDATORY for public self-registration — the account is created
         // only after the mobile (or email) has been verified with a one-time code. An admin
@@ -319,6 +321,32 @@ public class CustomersController : ControllerBase
         }
 
         var (hash, salt) = _auth.HashPassword(req.Password);
+
+        if (existing is not null)
+        {
+            // A real (password-protected) account already exists → ask them to log in.
+            if (!string.IsNullOrEmpty(existing.PasswordHash))
+                return Conflict(new { success = false, message = "This email or mobile number is already registered. Please log in instead." });
+
+            // Passwordless GUEST profile (auto-created from a past order) → activate it in place
+            // so every previous guest order now belongs to this registered account.
+            existing.FirstName = req.FirstName.Trim();
+            existing.LastName  = req.LastName.Trim();
+            if (!string.IsNullOrWhiteSpace(email)) existing.Email = email;
+            if (!string.IsNullOrWhiteSpace(phone)) existing.Phone = phone;
+            if (!string.IsNullOrWhiteSpace(req.AddrLine1)) existing.AddrLine1 = req.AddrLine1!.Trim();
+            if (!string.IsNullOrWhiteSpace(req.Pincode))   existing.Pincode   = req.Pincode!.Trim();
+            if (!string.IsNullOrWhiteSpace(req.State))     existing.State     = req.State!.Trim();
+            if (!string.IsNullOrWhiteSpace(req.District))  existing.District  = req.District!.Trim();
+            existing.MarketingConsent = req.MarketingConsent;
+            existing.PasswordHash = hash;
+            existing.PasswordSalt = salt;
+            existing.EmailVerified = isAdminCreate || !string.IsNullOrWhiteSpace(req.Otp);
+            await _db.SaveChangesAsync();
+            var activatedToken = _auth.GenerateJwt(existing.Id.ToString(), existing.Email ?? "", "customer");
+            return Ok(new { success = true, token = activatedToken, customer = ToDto(existing) });
+        }
+
         var code = await NextCustomerCodeAsync();
 
         var customer = new Customer

@@ -175,15 +175,14 @@ public class OrdersController : ControllerBase
         // profile and we don't create a duplicate identity.
         if (string.IsNullOrEmpty(req.CustomerId) || req.CustomerId == "0")
         {
-            var oEmail = req.CustomerEmail?.Trim().ToLowerInvariant();
-            var oPhone10 = new string((req.CustomerPhone ?? "").Where(char.IsDigit).ToArray());
-            if (oPhone10.Length > 10) oPhone10 = oPhone10[^10..];
-
-            var match = await _db.Customers.FirstOrDefaultAsync(x =>
-                (!string.IsNullOrEmpty(oEmail) && x.Email == oEmail)
-                || (oPhone10.Length == 10 && x.Phone != null && x.Phone.EndsWith(oPhone10)));
-            if (match is not null)
-                req = req with { CustomerId = match.Id.ToString() };
+            // Guest checkout: match an existing account by email/mobile, or auto-create a
+            // passwordless guest profile so this and future guest orders from the same
+            // mobile belong to ONE identity (and always show a customer name).
+            var linkedId = await Services.CustomerLinker.FindOrCreateAsync(
+                _db, req.CustomerName, req.CustomerEmail, req.CustomerPhone,
+                req.ShippingAddress, req.ShippingCity, req.ShippingState, req.ShippingPincode);
+            if (linkedId > 0)
+                req = req with { CustomerId = linkedId.ToString() };
         }
 
         var cart = JsonSerializer.Serialize(req.Cart, _json);
@@ -1457,6 +1456,13 @@ public class OrdersController : ControllerBase
         }
         catch { cartLines = new List<CartLineDto>(); }
 
+        // Guest / webhook-recovered orders keep the buyer name+phone in the shipping JSON;
+        // fall back to it when the customer JSON has none (so admin never shows a blank name).
+        var custName = GetJsonStr(customerJson, "name");
+        if (string.IsNullOrWhiteSpace(custName)) custName = GetJsonStr(shippingJson, "name");
+        var custPhone = GetJsonStr(customerJson, "phone");
+        if (string.IsNullOrWhiteSpace(custPhone)) custPhone = GetJsonStr(shippingJson, "phone");
+
         return new OrderDto(
             o.OrderId,
             o.PaymentId,
@@ -1469,9 +1475,9 @@ public class OrdersController : ControllerBase
             o.Total,
             o.Awb,
             GetJsonStr(customerJson, "id"),
-            GetJsonStr(customerJson, "name"),
+            custName,
             GetJsonStr(customerJson, "email"),
-            GetJsonStr(customerJson, "phone"),
+            custPhone,
             GetJsonStr(shippingJson, "name"),
             GetJsonStr(shippingJson, "address"),
             GetJsonStr(shippingJson, "city"),

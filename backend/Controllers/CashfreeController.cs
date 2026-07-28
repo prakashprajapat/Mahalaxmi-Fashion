@@ -257,6 +257,31 @@ public class CashfreeController : ControllerBase
                     || (cfPaymentId != null && s.PaymentId == cfPaymentId));
                 if (!alreadyExists)
                 {
+                    // Guest online orders have no logged-in customer object — recover the buyer
+                    // identity from the shipping details captured at create-order time, auto-create
+                    // or link a customer profile, and store a proper customer JSON (name shows in admin).
+                    string sName = "", sEmail = "", sPhone = "";
+                    try
+                    {
+                        var sj = JsonSerializer.Deserialize<JsonElement>(order.ShippingJson ?? "{}");
+                        if (sj.ValueKind == JsonValueKind.Object)
+                        {
+                            string G(string k) => sj.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.String ? (v.GetString() ?? "") : "";
+                            sName = G("name"); sEmail = G("email"); sPhone = G("phone");
+                        }
+                    }
+                    catch { /* malformed shipping json — proceed without identity */ }
+
+                    int custId = 0;
+                    try { custId = await Services.CustomerLinker.FindOrCreateAsync(_db, sName, sEmail, sPhone); }
+                    catch (Exception ex) { _logger.LogWarning(ex, "Guest customer link failed for {Order}", localId); }
+
+                    var recoveredCustomerJson = JsonSerializer.Serialize(new
+                    {
+                        id = custId > 0 ? custId.ToString() : "",
+                        name = sName, email = sEmail, phone = sPhone,
+                    });
+
                     _db.SiteOrders.Add(new SiteOrder
                     {
                         OrderId      = localId,
@@ -268,7 +293,7 @@ public class CashfreeController : ControllerBase
                         CodFee       = 0m,
                         Total        = order.AmountPaise / 100m,
                         CartJson     = order.CartJson,
-                        CustomerJson = order.CustomerJson,
+                        CustomerJson = recoveredCustomerJson,
                         ShippingJson = order.ShippingJson,
                         RawJson      = "{\"source\":\"webhook_recovery\"}",
                         PlacedAt     = DateTimeOffset.UtcNow,
