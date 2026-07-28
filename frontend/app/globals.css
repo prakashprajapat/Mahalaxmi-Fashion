@@ -1167,3 +1167,16 @@ button { cursor: pointer; font-family: inherit; }
 }
 .topbar a{ color:var(--gold-soft) !important; text-decoration:underline; }
 /* ==================== END PREMIUM TOPBAR ==================== */
+
+/* ── Mobile header: logo + cart on row 1, full-width search on row 2 (visible) ── */
+@media (max-width: 600px){
+  .brand-row{ flex-wrap:wrap; gap:.55rem .7rem; padding:.6rem .9rem; align-items:center; }
+  .brand{ flex:1 1 auto; min-width:0; }
+  .brand-mark img{ height:52px !important; }
+  .brand-actions{ flex:0 0 auto; justify-content:flex-end; gap:.5rem; }
+  .search{ display:flex !important; order:3; flex-basis:100%; max-width:none !important; }
+  .search input{ padding:.6rem .9rem; font-size:.92rem; }
+  .search button{ padding:.6rem 1rem; }
+  .cart-link{ white-space:nowrap; }
+}
+/* ==================== END MOBILE HEADER ==================== */
