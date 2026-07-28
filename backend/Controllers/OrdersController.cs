@@ -712,15 +712,14 @@ public class OrdersController : ControllerBase
   .bar{max-width:820px;margin:0 auto 12px;text-align:right}
   .bar button{background:#7a5a2e;color:#fff;border:none;border-radius:8px;padding:.55rem 1.2rem;font-weight:700;font-size:13px;cursor:pointer}
   .sheet{max-width:820px;margin:0 auto;background:#fff;border:1px solid #d8cbb2}
-  .hd{display:flex;justify-content:space-between;border-bottom:3px solid #7a5a2e}
-  .hd .l{display:flex;align-items:center;gap:12px;padding:14px 18px}
-  .hd .l img{height:56px;width:auto}
-  .hd .l .bn{font-size:16px;font-weight:800;color:#3a2c14;letter-spacing:.02em;line-height:1.1}
-  .hd .l .tg{font-size:10px;color:#8a6a3a;margin-top:3px}
-  .hd .l .tg2{font-size:9px;color:#999;margin-top:1px}
-  .hd .r{text-align:right;padding:14px 18px;min-width:230px}
-  .hd .r .ti{font-family:Georgia,serif;font-size:24px;font-weight:800;color:#7a5a2e;letter-spacing:.03em}
-  .hd .r .rs{font-size:11px;color:#555;margin-top:4px;line-height:1.7}
+  .hd{text-align:center;padding:16px 18px 14px;border-bottom:3px solid #7a5a2e}
+  .hd .logo{height:60px;width:auto;display:block;margin:0 auto 8px}
+  .hd .bn{font-size:21px;font-weight:800;color:#3a2c14;letter-spacing:.05em;white-space:nowrap}
+  .hd .tg{font-size:11px;color:#8a6a3a;margin-top:4px}
+  .hd .tg2{font-size:9.5px;color:#999;margin-top:1px}
+  .hd .ti{font-family:Georgia,serif;font-size:22px;font-weight:800;color:#7a5a2e;letter-spacing:.06em;margin-top:10px}
+  .hd .rs{font-size:11px;color:#555;margin-top:4px}
+  .hd .rs b{color:#3a2c14}
   .cols{display:flex;border-bottom:1px solid #e5d9c3}
   .cols>div{flex:1;padding:12px 18px}
   .cols>div:first-child{border-right:1px solid #e5d9c3}
@@ -752,14 +751,12 @@ public class OrdersController : ControllerBase
   <div class='bar'><button onclick='window.print()'>&#128190; Download / Print Invoice (PDF)</button></div>
   <div class='sheet'>
     <div class='hd'>
-      <div class='l'>
-        <img src='https://www.mahalaxmifashionhub.com/email-logo.png' alt='Mahalaxmi Fashion Hub'>
-        <div><div class='bn'>MAHALAXMI FASHION HUB</div><div class='tg'>Every Look, A New Experience</div><div class='tg2'>Fashion &middot; Beauty &middot; Fabrics &middot; Lifestyle</div></div>
-      </div>
-      <div class='r'>
-        <div class='ti'>TAX INVOICE</div>
-        <div class='rs'>Original for Recipient<br>Invoice No.: <b>{INVNO}</b><br>Date: {DATE}</div>
-      </div>
+      <img class='logo' src='https://www.mahalaxmifashionhub.com/email-logo.png' alt='Mahalaxmi Fashion Hub'>
+      <div class='bn'>MAHALAXMI FASHION HUB</div>
+      <div class='tg'>Every Look, A New Experience</div>
+      <div class='tg2'>Fashion &middot; Beauty &middot; Fabrics &middot; Lifestyle</div>
+      <div class='ti'>TAX INVOICE</div>
+      <div class='rs'>Original for Recipient &nbsp;&middot;&nbsp; Invoice No.: <b>{INVNO}</b> &nbsp;&middot;&nbsp; Date: {DATE}</div>
     </div>
     <div class='cols'>
       <div>

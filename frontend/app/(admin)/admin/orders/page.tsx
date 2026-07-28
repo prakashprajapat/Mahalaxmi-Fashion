@@ -499,6 +499,10 @@ export default function AdminOrdersPage() {
                         style={{ color: '#1565c0', background: 'none', border: 'none', cursor: 'pointer', fontSize: '.82rem', fontWeight: 600 }}>
                         ⬇ Label
                       </button>
+                      <button onClick={() => ordersApi.downloadInvoice(o.id, getAdminToken() ?? '').catch(() => {})}
+                        style={{ display: 'block', marginTop: '.35rem', color: '#7a5a2e', background: 'none', border: 'none', cursor: 'pointer', fontSize: '.82rem', fontWeight: 700 }}>
+                        🧾 Invoice
+                      </button>
                       {RETURN_STATUSES.includes(o.status) && (
                         <button onClick={() => { setShowReject(false); setRejectReason(''); setReturnModalId(o.id); }}
                           style={{ display: 'block', marginTop: '.35rem', color: o.returnDecision === 'rejected' ? '#c62828' : o.returnDecision === 'approved' ? '#2e7d32' : '#a7354d', background: 'none', border: 'none', cursor: 'pointer', fontSize: '.82rem', fontWeight: 700 }}>
