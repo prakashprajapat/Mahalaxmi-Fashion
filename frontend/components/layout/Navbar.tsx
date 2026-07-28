@@ -2,10 +2,10 @@
 import Link from 'next/link';
 import { useState, useEffect, useRef } from 'react';
 import type { FormEvent } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { getCart, cartCount, finalUnitPrice } from '@/lib/cart';
 import { getCustomer, setCustomer as saveCustomer, setToken, logout } from '@/lib/auth';
-import { customersApi, settingsApi, productsApi, ordersApi } from '@/lib/api';
+import { customersApi, settingsApi, productsApi } from '@/lib/api';
 import { trackEvent } from '@/lib/analytics';
 import { productSlug } from '@/lib/productSlug';
 import { productImageSrc } from '@/lib/productImages';
@@ -20,6 +20,7 @@ let _settingsExpiry = 0;
 
 export default function Navbar() {
   const router = useRouter();
+  const pathname = usePathname();
   const [count, setCount] = useState(0);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [search, setSearch] = useState('');
@@ -40,28 +41,6 @@ export default function Navbar() {
   const [otpMsg, setOtpMsg] = useState('');
   const [cartBounce, setCartBounce] = useState(false);
   const [customerName, setCustomerName] = useState('');
-  // Pincode serviceability check (next to search bar)
-  const [pin, setPin] = useState('');
-  const [pinChecking, setPinChecking] = useState(false);
-  const [pinResult, setPinResult] = useState<{ ok: boolean; text: string } | null>(null);
-  const checkPin = async () => {
-    const p = pin.replace(/\D/g, '');
-    if (p.length !== 6) { setPinResult({ ok: false, text: 'Enter a valid 6-digit pincode.' }); return; }
-    setPinChecking(true); setPinResult(null);
-    try {
-      const r = await ordersApi.checkPincode(p);
-      if (r.known && !r.serviceable) {
-        setPinResult({ ok: false, text: 'Delivery not available at this pincode. WhatsApp us — we may still arrange it.' });
-      } else {
-        const d1 = new Date(); d1.setDate(d1.getDate() + r.etaMinDays);
-        const d2 = new Date(); d2.setDate(d2.getDate() + r.etaMaxDays);
-        const f = (d: Date) => d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
-        setPinResult({ ok: true, text: `Delivery by ${f(d1)} – ${f(d2)}${r.cod ? ' · COD available' : ' · Prepaid only'}` });
-      }
-    } catch {
-      setPinResult({ ok: false, text: 'Could not check right now. Please try again.' });
-    } finally { setPinChecking(false); }
-  };
   const [showWaLogin, setShowWaLogin] = useState(true);
   const [enableGoogleLogin, setEnableGoogleLogin] = useState(false);
   const [googleClientId, setGoogleClientId] = useState('');
@@ -235,20 +214,6 @@ export default function Navbar() {
         </p>
       </div>
 
-      {/* Offer Strip */}
-      <section className="premium-offer-strip">
-        <span>🚚 Free Shipping</span>
-        <span className="offer-tagline">✨ Trending styles at unbeatable prices — new drops every week!</span>
-        <Link href="/products?bestSeller=true">Shop Now</Link>
-        <Link
-          href="/become-supplier"
-          className="offer-seller-link"
-          style={{ marginLeft: '0.9rem', fontSize: '0.9em', fontWeight: 700, textDecoration: 'underline', whiteSpace: 'nowrap' }}
-        >
-          🏪 Become a Seller
-        </Link>
-      </section>
-
       {/* Header — policy-nav strip removed (declutter); policy links live in the footer,
           and "Become a Seller" now sits in the offer strip above. */}
       <header className="site-header">
@@ -270,8 +235,8 @@ export default function Navbar() {
               aria-label="Search products"
               value={search}
               autoComplete="off"
-              onChange={e => { setSearch(e.target.value); setShowSuggest(true); runSuggest(e.target.value); setPinResult(null); }}
-              onFocus={() => { setPinResult(null); if (suggestions.length) setShowSuggest(true); }}
+              onChange={e => { setSearch(e.target.value); setShowSuggest(true); runSuggest(e.target.value); }}
+              onFocus={() => { if (suggestions.length) setShowSuggest(true); }}
               onBlur={() => setTimeout(() => setShowSuggest(false), 150)}
             />
             <button type="submit">Search</button>
@@ -303,39 +268,6 @@ export default function Navbar() {
               </div>
             )}
           </form>
-
-          {/* Pincode serviceability — inline (like the search bar), not a popup */}
-          <div className="pin-check" style={{ position: 'relative', display: 'flex', alignItems: 'center',
-            border: '1.5px solid #e5d5d5', borderRadius: 8, background: '#fff', height: 42 }}>
-            <span style={{ padding: '0 .1rem 0 .55rem', fontSize: '.95rem' }} aria-hidden="true">📍</span>
-            <input type="text" inputMode="numeric" maxLength={6} value={pin}
-              aria-label="Check delivery pincode"
-              onChange={e => { setPin(e.target.value.replace(/\D/g, '').slice(0, 6)); setPinResult(null); }}
-              onKeyDown={e => { if (e.key === 'Enter') checkPin(); }}
-              onFocus={() => setShowSuggest(false)}
-              placeholder="Pincode"
-              style={{ width: 92, border: 'none', outline: 'none', padding: '.5rem .4rem', fontSize: '.86rem', background: 'transparent' }} />
-            <button type="button" onClick={checkPin} disabled={pinChecking}
-              style={{ background: '#a7354d', color: '#fff', border: 'none', height: '100%', padding: '0 .8rem', fontWeight: 700, fontSize: '.82rem', cursor: 'pointer', opacity: pinChecking ? .6 : 1, whiteSpace: 'nowrap', borderRadius: '0 6px 6px 0' }}>
-              {pinChecking ? '…' : 'Check'}
-            </button>
-            {pinResult && (
-              <div style={{ position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 300, width: 260,
-                background: '#fff', border: `1.5px solid ${pinResult.ok ? '#c8e6c9' : '#f5c6cb'}`, borderRadius: 10,
-                boxShadow: '0 8px 28px rgba(0,0,0,.16)', padding: '.7rem .85rem' }}>
-                <p style={{ margin: 0, fontSize: '.83rem', fontWeight: 600, color: pinResult.ok ? '#2e7d32' : '#c0392b' }}>
-                  {pinResult.ok ? '✓ ' : '✗ '}{pinResult.text}
-                </p>
-                <button type="button" onClick={() => setPinResult(null)}
-                  style={{ marginTop: '.4rem', background: 'none', border: 'none', color: '#999', fontSize: '.75rem', cursor: 'pointer', padding: 0 }}>
-                  Close
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Pincode box: inline on desktop, full-width row (between logo/cart & content) on mobile */}
-          {/* Mobile: pincode is placed next to the search bar via the grid in globals.css (.pin-check grid-area). */}
 
           <div className="brand-actions">
             <Link className="cart-link" href="/cart" style={{ position: 'relative' }}>
@@ -397,7 +329,7 @@ export default function Navbar() {
           { href: '/fabrics', img: '/nav-icons/fabrics.webp', emoji: '🧵', label: 'Fabrics' },
           { href: '/more', img: '/nav-icons/more.webp', emoji: '🛍️', label: 'More Styles' },
         ].map(item => (
-          <Link key={item.href} href={item.href} style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", minWidth: 60 }}>
+          <Link key={item.href} href={item.href} className={`dept-link${pathname === item.href ? ' active' : ''}`} style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", minWidth: 60 }}>
             <span>{item.label}</span>
           </Link>
         ))}

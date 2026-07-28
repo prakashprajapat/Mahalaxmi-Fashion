@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { getCart, cartTotal, clearCart, cartShipping, finalUnitPrice, unitBase } from '@/lib/cart';
+import PincodeChecker from '@/components/checkout/PincodeChecker';
 import { getCustomer, getToken } from '@/lib/auth';
 import { ordersApi, paymentsApi, cashfreeApi, couponsApi, settingsApi } from '@/lib/api';
 import { trackEvent, toGa4Items, trackAdsConversion } from '@/lib/analytics';
@@ -556,6 +557,9 @@ export default function CheckoutPage() {
               </div>
             </div>
           </div>
+
+          {/* Delivery-time pincode check (below delivery address) */}
+          <PincodeChecker />
 
           {/* PAN section (if required) */}
           {requiresPan && (
