@@ -114,13 +114,22 @@ export const buildLabelBody = (order: Order): string => {
 
   // Opens one or many labels in a print view; the print dialog lets you "Save as PDF"
   // (or send straight to a 4x6 label printer). Each label is its own page.
+// Self-contained CODE128-B barcode -> SVG. No external CDN, so barcodes ALWAYS
+// render in the print/popup window (the CDN <script> was being blocked in the
+// blob-URL print window, which is why barcodes had disappeared).
+const BARCODE_JS = `
+var C128=["212222","222122","222221","121223","121322","131222","122213","122312","132212","221213","221312","231212","112232","122132","122231","113222","123122","123221","223211","221132","221231","213212","223112","312131","311222","321122","321221","312212","322112","322211","212123","212321","232121","111323","131123","131321","112313","132113","132311","211313","231113","231311","112133","112331","132131","113123","113321","133121","313121","211331","231131","213113","213311","213131","311123","311321","331121","312113","312311","332111","314111","221411","431111","111224","111422","121124","121421","141122","141221","112214","112412","122114","122411","142112","142211","241211","221114","413111","241112","134111","111242","121142","121241","114212","124112","124211","411212","421112","421211","212141","214121","412121","111143","111341","131141","114113","114311","411113","411311","113141","114131","311141","411131","211412","211214","211232","2331112"];
+function c128b(t){var codes=[104],s=104,i;for(i=0;i<t.length;i++){codes.push(t.charCodeAt(i)-32);}for(i=0;i<t.length;i++){s+=(t.charCodeAt(i)-32)*(i+1);}codes.push(s%103);codes.push(106);var b="";for(i=0;i<codes.length;i++){b+=C128[codes[i]];}return b;}
+function drawBarcode(svg){var code=(svg.getAttribute("data-code")||"").replace(/[^ -~]/g,"");if(!code){return;}var w=c128b(code),total=0,i;for(i=0;i<w.length;i++){total+=+w[i];}var H=40,x=0,r="";for(i=0;i<w.length;i++){var ww=+w[i];if(i%2===0){r+="<rect x='"+x+"' y='0' width='"+ww+"' height='"+H+"'></rect>";}x+=ww;}svg.setAttribute("viewBox","0 0 "+total+" "+H);svg.setAttribute("preserveAspectRatio","none");svg.setAttribute("fill","#000");svg.innerHTML=r;}
+`;
+
 export const openOrderLabels = (list: Order[]) => {
     if (!list.length) return;
     const bodies = list.map(buildLabelBody).join('\n');
     const html = `<!doctype html><html><head><meta charset="utf-8"><title>Labels (${list.length})</title>
-    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
-    <style>${LABEL_CSS}</style></head>
-    <body onload="try{document.querySelectorAll('.bc').forEach(function(el){JsBarcode(el, el.getAttribute('data-code'), {format:'CODE128',displayValue:false,height:30,margin:0,width:1.4});});}catch(e){};setTimeout(function(){window.focus();window.print();},450);">
+    <style>${LABEL_CSS}</style>
+    <script>${BARCODE_JS}</script></head>
+    <body onload="try{document.querySelectorAll('.bc').forEach(drawBarcode);}catch(e){};setTimeout(function(){window.focus();window.print();},350);">
     ${bodies}
     </body></html>`;
     const blob = new Blob([html], { type: 'text/html' });
@@ -130,3 +139,59 @@ export const openOrderLabels = (list: Order[]) => {
     setTimeout(() => URL.revokeObjectURL(url), 60000);
   };
 
+
+// Combined "Picklist / Manifest" for a set of orders (e.g. all Ready-to-Ship).
+// Aggregates every line item by SKU + Colour + Size and sums the quantity, then
+// opens a printable A4 sheet (Save as PDF). Matches the supplier picklist format.
+export const openPicklist = (list: Order[], supplierName = 'MAHALAXMI FASHION POINT.') => {
+    if (!list.length) { alert('No orders to build a picklist from.'); return; }
+    const esc = (s: string | number | null | undefined) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] as string));
+    const map = new Map<string, { sku: string; color: string; size: string; qty: number }>();
+    for (const o of list) {
+      for (const it of o.cart) {
+        const sku = (it.sku || '-').trim() || '-';
+        const color = (it.color || '').trim() || 'Multicolor';
+        let size = (it.size || '').trim();
+        if (size.includes('/')) size = size.split('/')[0].trim();   // strip colour if size held "M / Red"
+        if (!size) size = 'Free Size';
+        const key = sku + '||' + color + '||' + size;
+        const cur = map.get(key);
+        if (cur) cur.qty += it.quantity;
+        else map.set(key, { sku, color, size, qty: it.quantity });
+      }
+    }
+    const items = Array.from(map.values()).sort((a, b) => a.sku.localeCompare(b.sku) || a.size.localeCompare(b.size));
+    const totalUnits = items.reduce((s, r) => s + r.qty, 0);
+    const rows = items.map(r => `<tr><td>${esc(r.sku)}</td><td>${esc(r.color)}</td><td>${esc(r.size)}</td><td class="q">${r.qty}</td></tr>`).join('');
+    const date = new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+    const html = `<!doctype html><html><head><meta charset="utf-8"><title>Picklist</title>
+    <style>
+      *{box-sizing:border-box}@page{size:A4;margin:12mm}
+      body{font-family:Arial,Helvetica,sans-serif;color:#111;margin:0;padding:18px}
+      h1{font-size:26px;margin:0 0 12px}
+      .meta{font-size:14px;font-weight:700;margin:3px 0}
+      table{width:100%;border-collapse:collapse;margin-top:14px}
+      th,td{border:1px solid #111;padding:9px 10px;font-size:13px;text-align:center}
+      th{background:#efefef;font-weight:700}
+      td.q{font-weight:800}
+      tfoot td{font-weight:800;background:#faf6ee}
+      .foot{text-align:center;font-size:11px;color:#666;margin-top:16px}
+      @media print{body{padding:0}}
+    </style></head>
+    <body onload="setTimeout(function(){window.focus();window.print();},300);">
+      <h1>Picklist</h1>
+      <div class="meta">Supplier Name : ${esc(supplierName)}</div>
+      <div class="meta">Date : ${date}</div>
+      <table>
+        <thead><tr><th>SKU</th><th>Color</th><th>Size</th><th>Total Quantity</th></tr></thead>
+        <tbody>${rows}</tbody>
+        <tfoot><tr><td colspan="3" style="text-align:right">Total Units</td><td>${totalUnits}</td></tr></tfoot>
+      </table>
+      <div class="foot">${list.length} order(s) &middot; ${items.length} unique lines &middot; Mahalaxmi Fashion Hub</div>
+    </body></html>`;
+    const blob = new Blob([html], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const w = window.open(url, '_blank');
+    if (!w) { alert('Please allow pop-ups to open the picklist.'); }
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  };

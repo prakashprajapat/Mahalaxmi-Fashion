@@ -5,7 +5,7 @@ import { getAdminToken } from '@/lib/auth';
 import { exportOrders } from '@/lib/exportExcel';
 import { productImageSrc } from '@/lib/productImages';
 import type { Order } from '@/types';
-import { openOrderLabels } from '@/lib/orderLabel';
+import { openOrderLabels, openPicklist } from '@/lib/orderLabel';
 
 const ORDER_STATUS_TABS: { key: string; label: string; hidden?: boolean }[] = [
   { key: 'all',                  label: 'All Orders' },
@@ -373,6 +373,9 @@ export default function AdminOrdersPage() {
           style={{ background: '#f5f5f5', border: 'none', borderRadius: '8px', padding: '.5rem .75rem', fontSize: '.82rem', cursor: 'pointer' }}>
           Clear
         </button>}
+        {activeTab === 'Ready for Shipping' && filtered.length > 0 && (
+          <button onClick={() => openPicklist(filtered)} style={{ background: '#6d4c1f', color: '#fff', border: 'none', borderRadius: '8px', padding: '.5rem .85rem', fontSize: '.82rem', cursor: 'pointer', fontWeight: 700 }}>🧾 Picklist / Manifest ({filtered.length})</button>
+        )}
         <span style={{ fontSize: '.85rem', color: '#888', fontWeight: 600 }}>{filtered.length} orders</span>
       </div>
 

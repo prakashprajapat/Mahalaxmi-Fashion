@@ -270,47 +270,6 @@ export default function CheckoutPage() {
     return true;
   };
 
-  // Shared success path — places the site order after a verified payment.
-  const placePaidOrder = async (localOrderId: string, method: string, paymentId: string, cartLines: ReturnType<typeof buildCartLines>) => {
-    await ordersApi.place({
-      id: localOrderId,
-      method,
-      status: 'Pending',
-      paymentId,
-      cart: cartLines,
-      subtotal,
-      shippingCost,
-      codFee: 0,
-      total,
-      customerId: customer?.id?.toString(),
-      customerName: shipping.name,
-      customerEmail: shipping.email,
-      customerPhone: shipping.phone,
-      panNumber: requiresPan ? panData.panNumber : undefined,
-      panName: requiresPan ? panData.panName : undefined,
-      couponCode: attributionCode(),
-      discountAmount: couponApplied?.discount ?? 0,
-      shippingName: shipping.name,
-      shippingAddress: shipping.address,
-      shippingCity: shipping.city,
-      shippingPincode: shipping.pincode,
-      shippingState: shipping.state,
-      placedAt: new Date().toISOString(),
-    });
-    trackEvent('purchase', {
-      transaction_id: localOrderId,
-      currency: 'INR',
-      value: total,
-      coupon: attributionCode() || undefined,
-      items: cartToItems(cart),
-    });
-    trackAdsConversion({ value: total, currency: 'INR', transactionId: localOrderId });
-    clearCart();
-    setOrderId(localOrderId);
-    setStep('confirm');
-    setLoading(false);
-  };
-
   // ── Cashfree (PRIMARY online gateway) ──────────────────────────────────────
   const handleCashfree = async (): Promise<boolean> => {
     const cartLines = buildCartLines();
@@ -336,19 +295,21 @@ export default function CheckoutPage() {
     await ensureCashfreeSdk();
     // @ts-expect-error Cashfree SDK loaded via script tag
     const cashfree = window.Cashfree({ mode: res.mode === 'sandbox' ? 'sandbox' : 'production' });
+    // Full-page redirect to Cashfree's hosted checkout. On success the page navigates
+    // away and, after payment, Cashfree returns to /checkout?cf_order=<id> (via the
+    // backend return_url) where the mount effect verifies and shows the success screen.
+    // IMPORTANT: do NOT run verify()/alert() here — with '_self' the promise can resolve
+    // while navigation is still pending, and a synchronous alert() would BLOCK that
+    // redirect (leaving the user stuck on \"Payment not confirmed\"). Only surface a
+    // genuine SDK error; otherwise let the redirect proceed.
     const result = await cashfree.checkout({
       paymentSessionId: res.paymentSessionId,
       redirectTarget: '_self',
     });
-    if (result?.error) { setLoading(false); return true; } // user closed / failed — no fallback
-
-    const v = await cashfreeApi.verify(res.localOrderId);
-    if (!v.verified) {
-      alert('Payment is not confirmed yet. If money was deducted, your order will be created automatically — or contact us on WhatsApp with order id ' + res.localOrderId);
-      setLoading(false);
-      return true;
+    if (result?.error) {
+      alert('Payment shuru nahi ho paya: ' + (result.error?.message || 'Please try again.'));
     }
-    await placePaidOrder(res.localOrderId, 'cashfree', v.paymentId ?? '', cartLines);
+    setLoading(false);
     return true;
   };
 
