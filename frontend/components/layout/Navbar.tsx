@@ -273,7 +273,7 @@ export default function Navbar() {
             <Link className="cart-link" href="/cart" style={{ position: 'relative' }}>
               Cart{count > 0 && (
                 <span className={`cart-count${cartBounce ? ' cart-bounce' : ''}`}
-                  style={{ display: 'inline-block', minWidth: '18px', transition: 'background .2s', marginLeft: 6 }}>
+                  style={{ minWidth: '18px', transition: 'background .2s', marginLeft: 6 }}>
                   {count}
                 </span>
               )}

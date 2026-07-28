@@ -1180,3 +1180,8 @@ button { cursor: pointer; font-family: inherit; }
   .cart-link{ white-space:nowrap; }
 }
 /* ==================== END MOBILE HEADER ==================== */
+
+/* ── Cart pill: center "Cart N" vertically + badge number centered ── */
+.cart-link{ display:inline-flex !important; align-items:center; justify-content:center; line-height:1; }
+.cart-count{ display:inline-flex !important; align-items:center; justify-content:center; }
+/* ==================== END CART FIX ==================== */
