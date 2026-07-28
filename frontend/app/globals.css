@@ -1159,3 +1159,11 @@ button { cursor: pointer; font-family: inherit; }
 }
 .site-footer-brand .brand-tagline{ color:var(--gold-soft) !important; }
 /* ==================== END PREMIUM FOOTER ==================== */
+
+/* ── Premium top bar (matches footer: same maroon gradient + gold accent) ── */
+.topbar{
+  background:linear-gradient(180deg,#7a0a22 0%, #5c1420 100%) !important;
+  border-bottom:2px solid var(--gold) !important;
+}
+.topbar a{ color:var(--gold-soft) !important; text-decoration:underline; }
+/* ==================== END PREMIUM TOPBAR ==================== */
