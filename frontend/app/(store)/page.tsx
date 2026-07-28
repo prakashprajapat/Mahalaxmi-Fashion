@@ -63,10 +63,10 @@ export default async function HomePage() {
           {/* Left: copy + CTA + trust */}
           <div>
             <h1 className="hero-copy" style={{ fontFamily: HERO_FONT, fontSize: 'clamp(1.05rem, 2.7vw, 1.9rem)', fontWeight: 800, lineHeight: 1.25, color: '#5c1a28', margin: '0 0 .3rem' }}>
-              Premium Quality You Can Trust.
+              Sarees, Nighty &amp; Ethnic Wear
             </h1>
             <p className="hero-copy" style={{ fontFamily: HERO_FONT, fontSize: 'clamp(1.05rem, 2.7vw, 1.9rem)', fontWeight: 600, lineHeight: 1.25, color: 'rgba(92,26,40,.8)', margin: '0 0 1rem' }}>
-              Thoughtfully Crafted for Every Need.
+              Premium quality you can trust, thoughtfully crafted for every need.
             </p>
 
             <Link href="/best-sellers" style={{ display: 'inline-block', background: '#7a0a22', color: '#fff', fontWeight: 800, fontSize: '1rem', letterSpacing: '.03em', padding: '.75rem 2.1rem', borderRadius: '10px', textDecoration: 'none', boxShadow: '0 6px 18px rgba(122,10,34,.28)' }}>

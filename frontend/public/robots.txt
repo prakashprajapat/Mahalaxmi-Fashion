@@ -10,4 +10,6 @@ Disallow: /orders/
 Disallow: /wishlist/
 Disallow: /api/
 
-Sitemap: https://mahalaxmifashionhub.com/sitemap.xml
+# AI / answer engines welcome to read & cite our pages (matches * above)
+
+Sitemap: https://www.mahalaxmifashionhub.com/sitemap.xml

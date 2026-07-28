@@ -1,0 +1,17 @@
+# Mahalaxmi Fashion Hub
+
+> Online ethnic and fashion wear store based in Balotra, Rajasthan, India. We sell sarees, cotton nighties, petticoats, innerwear and fabrics. Cash on Delivery available, free shipping over Rs. 999, pan-India delivery with order tracking.
+
+## Key pages
+- [Home](https://www.mahalaxmifashionhub.com/): Store overview, best sellers, new arrivals
+- [Women](https://www.mahalaxmifashionhub.com/women): Sarees, nighties, petticoats and daily wear
+- [Sarees](https://www.mahalaxmifashionhub.com/products?category=saree): Designer and daily-wear sarees
+- [Best Sellers](https://www.mahalaxmifashionhub.com/best-sellers): Most popular products
+- [All Products](https://www.mahalaxmifashionhub.com/products): Full catalogue
+- [Track Order](https://www.mahalaxmifashionhub.com/tracking): Order tracking
+- [Contact](https://www.mahalaxmifashionhub.com/contact): Customer support and WhatsApp
+
+## Policies
+- [Shipping and Delivery](https://www.mahalaxmifashionhub.com/shipping-delivery-policy)
+- [Returns and Exchange](https://www.mahalaxmifashionhub.com/return-exchange)
+- [Privacy Policy](https://www.mahalaxmifashionhub.com/privacy-policy)
