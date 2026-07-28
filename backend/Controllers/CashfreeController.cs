@@ -85,7 +85,9 @@ public class CashfreeController : ControllerBase
             order_meta = new
             {
                 notify_url = "https://mahalaxmifashionhub.com/api/cashfree/webhook",
-                // Full-page redirect back to the site after payment (mobile-reliable; no modal iframe).
+                // After the customer pays on Cashfree's hosted page, bring them back to
+                // /checkout?cf_order=<id> so the browser verifies the payment and shows the
+                // success screen. Without this the _self redirect never returns to the site.
                 return_url = $"https://www.mahalaxmifashionhub.com/checkout?cf_order={localOrderId}",
             },
             order_note = "Mahalaxmi Fashion Hub online order",

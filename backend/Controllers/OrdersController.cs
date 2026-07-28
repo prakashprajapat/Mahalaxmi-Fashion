@@ -565,61 +565,129 @@ public class OrdersController : ControllerBase
         if (string.IsNullOrWhiteSpace(name)) name = GetJsonStr(cj, "name") ?? "";
         string phone = GetJsonStr(sj, "phone") ?? "";
         if (string.IsNullOrWhiteSpace(phone)) phone = GetJsonStr(cj, "phone") ?? "";
-        string email = GetJsonStr(cj, "email") ?? "";
         string addr = GetJsonStr(sj, "address") ?? "";
         string city = GetJsonStr(sj, "city") ?? "";
         string state = GetJsonStr(sj, "state") ?? "";
         string pin = GetJsonStr(sj, "pincode") ?? "";
         string invNo = string.IsNullOrWhiteSpace(o.InvoiceNumber) ? o.OrderId : o.InvoiceNumber!;
-        string awb = string.IsNullOrWhiteSpace(o.Awb) ? "Pending" : o.Awb!;
+        string awb = string.IsNullOrWhiteSpace(o.Awb) ? "[Pending]" : o.Awb!;
 
-        decimal gstRate = (lines.Count > 0 && lines[0].GstRate > 0) ? lines[0].GstRate : 5m;
-        string hsn = (lines.Count > 0 && !string.IsNullOrWhiteSpace(lines[0].Hsn)) ? lines[0].Hsn! : "6211";
-        decimal taxable = gstRate > 0 ? o.Total / (1 + gstRate / 100m) : o.Total;
-        decimal totalTax = o.Total - taxable;
-        decimal cgst = totalTax / 2m;
+        // Store prices are GST-inclusive, so back-calculate the taxable value + tax for each line.
+        decimal firstRate = (lines.Count > 0 && lines[0].GstRate > 0) ? lines[0].GstRate : 5m;
+        decimal taxableTotal = 0m, taxTotal = 0m;
 
         var rows = new System.Text.StringBuilder();
         int idx = 1;
         foreach (var l in lines)
         {
+            decimal rate = l.GstRate > 0 ? l.GstRate : 5m;
+            decimal lineIncl = l.LineTotal;
+            decimal lineTaxable = rate > 0 ? lineIncl / (1 + rate / 100m) : lineIncl;
+            decimal lineTax = lineIncl - lineTaxable;
+            int qty = Math.Max(1, l.Quantity);
+            decimal unitRate = lineTaxable / qty;
+            taxableTotal += lineTaxable;
+            taxTotal += lineTax;
+
             var itemName = System.Net.WebUtility.HtmlEncode(l.Name ?? "Item");
             var sku = System.Net.WebUtility.HtmlEncode(string.IsNullOrWhiteSpace(l.Sku) ? "-" : l.Sku);
-            var size = System.Net.WebUtility.HtmlEncode(string.IsNullOrWhiteSpace(l.Size) ? "-" : l.Size);
-            rows.Append("<tr><td>" + idx + "</td><td>" + itemName + "</td><td>" + sku + "</td><td class='c'>" + size
-                + "</td><td class='c'>" + l.Quantity + "</td><td class='r'>Rs. " + l.Price.ToString("0")
-                + "</td><td class='r'>Rs. " + l.LineTotal.ToString("0") + "</td></tr>");
+            var size = System.Net.WebUtility.HtmlEncode(string.IsNullOrWhiteSpace(l.Size) ? "Free Size" : l.Size);
+            var colour = string.IsNullOrWhiteSpace(l.Color) ? "" : " | Colour: " + System.Net.WebUtility.HtmlEncode(l.Color);
+            var hsnLine = System.Net.WebUtility.HtmlEncode(string.IsNullOrWhiteSpace(l.Hsn) ? "6211" : l.Hsn);
+            rows.Append(
+                "<tr>" +
+                "<td class='c'>" + idx + "</td>" +
+                "<td><div class='inm'>" + itemName + "</div><div class='ism'>SKU: " + sku + " &middot; Size: " + size + colour + "</div></td>" +
+                "<td class='c'>" + hsnLine + "</td>" +
+                "<td class='c'>" + qty + "</td>" +
+                "<td class='r'>&#8377;" + unitRate.ToString("0.00") + "</td>" +
+                "<td class='c'>" + rate.ToString("0.#") + "%</td>" +
+                "<td class='r'>&#8377;" + lineTax.ToString("0.00") + "</td>" +
+                "<td class='r'>&#8377;" + lineIncl.ToString("0.00") + "</td>" +
+                "</tr>");
             idx++;
         }
 
+        decimal cgst = taxTotal / 2m;
+        decimal halfRate = firstRate / 2m;
+
+        var extraRows = new System.Text.StringBuilder();
+        if (o.DiscountAmount > 0)
+            extraRows.Append("<tr><td class='tl'>Discount"
+                + (string.IsNullOrWhiteSpace(o.CouponCode) ? "" : " (" + System.Net.WebUtility.HtmlEncode(o.CouponCode) + ")")
+                + "</td><td class='tv'>-&#8377;" + o.DiscountAmount.ToString("0.00") + "</td></tr>");
+        if (o.CodFee > 0)
+            extraRows.Append("<tr><td class='tl'>COD Charges</td><td class='tv'>&#8377;" + o.CodFee.ToString("0.00") + "</td></tr>");
+
         var addrFull = System.Net.WebUtility.HtmlEncode(string.Join(", ",
             new[] { addr, city, state, pin }.Where(x => !string.IsNullOrWhiteSpace(x))));
-        var emailLine = string.IsNullOrWhiteSpace(email) ? "" : "<br>" + System.Net.WebUtility.HtmlEncode(email);
-        var payLabel = string.Equals(o.Method, "cod", StringComparison.OrdinalIgnoreCase) ? "Cash on Delivery" : "Online / Prepaid";
+        var payLabel = string.Equals(o.Method, "cod", StringComparison.OrdinalIgnoreCase) ? "Cash on Delivery (COD)" : "Prepaid (Online)";
 
         return INVOICE_TEMPLATE
             .Replace("{INVNO}", System.Net.WebUtility.HtmlEncode(invNo))
+            .Replace("{DATE}", placed.ToString("dd-MM-yyyy"))
             .Replace("{ORDERNO}", System.Net.WebUtility.HtmlEncode(o.OrderId))
-            .Replace("{AWB}", System.Net.WebUtility.HtmlEncode(awb))
-            .Replace("{DATE}", placed.ToString("dd MMM yyyy, hh:mm tt"))
-            .Replace("{STATUS}", System.Net.WebUtility.HtmlEncode(o.Status ?? ""))
             .Replace("{METHOD}", payLabel)
+            .Replace("{AWB}", System.Net.WebUtility.HtmlEncode(awb))
             .Replace("{NAME}", System.Net.WebUtility.HtmlEncode(name))
             .Replace("{PHONE}", System.Net.WebUtility.HtmlEncode(phone))
-            .Replace("{EMAIL}", emailLine)
             .Replace("{ADDR}", addrFull)
             .Replace("{ROWS}", rows.ToString())
-            .Replace("{HSN}", System.Net.WebUtility.HtmlEncode(hsn))
-            .Replace("{GSTRATE}", gstRate.ToString("0.#"))
-            .Replace("{TAXABLE}", taxable.ToString("0"))
-            .Replace("{CGST}", cgst.ToString("0"))
-            .Replace("{SGST}", cgst.ToString("0"))
-            .Replace("{TOTALTAX}", totalTax.ToString("0"))
-            .Replace("{SUBTOTAL}", o.Subtotal.ToString("0"))
-            .Replace("{SHIP}", o.ShippingCost.ToString("0"))
-            .Replace("{CODFEE}", o.CodFee.ToString("0"))
-            .Replace("{TOTAL}", o.Total.ToString("0"))
+            .Replace("{EXTRAROWS}", extraRows.ToString())
+            .Replace("{TAXABLE}", taxableTotal.ToString("0.00"))
+            .Replace("{HALFRATE}", halfRate.ToString("0.##"))
+            .Replace("{CGST}", cgst.ToString("0.00"))
+            .Replace("{SGST}", cgst.ToString("0.00"))
+            .Replace("{SHIP}", o.ShippingCost.ToString("0.00"))
+            .Replace("{TOTAL}", o.Total.ToString("0.00"))
+            .Replace("{WORDS}", System.Net.WebUtility.HtmlEncode(AmountInWords(o.Total)))
             .Replace("{YEAR}", placed.Year.ToString());
+    }
+
+    // Indian-format amount in words, e.g. 1572.90 -> "Rupees One Thousand Five Hundred Seventy-Two and Ninety Paise Only".
+    private static string AmountInWords(decimal amount)
+    {
+        long rupees = (long)Math.Floor(amount);
+        int paise = (int)Math.Round((amount - rupees) * 100m, MidpointRounding.AwayFromZero);
+        if (paise == 100) { rupees += 1; paise = 0; }
+        var sb = new System.Text.StringBuilder();
+        sb.Append("Rupees ").Append(NumToWords(rupees));
+        if (paise > 0) sb.Append(" and ").Append(NumToWords(paise)).Append(" Paise");
+        sb.Append(" Only");
+        return sb.ToString();
+    }
+
+    private static readonly string[] _ones = { "", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten",
+        "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen" };
+    private static readonly string[] _tens = { "", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety" };
+
+    private static string TwoDigits(long x)
+    {
+        if (x < 20) return _ones[(int)x];
+        return (_tens[(int)(x / 10)] + (x % 10 != 0 ? " " + _ones[(int)(x % 10)] : "")).Trim();
+    }
+
+    private static string ThreeDigits(long x)
+    {
+        var r = "";
+        if (x >= 100) { r += _ones[(int)(x / 100)] + " Hundred"; x %= 100; if (x != 0) r += " "; }
+        if (x > 0) r += TwoDigits(x);
+        return r;
+    }
+
+    private static string NumToWords(long n)
+    {
+        if (n == 0) return "Zero";
+        var parts = new System.Text.StringBuilder();
+        long crore = n / 10000000; n %= 10000000;
+        long lakh = n / 100000; n %= 100000;
+        long thou = n / 1000; n %= 1000;
+        long hund = n;
+        if (crore > 0) parts.Append(NumToWords(crore)).Append(" Crore ");
+        if (lakh > 0) parts.Append(TwoDigits(lakh)).Append(" Lakh ");
+        if (thou > 0) parts.Append(TwoDigits(thou)).Append(" Thousand ");
+        if (hund > 0) parts.Append(ThreeDigits(hund));
+        return parts.ToString().Trim();
     }
 
     private static string BuildInvoiceExpiredHtml(string orderId)
@@ -636,77 +704,119 @@ public class OrdersController : ControllerBase
     }
 
     private const string INVOICE_TEMPLATE = @"<!DOCTYPE html>
-<html lang=""en""><head><meta charset=""utf-8""><meta name=""viewport"" content=""width=device-width,initial-scale=1"">
-<title>Invoice {INVNO} - Mahalaxmi Fashion Hub</title>
+<html lang='en'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'>
+<title>Tax Invoice {INVNO} - Mahalaxmi Fashion Hub</title>
 <style>
   *{box-sizing:border-box}
-  body{font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:#f3eee7;color:#2a2a2a;margin:0;padding:18px}
-  .sheet{max-width:800px;margin:0 auto;background:#fff;border:1px solid #e6ddd3;border-radius:12px;overflow:hidden}
-  .top{background:linear-gradient(135deg,#7a0a22,#5c1420);color:#fff;padding:18px 22px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px}
-  .top h1{margin:0;font-size:1.25rem;font-family:Georgia,serif}
-  .top .tag{font-size:.7rem;letter-spacing:.12em;text-transform:uppercase;color:#e6c877}
-  .top .logo{height:46px;width:auto;background:#fff;border-radius:7px;padding:4px}
-  .top .inv{text-align:right;font-size:.8rem;line-height:1.55}
-  .top .inv b{color:#e6c877}
-  .meta{display:flex;flex-wrap:wrap;gap:22px;padding:12px 22px;border-bottom:1px solid #eee;font-size:.84rem}
-  .meta span{display:block;color:#999;font-size:.68rem;text-transform:uppercase;letter-spacing:.05em}
-  .bill{padding:14px 22px;font-size:.86rem}
-  .bill h3{margin:0 0 5px;color:#7a0a22;font-size:.76rem;text-transform:uppercase;letter-spacing:.06em}
-  table{width:100%;border-collapse:collapse;margin:10px 0}
-  th{background:#faf3e6;color:#5c1a28;font-size:.68rem;text-transform:uppercase;letter-spacing:.03em;padding:7px 8px;text-align:left;border-bottom:2px solid #eadfe2}
-  td{padding:7px 8px;border-bottom:1px solid #f2f2f2;font-size:.82rem}
+  body{font-family:Arial,Helvetica,sans-serif;background:#e9e4da;color:#2b2b2b;margin:0;padding:16px;font-size:12px}
+  .bar{max-width:820px;margin:0 auto 12px;text-align:right}
+  .bar button{background:#7a5a2e;color:#fff;border:none;border-radius:8px;padding:.55rem 1.2rem;font-weight:700;font-size:13px;cursor:pointer}
+  .sheet{max-width:820px;margin:0 auto;background:#fff;border:1px solid #d8cbb2}
+  .hd{display:flex;justify-content:space-between;border-bottom:3px solid #7a5a2e}
+  .hd .l{display:flex;align-items:center;gap:12px;padding:14px 18px}
+  .hd .l img{height:56px;width:auto}
+  .hd .l .bn{font-size:16px;font-weight:800;color:#3a2c14;letter-spacing:.02em;line-height:1.1}
+  .hd .l .tg{font-size:10px;color:#8a6a3a;margin-top:3px}
+  .hd .l .tg2{font-size:9px;color:#999;margin-top:1px}
+  .hd .r{text-align:right;padding:14px 18px;min-width:230px}
+  .hd .r .ti{font-family:Georgia,serif;font-size:24px;font-weight:800;color:#7a5a2e;letter-spacing:.03em}
+  .hd .r .rs{font-size:11px;color:#555;margin-top:4px;line-height:1.7}
+  .cols{display:flex;border-bottom:1px solid #e5d9c3}
+  .cols>div{flex:1;padding:12px 18px}
+  .cols>div:first-child{border-right:1px solid #e5d9c3}
+  .st{font-size:11px;font-weight:800;color:#7a5a2e;letter-spacing:.05em;margin-bottom:6px;text-transform:uppercase}
+  .kv{font-size:11.5px;line-height:1.75;color:#333}
+  table{width:100%;border-collapse:collapse}
+  thead th{background:#7a5a2e;color:#fff;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.02em;padding:8px;text-align:left}
+  tbody td{padding:9px 8px;border-bottom:1px solid #eee;font-size:11.5px;vertical-align:top}
   td.c{text-align:center}td.r{text-align:right}
-  .totals{margin-left:auto;width:280px}
-  .totals td{border:none;padding:3px 8px}
-  .totals .grand td{border-top:2px solid #7a0a22;font-weight:800;color:#7a0a22;font-size:1rem;padding-top:7px}
-  .gstbox{clear:both;margin-top:10px;background:#faf7f4;border:1px solid #eadfe2;border-radius:8px;padding:8px 12px;font-size:.76rem;color:#555;line-height:1.6}
-  .gstbox b{color:#7a0a22}
-  .foot{padding:14px 22px 24px;color:#888;font-size:.76rem;text-align:center;border-top:1px dashed #ddd}
-  .btnbar{max-width:800px;margin:0 auto 14px;text-align:right}
-  .btn{background:#7a0a22;color:#fff;border:none;border-radius:9px;padding:.6rem 1.3rem;font-weight:700;font-size:.9rem;cursor:pointer}
-  @media print{.btnbar{display:none}body{background:#fff;padding:0}.sheet{border:none}}
+  .inm{font-weight:700;color:#2b2b2b}
+  .ism{font-size:10px;color:#777;margin-top:2px}
+  .tot{width:100%;border-collapse:collapse}
+  .tot td{padding:8px 18px;font-size:12px;border-bottom:1px solid #efe7d6}
+  .tot td.tl{text-align:right;color:#555;background:#faf6ee}
+  .tot td.tv{text-align:right;width:180px;font-weight:700;color:#7a5a2e;background:#faf6ee}
+  .tot tr.grand td{background:#7a5a2e;color:#fff;font-size:14px;font-weight:800}
+  .tot tr.grand td.tl{color:#fff}
+  .words{padding:10px 18px;border-bottom:1px solid #e5d9c3;font-size:11.5px}
+  .words b{color:#7a5a2e}
+  .foot2{display:flex;border-top:1px solid #e5d9c3}
+  .foot2>div{flex:1;padding:12px 18px;font-size:10.5px;color:#555;line-height:1.8}
+  .foot2>div:first-child{border-right:1px solid #e5d9c3}
+  .foot2 .st{margin-bottom:5px}
+  .sign{padding:12px 18px;text-align:center;color:#999;font-size:10px;border-top:1px dashed #d8cbb2}
+  @page{size:A4;margin:9mm}
+  @media print{body{background:#fff;padding:0}.bar{display:none}.sheet{border:none;max-width:100%}}
 </style></head>
 <body>
-  <div class=""btnbar""><button class=""btn"" onclick=""window.print()"">&#128190; Download / Print Invoice</button></div>
-  <div class=""sheet"">
-    <div class=""top"">
-      <div style=""display:flex;align-items:center;gap:12px"">
-        <img class=""logo"" src=""https://www.mahalaxmifashionhub.com/email-logo.png"" alt=""Mahalaxmi Fashion Hub"">
-        <div><div class=""tag"">Tax Invoice</div><h1>Mahalaxmi Fashion Hub</h1>
-          <div style=""font-size:.7rem;opacity:.85;margin-top:2px"">Ward No. 45, Near Mahadev Temple, Balotra, Rajasthan &middot; WhatsApp +91 9429429880</div></div>
+  <div class='bar'><button onclick='window.print()'>&#128190; Download / Print Invoice (PDF)</button></div>
+  <div class='sheet'>
+    <div class='hd'>
+      <div class='l'>
+        <img src='https://www.mahalaxmifashionhub.com/email-logo.png' alt='Mahalaxmi Fashion Hub'>
+        <div><div class='bn'>MAHALAXMI FASHION HUB</div><div class='tg'>Every Look, A New Experience</div><div class='tg2'>Fashion &middot; Beauty &middot; Fabrics &middot; Lifestyle</div></div>
       </div>
-      <div class=""inv""><div><b>Invoice</b> {INVNO}</div><div><b>Order</b> {ORDERNO}</div><div><b>AWB</b> {AWB}</div><div><b>Date</b> {DATE}</div></div>
-    </div>
-    <div class=""meta"">
-      <div><span>Payment</span>{METHOD}</div>
-      <div><span>Status</span>{STATUS}</div>
-      <div><span>HSN / GST</span>{HSN} &middot; {GSTRATE}%</div>
-    </div>
-    <div class=""bill"">
-      <h3>Billed / Shipped To</h3>
-      <div><b>{NAME}</b><br>{ADDR}<br>{PHONE}{EMAIL}</div>
-      <table>
-        <thead><tr><th>#</th><th>Item</th><th>SKU</th><th style=""text-align:center"">Size</th><th style=""text-align:center"">Qty</th><th style=""text-align:right"">Price</th><th style=""text-align:right"">Total</th></tr></thead>
-        <tbody>{ROWS}</tbody>
-      </table>
-      <table class=""totals"">
-        <tr><td>Subtotal</td><td class=""r"">Rs. {SUBTOTAL}</td></tr>
-        <tr><td>Shipping</td><td class=""r"">Rs. {SHIP}</td></tr>
-        <tr><td>COD Fee</td><td class=""r"">Rs. {CODFEE}</td></tr>
-        <tr class=""grand""><td>Grand Total</td><td class=""r"">Rs. {TOTAL}</td></tr>
-      </table>
-      <div class=""gstbox"">
-        <b>GST Summary</b> (included in total): Taxable Value Rs. {TAXABLE} &middot; CGST Rs. {CGST} &middot; SGST Rs. {SGST} &middot; <b>Total Tax Rs. {TOTALTAX}</b> &nbsp;|&nbsp; HSN {HSN} &middot; GST {GSTRATE}% (CGST + SGST)
+      <div class='r'>
+        <div class='ti'>TAX INVOICE</div>
+        <div class='rs'>Original for Recipient<br>Invoice No.: <b>{INVNO}</b><br>Date: {DATE}</div>
       </div>
     </div>
-    <div class=""foot"">
-      This is a computer-generated tax invoice and does not require a signature.<br>
-      Thank you for shopping with Mahalaxmi Fashion Hub &#10084;<br>
-      <span style=""font-size:.7rem"">Downloadable for 12 months from the order date &middot; &copy; {YEAR} Mahalaxmi Fashion Hub</span>
+    <div class='cols'>
+      <div>
+        <div class='st'>Seller Details</div>
+        <div class='kv'><b>Mahalaxmi Fashion Hub</b><br>Ward No. 45, Prajapat Nagar, Balotra, Rajasthan - 344022<br>Phone: +91 94294 29880<br>Email: mahalaxmifashionhub@gmail.com<br>Website: www.mahalaxmifashionhub.com<br>GSTIN: <b>08MUEPS5079K1ZM</b> &nbsp;|&nbsp; State Code: 08</div>
+      </div>
+      <div>
+        <div class='st'>Invoice Information</div>
+        <div class='kv'>Order ID: <b>{ORDERNO}</b><br>Payment: {METHOD}<br>Place of Supply: Rajasthan (08)<br>Reverse Charge: No<br>Transport / AWB: {AWB}</div>
+      </div>
     </div>
+    <div class='cols'>
+      <div>
+        <div class='st'>Bill To</div>
+        <div class='kv'><b>{NAME}</b><br>{ADDR}<br>Phone: {PHONE}<br>GSTIN (if any): Unregistered</div>
+      </div>
+      <div>
+        <div class='st'>Ship To</div>
+        <div class='kv'><b>{NAME}</b><br>{ADDR}<br>Phone: {PHONE}<br>GSTIN (if any): Unregistered</div>
+      </div>
+    </div>
+    <table>
+      <thead><tr><th style='width:34px'>#</th><th>Item Description</th><th style='width:54px'>HSN</th><th style='width:38px'>Qty</th><th style='width:80px;text-align:right'>Rate</th><th style='width:50px;text-align:center'>GST %</th><th style='width:74px;text-align:right'>Tax</th><th style='width:88px;text-align:right'>Amount</th></tr></thead>
+      <tbody>{ROWS}</tbody>
+    </table>
+    <table class='tot'>
+      <tr><td class='tl'>Taxable Value</td><td class='tv'>&#8377;{TAXABLE}</td></tr>
+      <tr><td class='tl'>CGST @ {HALFRATE}%</td><td class='tv'>&#8377;{CGST}</td></tr>
+      <tr><td class='tl'>SGST @ {HALFRATE}%</td><td class='tv'>&#8377;{SGST}</td></tr>
+      {EXTRAROWS}
+      <tr><td class='tl'>Shipping</td><td class='tv'>&#8377;{SHIP}</td></tr>
+      <tr class='grand'><td class='tl'>GRAND TOTAL</td><td class='tv'>&#8377;{TOTAL}</td></tr>
+    </table>
+    <div class='words'><b>Amount in Words:</b> {WORDS}</div>
+    <div class='foot2'>
+      <div>
+        <div class='st'>Terms, Returns &amp; Conditions</div>
+        &bull; Return/exchange request must be raised within 7 days of delivery.<br>
+        &bull; Product must be unused, unwashed, with original tags &amp; packaging.<br>
+        &bull; Wrong / damaged / missing item: share an unboxing video within 24 hours.<br>
+        &bull; Colour may vary slightly due to screen &amp; lighting differences.<br>
+        &bull; Shipping/COD charges are non-refundable unless the item is wrong or damaged.<br>
+        &bull; Refund is processed after quality check to the original payment method.
+      </div>
+      <div>
+        <div class='st'>Why Shop With Us</div>
+        &#10003; Secure payment options<br>
+        &#10003; Quality-checked products<br>
+        &#10003; Transparent pricing &amp; GST invoice<br>
+        &#10003; Order support on phone &amp; email<br>
+        &#10003; Trusted Indian fashion store<br>
+        &#10003; www.mahalaxmifashionhub.com
+      </div>
+    </div>
+    <div class='sign'>This is a computer-generated tax invoice and does not require a signature. &nbsp;&middot;&nbsp; &copy; {YEAR} Mahalaxmi Fashion Hub &nbsp;&middot;&nbsp; Downloadable for 12 months from the order date.</div>
   </div>
 </body></html>";
-    }
 
 
     // Invoice prefix for the current Indian financial year, e.g. "M/26-27/".
@@ -717,7 +827,7 @@ public class OrdersController : ControllerBase
         var now = DateTimeOffset.UtcNow.ToOffset(TimeSpan.FromHours(5.5)).DateTime;
         int startYear = now.Month >= 4 ? now.Year : now.Year - 1;
         var fy = $"{startYear % 100:00}-{(startYear + 1) % 100:00}";   // e.g. "26-27"
-        return $"M/{fy}/";
+        return $"MFH/{fy}/";
     }
 
     // Builds the next sequential GST invoice number for the given FY prefix, e.g. "M/26-27/001".
