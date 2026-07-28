@@ -72,12 +72,13 @@ async function buildJsonLd(idParam: string): Promise<string | null> {
 
     let reviewCount = 0;
     let ratingValue = 0;
+    let reviewList: import('@/types').Review[] = [];
     try {
       const rev = await reviewsApi.getByProduct(id);
-      const list = rev.reviews ?? [];
-      reviewCount = list.length;
+      reviewList = rev.reviews ?? [];
+      reviewCount = reviewList.length;
       if (reviewCount > 0)
-        ratingValue = Math.round((list.reduce((s, r) => s + (r.rating || 0), 0) / reviewCount) * 10) / 10;
+        ratingValue = Math.round((reviewList.reduce((s, r) => s + (r.rating || 0), 0) / reviewCount) * 10) / 10;
     } catch { /* reviews unavailable — omit aggregateRating */ }
 
     const productLd: Record<string, unknown> = {
@@ -125,6 +126,14 @@ async function buildJsonLd(idParam: string): Promise<string | null> {
         bestRating: 5,
         worstRating: 1,
       };
+      // Individual review snippets — richer star results in Google Search.
+      productLd.review = reviewList.slice(0, 10).map(r => ({
+        '@type': 'Review',
+        reviewRating: { '@type': 'Rating', ratingValue: r.rating, bestRating: 5, worstRating: 1 },
+        author: { '@type': 'Person', name: r.customerName || 'Verified Buyer' },
+        ...(r.text ? { reviewBody: r.text } : {}),
+        ...(r.createdAt ? { datePublished: String(r.createdAt).split('T')[0] } : {}),
+      }));
     }
 
     const breadcrumbLd = {
