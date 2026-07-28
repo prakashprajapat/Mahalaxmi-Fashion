@@ -67,7 +67,7 @@ const nextConfig = {
               "frame-src https://checkout.razorpay.com https://api.razorpay.com https://*.razorpay.com https://*.cashfree.com https://sdk.cashfree.com",
               "object-src 'none'",
               "base-uri 'self'",
-              "form-action 'self'",
+              "form-action 'self' https://*.cashfree.com https://payments.cashfree.com https://sandbox.cashfree.com https://*.razorpay.com https://api.razorpay.com",
               "frame-ancestors 'none'",
               "upgrade-insecure-requests",
             ].join('; '),
