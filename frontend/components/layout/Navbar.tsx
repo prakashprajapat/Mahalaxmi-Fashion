@@ -221,7 +221,7 @@ export default function Navbar() {
         <div className="brand-row">
           <Link href="/" className="brand" aria-label="Mahalaxmi Fashion Hub home">
             <span className="brand-mark">
-              <img src="/logo.webp?v=4" alt="Mahalaxmi Fashion Hub logo" loading="eager" />
+              <img src="/logo.webp?v=5" alt="Mahalaxmi Fashion Hub logo" loading="eager" />
             </span>
           </Link>
 
@@ -492,7 +492,7 @@ export default function Navbar() {
               ×
             </button>
             <div className="mfh-login-logo">
-              <img src="/logo.webp?v=4" alt="Mahalaxmi Fashion Hub" />
+              <img src="/logo.webp?v=5" alt="Mahalaxmi Fashion Hub" />
             </div>
             <form onSubmit={handleLogin} className="mfh-login-form" style={{ display: 'flex', flexDirection: 'column', gap: '.9rem' }}>
               <h2 style={{ margin: 0, fontSize: '1.6rem', fontWeight: 800, color: '#1a1a1a' }}>Welcome Back</h2>

@@ -64,7 +64,7 @@ export default function ProductCard({ product, priority = false }: { product: Pr
         <div className="product-card-img">
           <div onClick={openQuickView}>
             {image && !imgError ? (
-              /^https?:/i.test(image) ? (
+              (/^https?:/i.test(image) || image.startsWith('/')) ? (
                 <Image src={image} alt={product.name}
                   width={400}
                   height={400}

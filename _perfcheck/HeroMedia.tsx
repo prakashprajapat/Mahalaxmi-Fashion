@@ -43,7 +43,7 @@ export default function HeroMedia() {
   ) : (
     <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src="/logo.webp?v=4" alt="Mahalaxmi Fashion Hub"
+      <img src="/logo.webp?v=5" alt="Mahalaxmi Fashion Hub"
         style={{ maxWidth: '92%', maxHeight: '92%', width: 'auto', height: 'auto', objectFit: 'contain' }} />
     </div>
   );
@@ -60,7 +60,7 @@ export default function HeroMedia() {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 'clamp(150px, 20vw, 260px)' }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/logo.webp?v=4" alt="Mahalaxmi Fashion Hub"
+        <img src="/logo.webp?v=5" alt="Mahalaxmi Fashion Hub"
           style={{ maxWidth: '92%', maxHeight: '100%', width: 'auto', height: 'auto', objectFit: 'contain' }} />
       </div>
     );
