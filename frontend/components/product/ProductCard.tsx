@@ -110,7 +110,7 @@ export default function ProductCard({ product, priority = false }: { product: Pr
           </button>
           <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); const r = toggleCompare(product); if (r.full) { alert(`You can compare up to ${COMPARE_MAX} products at a time.`); return; } setCompared(r.added); }}
             aria-label={compared ? 'Remove from compare' : 'Add to compare'} title="Compare"
-            style={{ position: 'absolute', top: 8, left: 8, zIndex: 3, background: compared ? '#7a0a22' : 'rgba(255,255,255,.92)', color: compared ? '#fff' : '#7a0a22', border: '1px solid #eadfe2', borderRadius: 999, padding: '.2rem .5rem', fontSize: '.66rem', fontWeight: 800, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+            style={{ position: 'absolute', bottom: 8, left: 8, zIndex: 3, background: compared ? '#7a0a22' : 'rgba(255,255,255,.92)', color: compared ? '#fff' : '#7a0a22', border: '1px solid #eadfe2', borderRadius: 999, padding: '.2rem .5rem', fontSize: '.66rem', fontWeight: 800, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 3 }}>
             ⇄ {compared ? 'Added' : 'Compare'}
           </button>
         </div>
