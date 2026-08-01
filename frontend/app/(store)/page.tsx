@@ -105,7 +105,7 @@ export default async function HomePage() {
           .hero-copy { white-space: normal; }
         }
         @media (max-width: 600px) {
-          .hero-cta { display: inline-flex !important; align-items: center; gap: .4rem; padding: .85rem 2rem !important; font-size: 1.06rem !important; }
+          .hero-cta { display: inline-flex !important; align-items: center; gap: .35rem; padding: .68rem 1.6rem !important; font-size: .98rem !important; }
         }
       `}</style>
 

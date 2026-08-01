@@ -63,7 +63,7 @@ const nextConfig = {
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "font-src 'self' data: https://fonts.gstatic.com",
               "img-src 'self' data: blob: https:",
-              "connect-src 'self' https://www.google-analytics.com https://region1.google-analytics.com https://analytics.google.com https://www.googletagmanager.com https://api.razorpay.com https://lumberjack.razorpay.com https://connect.facebook.net https://*.facebook.com https://static.cloudflareinsights.com https://*.merchant-center-analytics.goog https://*.google.com https://*.cashfree.com https://sdk.cashfree.com",
+              "connect-src 'self' https://www.google-analytics.com https://region1.google-analytics.com https://analytics.google.com https://www.googletagmanager.com https://api.razorpay.com https://lumberjack.razorpay.com https://connect.facebook.net https://*.facebook.com https://static.cloudflareinsights.com https://*.merchant-center-analytics.goog https://*.google.com https://*.cashfree.com https://sdk.cashfree.com https://stats.g.doubleclick.net https://*.g.doubleclick.net",
               "frame-src https://checkout.razorpay.com https://api.razorpay.com https://*.razorpay.com https://*.cashfree.com https://sdk.cashfree.com",
               "object-src 'none'",
               "base-uri 'self'",
