@@ -18,7 +18,7 @@ export default async function MenPage() {
     <>
       <section className="page-hero">
         <p className="eyebrow">Shop by Category</p>
-        <h1>👔 Men</h1>
+        <h1>Men</h1>
         <p>Men&apos;s fabric and ethnic wear</p>
       </section>
       <CategoryPageContent products={products as any} category="Men" icon="👔" desc="Men's fabric and ethnic wear" allHref="/products?category=men" />

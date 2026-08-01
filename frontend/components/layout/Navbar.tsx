@@ -407,13 +407,13 @@ export default function Navbar() {
             <div style={{ padding: '0 1.25rem' }}>
               <p style={{ fontSize: '.75rem', fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: '.5rem' }}>Shop by Category</p>
               {[
-                { href: '/best-sellers', label: '⭐ Best Sellers' },
-                { href: '/women', label: '👩 Women' },
-                { href: '/men', label: '👔 Men' },
-                { href: '/kids', label: '👶 Kids' },
-                { href: '/beauty', label: '💄 Beauty' },
-                { href: '/fabrics', label: '🧵 Fabrics' },
-                { href: '/more', label: '🛍️ More' },
+                { href: '/best-sellers', label: 'Best Sellers' },
+                { href: '/women', label: 'Women' },
+                { href: '/men', label: 'Men' },
+                { href: '/kids', label: 'Kids' },
+                { href: '/beauty', label: 'Beauty' },
+                { href: '/fabrics', label: 'Fabrics' },
+                { href: '/more', label: 'More' },
               ].map(l => (
                 <Link key={l.href} href={l.href} onClick={() => setMenuOpen(false)}
                   style={{ display: 'block', padding: '.5rem', color: '#333', fontSize: '.9rem', textDecoration: 'none', fontWeight: 500 }}>

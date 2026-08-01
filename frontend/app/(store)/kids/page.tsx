@@ -18,7 +18,7 @@ export default async function KidsPage() {
     <>
       <section className="page-hero">
         <p className="eyebrow">Shop by Category</p>
-        <h1>👶 Kids</h1>
+        <h1>Kids</h1>
         <p>Cute &amp; comfortable kids clothing</p>
       </section>
       <CategoryPageContent products={products as any} category="Kids" icon="👶" desc="Cute & comfortable kids clothing" allHref="/products?category=kids" />

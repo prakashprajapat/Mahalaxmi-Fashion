@@ -16,7 +16,7 @@ export default async function BestSellersPage() {
     <>
       <section className="page-hero">
         <p className="eyebrow">Curated Collection</p>
-        <h1>⭐ Best Sellers</h1>
+        <h1>Best Sellers</h1>
         <p>Most loved products — handpicked bestsellers</p>
       </section>
       <CategoryPageContent products={products as any} category="Best Sellers" icon="⭐" desc="Most loved products" allHref="/products?bestSeller=true" />

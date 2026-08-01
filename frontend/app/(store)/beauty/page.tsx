@@ -18,7 +18,7 @@ export default async function BeautyPage() {
     <>
       <section className="page-hero">
         <p className="eyebrow">Shop by Category</p>
-        <h1>💄 Beauty</h1>
+        <h1>Beauty</h1>
         <p>Beauty & personal care essentials</p>
       </section>
       <CategoryPageContent products={products as any} category="Beauty" icon="💄" desc="Beauty & personal care essentials" allHref="/products?category=beauty" />

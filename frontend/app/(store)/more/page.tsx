@@ -16,7 +16,7 @@ export default async function MoreProductsPage() {
     <>
       <section className="page-hero">
         <p className="eyebrow">Shop by Category</p>
-        <h1>🛍️ More Products</h1>
+        <h1>More Products</h1>
         <p>Explore all our products & collections</p>
       </section>
       <CategoryPageContent products={products as any} category="More Products" icon="🛍️" desc="Explore all our products & collections" allHref="/products" />

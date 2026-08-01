@@ -18,7 +18,7 @@ export default async function FabricsPage() {
     <>
       <section className="page-hero">
         <p className="eyebrow">Shop by Category</p>
-        <h1>🧵 Fabrics</h1>
+        <h1>Fabrics</h1>
         <p>Premium fabrics & cloth materials</p>
       </section>
       <CategoryPageContent products={products as any} category="Fabrics" icon="🧵" desc="Premium fabrics & cloth materials" allHref="/products?category=fabrics" />
