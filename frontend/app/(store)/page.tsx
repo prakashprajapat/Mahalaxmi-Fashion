@@ -69,8 +69,8 @@ export default async function HomePage() {
               Premium quality you can trust, thoughtfully crafted for every need.
             </p>
 
-            <Link href="/best-sellers" style={{ display: 'inline-block', background: '#7a0a22', color: '#fff', fontWeight: 800, fontSize: '1rem', letterSpacing: '.03em', padding: '.75rem 2.1rem', borderRadius: '10px', textDecoration: 'none', boxShadow: '0 6px 18px rgba(122,10,34,.28)' }}>
-              Shop Now
+            <Link href="/best-sellers" className="hero-cta" style={{ display: 'inline-block', background: '#7a0a22', color: '#fff', fontWeight: 800, fontSize: '1rem', letterSpacing: '.03em', padding: '.75rem 2.1rem', borderRadius: '10px', textDecoration: 'none', boxShadow: '0 6px 18px rgba(122,10,34,.28)' }}>
+              Shop Now →
             </Link>
 
             {/* Quality badges */}
@@ -98,9 +98,14 @@ export default async function HomePage() {
       </section>
       <style>{`
         .hero-copy { white-space: normal; }
+        .hero-cta { transition: transform .15s ease, box-shadow .15s ease; }
+        .hero-cta:hover { transform: translateY(-2px); box-shadow: 0 10px 26px rgba(122,10,34,.34); }
         @media (max-width: 768px) {
           .hero-grid { grid-template-columns: 1fr !important; }
           .hero-copy { white-space: normal; }
+        }
+        @media (max-width: 600px) {
+          .hero-cta { display: inline-flex !important; align-items: center; gap: .4rem; padding: .85rem 2rem !important; font-size: 1.06rem !important; }
         }
       `}</style>
 
