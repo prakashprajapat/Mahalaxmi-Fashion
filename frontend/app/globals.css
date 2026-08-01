@@ -1170,7 +1170,7 @@ button { cursor: pointer; font-family: inherit; }
 
 /* ── Mobile header: logo + cart on row 1, full-width search on row 2 (visible) ── */
 @media (max-width: 600px){
-  .brand-row{ flex-wrap:wrap; gap:.55rem .7rem; padding:.6rem .9rem; align-items:center; }
+  .brand-row{ display:flex !important; flex-wrap:wrap; gap:.55rem .7rem; padding:.6rem .9rem; align-items:center; }
   .brand{ flex:1 1 auto; min-width:0; }
   .brand-mark img{ height:52px !important; }
   .brand-actions{ flex:0 0 auto; justify-content:flex-end; gap:.5rem; }
