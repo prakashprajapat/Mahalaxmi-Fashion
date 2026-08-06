@@ -1278,6 +1278,16 @@ a.footer-app-btn.footer-app-live strong{ color:#fff !important; }
   /* Remove the duplicate category title (e.g. "Men") above the listing */
   .pf-title { display: none !important; }
 
+  /* Search bar sits BESIDE the logo (Meesho-style), not full-width below it */
+  .brand-row { flex-wrap: nowrap !important; gap: .5rem !important; padding: .5rem .8rem !important; }
+  .brand { flex: 0 0 auto !important; min-width: 0; }
+  .brand-mark img { height: 40px !important; }
+  .search { order: 0 !important; flex: 1 1 auto !important; flex-basis: auto !important; max-width: none !important; min-width: 0; }
+
+  /* Meesho-style search pill + brand-colour watermark placeholder */
+  .search input::placeholder { color: rgba(122, 10, 34, .55) !important; opacity: 1; }
+  .search input { text-overflow: ellipsis; }
+
   /* Neater, smaller mic + camera icons inside the single search pill */
   .search-icons { gap: 12px !important; right: 14px !important; }
   .search-icons svg { width: 18px !important; height: 18px !important; }
