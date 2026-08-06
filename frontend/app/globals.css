@@ -1231,6 +1231,7 @@ a.footer-app-btn.footer-app-live strong{ color:#fff !important; }
 /* ===== Mobile reference-style header (greeting bar + search icons) ===== */
 .mobile-greet { display: none; }
 .search-icons { display: none; }
+.search-lens { display: none; }
 @media (max-width: 600px) {
   .mobile-greet {
     display: flex; align-items: center; justify-content: space-between;
@@ -1284,12 +1285,23 @@ a.footer-app-btn.footer-app-live strong{ color:#fff !important; }
   .brand-mark img { height: 40px !important; }
   .search { order: 0 !important; flex: 1 1 auto !important; flex-basis: auto !important; max-width: none !important; min-width: 0; }
 
-  /* Meesho-style search pill + brand-colour watermark placeholder */
-  .search input::placeholder { color: rgba(122, 10, 34, .55) !important; opacity: 1; }
-  .search input { text-overflow: ellipsis; }
+  /* Search pill like the reference: left magnifier + grey watermark placeholder */
+  .search-lens {
+    display: flex !important; align-items: center; justify-content: center;
+    position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
+    color: #8b8f98; z-index: 2; pointer-events: none;
+  }
+  .search input {
+    padding-left: 42px !important; padding-right: 86px !important;
+    text-overflow: ellipsis;
+  }
+  .search input::placeholder { color: #8b8f98 !important; opacity: 1; }
 
-  /* Neater, smaller mic + camera icons inside the single search pill */
-  .search-icons { gap: 12px !important; right: 14px !important; }
-  .search-icons svg { width: 18px !important; height: 18px !important; }
-  .search input { padding-right: 74px !important; }
+  /* Mic + camera as clean grey icons on the right (no maroon box), with a thin divider */
+  .search-icons {
+    gap: 14px !important; right: 14px !important;
+    padding-left: 12px !important; border-left: 1px solid #e3e3e8 !important;
+  }
+  .search-icons svg { width: 19px !important; height: 19px !important; }
+  .s-ic { background: none !important; box-shadow: none !important; color: #8b8f98 !important; }
 }

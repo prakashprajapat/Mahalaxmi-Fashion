@@ -27,10 +27,16 @@ export default function Navbar() {
   const [suggestions, setSuggestions] = useState<Product[]>([]);
   const [showSuggest, setShowSuggest] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [catOpen, setCatOpen] = useState(false);
   useEffect(() => {
     const open = () => setMenuOpen(true);
+    const openCat = () => setCatOpen(true);
     window.addEventListener('mfh-open-menu', open);
-    return () => window.removeEventListener('mfh-open-menu', open);
+    window.addEventListener('mfh-open-categories', openCat);
+    return () => {
+      window.removeEventListener('mfh-open-menu', open);
+      window.removeEventListener('mfh-open-categories', openCat);
+    };
   }, []);
   const [loginOpen, setLoginOpen] = useState(false);
   const [loginForm, setLoginForm] = useState({ email: '', password: '' });
@@ -253,6 +259,9 @@ export default function Navbar() {
 
           <form className="search" role="search" style={{ position: 'relative' }}
             onSubmit={e => { e.preventDefault(); setShowSuggest(false); if (search.trim()) router.push(`/products?q=${encodeURIComponent(search)}`); }}>
+            <span className="search-lens" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="18" height="18"><path fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" d="M11 5a6 6 0 1 0 0 12 6 6 0 0 0 0-12Zm4.5 10.5L20 20" /></svg>
+            </span>
             <input
               id="searchInput"
               name="q"
@@ -371,6 +380,41 @@ export default function Navbar() {
           </Link>
         ))}
       </nav>
+
+      {/* Mobile Categories Drawer — opened by the bottom-nav "Categories" button.
+          Shows the old department-nav links (not the account menu). */}
+      {catOpen && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 500 }}>
+          <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,.5)' }} onClick={() => setCatOpen(false)} />
+          <nav style={{
+            position: 'absolute', top: 0, left: 0, bottom: 0, width: '278px',
+            background: '#fff', padding: '1.25rem 0', overflowY: 'auto',
+            boxShadow: '4px 0 16px rgba(0,0,0,.15)',
+          }}>
+            <div style={{ padding: '0 1.25rem 1rem', borderBottom: '1px solid #eee', marginBottom: '.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <strong style={{ color: '#a7354d', fontSize: '1.05rem' }}>Categories</strong>
+              <button onClick={() => setCatOpen(false)} aria-label="Close categories" style={{ background: 'none', border: 'none', fontSize: '1.3rem', cursor: 'pointer', color: '#888' }}><span aria-hidden="true">✕</span></button>
+            </div>
+            <div style={{ padding: '0 1.25rem' }}>
+              {[
+                { href: '/', label: 'Home' },
+                { href: '/best-sellers', label: 'Best Sellers' },
+                { href: '/women', label: 'Women' },
+                { href: '/men', label: 'Men' },
+                { href: '/kids', label: 'Kids' },
+                { href: '/beauty', label: 'Beauty' },
+                { href: '/fabrics', label: 'Fabrics' },
+                { href: '/more', label: 'More Styles' },
+              ].map(l => (
+                <Link key={l.href} href={l.href} onClick={() => setCatOpen(false)}
+                  style={{ display: 'block', padding: '.72rem .25rem', color: '#333', fontSize: '.95rem', textDecoration: 'none', fontWeight: 600, borderBottom: '1px solid #f5f5f5' }}>
+                  {l.label}
+                </Link>
+              ))}
+            </div>
+          </nav>
+        </div>
+      )}
 
       {/* Mobile Menu Drawer */}
       {menuOpen && (

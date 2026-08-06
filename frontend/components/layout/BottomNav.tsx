@@ -7,9 +7,9 @@ export default function BottomNav() {
   const pathname = usePathname() || '/';
   const is = (href: string) => (href === '/' ? pathname === '/' : pathname.startsWith(href));
 
-  const openMenu = (e: React.MouseEvent) => {
+  const openCategories = (e: React.MouseEvent) => {
     e.preventDefault();
-    window.dispatchEvent(new Event('mfh-open-menu'));
+    window.dispatchEvent(new Event('mfh-open-categories'));
   };
 
   return (
@@ -18,7 +18,7 @@ export default function BottomNav() {
         <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M12 3.2 3 10.5V21h6v-6h6v6h6V10.5L12 3.2Z" /></svg>
         <span>Home</span>
       </Link>
-      <a href="#" onClick={openMenu} className="bnav-item">
+      <a href="#" onClick={openCategories} className="bnav-item">
         <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M4 4h7v7H4V4Zm9 0h7v7h-7V4ZM4 13h7v7H4v-7Zm9 0h7v7h-7v-7Z" /></svg>
         <span>Categories</span>
       </a>
