@@ -27,6 +27,11 @@ export default function Navbar() {
   const [suggestions, setSuggestions] = useState<Product[]>([]);
   const [showSuggest, setShowSuggest] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  useEffect(() => {
+    const open = () => setMenuOpen(true);
+    window.addEventListener('mfh-open-menu', open);
+    return () => window.removeEventListener('mfh-open-menu', open);
+  }, []);
   const [loginOpen, setLoginOpen] = useState(false);
   const [loginForm, setLoginForm] = useState({ email: '', password: '' });
   const [loginError, setLoginError] = useState('');

@@ -4,6 +4,7 @@ import dynamic from 'next/dynamic';
 import { useEffect } from 'react';
 import Navbar from './Navbar';
 import Footer from './Footer';
+import BottomNav from './BottomNav';
 import FloatingCart from './FloatingCart';
 import WhatsAppFloat from './WhatsAppFloat';
 import CompareBar from '@/components/product/CompareBar';
@@ -60,6 +61,7 @@ export default function StoreChrome({ children }: { children: React.ReactNode })
       <WelcomePopup />
       <WhatsAppFloat />
       <CompareBar />
+      <BottomNav />
       <AiChatWidget />
     </>
   );
