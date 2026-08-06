@@ -222,8 +222,12 @@ export default function Navbar() {
       {/* Mobile greeting bar (reference-style) — mobile only via CSS */}
       <div className="mobile-greet">
         <div className="mg-hello">
-          <span className="mg-avatar" aria-hidden="true">🙏</span>
-          <span className="mg-text"><b>Hello</b><small>let&apos;s shop!</small></span>
+          <span className="mg-avatar" aria-hidden="true">{isLoggedIn && customerName ? customerName.charAt(0).toUpperCase() : '🙏'}</span>
+          <span className="mg-text">
+            {isLoggedIn && customerName
+              ? (<><small>Hello,</small><b>{customerName}</b></>)
+              : (<><b>Hello</b><small>let&apos;s shop!</small></>)}
+          </span>
         </div>
         <div className="mg-actions">
           <Link href="/wishlist" className="mg-icon" aria-label="Wishlist">

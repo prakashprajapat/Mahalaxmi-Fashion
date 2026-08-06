@@ -328,7 +328,8 @@ export default function ProductsClient({ products, title, initialQ = '' }: Props
           .pf-mobile-bar { display: flex !important; }
           .pf-sort-desktop { display: none !important; }
           .pf-sort-mobile { display: flex !important; }
-          .pf-search { padding: 0 1rem .75rem; }
+          /* Header already has a search bar on mobile — hide the in-page duplicate. */
+          .pf-search { display: none !important; }
         }
       `}</style>
 

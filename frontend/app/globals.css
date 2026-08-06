@@ -1265,3 +1265,27 @@ a.footer-app-btn.footer-app-live strong{ color:#fff !important; }
   }
   .s-ic { background: none; border: none; padding: 0; color: #a7354d; cursor: pointer; display: inline-flex; }
 }
+
+/* ===== Mobile UI polish (Meesho-style refinements) ===== */
+@media (max-width: 600px) {
+  /* Trim header height — hide the top support strip.
+     WhatsApp support is still reachable via the floating WhatsApp button. */
+  .topbar { display: none !important; }
+
+  /* Compact department nav so products sit higher */
+  .department-nav { gap: 14px !important; min-height: 40px !important; }
+  .department-nav a { font-size: .86rem !important; padding: .5rem 0 !important; }
+
+  /* Slim the category hero into a clean title bar (was a tall banner) */
+  .page-hero { padding: .65rem 1rem !important; }
+  .page-hero::before { display: none !important; }
+  .page-hero .eyebrow { display: none !important; }
+  .page-hero h1 { font-size: 1.3rem !important; margin: .1rem 0 !important; }
+  .page-hero h1::after { margin: .3rem auto 0 !important; width: 46px !important; height: 2px !important; }
+  .page-hero p { display: none !important; }
+
+  /* Neater, smaller mic + camera icons inside the search pill */
+  .search-icons { gap: 12px !important; right: 14px !important; }
+  .search-icons svg { width: 18px !important; height: 18px !important; }
+  .search input { padding-right: 74px !important; }
+}
