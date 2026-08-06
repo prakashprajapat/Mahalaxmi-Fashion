@@ -351,7 +351,7 @@ export default function ProductsClient({ products, title, initialQ = '' }: Props
         {/* ── Right / Main Content ── */}
         <div>
           {/* Page heading */}
-          <div style={{ padding: '0 0 .75rem' }}>
+          <div className="pf-title" style={{ padding: '0 0 .75rem' }}>
             <h1 style={{ fontSize: '1.3rem', fontWeight: 800, color: '#1a1a1a', margin: 0 }}>{title}</h1>
           </div>
 
