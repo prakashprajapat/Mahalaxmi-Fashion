@@ -219,6 +219,23 @@ export default function Navbar() {
         </p>
       </div>
 
+      {/* Mobile greeting bar (reference-style) — mobile only via CSS */}
+      <div className="mobile-greet">
+        <div className="mg-hello">
+          <span className="mg-avatar" aria-hidden="true">🙏</span>
+          <span className="mg-text"><b>Hello</b><small>let&apos;s shop!</small></span>
+        </div>
+        <div className="mg-actions">
+          <Link href="/wishlist" className="mg-icon" aria-label="Wishlist">
+            <svg viewBox="0 0 24 24" width="24" height="24"><path fill="currentColor" d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+          </Link>
+          <Link href="/cart" className="mg-icon" aria-label="Cart" style={{ position: 'relative' }}>
+            <svg viewBox="0 0 24 24" width="24" height="24"><path fill="currentColor" d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zm10 0c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2zM7.16 14h9.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49A1 1 0 0 0 21.16 5H5.21l-.94-2H1v2h2l3.6 7.59-1.35 2.44C4.52 15.37 5.48 17 7 17h12v-2H7.16c-.14 0-.25-.11-.25-.25l.03-.12L7.16 14z"/></svg>
+            {count > 0 && <span className="mg-badge">{count}</span>}
+          </Link>
+        </div>
+      </div>
+
       {/* Header — policy-nav strip removed (declutter); policy links live in the footer,
           and "Become a Seller" now sits in the offer strip above. */}
       <header className="site-header">
@@ -245,6 +262,16 @@ export default function Navbar() {
               onBlur={() => setTimeout(() => setShowSuggest(false), 150)}
             />
             <button type="submit">Search</button>
+            <div className="search-icons" aria-hidden="false">
+              <button type="button" className="s-ic" aria-label="Voice search" title="Voice search"
+                onClick={() => { const SR:any=(window as any).webkitSpeechRecognition||(window as any).SpeechRecognition; if(!SR){alert('Voice search is not supported on this browser.');return;} const r=new SR(); r.lang='en-IN'; r.onresult=(e:any)=>{ const t=e.results[0][0].transcript; setSearch(t); if(t.trim()) router.push(`/products?q=${encodeURIComponent(t)}`); }; r.start(); }}>
+                <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M12 15a3 3 0 0 0 3-3V6a3 3 0 1 0-6 0v6a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V22h2v-3.08A7 7 0 0 0 19 12h-2Z"/></svg>
+              </button>
+              <button type="button" className="s-ic" aria-label="Image search" title="Image search"
+                onClick={() => { document.getElementById('searchInput')?.focus(); }}>
+                <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M9 3 7.2 5H4a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-3.2L15 3H9Zm3 15a4.5 4.5 0 1 1 0-9 4.5 4.5 0 0 1 0 9Zm0-2a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z"/></svg>
+              </button>
+            </div>
 
             {showSuggest && suggestions.length > 0 && (
               <div style={{

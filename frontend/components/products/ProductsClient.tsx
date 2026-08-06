@@ -177,6 +177,7 @@ function FilterContent({
 export default function ProductsClient({ products, title, initialQ = '' }: Props) {
   const [filterOpen, setFilterOpen] = useState(false);
   const [sortOpen, setSortOpen] = useState(false);
+  const [genderOpen, setGenderOpen] = useState(false);
   const [sort, setSort] = useState('position');
   const [selectedSubcat, setSelectedSubcat] = useState('');
   const [selectedVariant, setSelectedVariant] = useState('');
@@ -365,15 +366,33 @@ export default function ProductsClient({ products, title, initialQ = '' }: Props
 
           {/* ── Mobile sticky bar ── */}
           <div className="pf-mobile-bar" style={{ position: 'sticky', top: 0, zIndex: 100, background: '#fff', borderBottom: '1px solid #eee', borderTop: '1px solid #eee', alignItems: 'stretch' }}>
-            <button onClick={() => setFilterOpen(true)}
-              style={{ flex: 1, padding: '.65rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '.45rem', background: 'none', border: 'none', borderRight: '1px solid #eee', cursor: 'pointer', fontSize: '.85rem', fontWeight: 600, color: '#333' }}>
-              <svg width="15" height="12" viewBox="0 0 18 14" fill="none"><path d="M1 1h16M4 7h10M7 13h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>
-              Filters
-              {activeFilterCount > 0 && <span style={{ background: '#a7354d', color: '#fff', borderRadius: '50%', width: 17, height: 17, fontSize: '.65rem', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800 }}>{activeFilterCount}</span>}
-            </button>
             <button onClick={() => setSortOpen(true)}
-              style={{ flex: 1, padding: '.65rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '.35rem', background: 'none', border: 'none', cursor: 'pointer', fontSize: '.85rem', fontWeight: 600, color: '#333' }}>
-              Sort by <span style={{ fontSize: '.65rem' }}>▼</span>
+              style={{ flex: 1, padding: '.6rem .3rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '.3rem', background: 'none', border: 'none', borderRight: '1px solid #eee', cursor: 'pointer', fontSize: '.82rem', fontWeight: 600, color: '#333' }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M7 4v16M7 4 4 7M7 4l3 3M17 20V4M17 20l-3-3M17 20l3-3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              Sort
+            </button>
+            <button onClick={() => setFilterOpen(true)}
+              style={{ flex: 1, padding: '.6rem .3rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '.3rem', background: 'none', border: 'none', borderRight: '1px solid #eee', cursor: 'pointer', fontSize: '.82rem', fontWeight: 600, color: '#333' }}>
+              Category <span style={{ fontSize: '.6rem', color: '#999' }}>▾</span>
+            </button>
+            <div style={{ flex: 1, position: 'relative', display: 'flex', alignItems: 'stretch', borderRight: '1px solid #eee' }}>
+              <button onClick={() => setGenderOpen(o => !o)}
+                style={{ flex: 1, padding: '.6rem .3rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '.3rem', background: 'none', border: 'none', cursor: 'pointer', fontSize: '.82rem', fontWeight: 600, color: '#333' }}>
+                Gender <span style={{ fontSize: '.6rem', color: '#999' }}>▾</span>
+              </button>
+              {genderOpen && (
+                <div onMouseLeave={() => setGenderOpen(false)}
+                  style={{ position: 'absolute', top: '100%', left: '50%', transform: 'translateX(-50%)', background: '#fff', border: '1px solid #eee', borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,.14)', overflow: 'hidden', zIndex: 150, minWidth: 120 }}>
+                  {[['Women', '/women'], ['Men', '/men'], ['Kids', '/kids']].map(([l, h]) => (
+                    <a key={h} href={h} style={{ display: 'block', padding: '.6rem .9rem', color: '#333', textDecoration: 'none', fontSize: '.85rem', borderBottom: '1px solid #f5f5f5' }}>{l}</a>
+                  ))}
+                </div>
+              )}
+            </div>
+            <button onClick={() => setFilterOpen(true)}
+              style={{ flex: 1, padding: '.6rem .3rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '.3rem', background: 'none', border: 'none', cursor: 'pointer', fontSize: '.82rem', fontWeight: 600, color: '#333' }}>
+              <svg width="14" height="11" viewBox="0 0 18 14" fill="none"><path d="M1 1h16M4 7h10M7 13h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>
+              Filters{activeFilterCount > 0 && <span style={{ background: '#a7354d', color: '#fff', borderRadius: '50%', width: 16, height: 16, fontSize: '.6rem', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, marginLeft: 2 }}>{activeFilterCount}</span>}
             </button>
           </div>
 
