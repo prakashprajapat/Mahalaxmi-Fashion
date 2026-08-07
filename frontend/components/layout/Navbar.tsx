@@ -29,17 +29,23 @@ export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [catOpen, setCatOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
   useEffect(() => {
     const open = () => setMenuOpen(true);
     const openCat = () => setCatOpen(true);
     const openAcc = () => setAccountOpen(true);
+    // Desktop: once the header search scrolls out of view, reveal the search in the sticky nav.
+    const onScroll = () => setScrolled(window.scrollY > 140);
+    onScroll();
     window.addEventListener('mfh-open-menu', open);
     window.addEventListener('mfh-open-categories', openCat);
     window.addEventListener('mfh-open-account', openAcc);
+    window.addEventListener('scroll', onScroll, { passive: true });
     return () => {
       window.removeEventListener('mfh-open-menu', open);
       window.removeEventListener('mfh-open-categories', openCat);
       window.removeEventListener('mfh-open-account', openAcc);
+      window.removeEventListener('scroll', onScroll);
     };
   }, []);
   const [loginOpen, setLoginOpen] = useState(false);
@@ -397,6 +403,14 @@ export default function Navbar() {
             <span>{item.label}</span>
           </Link>
         ))}
+
+        {/* Desktop: search bar appears after "More Styles" once the page is scrolled */}
+        <form className={`dept-search${scrolled ? ' show' : ''}`} role="search"
+          onSubmit={e => { e.preventDefault(); if (search.trim()) router.push(`/products?q=${encodeURIComponent(search)}`); }}>
+          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" d="M11 5a6 6 0 1 0 0 12 6 6 0 0 0 0-12Zm4.5 10.5L20 20" /></svg>
+          <input type="search" placeholder="Search products…" aria-label="Search products"
+            value={search} onChange={e => setSearch(e.target.value)} />
+        </form>
       </nav>
 
       {/* Mobile Account Drawer — opened by the bottom-nav "Account" button. */}

@@ -1354,3 +1354,16 @@ a.footer-app-btn.footer-app-live strong{ color:#fff !important; }
   /* filter (Sort/Category/Gender/Filters) row sticks right below the greeting+search */
   .pf-mobile-bar { top: 104px !important; z-index: 120 !important; }
 }
+
+/* ===== Desktop: search bar inside the sticky department nav (appears after "More Styles" on scroll) ===== */
+.dept-search { display: none; }
+.dept-search.show {
+  display: flex; align-items: center; gap: 6px; align-self: center;
+  margin-left: auto; margin-right: 4px;
+  background: #f4f4f4; border: 1px solid #ececec; border-radius: 999px;
+  padding: 6px 14px; color: #8b8f98; flex: 0 1 300px; min-width: 180px;
+}
+.dept-search svg { flex: 0 0 auto; color: #8b8f98; }
+.dept-search input { border: none; background: transparent; outline: none; font-size: .9rem; color: #333; width: 100%; }
+/* The greeting-bar search already covers mobile — never show this one there */
+@media (max-width: 600px) { .dept-search.show { display: none !important; } }

@@ -20,17 +20,6 @@ function isToday(raw?: string) {
   return date.getDate() === today.getDate() && date.getMonth() === today.getMonth();
 }
 
-function offerLink(customer: Customer) {
-  const digits = (customer.phone || '').replace(/\D/g, '');
-  if (!digits) return '';
-  const phone = digits.length === 10 ? `91${digits}` : digits;
-  const name = [customer.firstName, customer.lastName].filter(Boolean).join(' ') || 'Customer';
-  const message = encodeURIComponent(
-    `Hello ${name}, Mahalaxmi Fashion Hub has an exclusive offer ready for your special day.`
-  );
-  return `https://wa.me/${phone}?text=${message}`;
-}
-
 export default function AdminCustomersPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [total, setTotal] = useState(0);
@@ -230,17 +219,22 @@ export default function AdminCustomersPage() {
         <table className="w-full text-sm">
           <thead className="bg-gray-50 text-xs uppercase text-gray-500">
             <tr>
-              {['Code', 'Name', 'Email', 'Phone', 'Birthday', 'Anniv.', 'District', 'State', 'Status', 'Offer', 'Joined', 'Time', 'Actions'].map(h => (
+              {['Code', 'Photo', 'Name', 'Email', 'Phone', 'Birthday', 'Anniv.', 'District', 'State', 'Actions'].map(h => (
                 <th key={h} className="px-4 py-3 text-left">{h}</th>
               ))}
             </tr>
           </thead>
           <tbody className="divide-y">
             {loading ? (
-              <tr><td colSpan={13} className="text-center py-10 text-gray-400">Loading...</td></tr>
+              <tr><td colSpan={10} className="text-center py-10 text-gray-400">Loading...</td></tr>
             ) : customers.map(c => (
               <tr key={c.id} className="hover:bg-gray-50">
                 <td className="px-4 py-3 font-mono text-xs">{c.customerCode}</td>
+                <td className="px-4 py-3">
+                  {c.photoUrl
+                    ? <img src={c.photoUrl} alt="" className="w-9 h-9 rounded-full object-cover" />
+                    : <span className="w-9 h-9 rounded-full bg-pink-50 text-pink-700 font-bold flex items-center justify-center text-xs">{(c.firstName || '?').charAt(0).toUpperCase()}</span>}
+                </td>
                 <td className="px-4 py-3">{c.firstName} {c.lastName}</td>
                 <td className="px-4 py-3 text-xs text-gray-500">{c.email}</td>
                 <td className="px-4 py-3 text-xs">{c.phone}</td>
@@ -252,25 +246,6 @@ export default function AdminCustomersPage() {
                 </td>
                 <td className="px-4 py-3 text-xs">{c.district || '—'}</td>
                 <td className="px-4 py-3 text-xs">{c.state || '—'}</td>
-                <td className="px-4 py-3">
-                  <span className={`badge text-xs ${c.accountStatus === 'active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`}>
-                    {c.accountStatus}
-                  </span>
-                </td>
-                <td className="px-4 py-3 text-xs">
-                  {offerLink(c) ? (
-                    <a href={offerLink(c)} target="_blank" rel="noopener noreferrer"
-                      className="px-2 py-1 rounded bg-green-50 text-green-700 font-semibold">
-                      WhatsApp
-                    </a>
-                  ) : '-'}
-                </td>
-                <td className="px-4 py-3 text-xs text-gray-400">
-                  {new Date(c.createdAt).toLocaleDateString('en-IN')}
-                </td>
-                <td className="px-4 py-3 text-xs text-gray-400">
-                  {new Date(c.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
-                </td>
                 <td className="px-4 py-3 text-xs whitespace-nowrap">
                   <button onClick={() => openEdit(c)}
                     className="px-2 py-1 rounded bg-blue-50 text-blue-700 font-semibold mr-1">Edit</button>
