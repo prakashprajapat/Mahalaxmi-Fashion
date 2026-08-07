@@ -7,6 +7,7 @@ import Footer from './Footer';
 import BottomNav from './BottomNav';
 import FloatingCart from './FloatingCart';
 import WhatsAppFloat from './WhatsAppFloat';
+import HelpFab from './HelpFab';
 import CompareBar from '@/components/product/CompareBar';
 import RefCapture from '../RefCapture';
 import { getCustomer } from '@/lib/auth';
@@ -59,10 +60,11 @@ export default function StoreChrome({ children }: { children: React.ReactNode })
       <Footer />
       <FloatingCart />
       <WelcomePopup />
-      <WhatsAppFloat />
       <CompareBar />
       <BottomNav />
+      {/* Single combined launcher (WhatsApp + chatbot) instead of two overlapping floats */}
       <AiChatWidget />
+      <HelpFab />
     </>
   );
 }

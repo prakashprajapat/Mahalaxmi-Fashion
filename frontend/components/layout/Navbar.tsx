@@ -28,14 +28,18 @@ export default function Navbar() {
   const [showSuggest, setShowSuggest] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [catOpen, setCatOpen] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
   useEffect(() => {
     const open = () => setMenuOpen(true);
     const openCat = () => setCatOpen(true);
+    const openAcc = () => setAccountOpen(true);
     window.addEventListener('mfh-open-menu', open);
     window.addEventListener('mfh-open-categories', openCat);
+    window.addEventListener('mfh-open-account', openAcc);
     return () => {
       window.removeEventListener('mfh-open-menu', open);
       window.removeEventListener('mfh-open-categories', openCat);
+      window.removeEventListener('mfh-open-account', openAcc);
     };
   }, []);
   const [loginOpen, setLoginOpen] = useState(false);
@@ -380,6 +384,57 @@ export default function Navbar() {
           </Link>
         ))}
       </nav>
+
+      {/* Mobile Account Drawer — opened by the bottom-nav "Account" button. */}
+      {accountOpen && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 500 }}>
+          <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,.5)' }} onClick={() => setAccountOpen(false)} />
+          <nav style={{ position: 'absolute', top: 0, right: 0, bottom: 0, width: '286px', background: '#fff', padding: '1.25rem 0', overflowY: 'auto', boxShadow: '-4px 0 16px rgba(0,0,0,.15)' }}>
+            <div style={{ padding: '0 1.25rem 1rem', borderBottom: '1px solid #eee', marginBottom: '.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <strong style={{ color: '#a7354d', fontSize: '1.05rem' }}>{isLoggedIn && customerName ? `Hi, ${customerName}` : 'My Account'}</strong>
+              <button onClick={() => setAccountOpen(false)} aria-label="Close account" style={{ background: 'none', border: 'none', fontSize: '1.3rem', cursor: 'pointer', color: '#888' }}><span aria-hidden="true">✕</span></button>
+            </div>
+            {isLoggedIn ? (
+              <div style={{ padding: '0 1.25rem' }}>
+                {[
+                  { href: '/account', label: '🏠 Dashboard' },
+                  { href: '/orders', label: '📦 My Orders' },
+                  { href: '/wishlist', label: '❤️ Wishlist' },
+                  { href: '/cart', label: '🛒 Cart' },
+                  { href: '/account/address', label: '📍 My Address' },
+                  { href: '/account/edit', label: '✏️ Edit Profile' },
+                  { href: '/account/pan', label: '🪪 PAN Card' },
+                  { href: '/account/newsletter', label: '📧 Newsletter' },
+                  { href: '/account/saved-cards', label: '💳 Saved Cards' },
+                  { href: '/account/downloads', label: '📥 Downloads' },
+                  { href: '/reviews', label: '⭐ My Reviews' },
+                  { href: '/tracking', label: '🚚 Track Order' },
+                ].map(l => (
+                  <Link key={l.href + l.label} href={l.href} onClick={() => setAccountOpen(false)}
+                    style={{ display: 'block', padding: '.6rem .25rem', color: '#444', fontSize: '.92rem', textDecoration: 'none', borderBottom: '1px solid #f5f5f5' }}>
+                    {l.label}
+                  </Link>
+                ))}
+                <button type="button"
+                  onClick={() => { logout(); resetLoginForm(); setAccountOpen(false); window.dispatchEvent(new Event('auth-changed')); router.push('/account'); }}
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '.4rem', width: '100%', padding: '.65rem', color: '#fff', fontSize: '.92rem', background: '#a7354d', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: 700, margin: '.8rem 0 .3rem' }}>
+                  🔓 Logout
+                </button>
+              </div>
+            ) : (
+              <div style={{ padding: '0 1.25rem' }}>
+                <button type="button" onClick={() => { setAccountOpen(false); openLogin(); }}
+                  style={{ display: 'block', width: '100%', padding: '.72rem', color: '#fff', fontSize: '.95rem', background: '#a7354d', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: 700, marginBottom: '.8rem' }}>
+                  🔑 Login / Signup
+                </button>
+                <Link href="/wishlist" onClick={() => setAccountOpen(false)} style={{ display: 'block', padding: '.6rem .25rem', color: '#444', fontSize: '.92rem', textDecoration: 'none', borderBottom: '1px solid #f5f5f5' }}>❤️ Wishlist</Link>
+                <Link href="/cart" onClick={() => setAccountOpen(false)} style={{ display: 'block', padding: '.6rem .25rem', color: '#444', fontSize: '.92rem', textDecoration: 'none', borderBottom: '1px solid #f5f5f5' }}>🛒 Cart ({count})</Link>
+                <Link href="/tracking" onClick={() => setAccountOpen(false)} style={{ display: 'block', padding: '.6rem .25rem', color: '#444', fontSize: '.92rem', textDecoration: 'none', borderBottom: '1px solid #f5f5f5' }}>🚚 Track Order</Link>
+              </div>
+            )}
+          </nav>
+        </div>
+      )}
 
       {/* Mobile Categories Drawer — opened by the bottom-nav "Categories" button.
           Shows the old department-nav links (not the account menu). */}

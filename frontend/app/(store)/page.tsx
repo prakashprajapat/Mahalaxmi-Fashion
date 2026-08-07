@@ -6,6 +6,7 @@ import { productsApi, settingsApi } from '@/lib/api';
 // Loaded via <link> in layout.tsx (runtime), so it never blocks the build.
 const HERO_FONT = "var(--font-playfair), Georgia, serif";
 import { BestSellersSection, NewArrivalsSection } from '@/components/home/HomeSections';
+import ProductsClient from '@/components/products/ProductsClient';
 import OfferBanner from '@/components/home/OfferBanner';
 import TrustStrip from '@/components/home/TrustStrip';
 import HeroMedia from '@/components/home/HeroMedia';
@@ -115,11 +116,19 @@ export default async function HomePage() {
       {/* Dynamic Offer Banner — client-rendered so admin toggle reflects instantly */}
       <OfferBanner />
 
-      {/* Best Sellers — simple preview grid */}
-      <BestSellersSection products={bestSellers} />
+      {/* Mobile: full filterable product grid with Sort / Category / Gender / Filters */}
+      <div className="home-listing">
+        <ProductsClient products={products as any[]} title="" />
+      </div>
 
-      {/* New Arrivals — client component */}
-      <NewArrivalsSection products={products} />
+      {/* Desktop: curated preview grids (hidden on mobile — the filter grid above replaces them) */}
+      <div className="home-curated">
+        {/* Best Sellers — simple preview grid */}
+        <BestSellersSection products={bestSellers} />
+
+        {/* New Arrivals — client component */}
+        <NewArrivalsSection products={products} />
+      </div>
 
       {/* Live Google rating + reviews (trust signal). Renders only once configured
           in admin Settings (googlePlaceId + googlePlacesApiKey). */}

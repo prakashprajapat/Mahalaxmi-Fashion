@@ -12,6 +12,11 @@ export default function BottomNav() {
     window.dispatchEvent(new Event('mfh-open-categories'));
   };
 
+  const openAccount = (e: React.MouseEvent) => {
+    e.preventDefault();
+    window.dispatchEvent(new Event('mfh-open-account'));
+  };
+
   return (
     <nav className="bottom-nav" aria-label="Primary">
       <Link href="/" className={`bnav-item${is('/') ? ' active' : ''}`}>
@@ -30,10 +35,10 @@ export default function BottomNav() {
         <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M4 3h16a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H8l-4 4V5a2 2 0 0 1 2-2Zm7.1 3.8c-1.7 0-2.9 1-2.9 2.6h1.9c0-.6.4-1 1-1s1 .3 1 .9c0 .5-.3.7-.9 1.1-.7.5-1.1 1-1 2h1.8c0-.5.3-.8.9-1.2.7-.5 1.2-1 1.2-2 0-1.4-1.2-2.4-3-2.4Zm-.9 6.6h1.9V15h-1.9v-1.6Z" /></svg>
         <span>Help</span>
       </Link>
-      <Link href="/account" className={`bnav-item${is('/account') || is('/wishlist') ? ' active' : ''}`}>
+      <a href="#" onClick={openAccount} className={`bnav-item${is('/account') || is('/wishlist') ? ' active' : ''}`}>
         <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm0 2c-3.9 0-7 2.2-7 5v1h14v-1c0-2.8-3.1-5-7-5Z" /></svg>
         <span>Account</span>
-      </Link>
+      </a>
     </nav>
   );
 }
