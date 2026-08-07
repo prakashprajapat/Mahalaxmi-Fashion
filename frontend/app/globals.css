@@ -1378,3 +1378,30 @@ a.footer-app-btn.footer-app-live strong{ color:#fff !important; }
   .trust-grid > :nth-child(4) { order: 3; } /* Pan-India       -> 3rd  */
   .trust-grid > div { justify-content: flex-start !important; }
 }
+
+/* ===== Desktop single-row header: logo + nav + search + cart + login on ONE row ===== */
+.hdr-nav { display: none; }
+@media (min-width: 901px) {
+  /* the whole header row sticks on scroll (was the department nav before) */
+  .m-head { position: sticky; top: 0; z-index: 200; background: #fff; box-shadow: 0 1px 6px rgba(0,0,0,.08); }
+  .brand-row { flex-wrap: nowrap !important; gap: 1.1rem !important; padding: .45rem 1.25rem !important; }
+  .brand { flex: 0 0 auto !important; }
+  .brand-mark img { height: 54px !important; max-width: 200px !important; }
+
+  .hdr-nav {
+    display: flex; align-items: center; gap: 1.15rem;
+    flex: 0 1 auto; min-width: 0; white-space: nowrap; overflow-x: auto;
+  }
+  .hdr-nav::-webkit-scrollbar { display: none; }
+  .hdr-nav a {
+    color: #5c1a28; font-weight: 700; font-size: .92rem; text-decoration: none;
+    padding: .35rem 0; border-bottom: 2px solid transparent; white-space: nowrap;
+  }
+  .hdr-nav a:hover, .hdr-nav a.active { color: #7a0a22; border-bottom-color: var(--gold, #c9a24b); }
+
+  .search { flex: 1 1 auto !important; max-width: 460px !important; }
+  .brand-actions { flex: 0 0 auto !important; }
+
+  /* the separate department-nav row is merged into the header above — hide it */
+  .department-nav { display: none !important; }
+}

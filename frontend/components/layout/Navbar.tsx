@@ -275,6 +275,22 @@ export default function Navbar() {
             </span>
           </Link>
 
+          {/* Desktop-only inline nav — puts logo + nav + search + cart + login on one row */}
+          <nav className="hdr-nav" aria-label="Shop by department">
+            {[
+              { href: '/', label: 'Home' },
+              { href: '/best-sellers', label: 'Best Sellers' },
+              { href: '/women', label: 'Women' },
+              { href: '/men', label: 'Men' },
+              { href: '/kids', label: 'Kids' },
+              { href: '/beauty', label: 'Beauty' },
+              { href: '/fabrics', label: 'Fabrics' },
+              { href: '/more', label: 'More Styles' },
+            ].map(item => (
+              <Link key={item.href} href={item.href} className={`hdr-link${pathname === item.href ? ' active' : ''}`}>{item.label}</Link>
+            ))}
+          </nav>
+
           <form className="search" role="search" style={{ position: 'relative' }}
             onSubmit={e => { e.preventDefault(); setShowSuggest(false); if (search.trim()) router.push(`/products?q=${encodeURIComponent(search)}`); }}>
             <span className="search-lens" aria-hidden="true">
