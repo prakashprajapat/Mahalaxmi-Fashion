@@ -8,6 +8,7 @@ interface Props {
   products: any[];
   title: string;
   initialQ?: string;
+  banner?: React.ReactNode;
 }
 
 function normalizeSub(s: string): string {
@@ -174,7 +175,7 @@ function FilterContent({
   );
 }
 
-export default function ProductsClient({ products, title, initialQ = '' }: Props) {
+export default function ProductsClient({ products, title, initialQ = '', banner }: Props) {
   const [filterOpen, setFilterOpen] = useState(false);
   const [sortOpen, setSortOpen] = useState(false);
   const [genderOpen, setGenderOpen] = useState(false);
@@ -397,6 +398,9 @@ export default function ProductsClient({ products, title, initialQ = '' }: Props
               Filters{activeFilterCount > 0 && <span style={{ background: '#a7354d', color: '#fff', borderRadius: '50%', width: 16, height: 16, fontSize: '.6rem', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, marginLeft: 2 }}>{activeFilterCount}</span>}
             </button>
           </div>
+
+          {/* Optional banner (e.g. home hero) — sits between the filter chips and the grid */}
+          {banner}
 
           {/* Top bar: result count + desktop sort */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '.5rem 0', flexWrap: 'wrap', gap: '.5rem' }}>
