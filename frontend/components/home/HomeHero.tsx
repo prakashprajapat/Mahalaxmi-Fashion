@@ -29,7 +29,7 @@ export default function HomeHero() {
               Premium quality you can trust, thoughtfully crafted for every need.
             </p>
 
-            <div style={{ display: 'flex', gap: 'clamp(.8rem, 2.5vw, 1.6rem)', flexWrap: 'wrap', marginTop: '1.1rem' }}>
+            <div className="hero-badges" style={{ display: 'flex', gap: 'clamp(.8rem, 2.5vw, 1.6rem)', flexWrap: 'wrap', marginTop: '1.1rem' }}>
               {[
                 { icon: '🏅', label: 'Premium Quality' },
                 { icon: '🌿', label: 'Comfort Fabrics' },

@@ -1405,3 +1405,11 @@ a.footer-app-btn.footer-app-live strong{ color:#fff !important; }
   /* the separate department-nav row is merged into the header above — hide it */
   .department-nav { display: none !important; }
 }
+
+/* ===== Mobile: hero quality badges (Premium Quality / Comfort Fabrics / Trusted Shopping) in ONE row ===== */
+@media (max-width: 600px) {
+  .hero-badges { flex-wrap: nowrap !important; gap: .5rem !important; }
+  .hero-badges > div { gap: .28rem !important; min-width: 0; }
+  .hero-badges > div > span:first-child { font-size: .95rem !important; }
+  .hero-badges > div > span:last-child { font-size: .64rem !important; white-space: nowrap; }
+}
