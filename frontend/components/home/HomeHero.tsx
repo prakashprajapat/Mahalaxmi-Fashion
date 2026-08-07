@@ -1,4 +1,5 @@
 import HeroMedia from '@/components/home/HeroMedia';
+import TrustStrip from '@/components/home/TrustStrip';
 
 // Elegant serif for the hero — matches the "Mahalaxmi" wordmark. Loaded via <link> in layout.tsx.
 const HERO_FONT = "var(--font-playfair), Georgia, serif";
@@ -55,6 +56,9 @@ export default function HomeHero() {
           .hero-grid { grid-template-columns: 1fr !important; }
         }
       `}</style>
+
+      {/* Trust signals right below the hero (Secure Payment, Returns, Genuine, Delivery) */}
+      <TrustStrip />
     </>
   );
 }

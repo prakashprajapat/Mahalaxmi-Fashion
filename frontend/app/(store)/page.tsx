@@ -4,7 +4,6 @@ import { BestSellersSection, NewArrivalsSection } from '@/components/home/HomeSe
 import ProductsClient from '@/components/products/ProductsClient';
 import HomeHero from '@/components/home/HomeHero';
 import OfferBanner from '@/components/home/OfferBanner';
-import TrustStrip from '@/components/home/TrustStrip';
 import GoogleReviews from '@/components/reviews/GoogleReviews';
 import FaqSection from '@/components/home/FaqSection';
 
@@ -51,8 +50,6 @@ export default async function HomePage() {
       {/* Desktop-only sections below (hidden on mobile): hero at top, then curated sections */}
       <div className="home-desktop">
       <HomeHero />
-      {/* Trust signals — payment, returns, authenticity, delivery */}
-      <TrustStrip />
 
       {/* Dynamic Offer Banner — client-rendered so admin toggle reflects instantly */}
       <OfferBanner />

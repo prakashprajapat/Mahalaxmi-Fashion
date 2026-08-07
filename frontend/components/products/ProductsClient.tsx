@@ -437,8 +437,8 @@ export default function ProductsClient({ products, title, initialQ = '', banner 
       {/* ── Mobile Filter Drawer ── */}
       {filterOpen && (
         <>
-          <div onClick={() => setFilterOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', zIndex: 200 }} />
-          <div style={{ position: 'fixed', left: 0, top: 0, bottom: 0, width: 'min(340px, 94vw)', background: '#fff', zIndex: 201, display: 'flex', flexDirection: 'column', boxShadow: '4px 0 24px rgba(0,0,0,.18)' }}>
+          <div onClick={() => setFilterOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', zIndex: 600 }} />
+          <div style={{ position: 'fixed', left: 0, top: 0, bottom: 0, width: 'min(340px, 94vw)', background: '#fff', zIndex: 601, display: 'flex', flexDirection: 'column', boxShadow: '4px 0 24px rgba(0,0,0,.18)' }}>
             <div style={{ padding: '.9rem 1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #eee', flexShrink: 0 }}>
               <span style={{ fontSize: '1rem', fontWeight: 700 }}>Filters</span>
               <button onClick={() => setFilterOpen(false)} style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer', color: '#555' }}>✕</button>
@@ -461,8 +461,8 @@ export default function ProductsClient({ products, title, initialQ = '', banner 
       {/* ── Mobile Sort Bottom Sheet ── */}
       {sortOpen && (
         <>
-          <div onClick={() => setSortOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', zIndex: 200 }} />
-          <div style={{ position: 'fixed', left: 0, right: 0, bottom: 0, background: '#fff', zIndex: 201, borderRadius: '16px 16px 0 0', maxHeight: '80vh', overflowY: 'auto' }}>
+          <div onClick={() => setSortOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', zIndex: 600 }} />
+          <div style={{ position: 'fixed', left: 0, right: 0, bottom: 0, background: '#fff', zIndex: 601, borderRadius: '16px 16px 0 0', maxHeight: '80vh', overflowY: 'auto' }}>
             <div style={{ padding: '.85rem 1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #eee' }}>
               <span style={{ fontSize: '1rem', fontWeight: 700 }}>Sort by</span>
               <button onClick={() => setSortOpen(false)} style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer', color: '#555' }}>✕</button>
@@ -481,8 +481,8 @@ export default function ProductsClient({ products, title, initialQ = '', banner 
       {/* ── Mobile Category Bottom Sheet (categories + subcategories, not filters) ── */}
       {catSheetOpen && (
         <>
-          <div onClick={() => setCatSheetOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', zIndex: 200 }} />
-          <div style={{ position: 'fixed', left: 0, right: 0, bottom: 0, background: '#fff', zIndex: 201, borderRadius: '16px 16px 0 0', maxHeight: '82vh', overflowY: 'auto' }}>
+          <div onClick={() => setCatSheetOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', zIndex: 600 }} />
+          <div style={{ position: 'fixed', left: 0, right: 0, bottom: 0, background: '#fff', zIndex: 601, borderRadius: '16px 16px 0 0', maxHeight: '82vh', overflowY: 'auto' }}>
             <div style={{ padding: '.85rem 1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #eee', position: 'sticky', top: 0, background: '#fff' }}>
               <span style={{ fontSize: '1rem', fontWeight: 700 }}>Categories</span>
               <button onClick={() => setCatSheetOpen(false)} style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer', color: '#555' }}>✕</button>

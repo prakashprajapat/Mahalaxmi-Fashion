@@ -1367,3 +1367,14 @@ a.footer-app-btn.footer-app-live strong{ color:#fff !important; }
 .dept-search input { border: none; background: transparent; outline: none; font-size: .9rem; color: #333; width: 100%; }
 /* The greeting-bar search already covers mobile — never show this one there */
 @media (max-width: 600px) { .dept-search.show { display: none !important; } }
+
+/* ===== Trust strip on mobile: 2 per row, custom order =====
+   Row 1: Easy 7-Day Returns, 100% Genuine  ·  Row 2: Pan-India Delivery, Secure Payment */
+@media (max-width: 600px) {
+  .trust-grid { grid-template-columns: 1fr 1fr !important; gap: .7rem .5rem !important; }
+  .trust-grid > :nth-child(1) { order: 4; } /* Secure Payment  -> last  */
+  .trust-grid > :nth-child(2) { order: 1; } /* Easy 7-Day Returns -> 1st */
+  .trust-grid > :nth-child(3) { order: 2; } /* 100% Genuine    -> 2nd  */
+  .trust-grid > :nth-child(4) { order: 3; } /* Pan-India       -> 3rd  */
+  .trust-grid > div { justify-content: flex-start !important; }
+}

@@ -10,7 +10,7 @@ const ITEMS = [
 export default function TrustStrip() {
   return (
     <section style={{ background: '#fff', borderTop: '1px solid #f0e6ea', borderBottom: '1px solid #f0e6ea', padding: '1rem 1.25rem' }}>
-      <div style={{
+      <div className="trust-grid" style={{
         maxWidth: '1080px', margin: '0 auto',
         display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '.75rem',
       }}>
