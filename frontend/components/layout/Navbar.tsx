@@ -301,10 +301,6 @@ export default function Navbar() {
                 }}>
                 <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M12 15a3 3 0 0 0 3-3V6a3 3 0 1 0-6 0v6a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V22h2v-3.08A7 7 0 0 0 19 12h-2Z"/></svg>
               </button>
-              <button type="button" className="s-ic" aria-label="Search by photo" title="Search by photo (WhatsApp)"
-                onClick={() => { window.open('https://wa.me/919429429880?text=' + encodeURIComponent('Hello! I want to find a product by photo. I will share the image here. 🙏'), '_blank'); }}>
-                <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M9 3 7.2 5H4a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-3.2L15 3H9Zm3 15a4.5 4.5 0 1 1 0-9 4.5 4.5 0 0 1 0 9Zm0-2a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z"/></svg>
-              </button>
             </div>
 
             {showSuggest && suggestions.length > 0 && (

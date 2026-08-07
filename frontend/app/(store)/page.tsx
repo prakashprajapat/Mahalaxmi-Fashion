@@ -47,14 +47,7 @@ export default async function HomePage() {
 
   return (
     <>
-      {/* Mobile home = same product listing as category pages (chips + product grid) */}
-      <div className="home-listing">
-        <ProductsClient products={products as any[]} title="" />
-      </div>
-
-      {/* Everything below is hidden on mobile (hero, sections, reviews, FAQ) — shown on desktop */}
-      <div className="home-desktop">
-      {/* Hero — left copy + CTA, right admin-managed video (logo fallback) */}
+      {/* Hero banner — shown on BOTH mobile and desktop */}
       <section style={{
         position: 'relative',
         background: 'linear-gradient(180deg, #faf3e6 0%, #f3e6cb 100%)',
@@ -117,6 +110,13 @@ export default async function HomePage() {
         }
       `}</style>
 
+      {/* Mobile: filterable product listing (chips + grid) right under the hero */}
+      <div className="home-listing">
+        <ProductsClient products={products as any[]} title="" />
+      </div>
+
+      {/* Desktop-only sections below (hidden on mobile — the listing above replaces them) */}
+      <div className="home-desktop">
       {/* Trust signals — payment, returns, authenticity, delivery */}
       <TrustStrip />
 

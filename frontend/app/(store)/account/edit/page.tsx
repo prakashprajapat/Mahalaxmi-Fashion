@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { getCustomer, getToken, setCustomer as saveCustomer } from '@/lib/auth';
 import { customersApi } from '@/lib/api';
+import ImageCropper from '@/components/account/ImageCropper';
 import type { Customer } from '@/types';
 
 const INDIA_STATES = [
@@ -29,6 +30,7 @@ export default function AccountEditPage() {
   const [msg, setMsg] = useState('');
   const [error, setError] = useState('');
   const [photoBusy, setPhotoBusy] = useState(false);
+  const [cropSrc, setCropSrc] = useState<string | null>(null);
 
   useEffect(() => {
     const c = getCustomer();
@@ -72,10 +74,21 @@ export default function AccountEditPage() {
     finally { setLoading(false); }
   };
 
-  const handlePhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Step 1: pick a file → open the crop screen (WhatsApp-DP style).
+  const handlePhoto = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = '';
-    if (!file || !customer) return;
+    if (!file) return;
+    setCropSrc(URL.createObjectURL(file));
+  };
+
+  // Step 2: crop confirmed → upload the cropped square.
+  const handleCropped = async (blob: Blob) => {
+    const url = cropSrc;
+    setCropSrc(null);
+    if (url) URL.revokeObjectURL(url);
+    if (!customer) return;
+    const file = new File([blob], 'profile.jpg', { type: 'image/jpeg' });
     setPhotoBusy(true); setError(''); setMsg('');
     try {
       const res = await customersApi.uploadPhoto(customer.id, file, getToken() ?? '');
@@ -88,10 +101,16 @@ export default function AccountEditPage() {
     finally { setPhotoBusy(false); }
   };
 
+  const cancelCrop = () => {
+    if (cropSrc) URL.revokeObjectURL(cropSrc);
+    setCropSrc(null);
+  };
+
   if (!customer) return null;
 
   return (
     <>
+      {cropSrc && <ImageCropper src={cropSrc} onCancel={cancelCrop} onCrop={handleCropped} />}
       <section className="page-hero">
         <p className="eyebrow">My Account</p>
         <h1>Edit Profile</h1>

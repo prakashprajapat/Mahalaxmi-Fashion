@@ -1,20 +1,27 @@
 'use client';
 // Link import removed — Details now opens QuickView
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import type { Product } from '@/types';
 import { addToCart, finalUnitPrice } from '@/lib/cart';
 import { addToWishlist, removeFromWishlist, isInWishlist } from '@/lib/wishlist';
-import { toggleCompare, isInCompare, COMPARE_MAX } from '@/lib/compare';
 import { productImageSrc } from '@/lib/productImages';
 import QuickViewModal from '@/components/product/QuickViewModal';
 
 export default function ProductCard({ product, priority = false }: { product: Product; priority?: boolean }) {
   const [added, setAdded] = useState(false);
   const [wishlisted, setWishlisted] = useState(isInWishlist(product.dbId));
-  const [compared, setCompared] = useState(isInCompare(product.dbId));
   const [quickView, setQuickView] = useState(false);
   const [imgError, setImgError] = useState(false);
+
+  // Keep the heart in sync: reflect saved state on load (SSR renders it false) and whenever
+  // the wishlist changes anywhere on the page.
+  useEffect(() => {
+    const sync = () => setWishlisted(isInWishlist(product.dbId));
+    sync();
+    window.addEventListener('wishlist-updated', sync);
+    return () => window.removeEventListener('wishlist-updated', sync);
+  }, [product.dbId]);
 
   // Final price includes manual shipping (folded in silently). Discount % is measured MRP → final.
   const price = finalUnitPrice(product);
@@ -64,20 +71,16 @@ export default function ProductCard({ product, priority = false }: { product: Pr
         <div className="product-card-img">
           <div onClick={openQuickView}>
             {image && !imgError ? (
-              (/^https?:/i.test(image) || image.startsWith('/')) ? (
+              /^https?:/i.test(image) ? (
                 <Image src={image} alt={product.name}
                   width={400}
                   height={400}
                   priority={priority}
-                  sizes="(max-width: 600px) 46vw, (max-width: 1024px) 30vw, 220px"
                   style={{ width: '100%', height: '100%', objectFit: 'contain' }}
                   onError={() => setImgError(true)}
                 />
               ) : (
                 <img src={image} alt={product.name}
-                  width={400} height={400}
-                  loading={priority ? 'eager' : 'lazy'}
-                  decoding="async"
                   style={{ width: '100%', height: '100%', objectFit: 'contain' }}
                   onError={() => setImgError(true)}
                 />
@@ -108,11 +111,6 @@ export default function ProductCard({ product, priority = false }: { product: Pr
             aria-label={wishlisted ? 'Remove from wishlist' : 'Add to wishlist'} title="Add to Wishlist">
             <span aria-hidden="true">{wishlisted ? '❤️' : '🤍'}</span>
           </button>
-          <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); const r = toggleCompare(product); if (r.full) { alert(`You can compare up to ${COMPARE_MAX} products at a time.`); return; } setCompared(r.added); }}
-            aria-label={compared ? 'Remove from compare' : 'Add to compare'} title="Compare"
-            style={{ position: 'absolute', bottom: 8, left: 8, zIndex: 3, background: compared ? '#7a0a22' : 'rgba(255,255,255,.92)', color: compared ? '#fff' : '#7a0a22', border: '1px solid #eadfe2', borderRadius: 999, padding: '.2rem .5rem', fontSize: '.66rem', fontWeight: 800, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 3 }}>
-            ⇄ {compared ? 'Added' : 'Compare'}
-          </button>
         </div>
 
         {/* Body */}
@@ -136,12 +134,11 @@ export default function ProductCard({ product, priority = false }: { product: Pr
             {product.name}
           </span>
 
-          {/* Rating — real reviews only. Myntra-style compact pill showing the ACTUAL average
-              (not a fixed 5-star row), e.g. "★ 4.3 (12)". "New" tag sits next to the stock badge. */}
+          {/* Rating — real reviews only ("New" tag now sits next to the stock badge) */}
           {(product.reviewCount ?? 0) > 0 && (
             <div className="product-rating">
-              <span className="stars">★</span>
-              <span className="rating-val">{Number(product.avgRating ?? 0).toFixed(1)} ({product.reviewCount})</span>
+              <span className="stars">★★★★★</span>
+              <span className="rating-val">{product.avgRating} ({product.reviewCount})</span>
             </div>
           )}
 
