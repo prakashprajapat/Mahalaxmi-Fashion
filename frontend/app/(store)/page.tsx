@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
 import { productsApi, settingsApi } from '@/lib/api';
 
 // Elegant serif for the hero — close to the "Mahalaxmi" wordmark in the logo.
@@ -47,6 +46,11 @@ export default async function HomePage() {
 
   return (
     <>
+      {/* Mobile: product listing (Sort/Category/Gender/Filters + grid) sits ABOVE the hero */}
+      <div className="home-listing">
+        <ProductsClient products={products as any[]} title="" />
+      </div>
+
       {/* Hero banner — shown on BOTH mobile and desktop */}
       <section style={{
         position: 'relative',
@@ -69,10 +73,6 @@ export default async function HomePage() {
             <p className="hero-copy" style={{ fontFamily: HERO_FONT, fontSize: 'clamp(1.05rem, 2.7vw, 1.9rem)', fontWeight: 600, lineHeight: 1.25, color: 'rgba(92,26,40,.8)', margin: '0 0 1rem' }}>
               Premium quality you can trust, thoughtfully crafted for every need.
             </p>
-
-            <Link href="/best-sellers" className="hero-cta" style={{ display: 'inline-block', background: '#7a0a22', color: '#fff', fontWeight: 800, fontSize: '1rem', letterSpacing: '.03em', padding: '.75rem 2.1rem', borderRadius: '10px', textDecoration: 'none', boxShadow: '0 6px 18px rgba(122,10,34,.28)' }}>
-              Shop Now →
-            </Link>
 
             {/* Quality badges */}
             <div style={{ display: 'flex', gap: 'clamp(.8rem, 2.5vw, 1.6rem)', flexWrap: 'wrap', marginTop: '1.1rem' }}>
@@ -110,12 +110,7 @@ export default async function HomePage() {
         }
       `}</style>
 
-      {/* Mobile: filterable product listing (chips + grid) right under the hero */}
-      <div className="home-listing">
-        <ProductsClient products={products as any[]} title="" />
-      </div>
-
-      {/* Desktop-only sections below (hidden on mobile — the listing above replaces them) */}
+      {/* Desktop-only sections below (hidden on mobile) */}
       <div className="home-desktop">
       {/* Trust signals — payment, returns, authenticity, delivery */}
       <TrustStrip />
