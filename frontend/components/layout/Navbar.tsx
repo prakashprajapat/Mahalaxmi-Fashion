@@ -229,6 +229,8 @@ export default function Navbar() {
         </p>
       </div>
 
+      {/* Sticky mobile header wrapper: greeting + logo/search stay fixed on scroll */}
+      <div className="m-head">
       {/* Mobile greeting bar (reference-style) — mobile only via CSS */}
       <div className="mobile-greet">
         <div className="mg-hello">
@@ -281,11 +283,20 @@ export default function Navbar() {
             <button type="submit">Search</button>
             <div className="search-icons" aria-hidden="false">
               <button type="button" className="s-ic" aria-label="Voice search" title="Voice search"
-                onClick={() => { const SR:any=(window as any).webkitSpeechRecognition||(window as any).SpeechRecognition; if(!SR){alert('Voice search is not supported on this browser.');return;} const r=new SR(); r.lang='en-IN'; r.onresult=(e:any)=>{ const t=e.results[0][0].transcript; setSearch(t); if(t.trim()) router.push(`/products?q=${encodeURIComponent(t)}`); }; r.start(); }}>
+                onClick={() => {
+                  const SR:any=(window as any).webkitSpeechRecognition||(window as any).SpeechRecognition;
+                  if(!SR){ document.getElementById('searchInput')?.focus(); return; }
+                  try {
+                    const r=new SR(); r.lang='en-IN'; r.interimResults=false;
+                    r.onresult=(e:any)=>{ const t=e.results[0][0].transcript; setSearch(t); if(t.trim()) router.push(`/products?q=${encodeURIComponent(t)}`); };
+                    r.onerror=()=>{ document.getElementById('searchInput')?.focus(); };
+                    r.start();
+                  } catch { document.getElementById('searchInput')?.focus(); }
+                }}>
                 <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M12 15a3 3 0 0 0 3-3V6a3 3 0 1 0-6 0v6a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V22h2v-3.08A7 7 0 0 0 19 12h-2Z"/></svg>
               </button>
-              <button type="button" className="s-ic" aria-label="Image search" title="Image search"
-                onClick={() => { document.getElementById('searchInput')?.focus(); }}>
+              <button type="button" className="s-ic" aria-label="Search by photo" title="Search by photo (WhatsApp)"
+                onClick={() => { window.open('https://wa.me/919429429880?text=' + encodeURIComponent('Hello! I want to find a product by photo. I will share the image here. 🙏'), '_blank'); }}>
                 <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M9 3 7.2 5H4a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-3.2L15 3H9Zm3 15a4.5 4.5 0 1 1 0-9 4.5 4.5 0 0 1 0 9Zm0-2a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z"/></svg>
               </button>
             </div>
@@ -346,6 +357,7 @@ export default function Navbar() {
         </div>
 
       </header>
+      </div>{/* /m-head sticky wrapper */}
 
       {/* Department Nav — sticky independently so only icons bar stays fixed on scroll */}
       <nav className="department-nav" aria-label="Shop by department">

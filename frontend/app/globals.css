@@ -1308,12 +1308,13 @@ a.footer-app-btn.footer-app-live strong{ color:#fff !important; }
   .s-ic { background: none !important; box-shadow: none !important; color: #8b8f98 !important; }
 }
 
-/* ===== Home page: show the filterable product grid on mobile only ===== */
+/* ===== Home page: on mobile show ONLY the filterable product listing (like category pages);
+        the hero + curated sections + reviews + FAQ show on desktop only. ===== */
 .home-listing { display: none; }
+.home-desktop { display: block; }
 @media (max-width: 600px) {
   .home-listing { display: block; }
-  /* hide the curated best-seller / new-arrival grids on mobile (the filter grid replaces them) */
-  .home-curated { display: none; }
+  .home-desktop { display: none; }
 }
 
 /* ===== Combined Help FAB (WhatsApp + Chatbot in one expandable button) ===== */
@@ -1334,9 +1335,22 @@ a.footer-app-btn.footer-app-live strong{ color:#fff !important; }
 .help-fab-item.wa { background: #25D366; }
 .help-fab-item.bot { background: #a7354d; }
 .help-fab-main {
-  width: 56px; height: 56px; border-radius: 50%; border: none; cursor: pointer;
+  width: 46px; height: 46px; border-radius: 50%; border: none; cursor: pointer;
   background: #a7354d; color: #fff; box-shadow: 0 6px 18px rgba(167,53,77,.45);
   display: flex; align-items: center; justify-content: center;
 }
-.help-fab-main svg { width: 28px; height: 28px; }
+.help-fab-main svg { width: 23px; height: 23px; }
 @keyframes helpFabIn { from { opacity: 0; transform: translateY(8px) scale(.9); } to { opacity: 1; transform: none; } }
+
+/* ===== Sticky mobile header: greeting + logo/search stay fixed; only products scroll ===== */
+@media (max-width: 600px) {
+  .m-head {
+    position: sticky; top: 0; z-index: 400; background: #fff;
+    box-shadow: 0 2px 8px rgba(0,0,0,.06);
+  }
+  /* fixed heights so the filter bar's sticky offset below is predictable */
+  .mobile-greet { min-height: 48px; padding: 6px 14px !important; }
+  .site-header .brand-row { min-height: 56px; }
+  /* filter (Sort/Category/Gender/Filters) row sticks right below the greeting+search */
+  .pf-mobile-bar { top: 104px !important; z-index: 120 !important; }
+}

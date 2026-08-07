@@ -47,6 +47,13 @@ export default async function HomePage() {
 
   return (
     <>
+      {/* Mobile home = same product listing as category pages (chips + product grid) */}
+      <div className="home-listing">
+        <ProductsClient products={products as any[]} title="" />
+      </div>
+
+      {/* Everything below is hidden on mobile (hero, sections, reviews, FAQ) — shown on desktop */}
+      <div className="home-desktop">
       {/* Hero — left copy + CTA, right admin-managed video (logo fallback) */}
       <section style={{
         position: 'relative',
@@ -116,19 +123,11 @@ export default async function HomePage() {
       {/* Dynamic Offer Banner — client-rendered so admin toggle reflects instantly */}
       <OfferBanner />
 
-      {/* Mobile: full filterable product grid with Sort / Category / Gender / Filters */}
-      <div className="home-listing">
-        <ProductsClient products={products as any[]} title="" />
-      </div>
+      {/* Best Sellers — simple preview grid */}
+      <BestSellersSection products={bestSellers} />
 
-      {/* Desktop: curated preview grids (hidden on mobile — the filter grid above replaces them) */}
-      <div className="home-curated">
-        {/* Best Sellers — simple preview grid */}
-        <BestSellersSection products={bestSellers} />
-
-        {/* New Arrivals — client component */}
-        <NewArrivalsSection products={products} />
-      </div>
+      {/* New Arrivals — client component */}
+      <NewArrivalsSection products={products} />
 
       {/* Live Google rating + reviews (trust signal). Renders only once configured
           in admin Settings (googlePlaceId + googlePlacesApiKey). */}
@@ -136,6 +135,7 @@ export default async function HomePage() {
 
       {/* SEO: FAQ rich results + AI Overviews (visible accordion + FAQPage schema) */}
       <FaqSection />
+      </div>{/* /home-desktop */}
     </>
   );
 }

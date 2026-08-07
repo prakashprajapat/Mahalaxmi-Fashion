@@ -178,6 +178,7 @@ export default function ProductsClient({ products, title, initialQ = '' }: Props
   const [filterOpen, setFilterOpen] = useState(false);
   const [sortOpen, setSortOpen] = useState(false);
   const [genderOpen, setGenderOpen] = useState(false);
+  const [catSheetOpen, setCatSheetOpen] = useState(false);
   const [sort, setSort] = useState('position');
   const [selectedSubcat, setSelectedSubcat] = useState('');
   const [selectedVariant, setSelectedVariant] = useState('');
@@ -372,7 +373,7 @@ export default function ProductsClient({ products, title, initialQ = '' }: Props
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M7 4v16M7 4 4 7M7 4l3 3M17 20V4M17 20l-3-3M17 20l3-3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
               Sort
             </button>
-            <button onClick={() => setFilterOpen(true)}
+            <button onClick={() => setCatSheetOpen(true)}
               style={{ flex: 1, padding: '.6rem .3rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '.3rem', background: 'none', border: 'none', borderRight: '1px solid #eee', cursor: 'pointer', fontSize: '.82rem', fontWeight: 600, color: '#333' }}>
               Category <span style={{ fontSize: '.6rem', color: '#999' }}>▾</span>
             </button>
@@ -469,6 +470,56 @@ export default function ProductsClient({ products, title, initialQ = '' }: Props
                 {sort === value && <span style={{ color: '#a7354d' }}>✓</span>}
               </button>
             ))}
+          </div>
+        </>
+      )}
+
+      {/* ── Mobile Category Bottom Sheet (categories + subcategories, not filters) ── */}
+      {catSheetOpen && (
+        <>
+          <div onClick={() => setCatSheetOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', zIndex: 200 }} />
+          <div style={{ position: 'fixed', left: 0, right: 0, bottom: 0, background: '#fff', zIndex: 201, borderRadius: '16px 16px 0 0', maxHeight: '82vh', overflowY: 'auto' }}>
+            <div style={{ padding: '.85rem 1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #eee', position: 'sticky', top: 0, background: '#fff' }}>
+              <span style={{ fontSize: '1rem', fontWeight: 700 }}>Categories</span>
+              <button onClick={() => setCatSheetOpen(false)} style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer', color: '#555' }}>✕</button>
+            </div>
+
+            <p style={{ fontSize: '.72rem', fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: '.05em', margin: 0, padding: '.75rem 1.25rem .25rem' }}>Shop by Category</p>
+            {[
+              { href: '/', label: 'Home' },
+              { href: '/best-sellers', label: 'Best Sellers' },
+              { href: '/women', label: 'Women' },
+              { href: '/men', label: 'Men' },
+              { href: '/kids', label: 'Kids' },
+              { href: '/beauty', label: 'Beauty' },
+              { href: '/fabrics', label: 'Fabrics' },
+              { href: '/more', label: 'More Styles' },
+            ].map(c => (
+              <a key={c.href} href={c.href}
+                style={{ display: 'block', padding: '.75rem 1.25rem', borderBottom: '1px solid #f5f5f5', color: '#333', fontSize: '.92rem', fontWeight: 600, textDecoration: 'none' }}>
+                {c.label}
+              </a>
+            ))}
+
+            {subcategories.length > 0 && (
+              <>
+                <p style={{ fontSize: '.72rem', fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: '.05em', margin: 0, padding: '1rem 1.25rem .25rem' }}>Subcategories</p>
+                <button onClick={() => { setSelectedSubcat(''); setCatSheetOpen(false); }}
+                  style={{ width: '100%', textAlign: 'left', padding: '.7rem 1.25rem', background: !selectedSubcat ? '#fdf0f3' : 'none', border: 'none', borderBottom: '1px solid #f5f5f5', cursor: 'pointer', fontSize: '.9rem', color: !selectedSubcat ? '#a7354d' : '#333', fontWeight: !selectedSubcat ? 700 : 400 }}>
+                  All
+                </button>
+                {subcategories.map(({ key, label }: any) => {
+                  const active = normalizeSub(selectedSubcat) === key;
+                  return (
+                    <button key={key} onClick={() => { setSelectedSubcat(label); setCatSheetOpen(false); }}
+                      style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', textAlign: 'left', padding: '.7rem 1.25rem', background: active ? '#fdf0f3' : 'none', border: 'none', borderBottom: '1px solid #f5f5f5', cursor: 'pointer', fontSize: '.9rem', color: active ? '#a7354d' : '#333', fontWeight: active ? 700 : 400 }}>
+                      {label}
+                      {active && <span style={{ color: '#a7354d' }}>✓</span>}
+                    </button>
+                  );
+                })}
+              </>
+            )}
           </div>
         </>
       )}
