@@ -70,15 +70,15 @@ public class AuthController : ControllerBase
         {
             staff.LastLogin = DateTimeOffset.UtcNow;
             var role = string.IsNullOrWhiteSpace(staff.Role) ? "staff" : staff.Role;
-            var jwtStaff = await IssueAdminSessionAsync(staff.Username, staff.Id.ToString(), role);
-            return Ok(new { success = true, token = jwtStaff, role });
+            var jwtStaff = await IssueAdminSessionAsync(staff.Username, staff.Id.ToString(), role, staff.Permissions);
+            return Ok(new { success = true, token = jwtStaff, role, permissions = staff.Permissions ?? "" });
         }
 
         return Unauthorized(new { success = false, message = "Invalid credentials." });
     }
 
     // Creates an admin-panel session (opaque token hash stored in DB) and returns a JWT.
-    private async Task<string> IssueAdminSessionAsync(string email, string userId, string role)
+    private async Task<string> IssueAdminSessionAsync(string email, string userId, string role, string? perms = null)
     {
         var rawToken = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
         var tokenHash = Convert.ToHexString(SHA256.HashData(
@@ -94,7 +94,7 @@ public class AuthController : ControllerBase
         await _db.SaveChangesAsync();
 
         // SEC-2: rawToken removed from response — only JWT returned
-        return _auth.GenerateJwt(userId, email, role);
+        return _auth.GenerateJwt(userId, email, role, perms);
     }
 
     // POST /api/auth/admin-change-password

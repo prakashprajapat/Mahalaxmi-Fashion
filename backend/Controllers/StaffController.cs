@@ -29,7 +29,7 @@ public class StaffController : ControllerBase
             .OrderBy(s => s.CreatedAt)
             .Select(s => new {
                 s.Id, s.Name, s.Username, s.Email,
-                s.Role, s.IsActive, s.LastLogin, s.CreatedAt
+                s.Role, s.Permissions, s.IsActive, s.LastLogin, s.CreatedAt
             })
             .ToListAsync();
         return Ok(staff);
@@ -56,6 +56,7 @@ public class StaffController : ControllerBase
             Email        = string.IsNullOrWhiteSpace(req.Email) ? null : req.Email.Trim(),
             PasswordHash = BCrypt.Net.BCrypt.HashPassword(req.Password, workFactor: 12),
             Role         = req.Role is "manager" ? "manager" : "staff",
+            Permissions  = string.IsNullOrWhiteSpace(req.Permissions) ? null : req.Permissions.Trim(),
             IsActive     = true,
         };
 
@@ -103,7 +104,24 @@ public class StaffController : ControllerBase
         await _db.SaveChangesAsync();
         return Ok(new { isActive = member.IsActive });
     }
+
+    // PUT /api/staff/{id}  — update name / role / permissions
+    [HttpPut("{id:int}")]
+    public async Task<IActionResult> Update(int id, [FromBody] StaffUpdateRequest req)
+    {
+        var member = await _db.StaffMembers.FindAsync(id);
+        if (member is null) return NotFound();
+
+        if (req.Name is not null) member.Name = req.Name.Trim();
+        if (req.Role is not null) member.Role = req.Role is "manager" ? "manager" : "staff";
+        if (req.Permissions is not null)
+            member.Permissions = string.IsNullOrWhiteSpace(req.Permissions) ? null : req.Permissions.Trim();
+
+        await _db.SaveChangesAsync();
+        return Ok(new { message = "Staff updated." });
+    }
 }
 
-public record StaffCreateRequest(string Name, string Username, string? Email, string Password, string Role);
+public record StaffCreateRequest(string Name, string Username, string? Email, string Password, string Role, string? Permissions);
+public record StaffUpdateRequest(string? Name, string? Role, string? Permissions);
 public record StaffResetPasswordRequest(string NewPassword);

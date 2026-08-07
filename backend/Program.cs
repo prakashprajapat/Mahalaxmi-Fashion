@@ -197,6 +197,8 @@ using (var scope = app.Services.CreateScope())
         ALTER TABLE customers ADD COLUMN IF NOT EXISTS anniversary_offer_used BOOLEAN NOT NULL DEFAULT FALSE;
         -- Customer-uploaded profile photo URL (served by the customers photo endpoint).
         ALTER TABLE customers ADD COLUMN IF NOT EXISTS photo_url TEXT;
+        -- Per-staff admin-section permissions (comma-separated section keys).
+        ALTER TABLE staff_members ADD COLUMN IF NOT EXISTS permissions TEXT;
         -- Manual per-product shipping charge, folded into the final customer price (hidden as a line).
         ALTER TABLE products  ADD COLUMN IF NOT EXISTS shipping_charge NUMERIC NOT NULL DEFAULT 0;
         -- Customer-uploaded review photos (JSON array of image URLs).

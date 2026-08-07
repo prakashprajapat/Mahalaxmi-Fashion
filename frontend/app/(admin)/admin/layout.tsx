@@ -29,8 +29,11 @@ const ALL_NAV: { href?: string; label?: string; exact?: boolean; heading?: strin
   { href: '/admin/settings',    label: '⚙️ Settings' },
 ];
 
-// Staff sees only these
-const STAFF_NAV_HREFS = ['/admin/products', '/admin/products/add', '/admin/orders', '/admin/stock'];
+// The admin-section key for a nav href: '/admin/products/add' -> 'products', '/admin' -> '' (dashboard, always allowed)
+function sectionKey(href?: string): string {
+  if (!href || href === '/admin') return '';
+  return href.replace('/admin/', '').split('/')[0];
+}
 
 // Decode JWT payload to get role (no library needed)
 function getTokenRole(token: string): string {
@@ -45,12 +48,21 @@ function getTokenRole(token: string): string {
   } catch { return 'staff'; }  // SEC-7: default to least privilege
 }
 
+// Decode the per-staff permission keys from the JWT "perms" claim.
+function getTokenPerms(token: string): string[] {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return String(payload['perms'] || '').split(',').map((s: string) => s.trim()).filter(Boolean);
+  } catch { return []; }
+}
+
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const isPublicAdminRoute = pathname === '/admin/login' || pathname.startsWith('/admin/login/');
   const [authed, setAuthed] = useState(false);
   const [role, setRole] = useState<'admin' | 'staff'>('admin');
+  const [perms, setPerms] = useState<string[]>([]);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [storeName, setStoreName] = useState('Mahalaxmi Fashion Hub');
   const [adminName, setAdminName] = useState('');
@@ -59,9 +71,18 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     if (isPublicAdminRoute) { setAuthed(true); return; }
     const token = getAdminToken();
     if (!token) { router.replace('/admin/login'); return; }
-    setRole(getTokenRole(token) === 'staff' ? 'staff' : 'admin');
+    const isAdmin = getTokenRole(token) === 'admin';   // anything else = staff (least privilege)
+    setRole(isAdmin ? 'admin' : 'staff');
+    setPerms(isAdmin ? [] : getTokenPerms(token));
     setAuthed(true);
   }, [isPublicAdminRoute, router]);
+
+  // Guard: a staff hitting a section they weren't granted is bounced to the dashboard.
+  useEffect(() => {
+    if (isPublicAdminRoute || !authed || role === 'admin') return;
+    const key = sectionKey(pathname);
+    if (key && !perms.includes(key)) router.replace('/admin');
+  }, [pathname, authed, role, perms, isPublicAdminRoute, router]);
 
   useEffect(() => {
     if (isPublicAdminRoute) return;
@@ -80,9 +101,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     </div>
   );
 
-  // Filter nav based on role
+  // Filter nav: admin sees everything; staff sees Dashboard + only their granted sections.
   const navItems = role === 'staff'
-    ? ALL_NAV.filter(n => n.href && STAFF_NAV_HREFS.includes(n.href))
+    ? ALL_NAV.filter(n => n.href && (sectionKey(n.href) === '' || perms.includes(sectionKey(n.href))))
     : ALL_NAV;
 
   const isActive = (item: { href?: string; exact?: boolean }) =>

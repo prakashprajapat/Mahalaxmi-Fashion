@@ -3,6 +3,26 @@ import { useState, useEffect } from 'react';
 import { authApi, staffApi } from '@/lib/api';
 import { getAdminToken } from '@/lib/auth';
 
+// Admin sections a staff can be granted access to (key matches the /admin/<key> route).
+const SECTIONS: { key: string; label: string }[] = [
+  { key: 'orders',       label: 'Orders' },
+  { key: 'products',     label: 'Products / Add Product' },
+  { key: 'stock',        label: 'Stock Manager' },
+  { key: 'customers',    label: 'Customers' },
+  { key: 'reports',      label: 'Reports & GSTR-1' },
+  { key: 'reconcile',    label: 'Payment Reconcile' },
+  { key: 'reviews',      label: 'Reviews' },
+  { key: 'staff',        label: 'Staff Management' },
+  { key: 'birthday',     label: 'Birthday & Anniversary' },
+  { key: 'coupons',      label: 'Coupons & Discounts' },
+  { key: 'influencers',  label: 'Influencer Marketing' },
+  { key: 'campaigns',    label: 'Bulk Campaigns' },
+  { key: 'popup-leads',  label: 'Popup Leads' },
+  { key: 'suppliers',    label: 'Seller Applications' },
+  { key: 'seo',          label: 'SEO Analysis' },
+  { key: 'settings',     label: 'Settings' },
+];
+
 // Owner row shown at the top; real staff come from the backend (staff_members table).
 const ADMIN_ENTRY = {
   id: 0, name: 'Admin (Owner)', username: 'admin',
@@ -11,7 +31,11 @@ const ADMIN_ENTRY = {
 
 export default function AdminStaffPage() {
   const [extraStaff, setExtraStaff] = useState<any[]>([]);
-  const [staffForm, setStaffForm] = useState({ name: '', username: '', password: '', role: 'staff' });
+  const [staffForm, setStaffForm] = useState({ name: '', username: '', password: '', role: 'staff', permissions: [] as string[] });
+  const togglePerm = (key: string) => setStaffForm(f => ({
+    ...f,
+    permissions: f.permissions.includes(key) ? f.permissions.filter(k => k !== key) : [...f.permissions, key],
+  }));
   const [pwForm, setPwForm]        = useState({ newPassword: '', confirmPassword: '' });
   const [pwMsg, setPwMsg]          = useState('');
   const [saving, setSaving]        = useState(false);
@@ -55,8 +79,9 @@ export default function AdminStaffPage() {
         email: `${staffForm.username.trim().toLowerCase()}@staff.local`,
         password: staffForm.password,
         role: staffForm.role,
+        permissions: staffForm.permissions.join(','),
       }, getAdminToken() ?? '');
-      setStaffForm({ name: '', username: '', password: '', role: 'staff' });
+      setStaffForm({ name: '', username: '', password: '', role: 'staff', permissions: [] });
       setPwMsg('✅ Staff account created. They can now log in with this username & password.');
       refresh();
     } catch (e) {
@@ -161,6 +186,22 @@ export default function AdminStaffPage() {
             </select>
           </div>
         </div>
+
+        <div style={{ marginTop: '1.25rem' }}>
+          <label style={lbl}>Permissions — which sections can this staff use?</label>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '.5rem .75rem', marginTop: '.4rem' }}>
+            {SECTIONS.map(sec => (
+              <label key={sec.key} style={{ display: 'flex', alignItems: 'center', gap: '.5rem', fontSize: '.85rem', cursor: 'pointer', color: '#333' }}>
+                <input type="checkbox" checked={staffForm.permissions.includes(sec.key)} onChange={() => togglePerm(sec.key)} />
+                {sec.label}
+              </label>
+            ))}
+          </div>
+          <p style={{ fontSize: '.75rem', color: '#888', margin: '.5rem 0 0' }}>
+            Staff sees &amp; uses only the checked sections. Dashboard is always visible.
+          </p>
+        </div>
+
         {pwMsg && (
           <p style={{ color: pwMsg.startsWith('✅') ? '#27ae60' : '#c0392b', fontSize: '.88rem', margin: '.75rem 0 0', fontWeight: 600 }}>
             {pwMsg}

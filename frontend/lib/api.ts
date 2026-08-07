@@ -375,10 +375,12 @@ export const couponsApi = {
 // ── Staff ─────────────────────────────────────────────────────────────────────
 export const staffApi = {
   list: (token: string) =>
-    request<Array<{ id: number; name: string; username: string; email?: string; role: string; isActive: boolean; lastLogin?: string; createdAt?: string }>>(
+    request<Array<{ id: number; name: string; username: string; email?: string; role: string; permissions?: string; isActive: boolean; lastLogin?: string; createdAt?: string }>>(
       '/staff', undefined, token),
-  create: (data: { name: string; username: string; email?: string; password: string; role: string }, token: string) =>
+  create: (data: { name: string; username: string; email?: string; password: string; role: string; permissions?: string }, token: string) =>
     request<{ message: string; id: number }>('/staff', { method: 'POST', body: JSON.stringify(data) }, token),
+  update: (id: number, data: { name?: string; role?: string; permissions?: string }, token: string) =>
+    request<{ message: string }>('/staff/' + id, { method: 'PUT', body: JSON.stringify(data) }, token),
   remove: (id: number, token: string) =>
     request('/staff/' + id, { method: 'DELETE' }, token),
   resetPassword: (id: number, newPassword: string, token: string) =>

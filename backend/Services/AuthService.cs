@@ -38,7 +38,7 @@ public class AuthService
         return Convert.ToBase64String(rfc.GetBytes(32));
     }
 
-    public string GenerateJwt(string userId, string email, string role)
+    public string GenerateJwt(string userId, string email, string role, string? perms = null)
     {
         var key    = _config["Jwt:Key"] ?? throw new InvalidOperationException("Jwt:Key missing");
         var issuer = _config["Jwt:Issuer"] ?? "MahalaxmiApi";
@@ -47,11 +47,12 @@ public class AuthService
         var secKey  = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key));
         var creds   = new SigningCredentials(secKey, SecurityAlgorithms.HmacSha256);
 
-        var claims = new[]
+        var claims = new List<Claim>
         {
             new Claim(JwtRegisteredClaimNames.Sub,   userId),
             new Claim(JwtRegisteredClaimNames.Email, email),
             new Claim("role", role),
+            new Claim("perms", perms ?? ""),
             new Claim(JwtRegisteredClaimNames.Jti,   Guid.NewGuid().ToString()),
         };
 
