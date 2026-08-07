@@ -212,6 +212,21 @@ export const customersApi = {
     request<{ success: boolean; customer: import('@/types').Customer }>(
       `/customers/${id}`, { method: 'PUT', body: JSON.stringify(data) }, token
     ),
+  // Upload the customer's profile photo (multipart). Returns the updated customer.
+  uploadPhoto: async (id: number, file: File, token: string) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    const res = await fetch(`${API_BASE}/customers/${id}/photo`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      body: fd,
+    });
+    if (!res.ok) {
+      const e = await res.json().catch(() => ({ message: res.statusText }));
+      throw new Error(e.message || `Upload failed (${res.status})`);
+    }
+    return res.json() as Promise<{ success: boolean; customer: import('@/types').Customer }>;
+  },
   deactivate: (id: number, reason: string, token: string) =>
     request<{ success: boolean; customer: import('@/types').Customer }>(
       `/customers/${id}/deactivate`, { method: 'PATCH', body: JSON.stringify({ reason }) }, token

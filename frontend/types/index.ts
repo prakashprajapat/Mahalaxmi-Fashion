@@ -56,6 +56,7 @@ export interface Customer {
   panNumber?: string;
   panName?: string;
   panStatus?: string;
+  photoUrl?: string;
   createdAt: string;
 }
 

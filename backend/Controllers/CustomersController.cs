@@ -301,13 +301,11 @@ public class CustomersController : ControllerBase
         var email = req.Email.ToLower().Trim();
         var phone = req.Phone?.Trim() ?? "";
 
-        // Find any existing account for this email / mobile (last-10 match). A passwordless
-        // record is a GUEST auto-created from a past order — we ACTIVATE it below instead of
-        // blocking, so their previous orders carry into the new account.
-        var phone10 = Services.CustomerLinker.Digits10(phone);
-        var existing = await _db.Customers.FirstOrDefaultAsync(c =>
-            (c.Email != null && c.Email == email)
-            || (phone10.Length == 10 && c.Phone != null && c.Phone.EndsWith(phone10)));
+        if (await _db.Customers.AnyAsync(c => c.Email == email))
+            return Conflict(new { success = false, message = "Email already registered." });
+
+        if (!string.IsNullOrWhiteSpace(phone) && await _db.Customers.AnyAsync(c => c.Phone == phone))
+            return Conflict(new { success = false, message = "Phone already registered." });
 
         // OTP verification is MANDATORY for public self-registration — the account is created
         // only after the mobile (or email) has been verified with a one-time code. An admin
@@ -321,32 +319,6 @@ public class CustomersController : ControllerBase
         }
 
         var (hash, salt) = _auth.HashPassword(req.Password);
-
-        if (existing is not null)
-        {
-            // A real (password-protected) account already exists → ask them to log in.
-            if (!string.IsNullOrEmpty(existing.PasswordHash))
-                return Conflict(new { success = false, message = "This email or mobile number is already registered. Please log in instead." });
-
-            // Passwordless GUEST profile (auto-created from a past order) → activate it in place
-            // so every previous guest order now belongs to this registered account.
-            existing.FirstName = req.FirstName.Trim();
-            existing.LastName  = req.LastName.Trim();
-            if (!string.IsNullOrWhiteSpace(email)) existing.Email = email;
-            if (!string.IsNullOrWhiteSpace(phone)) existing.Phone = phone;
-            if (!string.IsNullOrWhiteSpace(req.AddrLine1)) existing.AddrLine1 = req.AddrLine1!.Trim();
-            if (!string.IsNullOrWhiteSpace(req.Pincode))   existing.Pincode   = req.Pincode!.Trim();
-            if (!string.IsNullOrWhiteSpace(req.State))     existing.State     = req.State!.Trim();
-            if (!string.IsNullOrWhiteSpace(req.District))  existing.District  = req.District!.Trim();
-            existing.MarketingConsent = req.MarketingConsent;
-            existing.PasswordHash = hash;
-            existing.PasswordSalt = salt;
-            existing.EmailVerified = isAdminCreate || !string.IsNullOrWhiteSpace(req.Otp);
-            await _db.SaveChangesAsync();
-            var activatedToken = _auth.GenerateJwt(existing.Id.ToString(), existing.Email ?? "", "customer");
-            return Ok(new { success = true, token = activatedToken, customer = ToDto(existing) });
-        }
-
         var code = await NextCustomerCodeAsync();
 
         var customer = new Customer
@@ -948,6 +920,70 @@ public class CustomersController : ControllerBase
         c.MarketingConsent, c.PanNumber, c.PanName, c.PanStatus,
         c.EmailVerified, c.PhoneVerified,
         c.CreatedAt,
-        c.BirthdayOfferUsed, c.AnniversaryOfferUsed
+        c.BirthdayOfferUsed, c.AnniversaryOfferUsed,
+        c.PhotoUrl
     );
+
+    // Deploy-safe uploads root: /var/www/mahalaxmi-uploads/customers (outside repo & publish dir).
+    private string CustomerPhotosRoot() =>
+        Path.GetFullPath(Path.Combine(_env.ContentRootPath, "..", "mahalaxmi-uploads", "customers"));
+
+    // POST /api/customers/{id}/photo — customer uploads their profile photo (self or admin).
+    [HttpPost("{id:int}/photo")]
+    [Authorize]
+    [RequestSizeLimit(9_000_000)]
+    [RequestFormLimits(MultipartBodyLengthLimit = 9_000_000)]
+    public async Task<IActionResult> UploadPhoto(int id, [FromForm] IFormFile? file)
+    {
+        var callerId = User.FindFirstValue("sub");
+        var isAdmin = User.HasClaim("role", "admin");
+        if (!isAdmin && callerId != id.ToString())
+            return Forbid();
+
+        var c = await _db.Customers.FindAsync(id);
+        if (c is null) return NotFound();
+
+        if (file is null || file.Length == 0)
+            return BadRequest(new { success = false, message = "No file received." });
+        if (!(file.ContentType ?? "").StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+            return BadRequest(new { success = false, message = "Only image files are allowed." });
+        if (file.Length > 8L * 1024 * 1024)
+            return BadRequest(new { success = false, message = "Image too large (max 8 MB)." });
+
+        var ext = Path.GetExtension(file.FileName ?? "");
+        ext = new string(ext.Where(ch => char.IsLetterOrDigit(ch) || ch == '.').ToArray()).ToLowerInvariant();
+        if (string.IsNullOrWhiteSpace(ext) || ext.Length > 6) ext = ".jpg";
+
+        Directory.CreateDirectory(CustomerPhotosRoot());
+        var name = $"cust_{Guid.NewGuid():N}{ext}";
+        await using (var fs = System.IO.File.Create(Path.Combine(CustomerPhotosRoot(), name)))
+            await file.CopyToAsync(fs);
+
+        c.PhotoUrl = $"/api/customers/photo/{name}";
+        c.UpdatedAt = DateTimeOffset.UtcNow;
+        await _db.SaveChangesAsync();
+
+        return Ok(new { success = true, customer = ToDto(c) });
+    }
+
+    // GET /api/customers/photo/{file} — stream a stored profile photo. Filenames are unguessable GUIDs.
+    [HttpGet("photo/{file}")]
+    [AllowAnonymous]
+    public IActionResult GetPhoto(string file)
+    {
+        var safe = new string((file ?? "").Where(ch => char.IsLetterOrDigit(ch) || ch == '_' || ch == '.' || ch == '-').ToArray());
+        if (string.IsNullOrEmpty(safe) || safe.Contains(".."))
+            return NotFound();
+        var full = Path.Combine(CustomerPhotosRoot(), safe);
+        if (!System.IO.File.Exists(full))
+            return NotFound();
+        var mime = Path.GetExtension(full).ToLowerInvariant() switch
+        {
+            ".png" => "image/png",
+            ".webp" => "image/webp",
+            ".gif" => "image/gif",
+            _ => "image/jpeg"
+        };
+        return File(System.IO.File.OpenRead(full), mime, enableRangeProcessing: true);
+    }
 }

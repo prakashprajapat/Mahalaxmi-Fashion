@@ -26,7 +26,8 @@ public record CustomerDto(
     bool    PhoneVerified,
     DateTimeOffset CreatedAt,
     bool    BirthdayOfferUsed = false,
-    bool    AnniversaryOfferUsed = false
+    bool    AnniversaryOfferUsed = false,
+    string? PhotoUrl = null
 );
 
 public record RegisterRequest(

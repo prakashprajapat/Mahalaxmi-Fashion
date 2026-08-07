@@ -106,6 +106,10 @@ public class Customer
     [Column("phone_verified")]
     public bool PhoneVerified { get; set; }
 
+    // Customer-uploaded profile photo (URL served by /api/customers/photo/{file}).
+    [Column("photo_url")]
+    public string? PhotoUrl { get; set; }
+
     [Column("deactivated_at")]
     public DateTimeOffset? DeactivatedAt { get; set; }
 

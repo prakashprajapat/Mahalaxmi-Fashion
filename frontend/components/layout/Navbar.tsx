@@ -56,6 +56,7 @@ export default function Navbar() {
   const [otpMsg, setOtpMsg] = useState('');
   const [cartBounce, setCartBounce] = useState(false);
   const [customerName, setCustomerName] = useState('');
+  const [customerPhoto, setCustomerPhoto] = useState('');
   const [showWaLogin, setShowWaLogin] = useState(true);
   const [enableGoogleLogin, setEnableGoogleLogin] = useState(false);
   const [googleClientId, setGoogleClientId] = useState('');
@@ -76,6 +77,7 @@ export default function Navbar() {
       const c = getCustomer();
       setIsLoggedIn(!!c);
       setCustomerName(c ? c.firstName : '');
+      setCustomerPhoto(c && (c as any).photoUrl ? (c as any).photoUrl : '');
     };
     update();
     window.addEventListener('cart-updated', update);
@@ -234,7 +236,11 @@ export default function Navbar() {
       {/* Mobile greeting bar (reference-style) — mobile only via CSS */}
       <div className="mobile-greet">
         <div className="mg-hello">
-          <span className="mg-avatar" aria-hidden="true">{isLoggedIn && customerName ? customerName.charAt(0).toUpperCase() : '🙏'}</span>
+          <span className="mg-avatar" aria-hidden="true">
+            {isLoggedIn && customerPhoto
+              ? <img src={customerPhoto} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
+              : (isLoggedIn && customerName ? customerName.charAt(0).toUpperCase() : '🙏')}
+          </span>
           <span className="mg-text">
             {isLoggedIn && customerName
               ? (<><small>Hello,</small><b>{customerName}</b></>)

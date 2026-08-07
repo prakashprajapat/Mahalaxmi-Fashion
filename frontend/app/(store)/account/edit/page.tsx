@@ -28,6 +28,7 @@ export default function AccountEditPage() {
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState('');
   const [error, setError] = useState('');
+  const [photoBusy, setPhotoBusy] = useState(false);
 
   useEffect(() => {
     const c = getCustomer();
@@ -71,6 +72,22 @@ export default function AccountEditPage() {
     finally { setLoading(false); }
   };
 
+  const handlePhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file || !customer) return;
+    setPhotoBusy(true); setError(''); setMsg('');
+    try {
+      const res = await customersApi.uploadPhoto(customer.id, file, getToken() ?? '');
+      const updated = res.customer;
+      setCustomer(updated);
+      saveCustomer(updated);
+      window.dispatchEvent(new Event('auth-changed'));
+      setMsg('Profile photo updated!');
+    } catch (err) { setError((err as Error).message || 'Photo upload failed.'); }
+    finally { setPhotoBusy(false); }
+  };
+
   if (!customer) return null;
 
   return (
@@ -83,6 +100,22 @@ export default function AccountEditPage() {
 
       <main className="account-shell" style={{ display: 'block' }}>
         <section>
+          <div className="form-card" style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
+            <div style={{ width: 74, height: 74, borderRadius: '50%', overflow: 'hidden', background: '#faf0ec', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, border: '2px solid #f0dfe4' }}>
+              {customer.photoUrl
+                ? <img src={customer.photoUrl} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                : <span style={{ fontSize: '1.9rem', fontWeight: 800, color: '#a7354d' }}>{(customer.firstName || '?').charAt(0).toUpperCase()}</span>}
+            </div>
+            <div>
+              <h2 style={{ margin: '0 0 .35rem' }}>Profile Photo</h2>
+              <label style={{ display: 'inline-block', padding: '.5rem 1rem', background: photoBusy ? '#c98a99' : '#a7354d', color: '#fff', borderRadius: 8, cursor: photoBusy ? 'default' : 'pointer', fontWeight: 700, fontSize: '.85rem' }}>
+                {photoBusy ? 'Uploading…' : (customer.photoUrl ? 'Change Photo' : 'Upload Photo')}
+                <input type="file" accept="image/*" onChange={handlePhoto} disabled={photoBusy} style={{ display: 'none' }} />
+              </label>
+              <p style={{ margin: '.4rem 0 0', fontSize: '.75rem', color: '#888' }}>JPG or PNG, up to 8 MB.</p>
+            </div>
+          </div>
+
           <div className="form-card">
             <h2>Personal Information</h2>
             <div className="form-grid">
