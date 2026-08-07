@@ -37,6 +37,15 @@ export default function FloatingCart() {
 
   // Don't show on cart/checkout pages, or when cart is empty, or dismissed
   const hide = HIDE_PATHS.some(p => pathname.startsWith(p)) || count === 0 || dismissed;
+
+  // While the bar is visible, flag the body so the Help FAB (WhatsApp/chat) lifts
+  // above it on mobile instead of covering the ✕ / Checkout buttons.
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    document.body.classList.toggle('cart-bar-open', !hide);
+    return () => document.body.classList.remove('cart-bar-open');
+  }, [hide]);
+
   if (hide) return null;
 
   return (

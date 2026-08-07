@@ -1323,6 +1323,11 @@ a.footer-app-btn.footer-app-live strong{ color:#fff !important; }
   display: flex; flex-direction: column; align-items: flex-end; gap: 12px;
 }
 @media (max-width: 600px) { .help-fab-wrap { bottom: 74px; right: 1rem; } }
+/* When the Add-to-Cart bar is showing, lift the Help FAB above it so it doesn't
+   cover the View Cart / Checkout / ✕ buttons. */
+@media (max-width: 600px) {
+  body.cart-bar-open .help-fab-wrap { bottom: calc(122px + env(safe-area-inset-bottom, 0px)); }
+}
 .help-fab-menu { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
 .help-fab-item {
   display: inline-flex; align-items: center; gap: 8px;
