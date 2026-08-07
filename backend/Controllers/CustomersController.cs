@@ -8,6 +8,8 @@ using MahalaxmiApi.DTOs;
 using MahalaxmiApi.Models;
 using MahalaxmiApi.Services;
 
+using MahalaxmiApi.Authorization;
+
 namespace MahalaxmiApi.Controllers;
 
 [ApiController]
@@ -63,7 +65,8 @@ public class CustomersController : ControllerBase
 
     // GET /api/customers  (Admin only)
     [HttpGet]
-    [Authorize(Policy = "AdminOnly")]
+    [Authorize]
+    [RequirePerm("customers")]
     public async Task<IActionResult> GetAll(
         [FromQuery] string? search,
         [FromQuery] int page = 1,
@@ -98,7 +101,8 @@ public class CustomersController : ControllerBase
     // de-duplicated. Used by the admin "Bulk Campaigns" page to export a list that
     // is then uploaded to the MSG91 bulk panel.
     [HttpGet("phones")]
-    [Authorize(Policy = "AdminOnly")]
+    [Authorize]
+    [RequirePerm("customers","campaigns")]
     public async Task<IActionResult> GetPhones([FromQuery] bool optedInOnly = false)
     {
         var query = _db.Customers.AsQueryable();
@@ -128,7 +132,8 @@ public class CustomersController : ControllerBase
     // Sends a bulk promotional SMS to customers via MSG91 — fully server-side, no
     // MSG91 website needed. templateId must be a DLT-approved promotional template.
     [HttpPost("campaign")]
-    [Authorize(Policy = "AdminOnly")]
+    [Authorize]
+    [RequirePerm("campaigns")]
     public async Task<IActionResult> SendCampaign([FromBody] BulkCampaignRequest req)
     {
         if (string.IsNullOrWhiteSpace(req.TemplateId))
@@ -164,7 +169,8 @@ public class CustomersController : ControllerBase
 
     // GET /api/customers/celebrations?days=15
     [HttpGet("celebrations")]
-    [Authorize(Policy = "AdminOnly")]
+    [Authorize]
+    [RequirePerm("birthday")]
     public async Task<IActionResult> GetCelebrations([FromQuery] int days = 15)
     {
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
@@ -188,7 +194,8 @@ public class CustomersController : ControllerBase
 
     // POST /api/customers/send-celebration-sms
     [HttpPost("send-celebration-sms")]
-    [Authorize(Policy = "AdminOnly")]
+    [Authorize]
+    [RequirePerm("birthday")]
     public async Task<IActionResult> SendCelebrationSms([FromBody] CelebrationSmsRequest req)
     {
         var authKey    = await _db.SiteSettings.Where(s => s.Key == "msg91AuthKey").Select(s => s.Value).FirstOrDefaultAsync();
@@ -310,7 +317,7 @@ public class CustomersController : ControllerBase
         // OTP verification is MANDATORY for public self-registration — the account is created
         // only after the mobile (or email) has been verified with a one-time code. An admin
         // creating a customer from the panel (authenticated with the admin role) is exempt.
-        var isAdminCreate = User.HasClaim("role", "admin");
+        var isAdminCreate = User.HasSectionAccess("customers");
         if (!isAdminCreate)
         {
             var otpOk = await VerifyOtpToken(phone, email, req.Otp ?? "");
@@ -589,7 +596,7 @@ public class CustomersController : ControllerBase
     {
         // SEC-3 IDOR: only the customer themselves or an admin can update
         var callerId = User.FindFirstValue("sub");
-        var isAdmin = User.HasClaim("role", "admin");
+        var isAdmin = User.HasSectionAccess("customers");
         if (!isAdmin && callerId != id.ToString())
             return Forbid();
 
@@ -646,7 +653,7 @@ public class CustomersController : ControllerBase
     {
         // SEC-3 IDOR: only the customer themselves or an admin can deactivate
         var callerId = User.FindFirstValue("sub");
-        var isAdmin = User.HasClaim("role", "admin");
+        var isAdmin = User.HasSectionAccess("customers");
         if (!isAdmin && callerId != id.ToString())
             return Forbid();
 
@@ -664,7 +671,8 @@ public class CustomersController : ControllerBase
 
     // PATCH /api/customers/{id}/reactivate  (Admin only — customers cannot reactivate themselves)
     [HttpPatch("{id:int}/reactivate")]
-    [Authorize(Policy = "AdminOnly")]
+    [Authorize]
+    [RequirePerm("customers")]
     public async Task<IActionResult> Reactivate(int id)
     {
         var c = await _db.Customers.FindAsync(id);
@@ -685,7 +693,7 @@ public class CustomersController : ControllerBase
     {
         // SEC-3 IDOR: only the customer themselves or an admin can delete
         var callerId = User.FindFirstValue("sub");
-        var isAdmin = User.HasClaim("role", "admin");
+        var isAdmin = User.HasSectionAccess("customers");
         if (!isAdmin && callerId != id.ToString())
             return Forbid();
 
@@ -936,7 +944,7 @@ public class CustomersController : ControllerBase
     public async Task<IActionResult> UploadPhoto(int id, [FromForm] IFormFile? file)
     {
         var callerId = User.FindFirstValue("sub");
-        var isAdmin = User.HasClaim("role", "admin");
+        var isAdmin = User.HasSectionAccess("customers");
         if (!isAdmin && callerId != id.ToString())
             return Forbid();
 

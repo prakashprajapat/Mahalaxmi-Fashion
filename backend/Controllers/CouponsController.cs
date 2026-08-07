@@ -3,6 +3,8 @@ using Microsoft.EntityFrameworkCore;
 using MahalaxmiApi.Data;
 using MahalaxmiApi.Models;
 
+using MahalaxmiApi.Authorization;
+
 namespace MahalaxmiApi.Controllers;
 
 [ApiController]
@@ -14,7 +16,7 @@ public class CouponsController : ControllerBase
 
     // ── Admin auth helper ────────────────────────────────────────────────────
     // Admin = a valid JWT carrying the "role":"admin" claim (same auth as the rest of the admin panel).
-    private Task<bool> IsAdmin() => Task.FromResult(User.HasClaim("role", "admin"));
+    private Task<bool> IsAdmin() => Task.FromResult(User.HasSectionAccess("coupons"));
 
     // ── POST /api/coupons/validate  (public) ─────────────────────────────────
     [HttpPost("validate")]

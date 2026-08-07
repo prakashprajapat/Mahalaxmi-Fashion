@@ -4,6 +4,8 @@ using Microsoft.EntityFrameworkCore;
 using MahalaxmiApi.Data;
 using MahalaxmiApi.Models;
 
+using MahalaxmiApi.Authorization;
+
 namespace MahalaxmiApi.Controllers;
 
 [ApiController]
@@ -51,7 +53,8 @@ public class SuppliersController : ControllerBase
 
     // GET /api/suppliers  (admin) — list applications (no dedicated panel; available if needed).
     [HttpGet]
-    [Authorize(Policy = "AdminOnly")]
+    [Authorize]
+    [RequirePerm("suppliers")]
     public async Task<IActionResult> List()
     {
         var items = await _db.SupplierApplications.OrderByDescending(s => s.CreatedAt).ToListAsync();

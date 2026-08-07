@@ -5,6 +5,8 @@ using Microsoft.Extensions.Caching.Memory;
 using MahalaxmiApi.Data;
 using MahalaxmiApi.Models;
 
+using MahalaxmiApi.Authorization;
+
 namespace MahalaxmiApi.Controllers;
 
 [ApiController]
@@ -29,7 +31,8 @@ public class SettingsController : ControllerBase
 
     // POST /api/settings/upload-image — admin uploads a site image (hero photo etc.), returns URL.
     [HttpPost("upload-image")]
-    [Authorize(Policy = "AdminOnly")]
+    [Authorize]
+    [RequirePerm("settings")]
     [RequestSizeLimit(9_000_000)]
     [RequestFormLimits(MultipartBodyLengthLimit = 9_000_000)]
     public async Task<IActionResult> UploadImage([FromForm] IFormFile? file)
@@ -100,7 +103,8 @@ public class SettingsController : ControllerBase
 
     // GET /api/settings/{key}
     [HttpGet("{key}")]
-    [Authorize(Policy = "AdminOnly")]
+    [Authorize]
+    [RequirePerm("settings")]
     public async Task<IActionResult> Get(string key)
     {
         var s = await _db.SiteSettings.FirstOrDefaultAsync(x => x.Key == key);
@@ -110,7 +114,8 @@ public class SettingsController : ControllerBase
 
     // PUT /api/settings/{key}  (Admin only)
     [HttpPut("{key}")]
-    [Authorize(Policy = "AdminOnly")]
+    [Authorize]
+    [RequirePerm("settings")]
     public async Task<IActionResult> Upsert(string key, [FromBody] SettingUpsertRequest req)
     {
         var s = await _db.SiteSettings.FirstOrDefaultAsync(x => x.Key == key);
@@ -130,7 +135,8 @@ public class SettingsController : ControllerBase
 
     // POST /api/settings/bulk  (Admin only)
     [HttpPost("bulk")]
-    [Authorize(Policy = "AdminOnly")]
+    [Authorize]
+    [RequirePerm("settings")]
     public async Task<IActionResult> BulkUpsert([FromBody] Dictionary<string, string> settings)
     {
         // PERF-3: Fetch all relevant settings in one query instead of N queries

@@ -7,6 +7,8 @@ using System.Text.Json;
 using MahalaxmiApi.Data;
 using MahalaxmiApi.Models;
 
+using MahalaxmiApi.Authorization;
+
 namespace MahalaxmiApi.Controllers;
 
 [ApiController]
@@ -198,7 +200,8 @@ public class PaymentsController : ControllerBase
     // GET /api/payments/reconcile?from=2026-07-01&to=2026-07-13  (Admin only)
     // Razorpay payments vs site_orders match — mismatch/missing turant dikhta hai.
     [HttpGet("reconcile")]
-    [Authorize(Policy = "AdminOnly")]
+    [Authorize]
+    [RequirePerm("reconcile")]
     public async Task<IActionResult> Reconcile([FromQuery] string? from, [FromQuery] string? to)
     {
         var keyId     = _config["Razorpay:KeyId"] ?? "";

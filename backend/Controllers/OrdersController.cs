@@ -8,6 +8,8 @@ using MahalaxmiApi.Data;
 using MahalaxmiApi.DTOs;
 using MahalaxmiApi.Models;
 
+using MahalaxmiApi.Authorization;
+
 namespace MahalaxmiApi.Controllers;
 
 [ApiController]
@@ -53,7 +55,7 @@ public class OrdersController : ControllerBase
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 50)
     {
-        bool isAdmin = User.HasClaim("role", "admin");
+        bool isAdmin = User.HasSectionAccess("orders", "reports", "reconcile");
 
         // MISS-4 + PERF-1: Admin gets paginated results directly from DB
         if (isAdmin)
@@ -122,7 +124,7 @@ public class OrdersController : ControllerBase
         var order = await _db.SiteOrders.FirstOrDefaultAsync(o => o.OrderId == orderId || o.Awb == orderId);
         if (order is null) return NotFound(new { success = false, message = "Order not found." });
 
-        bool full = User.HasClaim("role", "admin");
+        bool full = User.HasSectionAccess("orders");
         if (!full && User.Identity?.IsAuthenticated == true)
         {
             var callerId    = User.FindFirstValue("sub");
@@ -455,7 +457,8 @@ public class OrdersController : ControllerBase
 
     // PATCH /api/orders/status  (Admin only)
     [HttpPatch("status")]
-    [Authorize(Policy = "AdminOrStaff")]
+    [Authorize]
+    [RequirePerm("orders")]
     public async Task<IActionResult> UpdateStatus([FromBody] AdminUpdateOrderRequest req)
     {
         if (!AllowedStatuses.Contains(req.Status))
@@ -532,7 +535,7 @@ public class OrdersController : ControllerBase
             return NotFound(new { success = false, message = "Order not found." });
 
         // SEC-4 IDOR — only the buyer (or an admin) may download the invoice.
-        if (!User.HasClaim("role", "admin"))
+        if (!User.HasSectionAccess("orders"))
         {
             var callerId = User.FindFirstValue("sub");
             var callerEmail = User.FindFirstValue("email");
@@ -858,7 +861,7 @@ public class OrdersController : ControllerBase
             return NotFound(new { success = false, message = "Order not found." });
 
         // SEC-4 IDOR: verify caller owns this order (admin bypasses)
-        if (!User.HasClaim("role", "admin"))
+        if (!User.HasSectionAccess("orders"))
         {
             var callerId = User.FindFirstValue("sub");
             var callerEmail = User.FindFirstValue("email");
@@ -901,7 +904,7 @@ public class OrdersController : ControllerBase
             return NotFound(new { success = false, message = "Order not found." });
 
         // SEC-4 IDOR: verify caller owns this order
-        if (!User.HasClaim("role", "admin"))
+        if (!User.HasSectionAccess("orders"))
         {
             var callerId = User.FindFirstValue("sub");
             var callerEmail = User.FindFirstValue("email");
@@ -989,7 +992,7 @@ public class OrdersController : ControllerBase
             return NotFound(new { success = false, message = "Order not found." });
 
         // SEC-4 IDOR: caller must own this order (admin bypasses)
-        if (!User.HasClaim("role", "admin"))
+        if (!User.HasSectionAccess("orders"))
         {
             var callerId = User.FindFirstValue("sub");
             var callerEmail = User.FindFirstValue("email");
@@ -1127,7 +1130,8 @@ public class OrdersController : ControllerBase
     //   approve → return media is deleted immediately.
     //   reject  → reason required; media kept as evidence for 30 days, then auto-purged.
     [HttpPost("{orderId}/return-decision")]
-    [Authorize(Policy = "AdminOnly")]
+    [Authorize]
+    [RequirePerm("orders")]
     public async Task<IActionResult> ReturnDecision(string orderId, [FromBody] ReturnDecisionRequest req)
     {
         var order = await _db.SiteOrders.FirstOrDefaultAsync(o => o.OrderId == orderId);
@@ -1191,7 +1195,8 @@ public class OrdersController : ControllerBase
     //   mode = "auto"   → generate a Delhivery REVERSE pickup from the customer's address.
     // Either way the order moves to "Return Transit".
     [HttpPost("{orderId}/return-awb")]
-    [Authorize(Policy = "AdminOrStaff")]
+    [Authorize]
+    [RequirePerm("orders")]
     public async Task<IActionResult> AssignReturnAwb(string orderId, [FromBody] ReturnAwbRequest req)
     {
         var order = await _db.SiteOrders.FirstOrDefaultAsync(o => o.OrderId == orderId);
@@ -1350,7 +1355,8 @@ public class OrdersController : ControllerBase
     // Auto-creates a FORWARD Delhivery shipment for the order and stores the generated AWB.
     // Falls back with a clear message if Delhivery isn't configured — admin can then enter manually.
     [HttpPost("{orderId}/generate-awb")]
-    [Authorize(Policy = "AdminOrStaff")]
+    [Authorize]
+    [RequirePerm("orders")]
     public async Task<IActionResult> GenerateAwb(string orderId)
     {
         var order = await _db.SiteOrders.FirstOrDefaultAsync(o => o.OrderId == orderId);

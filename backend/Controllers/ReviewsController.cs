@@ -6,6 +6,8 @@ using System.Security.Claims;
 using MahalaxmiApi.Data;
 using MahalaxmiApi.Models;
 
+using MahalaxmiApi.Authorization;
+
 namespace MahalaxmiApi.Controllers;
 
 [ApiController]
@@ -74,7 +76,8 @@ public class ReviewsController : ControllerBase
 
     // GET /api/reviews/pending
     [HttpGet("pending")]
-    [Authorize(Policy = "AdminOnly")]
+    [Authorize]
+    [RequirePerm("reviews")]
     public async Task<IActionResult> GetPending()
     {
         // PERF-7: Select projection — only fetch needed columns, no unnecessary joins
@@ -173,17 +176,20 @@ public class ReviewsController : ControllerBase
 
     // PATCH /api/reviews/{id}/approve
     [HttpPatch("{id:int}/approve")]
-    [Authorize(Policy = "AdminOnly")]
+    [Authorize]
+    [RequirePerm("reviews")]
     public Task<IActionResult> Approve(int id) => SetStatus(id, "approved");
 
     // PATCH /api/reviews/{id}/reject
     [HttpPatch("{id:int}/reject")]
-    [Authorize(Policy = "AdminOnly")]
+    [Authorize]
+    [RequirePerm("reviews")]
     public Task<IActionResult> Reject(int id) => SetStatus(id, "rejected");
 
     // DELETE /api/reviews/{id}
     [HttpDelete("{id:int}")]
-    [Authorize(Policy = "AdminOnly")]
+    [Authorize]
+    [RequirePerm("reviews")]
     public async Task<IActionResult> Delete(int id)
     {
         var review = await _db.Reviews.FindAsync(id);

@@ -5,6 +5,8 @@ using MahalaxmiApi.Data;
 using MahalaxmiApi.Models;
 using MahalaxmiApi.Services;
 
+using MahalaxmiApi.Authorization;
+
 namespace MahalaxmiApi.Controllers;
 
 [ApiController]
@@ -58,7 +60,8 @@ public class PopupLeadsController : ControllerBase
 
     // Admin only — view all leads
     [HttpGet]
-    [Authorize(Policy = "AdminOnly")]
+    [Authorize]
+    [RequirePerm("popup-leads")]
     public async Task<IActionResult> GetAll([FromQuery] int page = 1, [FromQuery] int limit = 50)
     {
         var total = await _db.PopupLeads.CountAsync();
@@ -81,7 +84,8 @@ public class PopupLeadsController : ControllerBase
 
     // Admin — delete a lead
     [HttpDelete("{id:int}")]
-    [Authorize(Policy = "AdminOnly")]
+    [Authorize]
+    [RequirePerm("popup-leads")]
     public async Task<IActionResult> Delete(int id)
     {
         var lead = await _db.PopupLeads.FindAsync(id);

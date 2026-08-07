@@ -8,6 +8,8 @@ using MahalaxmiApi.Data;
 using MahalaxmiApi.DTOs;
 using MahalaxmiApi.Models;
 
+using MahalaxmiApi.Authorization;
+
 namespace MahalaxmiApi.Controllers;
 
 [ApiController]
@@ -127,7 +129,8 @@ public class ProductsController : ControllerBase
 
     // GET /api/products/next-sku  (Admin only)
     [HttpGet("next-sku")]
-    [Authorize(Policy = "AdminOrStaff")]
+    [Authorize]
+    [RequirePerm("products","stock")]
     public async Task<IActionResult> GetNextSku()
     {
         var skus = await _db.Products
@@ -316,7 +319,8 @@ public class ProductsController : ControllerBase
 
     // POST /api/products  (Admin only — bulk replace)
     [HttpPost]
-    [Authorize(Policy = "AdminOrStaff")]
+    [Authorize]
+    [RequirePerm("products")]
     public async Task<IActionResult> BulkSave([FromBody] BulkSaveRequest req)
     {
         if (req.Products is null || req.Products.Count == 0)
@@ -382,7 +386,8 @@ public class ProductsController : ControllerBase
 
     // PUT /api/products/{id}  (Admin only)
     [HttpPut("{id:int}")]
-    [Authorize(Policy = "AdminOrStaff")]
+    [Authorize]
+    [RequirePerm("products")]
     public async Task<IActionResult> Update(int id, [FromBody] ProductCreateRequest req)
     {
         var p = await _db.Products.FindAsync(id);
@@ -409,7 +414,8 @@ public class ProductsController : ControllerBase
     // PATCH /api/products/{id}/stock  (Admin/Staff) — update ONLY the stock status.
     // Lightweight so the Stock Manager toggle doesn't need to resend the whole product.
     [HttpPatch("{id:int}/stock")]
-    [Authorize(Policy = "AdminOrStaff")]
+    [Authorize]
+    [RequirePerm("stock","products")]
     public async Task<IActionResult> UpdateStock(int id, [FromBody] StockUpdateRequest req)
     {
         var p = await _db.Products.FindAsync(id);
@@ -428,7 +434,8 @@ public class ProductsController : ControllerBase
 
     // DELETE /api/products/{id}  (Admin only)
     [HttpDelete("{id:int}")]
-    [Authorize(Policy = "AdminOnly")]
+    [Authorize]
+    [RequirePerm("products")]
     public async Task<IActionResult> Delete(int id)
     {
         var p = await _db.Products.FindAsync(id);
