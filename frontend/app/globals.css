@@ -1408,8 +1408,8 @@ a.footer-app-btn.footer-app-live strong{ color:#fff !important; }
 
 /* ===== Mobile: hero quality badges (Premium Quality / Comfort Fabrics / Trusted Shopping) in ONE row ===== */
 @media (max-width: 600px) {
-  .hero-badges { flex-wrap: nowrap !important; gap: .5rem !important; }
-  .hero-badges > div { gap: .28rem !important; min-width: 0; }
-  .hero-badges > div > span:first-child { font-size: .95rem !important; }
-  .hero-badges > div > span:last-child { font-size: .64rem !important; white-space: nowrap; }
+  .hero-badge-row { flex-wrap: nowrap !important; gap: .45rem !important; margin-top: .7rem !important; }
+  .hero-badge-row > div { gap: .22rem !important; min-width: 0; flex: 0 1 auto; }
+  .hero-badge-row > div > span:first-child { font-size: .82rem !important; }
+  .hero-badge-row > div > span:last-child { font-size: .58rem !important; white-space: nowrap; }
 }
