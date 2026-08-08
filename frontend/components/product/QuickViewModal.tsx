@@ -43,6 +43,7 @@ export default function QuickViewModal({ product, onClose }: Props) {
   const [activeImg, setActiveImg] = useState('');
   const [imgHovered, setImgHovered] = useState(false);
   const [zoomPos, setZoomPos] = useState({ x: 50, y: 50, cx: 0, cy: 0 }); // x/y=% for bg, cx/cy=fixed screen px
+  const [touchZoom, setTouchZoom] = useState(false); // true while zooming via finger on mobile
   const [expanded, setExpanded] = useState(false);
 
   // Parse extraJson
@@ -198,8 +199,9 @@ export default function QuickViewModal({ product, onClose }: Props) {
               position: 'relative',
               borderRadius: '12px', overflow: 'hidden',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
+              touchAction: 'none',
             }}
-              onMouseEnter={() => setImgHovered(true)}
+              onMouseEnter={() => { setImgHovered(true); setTouchZoom(false); }}
               onMouseLeave={() => setImgHovered(false)}
               onMouseMove={e => {
                 const rect = e.currentTarget.getBoundingClientRect();
@@ -210,6 +212,29 @@ export default function QuickViewModal({ product, onClose }: Props) {
                   cy: e.clientY,
                 });
               }}
+              onTouchStart={e => {
+                if (!activeImg) return;
+                setImgHovered(true); setTouchZoom(true);
+                const t = e.touches[0];
+                const rect = e.currentTarget.getBoundingClientRect();
+                setZoomPos({
+                  x: Math.round(((t.clientX - rect.left) / rect.width)  * 100),
+                  y: Math.round(((t.clientY - rect.top)  / rect.height) * 100),
+                  cx: t.clientX, cy: t.clientY,
+                });
+              }}
+              onTouchMove={e => {
+                if (!activeImg) return;
+                const t = e.touches[0];
+                const rect = e.currentTarget.getBoundingClientRect();
+                setZoomPos({
+                  x: Math.round(((t.clientX - rect.left) / rect.width)  * 100),
+                  y: Math.round(((t.clientY - rect.top)  / rect.height) * 100),
+                  cx: t.clientX, cy: t.clientY,
+                });
+              }}
+              onTouchEnd={() => setImgHovered(false)}
+              onTouchCancel={() => setImgHovered(false)}
             >
               {activeImg
                 ? <img src={activeImg} alt={product.name} style={{ maxWidth: '100%', maxHeight: 'clamp(300px, 60vh, 540px)', width: 'auto', height: 'auto', objectFit: 'contain', display: 'block' }} />
@@ -220,7 +245,7 @@ export default function QuickViewModal({ product, onClose }: Props) {
                 <div style={{
                   position: 'fixed',
                   left: zoomPos.cx,
-                  top: zoomPos.cy,
+                  top: touchZoom ? zoomPos.cy - 100 : zoomPos.cy,
                   transform: 'translate(-50%, -50%)',
                   width: '160px', height: '160px',
                   borderRadius: '50%',

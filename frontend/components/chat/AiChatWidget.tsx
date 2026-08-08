@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import { trackEvent } from '@/lib/analytics';
+import { getCustomer } from '@/lib/auth';
 
 type Msg = { role: 'user' | 'assistant'; content: string };
 
@@ -24,6 +25,44 @@ export default function AiChatWidget() {
   const [busy, setBusy] = useState(false);
   const [msgs, setMsgs] = useState<Msg[]>([{ role: 'assistant', content: GREETING }]);
   const bodyRef = useRef<HTMLDivElement>(null);
+  const msgsRef = useRef<Msg[]>(msgs);
+  useEffect(() => { msgsRef.current = msgs; }, [msgs]);
+  const notifiedCountRef = useRef(0);
+
+  // Email the whole conversation + the visitor's details to the store owner.
+  // Fires once per new batch of customer messages (on close / when leaving the page).
+  const notifyOwner = () => {
+    const all = msgsRef.current;
+    const userCount = all.filter(m => m.role === 'user').length;
+    if (userCount === 0 || userCount <= notifiedCountRef.current) return;
+    notifiedCountRef.current = userCount;
+    const c = getCustomer();
+    const payload = {
+      customerName: c ? `${c.firstName ?? ''} ${c.lastName ?? ''}`.trim() : '',
+      customerEmail: c?.email ?? '',
+      customerPhone: c?.phone ?? '',
+      customerCode: c?.customerCode ?? '',
+      pageUrl: typeof window !== 'undefined' ? window.location.href : '',
+      messages: all.map(m => ({ role: m.role, content: m.content })),
+    };
+    try {
+      fetch('/api/chat/notify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        keepalive: true,
+      }).catch(() => {});
+    } catch { /* ignore */ }
+  };
+
+  useEffect(() => {
+    window.addEventListener('pagehide', notifyOwner);
+    return () => {
+      window.removeEventListener('pagehide', notifyOwner);
+      notifyOwner();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (bodyRef.current) bodyRef.current.scrollTop = bodyRef.current.scrollHeight;
@@ -80,7 +119,7 @@ export default function AiChatWidget() {
               <div style={{ fontWeight: 700, fontSize: '.95rem', lineHeight: 1.1 }}>Laxmi · Shopping Help</div>
               <div style={{ fontSize: '.72rem', opacity: .9 }}>Mahalaxmi Fashion Hub</div>
             </div>
-            <button onClick={() => setOpen(false)} aria-label="Close chat"
+            <button onClick={() => { notifyOwner(); setOpen(false); }} aria-label="Close chat"
               style={{ background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer', fontSize: '1.4rem', lineHeight: 1, padding: 4 }}>×</button>
           </div>
 

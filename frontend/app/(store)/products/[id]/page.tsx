@@ -56,6 +56,7 @@ export default function ProductPage({ params }: { params: { id: string } }) {
   const [loading, setLoading] = useState(true);
   const [imgHovered, setImgHovered] = useState(false);
   const [zoomPos, setZoomPos] = useState({ x: 50, y: 50, cx: 0, cy: 0 });
+  const [touchZoom, setTouchZoom] = useState(false);
   const [canReview, setCanReview] = useState(false);
   // Review form
   const [rating, setRating] = useState(5);
@@ -293,8 +294,8 @@ export default function ProductPage({ params }: { params: { id: string } }) {
           <div>
             {/* Outer wrapper: position:relative, NO overflow:hidden — magnifier can spill out */}
             <div
-              style={{ position: 'relative', aspectRatio: '3/4', marginBottom: '.75rem', cursor: imgHovered && activeImg ? 'crosshair' : 'default' }}
-              onMouseEnter={() => setImgHovered(true)}
+              style={{ position: 'relative', aspectRatio: '3/4', marginBottom: '.75rem', cursor: imgHovered && activeImg ? 'crosshair' : 'default', touchAction: 'none' }}
+              onMouseEnter={() => { setImgHovered(true); setTouchZoom(false); }}
               onMouseLeave={() => setImgHovered(false)}
               onMouseMove={e => {
                 const rect = e.currentTarget.getBoundingClientRect();
@@ -305,6 +306,29 @@ export default function ProductPage({ params }: { params: { id: string } }) {
                   cy: e.clientY,
                 });
               }}
+              onTouchStart={e => {
+                if (!activeImg) return;
+                setImgHovered(true); setTouchZoom(true);
+                const t = e.touches[0];
+                const rect = e.currentTarget.getBoundingClientRect();
+                setZoomPos({
+                  x: Math.round(((t.clientX - rect.left) / rect.width)  * 100),
+                  y: Math.round(((t.clientY - rect.top)  / rect.height) * 100),
+                  cx: t.clientX, cy: t.clientY,
+                });
+              }}
+              onTouchMove={e => {
+                if (!activeImg) return;
+                const t = e.touches[0];
+                const rect = e.currentTarget.getBoundingClientRect();
+                setZoomPos({
+                  x: Math.round(((t.clientX - rect.left) / rect.width)  * 100),
+                  y: Math.round(((t.clientY - rect.top)  / rect.height) * 100),
+                  cx: t.clientX, cy: t.clientY,
+                });
+              }}
+              onTouchEnd={() => setImgHovered(false)}
+              onTouchCancel={() => setImgHovered(false)}
             >
               {/* Inner: overflow:hidden clips the image only */}
               <div style={{ position: 'absolute', inset: 0, borderRadius: '12px', overflow: 'hidden', background: '#f5f5f5' }}>
@@ -319,7 +343,7 @@ export default function ProductPage({ params }: { params: { id: string } }) {
                 <div style={{
                   position: 'fixed',
                   left: zoomPos.cx,
-                  top: zoomPos.cy,
+                  top: touchZoom ? zoomPos.cy - 100 : zoomPos.cy,
                   transform: 'translate(-50%, -50%)',
                   width: '160px', height: '160px',
                   borderRadius: '50%',
