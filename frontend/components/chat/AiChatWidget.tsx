@@ -64,6 +64,16 @@ export default function AiChatWidget() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Reliability: also email the owner ~12s after the visitor stops chatting,
+  // so the transcript is captured even if they never press the close button.
+  useEffect(() => {
+    const userCount = msgs.filter(m => m.role === 'user').length;
+    if (userCount === 0 || userCount <= notifiedCountRef.current) return;
+    const t = setTimeout(() => notifyOwner(), 12000);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [msgs]);
+
   useEffect(() => {
     if (bodyRef.current) bodyRef.current.scrollTop = bodyRef.current.scrollHeight;
   }, [msgs, busy, open]);
