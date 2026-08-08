@@ -123,7 +123,39 @@ function AccountContent() {
       </section>
 
       <main className="account-shell" style={{ display: 'block' }}>
+        <style>{`
+          .acct-menu { display:grid; grid-template-columns:repeat(4,1fr); gap:.85rem; margin-bottom:1.5rem; }
+          .acct-menu a { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:.45rem; text-align:center; padding:1.1rem .5rem; background:#fff; border:1px solid #f0dfe4; border-radius:14px; text-decoration:none; color:#7a0a22; font-weight:600; font-size:.86rem; box-shadow:0 2px 8px rgba(122,10,34,.05); transition:transform .12s ease, box-shadow .12s ease, background .12s ease; }
+          .acct-menu a:hover { transform:translateY(-2px); box-shadow:0 6px 16px rgba(122,10,34,.14); background:#fff6f8; }
+          .acct-menu .ico { font-size:1.5rem; line-height:1; }
+          @media (max-width:900px){ .acct-menu { grid-template-columns:repeat(3,1fr); } }
+          @media (max-width:560px){ .acct-menu { grid-template-columns:repeat(2,1fr); gap:.6rem; } .acct-menu a{ padding:.9rem .4rem; font-size:.8rem; } }
+        `}</style>
+
         <section>
+          {/* Quick links to every account section */}
+          <div className="acct-menu">
+            {[
+              { href: '/account',            ico: '🏠', label: 'Dashboard' },
+              { href: '/orders',             ico: '📦', label: 'My Orders' },
+              { href: '/wishlist',           ico: '❤️', label: 'Wishlist' },
+              { href: '/cart',               ico: '🛒', label: 'Cart' },
+              { href: '/account/address',    ico: '📍', label: 'My Address' },
+              { href: '/account/edit',       ico: '✏️', label: 'Edit Profile' },
+              { href: '/account/pan',        ico: '🪪', label: 'PAN Card' },
+              { href: '/account/newsletter', ico: '📧', label: 'Newsletter' },
+              { href: '/account/saved-cards',ico: '💳', label: 'Saved Cards' },
+              { href: '/account/downloads',  ico: '📥', label: 'Downloads' },
+              { href: '/reviews',            ico: '⭐', label: 'My Reviews' },
+              { href: '/tracking',           ico: '🚚', label: 'Track Order' },
+            ].map(l => (
+              <Link key={l.href + l.label} href={l.href}>
+                <span className="ico" aria-hidden="true">{l.ico}</span>
+                <span>{l.label}</span>
+              </Link>
+            ))}
+          </div>
+
           <div className="form-card">
             <h2>Account Dashboard</h2>
             <div className="form-grid" style={{ pointerEvents: 'none' }}>
@@ -137,6 +169,12 @@ function AccountContent() {
               <label>Account Status
                 <input value={customer.accountStatus || 'Active'} readOnly />
               </label>
+            </div>
+            <div style={{ marginTop: '1.25rem', textAlign: 'right' }}>
+              <button type="button" onClick={handleLogout}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '.4rem', padding: '.6rem 1.4rem', background: '#a7354d', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: 700, fontSize: '.9rem', cursor: 'pointer' }}>
+                🔓 Logout
+              </button>
             </div>
           </div>
         </section>
