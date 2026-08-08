@@ -7,8 +7,10 @@ import { COLLECTION_SLUGS } from '@/lib/collections';
 
 const BASE = 'https://www.mahalaxmifashionhub.com';
 
-// Regenerate the sitemap periodically so newly-added products appear automatically.
-export const revalidate = 3600; // 1 hour
+// Build the sitemap fresh on every request (server-side) instead of baking it at
+// build time. This guarantees the FULL live product catalogue is always included —
+// even if the backend API happened to be unreachable during the deploy build.
+export const dynamic = 'force-dynamic';
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticEntries: MetadataRoute.Sitemap = [
