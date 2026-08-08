@@ -136,7 +136,7 @@ export default function Footer() {
             <a className="footer-app-btn footer-app-live"
                href="https://play.google.com/store/apps/details?id=com.mahalaxmifashionhub.www.twa"
                target="_blank" rel="noopener noreferrer">
-              <small>GET IT ON</small><strong>&#9654; Google Play</strong>
+              <small>GET IT ON</small><strong>&#9654; Play Store</strong>
             </a>
           </div>
         </nav>

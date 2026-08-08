@@ -371,10 +371,18 @@ export default function Navbar() {
               }
               .cart-bounce { animation: cartBounce .6s ease; background: #27ae60 !important; }
             `}</style>
-            {!isLoggedIn && (
-              <button type="button" className="account-cta" onClick={openLogin}
-                style={{ border: 'none', cursor: 'pointer' }}>
-                Login / Signup
+            {isLoggedIn ? (
+              <Link className="account-cta account-ico" href="/account"
+                aria-label="My Account" title="My Account">
+                <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm0 2c-3.9 0-7 2.2-7 5v1h14v-1c0-2.8-3.1-5-7-5Z" /></svg>
+                <span>{customerName ? customerName.split(' ')[0] : 'Account'}</span>
+              </Link>
+            ) : (
+              <button type="button" className="account-cta account-ico" onClick={openLogin}
+                aria-label="Login / Signup" title="Login / Signup"
+                style={{ cursor: 'pointer' }}>
+                <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm0 2c-3.9 0-7 2.2-7 5v1h14v-1c0-2.8-3.1-5-7-5Z" /></svg>
+                <span>Login</span>
               </button>
             )}
           </div>

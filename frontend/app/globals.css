@@ -167,6 +167,11 @@ button { cursor: pointer; font-family: inherit; }
   white-space: nowrap;
 }
 .account-cta:hover { background: var(--brand); color: #fff; }
+/* Account icon+label control in the desktop header (login when logged-out, My Account when logged-in) */
+.account-ico { display: inline-flex; align-items: center; gap: .4rem; background: none; }
+.account-ico svg { flex: 0 0 auto; }
+.account-ico:hover { background: var(--brand); color: #fff; }
+.account-ico:hover svg path { fill: #fff; }
 
 /* ─── Primary Button ─── */
 .btn-primary {
