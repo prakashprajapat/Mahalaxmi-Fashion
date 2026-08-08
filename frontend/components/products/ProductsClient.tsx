@@ -15,6 +15,20 @@ function normalizeSub(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9 ]/g, '').replace(/\s+/g, ' ').trim();
 }
 
+// Default ("Featured") ordering: Women first, and within Women show Sarees, then
+// Nighties, then the rest of Women; everything else comes after. Ties break A–Z.
+function defaultRank(p: any): number {
+  const cat = normalizeSub(p.category ?? '');
+  const sub = normalizeSub(p.subcategory ?? '');
+  const isWomen  = cat === 'women' || cat.includes('women');
+  const isSaree  = sub.includes('saree') || sub.includes('sari');
+  const isNighty = sub.includes('nighty') || sub.includes('nightie') || sub.includes('nighti') || sub.includes('night');
+  if (isWomen && isSaree)  return 0;
+  if (isWomen && isNighty) return 1;
+  if (isWomen)             return 2;
+  return 3;
+}
+
 function FilterSection({ title, children, defaultOpen = true }: { title: string; children: React.ReactNode; defaultOpen?: boolean }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
@@ -274,6 +288,13 @@ export default function ProductsClient({ products, title, initialQ = '', banner 
     if (selectedSizes.length > 0) r = r.filter((p: any) => { try { return selectedSizes.some(s => (JSON.parse(p.extraJson ?? '{}').sizes ?? []).includes(s)); } catch { return false; } });
     if (selectedColors.length > 0) r = r.filter((p: any) => { try { const ex = JSON.parse(p.extraJson ?? '{}'); const pc = [...(ex.colors ?? []), ...(ex.customColors ?? []).map((c: any) => c.name).filter(Boolean)]; return selectedColors.some(c => pc.includes(c)); } catch { return false; } });
     switch (sort) {
+      case 'position':
+        // Custom default order (skip when searching so relevance stays intact).
+        if (!q) r.sort((a: any, b: any) => {
+          const ra = defaultRank(a), rb = defaultRank(b);
+          return ra !== rb ? ra - rb : a.name.localeCompare(b.name);
+        });
+        break;
       case 'price-low':  r.sort((a: any, b: any) => finalUnitPrice(a) - finalUnitPrice(b)); break;
       case 'price-high': r.sort((a: any, b: any) => finalUnitPrice(b) - finalUnitPrice(a)); break;
       case 'newest':     r.sort((a: any, b: any) => b.dbId - a.dbId); break;
