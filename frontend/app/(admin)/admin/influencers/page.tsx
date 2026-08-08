@@ -175,7 +175,7 @@ export default function InfluencersAdminPage() {
           <h2 style={{margin:0,fontWeight:800}}>Influencer Marketing</h2>
           <p style={{margin:'.25rem 0 0',color:'#777',fontSize:'.85rem'}}>Manage applications, coupon codes & commissions</p>
         </div>
-        <a href="/influencer" target="_blank" style={{background:'#a7354d',color:'#fff',padding:'.5rem 1rem',borderRadius:'8px',textDecoration:'none',fontSize:'.85rem',fontWeight:600}}>
+        <a href="/influencer" target="_blank" rel="noopener noreferrer" style={{background:'#a7354d',color:'#fff',padding:'.5rem 1rem',borderRadius:'8px',textDecoration:'none',fontSize:'.85rem',fontWeight:600}}>
           🔗 View Apply Page
         </a>
       </div>
