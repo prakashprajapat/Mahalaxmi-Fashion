@@ -106,10 +106,22 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <link rel="dns-prefetch" href="https://res.cloudinary.com" />
         <link rel="dns-prefetch" href="https://www.googletagmanager.com" />
 
-        {/* Hero heading font (elegant serif, close to the Mahalaxmi wordmark) — runtime load, no build dependency */}
+        {/* Preload the hero logo (the LCP element on the home page) so the browser
+            discovers it immediately instead of after HTML parse — fixes "LCP request discovery". */}
+        <link rel="preload" as="image" href="/logo.webp?v=5" />
+
+        {/* Hero heading font (Playfair Display) — loaded NON-render-blocking:
+            fetched with media="print" (so it doesn't block first paint), then a tiny
+            script flips it to "all". display=swap keeps text visible meanwhile. */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&display=swap" rel="stylesheet" />
+        <link
+          id="pf-font"
+          href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&display=swap"
+          rel="stylesheet"
+          media="print"
+        />
+        <Script id="pf-font-swap" strategy="afterInteractive">{`var _l=document.getElementById('pf-font');if(_l){_l.media='all';}`}</Script>
 
         {/* Google Analytics 4 — load right after the page becomes interactive so
             page_view fires reliably on every visit (lazyOnload was too late and
