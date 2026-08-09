@@ -96,6 +96,7 @@ public class SettingsController : ControllerBase
         dict.Remove("msg91AuthKey");        // secret — never expose publicly
         dict.Remove("adminRecoveryPhone");  // owner's private mobile
         dict.Remove("googlePlacesApiKey");  // secret — used server-side only (Google reviews)
+        dict.Remove("vapidPrivateKey");     // secret — Web Push signing key, server-side only
 
         _cache.Set(PublicSettingsCacheKey, dict, TimeSpan.FromMinutes(5));
         return Ok(new { success = true, settings = dict });

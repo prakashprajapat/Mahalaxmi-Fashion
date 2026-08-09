@@ -18,6 +18,8 @@ import { setAnalyticsUserId } from '@/lib/analytics';
 const WelcomePopup = dynamic(() => import('./WelcomePopup'), { ssr: false });
 // AI shopping assistant — client-only, lazy so it never blocks first paint.
 const AiChatWidget = dynamic(() => import('../chat/AiChatWidget'), { ssr: false });
+// Browser/app push notification opt-in — client-only, lazy.
+const PushOptIn = dynamic(() => import('../push/PushOptIn'), { ssr: false });
 
 // The /influencer (affiliate creator portal) is a standalone page — it has its own
 // header/footer and should NOT show the shop navbar, sidebar, footer or popups.
@@ -65,6 +67,7 @@ export default function StoreChrome({ children }: { children: React.ReactNode })
       {/* Single combined launcher (WhatsApp + chatbot) instead of two overlapping floats */}
       <AiChatWidget />
       <HelpFab />
+      <PushOptIn />
     </>
   );
 }

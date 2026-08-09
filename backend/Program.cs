@@ -225,7 +225,23 @@ using (var scope = app.Services.CreateScope())
         );
         UPDATE site_orders SET status = 'Pending'
             WHERE status IN ('Order Received', 'Pending confirmation', 'Paid', 'Order Packed');
+        CREATE TABLE IF NOT EXISTS push_subscriptions (
+            id         SERIAL PRIMARY KEY,
+            endpoint   TEXT NOT NULL UNIQUE,
+            p256dh     TEXT NOT NULL DEFAULT '',
+            auth       TEXT NOT NULL DEFAULT '',
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
     ");
+
+    // Seed Web Push VAPID keys once so push notifications work out of the box.
+    if (!db.SiteSettings.Any(x => x.Key == "vapidPublicKey"))
+        db.SiteSettings.Add(new MahalaxmiApi.Models.SiteSetting { Key = "vapidPublicKey", Value = "BCo-85lQ2ng-FCpfH3RGxkA6vgVC34zaT6wRSGN_WU7k-pVytCRpd1vRMXnlq7S9RpXQXR9leRHqsoh_sAvjfoI" });
+    if (!db.SiteSettings.Any(x => x.Key == "vapidPrivateKey"))
+        db.SiteSettings.Add(new MahalaxmiApi.Models.SiteSetting { Key = "vapidPrivateKey", Value = "8R3Upr3bCiDIlMXf5U7YNu7wXxMOFclG8fgaL1rbTns" });
+    if (!db.SiteSettings.Any(x => x.Key == "vapidSubject"))
+        db.SiteSettings.Add(new MahalaxmiApi.Models.SiteSetting { Key = "vapidSubject", Value = "mailto:mahalaxmifashionhub@gmail.com" });
+    db.SaveChanges();
 }
 
 if (app.Environment.IsDevelopment())

@@ -22,6 +22,7 @@ public class AppDbContext : DbContext
     public DbSet<StaffMember> StaffMembers { get; set; }
     public DbSet<SupplierApplication> SupplierApplications { get; set; }
     public DbSet<WishlistItem> Wishlists   { get; set; }
+    public DbSet<PushSubscription> PushSubscriptions { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
