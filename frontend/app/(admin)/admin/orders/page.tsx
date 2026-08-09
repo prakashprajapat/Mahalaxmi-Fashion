@@ -31,6 +31,29 @@ const RETURN_STATUSES = ['Return Requested', 'Return Transit', 'Return'];
 // doing so would silently pull the order out of the Returns queue.
 const FORWARD_SHIP_STATUSES = ['Ready for Shipping', 'Shipped', 'Delivered'];
 
+// WhatsApp order-update styling for the per-order menu.
+const waItemStyle: CSSProperties = { color: '#075E54', fontWeight: 600, fontSize: '.8rem', textDecoration: 'none', padding: '.18rem .1rem' };
+
+// Build a WhatsApp deep-link (wa.me) so the admin can message the CUSTOMER a
+// pre-filled order update in one click. Number = last 10 digits + India code 91.
+function waCustomerLink(
+  phone: string | undefined,
+  orderId: string,
+  total: number,
+  awb: string | undefined,
+  kind: 'confirm' | 'shipped' | 'delivered' | 'chat',
+): string {
+  const num = '91' + (phone || '').replace(/\D/g, '').slice(-10);
+  const amt = 'Rs.' + (total ?? 0).toLocaleString('en-IN');
+  const messages: Record<string, string> = {
+    confirm:   `Namaste 🙏 *Mahalaxmi Fashion Hub*\nAapka order confirm ho gaya hai ✅\nOrder ID: ${orderId}\nAmount: ${amt}\nHum jaldi hi ise dispatch karenge. Dhanyavaad! 🛍️`,
+    shipped:   `Namaste 🙏 *Mahalaxmi Fashion Hub*\nAapka order ship ho gaya hai 🚚\nOrder ID: ${orderId}${awb ? `\nTracking (AWB): ${awb}` : ''}\nJaldi hi aapke paas pahunch jaayega.`,
+    delivered: `Namaste 🙏 *Mahalaxmi Fashion Hub*\nAapka order deliver ho gaya hai ✅\nOrder ID: ${orderId}\nUmeed hai aapko pasand aaya! Apna review zaroor dein 🙏`,
+    chat:      `Namaste 🙏 *Mahalaxmi Fashion Hub* — aapke order (ID: ${orderId}) ke baare me:`,
+  };
+  return `https://wa.me/${num}?text=${encodeURIComponent(messages[kind])}`;
+}
+
 function exportCSV(orders: Order[]) {
   const header = ['Order ID','Date','Customer','Phone','Email','City','State','Subtotal','Shipping','COD Fee','Total','Method','Status','AWB'];
   const rows = orders.map(o => [
@@ -506,6 +529,17 @@ export default function AdminOrdersPage() {
                         style={{ display: 'block', marginTop: '.35rem', color: '#7a5a2e', background: 'none', border: 'none', cursor: 'pointer', fontSize: '.82rem', fontWeight: 700 }}>
                         🧾 Invoice
                       </button>
+                      {o.customerPhone && (
+                        <details style={{ marginTop: '.4rem' }}>
+                          <summary style={{ cursor: 'pointer', color: '#128C7E', fontWeight: 700, fontSize: '.82rem', listStyle: 'none', userSelect: 'none' }}>📱 WhatsApp ▾</summary>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '.1rem', marginTop: '.3rem', background: '#f0fbf4', border: '1px solid #cdeede', borderRadius: 8, padding: '.4rem .55rem' }}>
+                            <a href={waCustomerLink(o.customerPhone, o.id, o.total, o.awb, 'confirm')} target="_blank" rel="noopener noreferrer" style={waItemStyle}>✅ Confirm</a>
+                            <a href={waCustomerLink(o.customerPhone, o.id, o.total, o.awb, 'shipped')} target="_blank" rel="noopener noreferrer" style={waItemStyle}>🚚 Shipped</a>
+                            <a href={waCustomerLink(o.customerPhone, o.id, o.total, o.awb, 'delivered')} target="_blank" rel="noopener noreferrer" style={waItemStyle}>📦 Delivered</a>
+                            <a href={waCustomerLink(o.customerPhone, o.id, o.total, o.awb, 'chat')} target="_blank" rel="noopener noreferrer" style={waItemStyle}>💬 Open chat</a>
+                          </div>
+                        </details>
+                      )}
                       {RETURN_STATUSES.includes(o.status) && (
                         <button onClick={() => { setShowReject(false); setRejectReason(''); setReturnModalId(o.id); }}
                           style={{ display: 'block', marginTop: '.35rem', color: o.returnDecision === 'rejected' ? '#c62828' : o.returnDecision === 'approved' ? '#2e7d32' : '#a7354d', background: 'none', border: 'none', cursor: 'pointer', fontSize: '.82rem', fontWeight: 700 }}>
