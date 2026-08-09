@@ -1,7 +1,7 @@
 // Service worker for Mahalaxmi Fashion Hub PWA.
-//  - Installability (Add to Home Screen) + a light network-first cache with offline fallback.
+//  - Installability (Add to Home Screen) + a light cache for static assets/images.
 //  - Web Push: shows notifications for offers, restock, cart reminders, order updates.
-const CACHE = 'mfh-v4';
+const CACHE = 'mfh-v5';
 
 self.addEventListener('install', () => {
   self.skipWaiting();
@@ -16,13 +16,26 @@ self.addEventListener('activate', (e) => {
 
 self.addEventListener('fetch', (e) => {
   const req = e.request;
-  // Only handle same-origin GET requests; let the browser handle everything else normally
-  // (cross-origin, POST, RSC prefetch quirks) so we never break those requests.
+  // Only handle same-origin GET requests; let the browser handle everything else.
   if (req.method !== 'GET') return;
-  let sameOrigin = false;
-  try { sameOrigin = new URL(req.url).origin === self.location.origin; } catch { return; }
-  if (!sameOrigin) return;
 
+  let url;
+  try { url = new URL(req.url); } catch { return; }
+  if (url.origin !== self.location.origin) return;
+
+  // CRITICAL: never intercept page navigations, Next.js build assets/data, or API calls.
+  // Letting the browser handle these directly means a slow/flaky mobile connection retries
+  // normally and we NEVER serve a stale page or a "503 Offline" for an HTML document or a
+  // JS chunk. Intercepting them was what crashed the app with
+  // "Application error: a client-side exception has occurred" right after a deploy on slow
+  // networks (a failed chunk fetch returned 503 → the page could not hydrate).
+  if (req.mode === 'navigate') return;
+  if (url.pathname.startsWith('/_next/')) return;
+  if (url.pathname.startsWith('/api/')) return;
+  if (url.searchParams.has('_rsc')) return;   // Next.js RSC prefetch/data — let browser handle
+
+  // For the remaining same-origin GETs (images, icons, fonts, manifest): network-first with
+  // a cached fallback so they still work offline. This can never break page or JS loading.
   e.respondWith((async () => {
     try {
       const res = await fetch(req);
@@ -32,15 +45,10 @@ self.addEventListener('fetch', (e) => {
       }
       return res;
     } catch {
-      // Network failed — serve a cached copy, else ALWAYS return a valid Response
-      // (returning undefined here caused "Failed to convert value to 'Response'").
       const cached = await caches.match(req);
       if (cached) return cached;
-      return new Response('You are offline. Please check your connection.', {
-        status: 503,
-        statusText: 'Offline',
-        headers: { 'Content-Type': 'text/plain; charset=utf-8' },
-      });
+      // Last resort for a non-critical asset (e.g. an image) — a broken asset, never a crash.
+      return new Response('', { status: 504, statusText: 'Offline' });
     }
   })());
 });
