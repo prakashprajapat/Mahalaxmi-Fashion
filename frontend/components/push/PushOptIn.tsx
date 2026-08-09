@@ -5,12 +5,16 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? '/api';
 const DISMISS_KEY = 'mfh_push_dismissed_at';
 const DISMISS_DAYS = 14; // don't nag: re-ask at most every 2 weeks
 
-// VAPID public key is base64url — convert to the Uint8Array the browser needs.
-function urlBase64ToUint8Array(base64String: string): Uint8Array {
+// VAPID public key is base64url — convert to the byte array the browser needs.
+// Built over a fresh ArrayBuffer so the result is a Uint8Array<ArrayBuffer>, which
+// satisfies PushManager.subscribe's `BufferSource` type on the newer TS lib
+// (where a plain `Uint8Array` widens to ArrayBufferLike and fails the build).
+function urlBase64ToUint8Array(base64String: string) {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
   const raw = atob(base64);
-  const out = new Uint8Array(raw.length);
+  const buffer = new ArrayBuffer(raw.length);
+  const out = new Uint8Array(buffer);
   for (let i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
   return out;
 }
@@ -43,7 +47,7 @@ async function subscribe(): Promise<boolean> {
     try {
       sub = await reg.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(publicKey),
+        applicationServerKey: urlBase64ToUint8Array(publicKey) as BufferSource,
       });
     } catch { return false; }
   }
