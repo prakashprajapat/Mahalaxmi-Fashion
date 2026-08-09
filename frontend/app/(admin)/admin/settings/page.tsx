@@ -114,6 +114,14 @@ const SECTIONS = [
       { key: 'adminRecoveryPhone',        label: 'Admin Recovery Mobile (for password-reset OTP SMS, with 91)', type: 'text' },
     ]
   },
+  {
+    title: '📊 Google Analytics — Reliable Purchase Tracking',
+    desc: 'Makes EVERY order show as a Purchase in GA4 — even when the customer\'s browser blocks analytics, or they pay through the app / a UPI redirect. Paste your API secret here: GA4 → Admin → Data Streams → your web stream → "Measurement Protocol API secrets" → Create → copy the Secret value. Leave the Measurement ID blank to use the site default.',
+    fields: [
+      { key: 'ga4ApiSecret',     label: 'GA4 Measurement Protocol API Secret', type: 'password' },
+      { key: 'ga4MeasurementId', label: 'GA4 Measurement ID (optional — defaults to G-SFMFYD4NE6)', type: 'text' },
+    ]
+  },
 ];
 
 export default function AdminSettingsPage() {

@@ -5,7 +5,7 @@ import { getCart, cartTotal, clearCart, cartShipping, finalUnitPrice, unitBase }
 import PincodeChecker from '@/components/checkout/PincodeChecker';
 import { getCustomer, getToken } from '@/lib/auth';
 import { ordersApi, paymentsApi, cashfreeApi, couponsApi, settingsApi } from '@/lib/api';
-import { trackEvent, toGa4Items, trackAdsConversion } from '@/lib/analytics';
+import { trackEvent, toGa4Items, trackAdsConversion, getGaClientId } from '@/lib/analytics';
 import type { CartItem, Customer } from '@/types';
 
 // Map cart items → GA4 ecommerce items.
@@ -370,6 +370,7 @@ export default function CheckoutPage() {
         shippingPincode: shipping.pincode,
         shippingState: shipping.state,
         placedAt: new Date().toISOString(),
+        gaClientId: getGaClientId(),
       });
       trackEvent('purchase', {
         transaction_id: localOrderId,
@@ -441,6 +442,7 @@ export default function CheckoutPage() {
             shippingPincode: shipping.pincode,
             shippingState: shipping.state,
             placedAt: new Date().toISOString(),
+            gaClientId: getGaClientId(),
           });
           // GA4: successful purchase (fired before clearing the cart so items are still available).
           trackEvent('purchase', {

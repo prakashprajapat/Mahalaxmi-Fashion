@@ -452,6 +452,33 @@ public class OrdersController : ControllerBase
         if (existing is null || isWebhookRecovery)
             await _sms.SendNewOrderSmsAsync(req.CustomerPhone, orderId, serverTotal);
 
+        // GA4 server-side 'purchase' — guarantees every order is counted in Analytics even
+        // when the buyer's browser blocked gtag / paid via the app / UPI redirect. GA4 dedupes
+        // by transaction_id, so this never double-counts the client-side event. No-op until
+        // ga4ApiSecret is set in Settings; never throws (best-effort analytics).
+        if (existing is null || isWebhookRecovery)
+        {
+            var ga4Secret = await _db.SiteSettings.Where(s => s.Key == "ga4ApiSecret")
+                .Select(s => s.Value).FirstOrDefaultAsync() ?? "";
+            if (!string.IsNullOrWhiteSpace(ga4Secret))
+            {
+                var ga4Mid = (await _db.SiteSettings.Where(s => s.Key == "ga4MeasurementId")
+                    .Select(s => s.Value).FirstOrDefaultAsync()) ?? "G-SFMFYD4NE6";
+                if (string.IsNullOrWhiteSpace(ga4Mid)) ga4Mid = "G-SFMFYD4NE6";
+
+                var ga4Items = (req.Cart ?? new List<CartLineDto>())
+                    .Select(c => (
+                        id: (c.Sku ?? "").Trim(),
+                        name: (c.Name ?? "").Trim(),
+                        qty: Math.Max(1, c.Quantity),
+                        price: c.Price))
+                    .ToList();
+
+                await Services.Ga4Mp.SendPurchaseAsync(
+                    ga4Mid, ga4Secret, req.GaClientId, orderId, serverTotal, "INR", ga4Items);
+            }
+        }
+
         return Ok(new { success = true, orderId });
     }
 

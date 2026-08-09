@@ -91,7 +91,10 @@ public record PlaceOrderRequest(
     string? PanNumber = null,
     string? PanName = null,
     string? CouponCode = null,
-    decimal DiscountAmount = 0
+    decimal DiscountAmount = 0,
+    // GA4 client id (from the browser's _ga cookie) so the server-side purchase
+    // event attributes to the same GA4 session as the shopper.
+    string? GaClientId = null
 );
 
 public record AdminUpdateOrderRequest(

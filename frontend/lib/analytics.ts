@@ -66,6 +66,19 @@ export function trackAdsConversion(p: { value?: number; currency?: string; trans
   } catch { /* best-effort — never throw */ }
 }
 
+// Read the GA4 client id from the browser's _ga cookie (format: GA1.1.<clientId>).
+// Sent with the order so the SERVER-side purchase event (Measurement Protocol) attributes
+// to the same GA4 session/user as the shopper. Returns '' if GA hasn't set the cookie yet.
+export function getGaClientId(): string {
+  if (typeof document === 'undefined') return '';
+  try {
+    const m = document.cookie.match(/_ga=GA\d\.\d\.(\d+\.\d+)/);
+    return m ? m[1] : '';
+  } catch {
+    return '';
+  }
+}
+
 // GA4 "Set up User ID" — tie a logged-in customer's sessions across devices to one identity.
 // Call after login (and on load if already logged in). Never send PII; use the internal id only.
 export function setAnalyticsUserId(id: string | number | null | undefined): void {
