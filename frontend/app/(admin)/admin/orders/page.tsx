@@ -38,6 +38,7 @@ const waItemStyle: CSSProperties = { color: '#075E54', fontWeight: 600, fontSize
 // pre-filled order update in one click. Number = last 10 digits + India code 91.
 function waCustomerLink(
   phone: string | undefined,
+  name: string | undefined,
   orderId: string,
   total: number,
   awb: string | undefined,
@@ -45,11 +46,33 @@ function waCustomerLink(
 ): string {
   const num = '91' + (phone || '').replace(/\D/g, '').slice(-10);
   const amt = 'Rs.' + (total ?? 0).toLocaleString('en-IN');
+  const who = (name || '').trim() || 'Customer';
   const messages: Record<string, string> = {
-    confirm:   `Namaste 🙏 *Mahalaxmi Fashion Hub*\nAapka order confirm ho gaya hai ✅\nOrder ID: ${orderId}\nAmount: ${amt}\nHum jaldi hi ise dispatch karenge. Dhanyavaad! 🛍️`,
-    shipped:   `Namaste 🙏 *Mahalaxmi Fashion Hub*\nAapka order ship ho gaya hai 🚚\nOrder ID: ${orderId}${awb ? `\nTracking (AWB): ${awb}` : ''}\nJaldi hi aapke paas pahunch jaayega.`,
-    delivered: `Namaste 🙏 *Mahalaxmi Fashion Hub*\nAapka order deliver ho gaya hai ✅\nOrder ID: ${orderId}\nUmeed hai aapko pasand aaya! Apna review zaroor dein 🙏`,
-    chat:      `Namaste 🙏 *Mahalaxmi Fashion Hub* — aapke order (ID: ${orderId}) ke baare me:`,
+    confirm:   `Hello ${who},
+
+Your order has been confirmed.
+Order ID: ${orderId}
+Amount: ${amt}
+
+We will dispatch it soon. Thank you for shopping with Mahalaxmi Fashion Hub.`,
+    shipped:   `Hello ${who},
+
+Good news! Your order has been shipped.
+Order ID: ${orderId}${awb ? `
+Tracking (AWB): ${awb}` : ''}
+
+It will reach you soon.
+- Mahalaxmi Fashion Hub`,
+    delivered: `Hello ${who},
+
+Your order has been delivered.
+Order ID: ${orderId}
+
+We hope you love it! Please share your feedback and review.
+- Mahalaxmi Fashion Hub`,
+    chat:      `Hello ${who},
+
+Regarding your order (ID: ${orderId}) from Mahalaxmi Fashion Hub:`,
   };
   return `https://wa.me/${num}?text=${encodeURIComponent(messages[kind])}`;
 }
@@ -533,10 +556,10 @@ export default function AdminOrdersPage() {
                         <details style={{ marginTop: '.4rem' }}>
                           <summary style={{ cursor: 'pointer', color: '#128C7E', fontWeight: 700, fontSize: '.82rem', listStyle: 'none', userSelect: 'none' }}>📱 WhatsApp ▾</summary>
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '.1rem', marginTop: '.3rem', background: '#f0fbf4', border: '1px solid #cdeede', borderRadius: 8, padding: '.4rem .55rem' }}>
-                            <a href={waCustomerLink(o.customerPhone, o.id, o.total, o.awb, 'confirm')} target="_blank" rel="noopener noreferrer" style={waItemStyle}>✅ Confirm</a>
-                            <a href={waCustomerLink(o.customerPhone, o.id, o.total, o.awb, 'shipped')} target="_blank" rel="noopener noreferrer" style={waItemStyle}>🚚 Shipped</a>
-                            <a href={waCustomerLink(o.customerPhone, o.id, o.total, o.awb, 'delivered')} target="_blank" rel="noopener noreferrer" style={waItemStyle}>📦 Delivered</a>
-                            <a href={waCustomerLink(o.customerPhone, o.id, o.total, o.awb, 'chat')} target="_blank" rel="noopener noreferrer" style={waItemStyle}>💬 Open chat</a>
+                            <a href={waCustomerLink(o.customerPhone, o.customerName, o.id, o.total, o.awb, 'confirm')} target="_blank" rel="noopener noreferrer" style={waItemStyle}>✅ Confirm</a>
+                            <a href={waCustomerLink(o.customerPhone, o.customerName, o.id, o.total, o.awb, 'shipped')} target="_blank" rel="noopener noreferrer" style={waItemStyle}>🚚 Shipped</a>
+                            <a href={waCustomerLink(o.customerPhone, o.customerName, o.id, o.total, o.awb, 'delivered')} target="_blank" rel="noopener noreferrer" style={waItemStyle}>📦 Delivered</a>
+                            <a href={waCustomerLink(o.customerPhone, o.customerName, o.id, o.total, o.awb, 'chat')} target="_blank" rel="noopener noreferrer" style={waItemStyle}>💬 Open chat</a>
                           </div>
                         </details>
                       )}
