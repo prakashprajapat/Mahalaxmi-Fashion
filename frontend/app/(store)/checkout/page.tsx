@@ -493,16 +493,21 @@ export default function CheckoutPage() {
       <script src="https://sdk.cashfree.com/js/v3/cashfree.js" async />
       <script src="https://checkout.razorpay.com/v1/checkout.js" async />
       <style>{`
+        /* Grid items default to min-width:auto, which refuses to shrink below their
+           content and pushes the layout off-screen (the bug seen in the mobile app).
+           min-width:0 lets tracks actually shrink so nothing overflows to the right. */
+        .checkout-outer-grid, .checkout-shipping-grid, .checkout-pan-grid { min-width: 0; }
+        .checkout-outer-grid > *, .checkout-shipping-grid > *, .checkout-pan-grid > * { min-width: 0; }
         @media (max-width: 700px) {
-          .checkout-outer-grid { grid-template-columns: 1fr !important; }
-          .checkout-shipping-grid { grid-template-columns: 1fr !important; }
-          .checkout-pan-grid { grid-template-columns: 1fr !important; }
+          .checkout-outer-grid { grid-template-columns: minmax(0, 1fr) !important; }
+          .checkout-shipping-grid { grid-template-columns: minmax(0, 1fr) !important; }
+          .checkout-pan-grid { grid-template-columns: minmax(0, 1fr) !important; }
           .checkout-summary { position: static !important; }
         }
       `}</style>
       <h1 style={{ fontSize: '1.75rem', fontWeight: 700, marginBottom: '1.5rem', color: '#a7354d' }}>Checkout</h1>
 
-      <div className="checkout-outer-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: '2rem', alignItems: 'start' }}>
+      <div className="checkout-outer-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 320px', gap: '2rem', alignItems: 'start' }}>
         {/* Left: Shipping + Payment */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
           {!customer && (
@@ -523,7 +528,7 @@ export default function CheckoutPage() {
             <input type="text" name="website" value={honeypot} onChange={e => setHoneypot(e.target.value)}
               style={{ display: 'none' }} tabIndex={-1} autoComplete="off" aria-hidden="true" />
             <h2 style={{ fontWeight: 700, fontSize: '1.1rem', marginBottom: '1.25rem' }}>Shipping Details</h2>
-            <div className="checkout-shipping-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+            <div className="checkout-shipping-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: '1rem' }}>
               {/* Full Name */}
               <div>
                 <label style={{ fontSize: '.85rem', fontWeight: 600, display: 'block', marginBottom: '.3rem' }}>Full Name *</label>
@@ -579,7 +584,7 @@ export default function CheckoutPage() {
               <p style={{ fontSize: '.85rem', color: '#666', marginBottom: '1rem' }}>
                 As per government regulations, PAN details are mandatory for orders above ₹2,000.
               </p>
-              <div className="checkout-pan-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <div className="checkout-pan-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: '1rem' }}>
                 <div>
                   <label style={{ fontSize: '.85rem', fontWeight: 600, display: 'block', marginBottom: '.3rem' }}>PAN Number *</label>
                   <input value={panData.panNumber} onChange={e => setPanData(p => ({ ...p, panNumber: e.target.value.toUpperCase() }))}
