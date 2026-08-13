@@ -482,6 +482,30 @@ public class OrdersController : ControllerBase
         return Ok(new { success = true, orderId });
     }
 
+    // DELETE /api/orders/{orderId}  (Admin only — permanently removes an order).
+    // Used to clear out test orders. Also removes any linked payment-gateway rows and
+    // return-media folder so nothing is left orphaned.
+    [HttpDelete("{orderId}")]
+    [Authorize(Policy = "AdminOnly")]
+    public async Task<IActionResult> DeleteOrder(string orderId)
+    {
+        var id = CleanOrderId(orderId);
+        var order = await _db.SiteOrders.FirstOrDefaultAsync(o => o.OrderId == id);
+        if (order is null) return NotFound(new { success = false, message = "Order not found" });
+
+        var rz = await _db.RazorpayOrders.Where(r => r.LocalOrderId == id).ToListAsync();
+        if (rz.Count > 0) _db.RazorpayOrders.RemoveRange(rz);
+        var cf = await _db.CashfreeOrders.Where(c => c.LocalOrderId == id).ToListAsync();
+        if (cf.Count > 0) _db.CashfreeOrders.RemoveRange(cf);
+
+        _db.SiteOrders.Remove(order);
+        await _db.SaveChangesAsync();
+
+        try { DeleteReturnMediaDir(id); } catch { /* best-effort cleanup */ }
+
+        return Ok(new { success = true, orderId = id });
+    }
+
     // PATCH /api/orders/status  (Admin only)
     [HttpPatch("status")]
     [Authorize]

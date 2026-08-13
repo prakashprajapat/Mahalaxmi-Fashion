@@ -104,6 +104,11 @@ export const ordersApi = {
     request<{ success: boolean; order: import('@/types').Order }>(
       `/orders/${orderId}/cancel`, { method: 'PATCH' }, token
     ),
+  // Admin-only: permanently delete an order (used to clear test orders).
+  deleteOrder: (orderId: string, token: string) =>
+    request<{ success: boolean; orderId: string }>(
+      `/orders/${orderId}`, { method: 'DELETE' }, token
+    ),
 
   // Open the customer invoice (HTML) in a new tab. JWT can't ride a plain link, so we
   // fetch with the auth header then render from a blob URL. Backend enforces 12-month expiry.

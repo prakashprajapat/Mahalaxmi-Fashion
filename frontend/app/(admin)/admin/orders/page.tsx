@@ -339,6 +339,23 @@ export default function AdminOrdersPage() {
     fetchOrders();
   };
 
+  // Admin-only: permanently delete the selected orders (for clearing test orders).
+  // Double-confirm because it cannot be undone.
+  const bulkDelete = async () => {
+    if (!selectedIds.size) return;
+    const ids = [...selectedIds];
+    if (!confirm(`Permanently DELETE ${ids.length} order(s)?\n\n${ids.join('\n')}\n\n⚠️ This cannot be undone. Use only to remove test orders.`)) return;
+    if (!confirm(`Last check — really delete ${ids.length} order(s) forever?`)) return;
+    const token = getAdminToken() ?? '';
+    let ok = 0, fail = 0;
+    for (const id of ids) {
+      try { await ordersApi.deleteOrder(id, token); ok++; } catch { fail++; }
+    }
+    setSelectedIds(new Set());
+    fetchOrders();
+    alert(`Deleted ${ok} order(s)${fail ? `, ${fail} failed (admin login required)` : ''}.`);
+  };
+
   const downloadShippingLabel = (order: Order) => openOrderLabels([order]);
 
   return (
@@ -445,6 +462,7 @@ export default function AdminOrdersPage() {
             </>
           )}
           <button onClick={() => openOrderLabels(filtered.filter(o => selectedIds.has(o.id)))} style={{ background: '#1565c0', color: '#fff', border: 'none', borderRadius: '6px', padding: '.35rem .75rem', fontSize: '.8rem', cursor: 'pointer', fontWeight: 700 }}>⬇ Labels PDF ({selectedIds.size})</button>
+          <button onClick={bulkDelete} title="Permanently delete selected orders (admin only)" style={{ background: '#7a0a22', color: '#fff', border: 'none', borderRadius: '6px', padding: '.35rem .75rem', fontSize: '.8rem', cursor: 'pointer', fontWeight: 700 }}>🗑 Delete ({selectedIds.size})</button>
           <button onClick={() => setSelectedIds(new Set())} style={{ background: '#f5f5f5', border: 'none', borderRadius: '6px', padding: '.35rem .75rem', fontSize: '.8rem', cursor: 'pointer' }}>Clear</button>
         </div>
       )}
