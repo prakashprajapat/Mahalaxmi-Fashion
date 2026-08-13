@@ -10,7 +10,7 @@ export const LABEL_CSS = `
       @page{size:4in 6in;margin:0}
       html,body{margin:0;padding:0}
       body{font-family:Arial,Helvetica,sans-serif;color:#111;background:#fff}
-      .label{width:4in;min-height:6in;margin:0 auto;border:1px solid #111;padding:22px 8px 7px 8px;page-break-after:always}
+      .label{width:calc(4in - 8px);min-height:calc(6in - 10px);margin:4px auto;border:1px solid #111;padding:12px 8px 6px 8px;page-break-after:always}
       .label:last-child{page-break-after:auto}
       .top{position:relative;text-align:center;padding-top:2px}
       .brand-logo{width:135px;height:auto;object-fit:contain;display:inline-block}
@@ -21,7 +21,7 @@ export const LABEL_CSS = `
       .lbl{font-size:7px;font-weight:700;letter-spacing:.06em;color:#333}
       .cols{display:flex;gap:5px}.cols>.box{flex:1;margin-top:0}
       .awbnum{font-size:12px;font-weight:800;letter-spacing:.08em;text-align:center;margin-top:1px}
-      .bc{display:block;width:100%;height:26px}
+      .bc{display:block;width:100%;height:17px}
       .qr{width:58px;height:58px;flex-shrink:0;display:block}
       .to{font-size:11px;font-weight:800;margin:1px 0}
       .txt{font-size:8px}
@@ -33,12 +33,16 @@ export const LABEL_CSS = `
       .taxrow.total{font-weight:800;border-top:1px solid #999;margin-top:2px;padding-top:2px}
       .foot{font-size:7px;font-weight:700;margin-top:5px}
       .foot .muted{font-weight:400;color:#555}
-      @media print{body{margin:0}.label{margin:0;width:4in;border:1px solid #111}}`;
+      @media print{body{margin:0}.label{margin:4px auto;width:calc(4in - 8px);border:1px solid #111}}`;
 
 export const buildLabelBody = (order: Order): string => {
     const esc = (s: string | number | null | undefined) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] as string));
     const money = (n: number) => 'Rs.' + Number(n || 0).toFixed(2);
     const awb = order.awb || '';
+    // Both the barcode AND the QR encode this same value — the AWB number when the order
+    // has one (falls back to the order id only for orders that don't have an AWB yet, so the
+    // code is never blank). Print labels after assigning the AWB and both carry the AWB.
+    const codeVal = awb || order.id;
     const courier = (order.courier || '').trim();
     const showCourier = !!awb && !!courier;
     const gstRate = Number(order.cart[0]?.gstRate) || 5;
@@ -71,11 +75,11 @@ export const buildLabelBody = (order: Order): string => {
         <div class="lbl" style="margin-bottom:4px">AWB / TRACKING ID</div>
         <div style="display:flex;align-items:center;gap:8px">
           <div style="flex:1;min-width:0">
-            <svg class="bc" data-code="${esc(awb || order.id)}"></svg>
+            <svg class="bc" data-code="${esc(codeVal)}"></svg>
             <div class="awbnum">${esc(awb || 'PENDING')}</div>
           </div>
           <img class="qr" alt="QR" onerror="this.style.display='none'"
-            src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&margin=0&data=${encodeURIComponent(awb || order.id)}" />
+            src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&margin=0&data=${encodeURIComponent(codeVal)}" />
         </div>
       </div>
       <div class="cols" style="margin-top:5px">
