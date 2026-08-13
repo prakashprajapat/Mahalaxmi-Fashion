@@ -15,7 +15,7 @@ export const LABEL_CSS = `
       .top{position:relative;text-align:center;padding-top:2px}
       .brand-logo{width:135px;height:auto;object-fit:contain;display:inline-block}
       .web{font-size:12px;color:#a7354d;font-weight:700;margin-top:0}
-      .courier-mini{position:absolute;top:0;right:0;background:#111;color:#fff;font-weight:900;font-size:11px;padding:3px 7px;border-radius:3px;letter-spacing:.03em;white-space:nowrap}
+      .courier-mini{position:absolute;top:0;right:0;color:#111;font-weight:800;font-size:11px;letter-spacing:.03em;white-space:nowrap}
       .taxinv{position:absolute;top:0;left:0;font-size:8px;font-weight:800;color:#111}
       .box{border:1px solid #111;padding:4px 6px;margin-top:-1px}
       .lbl{font-size:7px;font-weight:700;letter-spacing:.06em;color:#333}
