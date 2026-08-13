@@ -24,7 +24,7 @@ export const LABEL_CSS = `
       .codewrap{display:flex;align-items:stretch;gap:6px;margin-top:3px}
       .bcbox{flex:1;min-width:0;border:1px solid #111;padding:3px 2px;display:flex;flex-direction:column;justify-content:center}
       .qrbox{border:1px solid #111;padding:2px;display:flex;align-items:center;justify-content:center}
-      .bc{display:block;width:75%;height:22px;margin:0 auto}
+      .bc{display:block;width:75%;height:30px;margin:0 auto}
       .qr{width:58px;height:58px;flex-shrink:0;display:block}
       .to{font-size:11px;font-weight:800;margin:1px 0}
       .txt{font-size:8px}
@@ -34,7 +34,7 @@ export const LABEL_CSS = `
       .tax{display:flex;gap:8px}.tax .left{flex:1.3}.tax .right{flex:1}
       .taxrow{display:flex;justify-content:space-between;font-size:8px;padding:0}
       .taxrow.total{font-weight:800;border-top:1px solid #999;margin-top:2px;padding-top:2px}
-      .foot{font-size:7px;font-weight:700;margin-top:5px}
+      .foot{font-size:9.5px;font-weight:700;margin-top:5px;text-align:center}
       .foot .muted{font-weight:400;color:#555}
       @media print{body{margin:0}.label{border:1px solid #111}}`;
 
