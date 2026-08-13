@@ -17,11 +17,14 @@ export const LABEL_CSS = `
       .web{font-size:12px;color:#a7354d;font-weight:700;margin-top:0}
       .courier-mini{position:absolute;top:0;right:0;background:#111;color:#fff;font-weight:800;font-size:7px;padding:2px 5px;border-radius:3px;letter-spacing:.03em;white-space:nowrap}
       .taxinv{position:absolute;top:0;left:0;font-size:8px;font-weight:800;color:#111}
-      .box{border:1px solid #111;padding:4px 6px;margin-top:5px}
+      .box{border:1px solid #111;padding:4px 6px;margin-top:-1px}
       .lbl{font-size:7px;font-weight:700;letter-spacing:.06em;color:#333}
-      .cols{display:flex;gap:5px}.cols>.box{flex:1;margin-top:0}
+      .cols{display:flex;gap:0;margin-top:-1px}.cols>.box{flex:1;margin-top:0}.cols>.box+.box{margin-left:-1px}
       .awbnum{font-size:12px;font-weight:800;letter-spacing:.08em;text-align:center;margin-top:1px}
-      .bc{display:block;width:100%;height:17px}
+      .codewrap{display:flex;align-items:stretch;gap:6px;margin-top:3px}
+      .bcbox{flex:1;min-width:0;border:1px solid #111;padding:3px 2px;display:flex;flex-direction:column;justify-content:center}
+      .qrbox{border:1px solid #111;padding:2px;display:flex;align-items:center;justify-content:center}
+      .bc{display:block;width:75%;height:22px;margin:0 auto}
       .qr{width:58px;height:58px;flex-shrink:0;display:block}
       .to{font-size:11px;font-weight:800;margin:1px 0}
       .txt{font-size:8px}
@@ -71,18 +74,20 @@ export const buildLabelBody = (order: Order): string => {
         <img class="brand-logo" src="https://mahalaxmifashionhub.com/email-logo.png" alt="logo" />
         <div class="web">www.mahalaxmifashionhub.com</div>
       </div>
-      <div class="box">
-        <div class="lbl" style="margin-bottom:4px">AWB / TRACKING ID</div>
-        <div style="display:flex;align-items:center;gap:8px">
-          <div style="flex:1;min-width:0">
+      <div class="box" style="margin-top:3px">
+        <div class="lbl">AWB / TRACKING ID</div>
+        <div class="codewrap">
+          <div class="bcbox">
             <svg class="bc" data-code="${esc(codeVal)}"></svg>
             <div class="awbnum">${esc(awb || 'PENDING')}</div>
           </div>
-          <img class="qr" alt="QR" onerror="this.style.display='none'"
-            src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&margin=0&data=${encodeURIComponent(codeVal)}" />
+          <div class="qrbox">
+            <img class="qr" alt="QR" onerror="this.style.display='none'"
+              src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&margin=0&data=${encodeURIComponent(codeVal)}" />
+          </div>
         </div>
       </div>
-      <div class="cols" style="margin-top:5px">
+      <div class="cols">
         <div class="box"><div class="lbl">ORDER ID</div><div class="big">${esc(order.id)}</div></div>
         <div class="box"><div class="lbl">PAYMENT</div><div class="big">${esc(payment)}</div></div>
       </div>
@@ -112,7 +117,7 @@ export const buildLabelBody = (order: Order): string => {
           <div class="taxrow total"><span>Invoice Total</span><span>${money(invoiceTotal)}</span></div>
         </div>
       </div>
-      <div class="cols" style="margin-top:5px">
+      <div class="cols">
         <div class="box"><div class="lbl">SELLER / PICKUP</div><div class="txt">Mahalaxmi Fashion Hub, Balotra, Rajasthan - 344022</div></div>
         <div class="box"><div class="lbl">DELIVERY PARTNER</div><div class="txt">${showCourier ? esc(courier) + ' | ' : ''}AWB: ${esc(awb || 'PENDING')}</div></div>
       </div>
