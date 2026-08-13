@@ -7,10 +7,10 @@ import type { Order } from '@/types';
   // Shared 4x6 label styles (one label per printed page)
 export const LABEL_CSS = `
       *{box-sizing:border-box}
-      @page{size:4in 6in;margin:0}
+      @page{size:4in 6in;margin:3mm}
       html,body{margin:0;padding:0}
       body{font-family:Arial,Helvetica,sans-serif;color:#111;background:#fff}
-      .label{width:calc(4in - 8px);min-height:calc(6in - 10px);margin:4px auto;border:1px solid #111;padding:12px 8px 6px 8px;page-break-after:always}
+      .label{min-height:calc(6in - 8mm);margin:0;border:1px solid #111;padding:10px 8px 6px 8px;page-break-after:always}
       .label:last-child{page-break-after:auto}
       .top{position:relative;text-align:center;padding-top:2px}
       .brand-logo{width:135px;height:auto;object-fit:contain;display:inline-block}
@@ -33,7 +33,7 @@ export const LABEL_CSS = `
       .taxrow.total{font-weight:800;border-top:1px solid #999;margin-top:2px;padding-top:2px}
       .foot{font-size:7px;font-weight:700;margin-top:5px}
       .foot .muted{font-weight:400;color:#555}
-      @media print{body{margin:0}.label{margin:4px auto;width:calc(4in - 8px);border:1px solid #111}}`;
+      @media print{body{margin:0}.label{border:1px solid #111}}`;
 
 export const buildLabelBody = (order: Order): string => {
     const esc = (s: string | number | null | undefined) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] as string));
