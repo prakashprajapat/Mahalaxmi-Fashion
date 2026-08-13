@@ -14,14 +14,15 @@ export const LABEL_CSS = `
       .label:last-child{page-break-after:auto}
       .top{position:relative;text-align:center;padding-top:2px}
       .brand-logo{width:135px;height:auto;object-fit:contain;display:inline-block}
-      .web{font-size:9px;color:#a7354d;font-weight:700;margin-top:0}
+      .web{font-size:12px;color:#a7354d;font-weight:700;margin-top:0}
       .courier-mini{position:absolute;top:0;right:0;background:#111;color:#fff;font-weight:800;font-size:7px;padding:2px 5px;border-radius:3px;letter-spacing:.03em;white-space:nowrap}
-      .doctitle{font-size:10px;font-weight:800;margin:3px 0 4px;text-align:center}
+      .taxinv{position:absolute;top:0;left:0;font-size:8px;font-weight:800;color:#111}
       .box{border:1px solid #111;padding:4px 6px;margin-top:5px}
       .lbl{font-size:7px;font-weight:700;letter-spacing:.06em;color:#333}
       .cols{display:flex;gap:5px}.cols>.box{flex:1;margin-top:0}
       .awbnum{font-size:12px;font-weight:800;letter-spacing:.08em;text-align:center;margin-top:1px}
-      .bc{display:block;width:100%;height:34px}
+      .bc{display:block;width:100%;height:26px}
+      .qr{width:58px;height:58px;flex-shrink:0;display:block}
       .to{font-size:11px;font-weight:800;margin:1px 0}
       .txt{font-size:8px}
       .big{font-weight:800;font-size:11px}
@@ -47,7 +48,7 @@ export const buildLabelBody = (order: Order): string => {
     const totalTax = invoiceTotal - taxable;
     const cgst = totalTax / 2;
     const totalQty = order.cart.reduce((s, i) => s + i.quantity, 0);
-    const payment = (order.method || '').toLowerCase() === 'cod' ? 'COD' : (order.method || 'PREPAID').toUpperCase();
+    const payment = (order.method || '').toLowerCase() === 'cod' ? 'COD' : 'Prepaid';
     const placed = new Date(order.placedAt ?? order.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
     const shipTo = [order.shippingAddress, order.shippingCity, order.shippingState, order.shippingPincode].filter(Boolean).map(esc).join(', ');
     const productRows = order.cart.map((it, i) => `
@@ -61,23 +62,28 @@ export const buildLabelBody = (order: Order): string => {
     return `
     <div class="label">
       <div class="top">
+        <div class="taxinv">Tax Invoice</div>
         ${showCourier ? `<div class="courier-mini">${esc(courier.toUpperCase())}</div>` : ''}
         <img class="brand-logo" src="https://mahalaxmifashionhub.com/email-logo.png" alt="logo" />
         <div class="web">www.mahalaxmifashionhub.com</div>
       </div>
-      <div class="doctitle">TAX INVOICE / ${showCourier ? esc(courier.toUpperCase()) + ' ' : ''}SHIPPING LABEL</div>
       <div class="box">
-        <div class="lbl">AWB / TRACKING ID</div>
-        <svg class="bc" data-code="${esc(awb || order.id)}"></svg>
-        <div class="awbnum">${esc(awb || 'PENDING')}</div>
+        <div class="lbl" style="margin-bottom:4px">AWB / TRACKING ID</div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="flex:1;min-width:0">
+            <svg class="bc" data-code="${esc(awb || order.id)}"></svg>
+            <div class="awbnum">${esc(awb || 'PENDING')}</div>
+          </div>
+          <img class="qr" alt="QR" onerror="this.style.display='none'"
+            src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&margin=0&data=${encodeURIComponent(awb || order.id)}" />
+        </div>
       </div>
       <div class="cols" style="margin-top:5px">
         <div class="box"><div class="lbl">ORDER ID</div><div class="big">${esc(order.id)}</div></div>
         <div class="box"><div class="lbl">PAYMENT</div><div class="big">${esc(payment)}</div></div>
       </div>
       <div class="box">
-        <div class="lbl">SHIP TO</div>
-        <div class="to">${esc(order.shippingName || order.customerName || '')}</div>
+        <div><span class="lbl">SHIP TO:</span> <span class="to">${esc(order.shippingName || order.customerName || '')}</span></div>
         <div class="txt">${shipTo}</div>
       </div>
       <div class="box">
@@ -99,7 +105,6 @@ export const buildLabelBody = (order: Order): string => {
           <div class="taxrow"><span>Taxable Value</span><span>${money(taxable)}</span></div>
           <div class="taxrow"><span>CGST</span><span>${money(cgst)}</span></div>
           <div class="taxrow"><span>SGST</span><span>${money(cgst)}</span></div>
-          <div class="taxrow total"><span>Total Tax</span><span>${money(totalTax)}</span></div>
           <div class="taxrow total"><span>Invoice Total</span><span>${money(invoiceTotal)}</span></div>
         </div>
       </div>
@@ -107,8 +112,7 @@ export const buildLabelBody = (order: Order): string => {
         <div class="box"><div class="lbl">SELLER / PICKUP</div><div class="txt">Mahalaxmi Fashion Hub, Balotra, Rajasthan - 344022</div></div>
         <div class="box"><div class="lbl">DELIVERY PARTNER</div><div class="txt">${showCourier ? esc(courier) + ' | ' : ''}AWB: ${esc(awb || 'PENDING')}</div></div>
       </div>
-      <div class="foot">Print this label and paste it on the parcel before handover.
-        <span class="muted">Tax included in invoice total.</span></div>
+      <div class="foot">Note: Please record a clear video before opening the parcel.</div>
     </div>`;
   };
 
