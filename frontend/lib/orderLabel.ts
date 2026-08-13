@@ -10,7 +10,7 @@ export const LABEL_CSS = `
       @page{size:4in 6in;margin:0}
       html,body{margin:0;padding:0}
       body{font-family:Arial,Helvetica,sans-serif;color:#111;background:#fff}
-      .label{width:4in;min-height:6in;margin:0 auto;border:1px solid #111;padding:7px 8px;page-break-after:always}
+      .label{width:4in;min-height:6in;margin:0 auto;border:1px solid #111;padding:22px 8px 7px 8px;page-break-after:always}
       .label:last-child{page-break-after:auto}
       .top{position:relative;text-align:center;padding-top:2px}
       .brand-logo{width:135px;height:auto;object-fit:contain;display:inline-block}

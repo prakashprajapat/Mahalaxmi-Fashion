@@ -101,13 +101,15 @@ export default function PushOptIn() {
 
   const allow = async () => {
     setBusy(true);
-    try {
-      const perm = await Notification.requestPermission();
-      if (perm === 'granted') await subscribe();
-    } catch {}
+    let perm: NotificationPermission = 'default';
+    try { perm = await Notification.requestPermission(); } catch {}
+    // Close the banner IMMEDIATELY once the user responds to the native prompt —
+    // the actual subscribe() network call runs in the background so the popup
+    // never lingers on a slow connection.
     setBusy(false);
     setShow(false);
     try { localStorage.setItem(DISMISS_KEY, String(Date.now())); } catch {}
+    if (perm === 'granted') { subscribe().catch(() => {}); }
   };
 
   const dismiss = () => {

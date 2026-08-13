@@ -70,6 +70,8 @@ export default function AccountEditPage() {
       saveCustomer({ ...customer, ...form });
       window.dispatchEvent(new Event('auth-changed'));
       setMsg('Profile updated successfully!');
+      // Close the edit screen and return to the account dashboard right after saving.
+      setTimeout(() => router.push('/account'), 700);
     } catch (e) { setError((e as Error).message || 'Update failed.'); }
     finally { setLoading(false); }
   };
