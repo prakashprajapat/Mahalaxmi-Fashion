@@ -92,7 +92,7 @@ export const buildLabelBody = (order: Order): string => {
         <div class="box"><div class="lbl">PAYMENT</div><div class="big">${esc(payment)}</div></div>
       </div>
       <div class="box">
-        <div><span class="lbl">SHIP TO:</span> <span class="to">${esc(order.shippingName || order.customerName || '')}</span></div>
+        <div><span class="lbl">CUSTOMER ADDRESS:</span> <span class="to">${esc(order.shippingName || order.customerName || '')}</span></div>
         <div class="txt">${shipTo}</div>
       </div>
       <div class="box">
