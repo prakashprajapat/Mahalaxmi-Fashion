@@ -1,6 +1,7 @@
 'use client';
 // Link import removed — Details now opens QuickView
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import type { Product } from '@/types';
 import { addToCart, finalUnitPrice } from '@/lib/cart';
@@ -9,7 +10,7 @@ import { productImageSrc } from '@/lib/productImages';
 import QuickViewModal from '@/components/product/QuickViewModal';
 
 export default function ProductCard({ product, priority = false }: { product: Product; priority?: boolean }) {
-  const [added, setAdded] = useState(false);
+  const router = useRouter();
   const [wishlisted, setWishlisted] = useState(isInWishlist(product.dbId));
   const [quickView, setQuickView] = useState(false);
   const [imgError, setImgError] = useState(false);
@@ -32,19 +33,16 @@ export default function ProductCard({ product, priority = false }: { product: Pr
   })() as { sizes?: string[]; colors?: string[]; customColors?: Array<{ name?: string }>; variantMatrix?: Record<string, number> };
   const needsSelection = Boolean((extra.sizes?.length ?? 0) || (extra.colors?.length ?? 0) || (extra.customColors?.length ?? 0) || extra.variantMatrix);
 
-  const handleAdd = (e: React.MouseEvent) => {
+  // BUY NOW: add the item then jump straight to checkout. If the product needs a size/colour
+  // choice, open Quick View first so the customer can pick before buying.
+  const handleBuyNow = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    // Block adding an out-of-stock product to the cart.
     if ((product.stock ?? '').toLowerCase().includes('out of stock')) return;
-    if (needsSelection) {
-      setQuickView(true);
-      return;
-    }
+    if (needsSelection) { setQuickView(true); return; }
     addToCart(product);
-    setAdded(true);
     window.dispatchEvent(new Event('cart-updated'));
-    setTimeout(() => setAdded(false), 1500);
+    router.push('/checkout');
   };
 
   const handleWishlist = (e: React.MouseEvent) => {
@@ -130,7 +128,7 @@ export default function ProductCard({ product, priority = false }: { product: Pr
             )}
           </div>
 
-          <span className="product-card-name" title={product.name} style={{ display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden', fontWeight: 600, color: '#1a1a1a', fontSize: '.9rem', margin: '.25rem 0', lineHeight: 1.3 }}>
+          <span className="product-card-name" title={product.name} style={{ display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: 600, color: '#1a1a1a', fontSize: '.9rem', margin: '.25rem 0', lineHeight: 1.3 }}>
             {product.name}
           </span>
 
@@ -142,19 +140,17 @@ export default function ProductCard({ product, priority = false }: { product: Pr
             </div>
           )}
 
-          {/* Price */}
+          {/* Price + discount % right after the rate */}
           <div className="product-price-row">
             <span className="price">₹{price.toLocaleString('en-IN')}</span>
             {saving > 0 && <span className="price-orig">₹{product.price.toLocaleString('en-IN')}</span>}
+            {saving > 0 && <span style={{ color: '#c62828', fontWeight: 700, fontSize: '.8rem', whiteSpace: 'nowrap' }}>{saving}% Off</span>}
           </div>
 
-          {/* Buttons — side by side, always pinned to the bottom of the card */}
-          <div style={{ display: 'flex', gap: '.5rem', marginTop: 'auto', paddingTop: '.6rem' }}>
-            <button onClick={handleAdd} className="btn-add-cart" style={{ flex: 1, margin: 0 }}>
-              {added ? '✓ Added!' : 'Add to Cart'}
-            </button>
-            <button className="btn-details" onClick={openQuickView} style={{ flex: 1, margin: 0, cursor: 'pointer' }}>
-              Details
+          {/* Single compact BUY NOW button, pinned to the bottom of the card */}
+          <div style={{ marginTop: 'auto', paddingTop: '.6rem' }}>
+            <button onClick={handleBuyNow} className="btn-add-cart" style={{ margin: 0, padding: '.42rem 1.2rem', fontSize: '.82rem', width: 'auto', flex: 'none' }}>
+              BUY NOW
             </button>
           </div>
         </div>
