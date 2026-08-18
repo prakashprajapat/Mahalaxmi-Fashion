@@ -92,9 +92,11 @@ export default function ProductCard({ product, priority = false }: { product: Pr
             </div>
           </div>
 
-          {/* Top badges */}
+          {/* Top badges — Best Seller shows as a glowing watermark (no solid tag) */}
           <div className="product-card-top-left">
-            {product.bestSeller && <span className="product-badge-new">Best Seller</span>}
+            {product.bestSeller && (
+              <span style={{ background: 'none', border: 'none', padding: 0, color: 'rgba(255,255,255,.96)', fontWeight: 800, fontSize: '.85rem', letterSpacing: '.04em', textShadow: '0 0 8px rgba(122,10,34,.95), 0 0 16px rgba(255,200,60,.7), 0 1px 3px rgba(0,0,0,.55)' }}>Best Seller</span>
+            )}
             {!product.bestSeller && <span className="product-badge-new">New</span>}
             {saving > 0 && <span className="product-badge-sale">{saving}% off</span>}
           </div>
@@ -148,8 +150,8 @@ export default function ProductCard({ product, priority = false }: { product: Pr
           </div>
 
           {/* Single compact BUY NOW button, pinned to the bottom of the card */}
-          <div style={{ marginTop: 'auto', paddingTop: '.6rem' }}>
-            <button onClick={handleBuyNow} className="btn-add-cart" style={{ margin: 0, padding: '.42rem 1.2rem', fontSize: '.82rem', width: 'auto', flex: 'none' }}>
+          <div style={{ marginTop: 'auto', paddingTop: '.6rem', textAlign: 'center' }}>
+            <button onClick={handleBuyNow} className="btn-add-cart" style={{ margin: 0, padding: '.42rem 1.4rem', fontSize: '.82rem', width: 'auto', display: 'inline-block', boxShadow: '0 0 12px rgba(122,10,34,.6), 0 0 22px rgba(122,10,34,.35)' }}>
               BUY NOW
             </button>
           </div>
