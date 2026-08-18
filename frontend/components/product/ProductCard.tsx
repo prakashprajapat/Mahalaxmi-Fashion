@@ -150,7 +150,7 @@ export default function ProductCard({ product, priority = false }: { product: Pr
 
           {/* Single compact BUY NOW button, pinned to the bottom of the card */}
           <div style={{ marginTop: 'auto', paddingTop: '.6rem', textAlign: 'center' }}>
-            <button onClick={handleBuyNow} className="btn-add-cart" style={{ margin: 0, padding: '.42rem 1.4rem', fontSize: '.82rem', width: 'auto', display: 'inline-block', boxShadow: '0 0 12px rgba(122,10,34,.6), 0 0 22px rgba(122,10,34,.35)' }}>
+            <button onClick={handleBuyNow} className="btn-add-cart" style={{ margin: 0, padding: '.42rem 1.4rem', fontSize: '.82rem', fontWeight: 800, letterSpacing: '.03em', width: 'auto', display: 'inline-block', background: 'linear-gradient(180deg,#7a0a22 0%,#5c1420 100%)', color: '#fff', border: 'none', borderRadius: '8px', boxShadow: '0 0 12px rgba(122,10,34,.6), 0 0 22px rgba(122,10,34,.35)' }}>
               BUY NOW
             </button>
           </div>
