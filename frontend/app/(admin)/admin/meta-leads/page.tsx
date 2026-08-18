@@ -1,0 +1,221 @@
+'use client';
+import { useEffect, useState } from 'react';
+import { getAdminToken } from '@/lib/auth';
+
+interface MetaLead {
+  id: number;
+  fullName: string | null;
+  phone: string | null;
+  email: string | null;
+  city: string | null;
+  state: string | null;
+  campaignName: string | null;
+  formName: string | null;
+  isRead: boolean;
+  isRegistered: boolean;
+  createdAt: string;
+}
+
+function formatDate(raw: string) {
+  const d = new Date(raw);
+  return d.toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+function isToday(raw: string) {
+  const d = new Date(raw);
+  const now = new Date();
+  return d.getDate() === now.getDate() && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+}
+
+export default function MetaLeadsPage() {
+  const [leads, setLeads] = useState<MetaLead[]>([]);
+  const [total, setTotal] = useState(0);
+  const [unread, setUnread] = useState(0);
+  const [page, setPage] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const limit = 50;
+
+  const load = async (p = 1) => {
+    setLoading(true);
+    try {
+      const token = getAdminToken();
+      const res = await fetch(`/api/meta/leads?page=${p}&limit=${limit}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      setLeads(data.leads || []);
+      setTotal(data.total || 0);
+      setUnread(data.unread || 0);
+      setPage(p);
+    } catch { setLeads([]); }
+    finally { setLoading(false); }
+  };
+
+  useEffect(() => { load(1); }, []);
+
+  const markRead = async (id: number) => {
+    const token = getAdminToken();
+    await fetch(`/api/meta/leads/${id}/read`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
+    setLeads(l => l.map(x => x.id === id ? { ...x, isRead: true } : x));
+    setUnread(u => Math.max(0, u - 1));
+  };
+
+  const handleDelete = async (id: number) => {
+    if (!confirm('Delete this lead?')) return;
+    const token = getAdminToken();
+    await fetch(`/api/meta/leads/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+    setLeads(l => l.filter(x => x.id !== id));
+    setTotal(t => t - 1);
+  };
+
+  const exportCsv = () => {
+    const rows = [['ID', 'Name', 'Phone', 'Email', 'City', 'Campaign', 'Status', 'Date']];
+    leads.forEach(l => rows.push([
+      String(l.id), l.fullName || '', l.phone || '', l.email || '', l.city || '',
+      l.campaignName || '', l.isRegistered ? 'Registered' : 'Unregistered', formatDate(l.createdAt),
+    ]));
+    const csv = rows.map(r => r.map(c => `"${c}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `meta-leads-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+  };
+
+  const filtered = leads.filter(l => {
+    if (!search) return true;
+    const q = search.toLowerCase();
+    return (l.email || '').toLowerCase().includes(q)
+      || (l.phone || '').includes(search)
+      || (l.fullName || '').toLowerCase().includes(q)
+      || (l.city || '').toLowerCase().includes(q)
+      || (l.campaignName || '').toLowerCase().includes(q);
+  });
+
+  const todayCount = leads.filter(l => isToday(l.createdAt)).length;
+
+  return (
+    <div className="admin-page">
+      <div className="admin-page-header">
+        <div>
+          <h1>Meta Ad Leads</h1>
+          <p className="admin-page-sub">Leads submitted through your Facebook &amp; Instagram Lead Ads — arrive here automatically</p>
+        </div>
+        <button onClick={exportCsv} className="button secondary" style={{ fontSize: '.85rem' }}>
+          ⬇️ Export CSV
+        </button>
+      </div>
+
+      {/* Stats */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
+        {[
+          { label: 'Total Leads', value: total, icon: '📥' },
+          { label: 'Unread', value: unread, icon: '🔴' },
+          { label: 'Today', value: todayCount, icon: '📅' },
+          { label: 'With Phone', value: leads.filter(l => l.phone).length, icon: '📞' },
+          { label: 'With Email', value: leads.filter(l => l.email).length, icon: '📧' },
+        ].map(s => (
+          <div key={s.label} style={{ background: '#fff', border: '1px solid #eee', borderRadius: 12, padding: '1rem 1.25rem', textAlign: 'center' }}>
+            <div style={{ fontSize: '1.4rem' }}>{s.icon}</div>
+            <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#a7354d' }}>{s.value}</div>
+            <div style={{ fontSize: '.74rem', color: '#888', marginTop: '.2rem' }}>{s.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Search */}
+      <div style={{ display: 'flex', gap: '.75rem', alignItems: 'center', flexWrap: 'wrap', marginBottom: '1rem' }}>
+        <input
+          type="text"
+          placeholder="Search by name, phone, email, city or campaign…"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          style={{ height: 38, border: '1.5px solid #ddd', borderRadius: 8, padding: '0 1rem', fontSize: '.88rem', width: 300, boxSizing: 'border-box' }} />
+        <button onClick={() => load(page)} className="button secondary" style={{ fontSize: '.85rem' }}>🔄 Refresh</button>
+      </div>
+
+      {/* Table */}
+      <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #eee', overflow: 'hidden' }}>
+        {loading ? (
+          <div style={{ padding: '3rem', textAlign: 'center', color: '#aaa' }}>Loading…</div>
+        ) : filtered.length === 0 ? (
+          <div style={{ padding: '3rem', textAlign: 'center', color: '#aaa' }}>
+            <div style={{ fontSize: '2.5rem', marginBottom: '.5rem' }}>📭</div>
+            <p>No Meta leads yet.</p>
+            <p style={{ fontSize: '.8rem', color: '#bbb' }}>Once your Lead Ad is live and connected, new leads will appear here within seconds.</p>
+          </div>
+        ) : (
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '.88rem' }}>
+              <thead>
+                <tr style={{ background: '#fdf0f3', borderBottom: '2px solid #eee' }}>
+                  {['#', 'Name', 'Phone', 'Email', 'City', 'Campaign', 'Status', 'Date', 'Action'].map(h => (
+                    <th key={h} style={{ padding: '.75rem 1rem', textAlign: 'left', fontWeight: 700, color: '#555', whiteSpace: 'nowrap' }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((l, i) => (
+                  <tr key={l.id} style={{
+                    borderBottom: '1px solid #f5f5f5',
+                    background: !l.isRead ? '#fff8f9' : isToday(l.createdAt) ? '#fffbf0' : i % 2 === 0 ? '#fff' : '#fafafa',
+                  }}>
+                    <td style={{ padding: '.65rem 1rem', color: '#aaa', fontSize: '.8rem' }}>{l.id}</td>
+                    <td style={{ padding: '.65rem 1rem', fontWeight: 500, whiteSpace: 'nowrap' }}>
+                      {!l.isRead && <span style={{ background: '#e53935', color: '#fff', borderRadius: 4, padding: '1px 6px', fontSize: '.66rem', marginRight: '.4rem', fontWeight: 700 }}>NEW</span>}
+                      {l.fullName || <span style={{ color: '#ccc' }}>—</span>}
+                    </td>
+                    <td style={{ padding: '.65rem 1rem' }}>
+                      {l.phone ? (
+                        <a href={`https://wa.me/91${l.phone.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer"
+                          style={{ color: '#25d366', fontWeight: 600, textDecoration: 'none', whiteSpace: 'nowrap' }}>💬 {l.phone}</a>
+                      ) : <span style={{ color: '#ccc' }}>—</span>}
+                    </td>
+                    <td style={{ padding: '.65rem 1rem' }}>
+                      {l.email ? (
+                        <a href={`mailto:${l.email}`} style={{ color: '#a7354d', textDecoration: 'none', fontWeight: 500 }}>{l.email}</a>
+                      ) : <span style={{ color: '#ccc' }}>—</span>}
+                    </td>
+                    <td style={{ padding: '.65rem 1rem', color: '#555' }}>{l.city || <span style={{ color: '#ccc' }}>—</span>}</td>
+                    <td style={{ padding: '.65rem 1rem', color: '#888', fontSize: '.8rem', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={l.campaignName || ''}>
+                      {l.campaignName || <span style={{ color: '#ccc' }}>—</span>}
+                    </td>
+                    <td style={{ padding: '.65rem 1rem' }}>
+                      {l.isRegistered ? (
+                        <span style={{ background: '#e8f5e9', color: '#2e7d32', borderRadius: 20, padding: '3px 10px', fontSize: '.75rem', fontWeight: 700, whiteSpace: 'nowrap' }}>✅ Regd</span>
+                      ) : (
+                        <span style={{ background: '#fff3e0', color: '#e65100', borderRadius: 20, padding: '3px 10px', fontSize: '.75rem', fontWeight: 700, whiteSpace: 'nowrap' }}>⏳ New</span>
+                      )}
+                    </td>
+                    <td style={{ padding: '.65rem 1rem', color: '#888', fontSize: '.8rem', whiteSpace: 'nowrap' }}>
+                      {isToday(l.createdAt) && <span style={{ background: '#e8f5e9', color: '#2e7d32', borderRadius: 4, padding: '1px 6px', fontSize: '.72rem', marginRight: '.4rem', fontWeight: 700 }}>TODAY</span>}
+                      {formatDate(l.createdAt)}
+                    </td>
+                    <td style={{ padding: '.65rem 1rem', whiteSpace: 'nowrap' }}>
+                      {!l.isRead && (
+                        <button onClick={() => markRead(l.id)}
+                          style={{ background: 'none', border: '1px solid #c8e6c9', color: '#2e7d32', borderRadius: 6, padding: '.3rem .55rem', fontSize: '.78rem', cursor: 'pointer', marginRight: '.35rem' }}>✓ Read</button>
+                      )}
+                      <button onClick={() => handleDelete(l.id)}
+                        style={{ background: 'none', border: '1px solid #ffcdd2', color: '#c0392b', borderRadius: 6, padding: '.3rem .65rem', fontSize: '.78rem', cursor: 'pointer' }}>Delete</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Pagination */}
+      {total > limit && (
+        <div style={{ display: 'flex', gap: '.5rem', marginTop: '1rem', justifyContent: 'center' }}>
+          <button disabled={page <= 1} onClick={() => load(page - 1)} className="button secondary" style={{ fontSize: '.85rem' }}>← Prev</button>
+          <span style={{ padding: '.5rem 1rem', color: '#555', fontSize: '.85rem' }}>Page {page} / {Math.ceil(total / limit)}</span>
+          <button disabled={page >= Math.ceil(total / limit)} onClick={() => load(page + 1)} className="button secondary" style={{ fontSize: '.85rem' }}>Next →</button>
+        </div>
+      )}
+    </div>
+  );
+}

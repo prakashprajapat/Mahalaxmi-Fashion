@@ -232,6 +232,24 @@ using (var scope = app.Services.CreateScope())
             auth       TEXT NOT NULL DEFAULT '',
             created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
+        CREATE TABLE IF NOT EXISTS meta_leads (
+            id            SERIAL PRIMARY KEY,
+            leadgen_id    VARCHAR(64) NOT NULL UNIQUE,
+            form_id       VARCHAR(64),
+            form_name     VARCHAR(255),
+            page_id       VARCHAR(64),
+            ad_id         VARCHAR(64),
+            campaign_name VARCHAR(255),
+            full_name     VARCHAR(255),
+            phone         VARCHAR(32),
+            email         VARCHAR(255),
+            city          VARCHAR(128),
+            state         VARCHAR(128),
+            raw_json      TEXT,
+            is_read       BOOLEAN NOT NULL DEFAULT FALSE,
+            created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS idx_meta_leads_created ON meta_leads (created_at DESC);
     ");
 
     // Seed Web Push VAPID keys once so push notifications work out of the box.

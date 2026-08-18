@@ -23,6 +23,7 @@ public class AppDbContext : DbContext
     public DbSet<SupplierApplication> SupplierApplications { get; set; }
     public DbSet<WishlistItem> Wishlists   { get; set; }
     public DbSet<PushSubscription> PushSubscriptions { get; set; }
+    public DbSet<MetaLead>    MetaLeads    { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

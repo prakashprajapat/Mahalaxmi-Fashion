@@ -25,6 +25,7 @@ const ALL_NAV: { href?: string; label?: string; exact?: boolean; heading?: strin
   { href: '/admin/campaigns',   label: '📣 Bulk Campaigns' },
   { href: '/admin/notifications', label: '🔔 Push Notifications' },
   { href: '/admin/popup-leads', label: '📋 Popup Leads' },
+  { href: '/admin/meta-leads',  label: '📥 Meta Ad Leads' },
   { href: '/admin/suppliers',   label: '🏪 Seller Applications' },
   { href: '/admin/seo',         label: '🔍 SEO Analysis' },
   { href: '/admin/settings',    label: '⚙️ Settings' },

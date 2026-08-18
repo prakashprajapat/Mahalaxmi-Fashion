@@ -41,6 +41,15 @@ const SECTIONS = [
     ]
   },
   {
+    title: 'Meta Lead Ads (Facebook / Instagram)',
+    desc: 'Bring leads from your Facebook & Instagram Lead Ads straight into the "📥 Meta Ad Leads" page. In your Meta app, add the Webhooks product, set the Callback URL to https://mahalaxmifashionhub.com/api/meta/webhook and the Verify Token to the same value you enter below, then subscribe your Page to the "leadgen" field. App Secret is from your Meta app (Settings → Basic). Page Access Token needs the leads_retrieval permission. Secrets stay blank here after saving for security — re-enter only to change them.',
+    fields: [
+      { key: 'facebookAppSecret', label: 'Meta App Secret', type: 'password' },
+      { key: 'metaPageAccessToken', label: 'Page Access Token (with leads_retrieval)', type: 'password' },
+      { key: 'metaWebhookVerifyToken', label: 'Webhook Verify Token (choose any secret string — paste same into Meta)', type: 'text' },
+    ]
+  },
+  {
     title: 'SEO — Homepage & Google',
     desc: 'This text appears in Google search results and the browser tab. Leave blank to use defaults. (Product page SEO is generated automatically from each product\'s name/description.)',
     fields: [

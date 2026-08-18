@@ -98,6 +98,8 @@ public class SettingsController : ControllerBase
         dict.Remove("googlePlacesApiKey");  // secret — used server-side only (Google reviews)
         dict.Remove("vapidPrivateKey");     // secret — Web Push signing key, server-side only
         dict.Remove("ga4ApiSecret");        // secret — GA4 Measurement Protocol, server-side only
+        dict.Remove("facebookAppSecret");   // secret — Meta app secret (FB login + Lead Ads webhook)
+        dict.Remove("metaPageAccessToken"); // secret — Meta Lead Ads Graph API token, server-side only
 
         _cache.Set(PublicSettingsCacheKey, dict, TimeSpan.FromMinutes(5));
         return Ok(new { success = true, settings = dict });
