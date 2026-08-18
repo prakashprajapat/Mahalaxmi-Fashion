@@ -98,7 +98,6 @@ export default function ProductCard({ product, priority = false }: { product: Pr
               <span style={{ background: 'none', border: 'none', padding: 0, color: 'rgba(255,255,255,.96)', fontWeight: 800, fontSize: '.85rem', letterSpacing: '.04em', textShadow: '0 0 8px rgba(122,10,34,.95), 0 0 16px rgba(255,200,60,.7), 0 1px 3px rgba(0,0,0,.55)' }}>Best Seller</span>
             )}
             {!product.bestSeller && <span className="product-badge-new">New</span>}
-            {saving > 0 && <span className="product-badge-sale">{saving}% off</span>}
           </div>
 
           {/* Quick View hover label */}
