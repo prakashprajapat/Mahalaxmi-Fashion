@@ -95,11 +95,11 @@ export const ordersApi = {
       courierStatus?: string; expectedDate?: string;
       scans?: Array<{ time: string; location: string; remark: string }>;
     }>(`/orders/live-track/${encodeURIComponent(awb)}`),
-  place: (order: unknown) =>
+  place: (order: unknown, token?: string) =>
     request<{ success: boolean; orderId: string }>('/orders', {
       method: 'POST',
       body: JSON.stringify(order),
-    }),
+    }, token),
   cancel: (orderId: string, token: string) =>
     request<{ success: boolean; order: import('@/types').Order }>(
       `/orders/${orderId}/cancel`, { method: 'PATCH' }, token
@@ -337,6 +337,7 @@ export const cashfreeApi = {
   createOrder: (data: {
     amount: number; currency?: string; cart?: unknown; customer?: unknown; shipping?: unknown;
     customerId?: string; customerName?: string; customerEmail?: string; customerPhone?: string;
+    walletUsed?: number; fullTotal?: number;
   }) =>
     request<{ success: boolean; setupRequired?: boolean; paymentSessionId: string; localOrderId: string; mode: string }>(
       '/cashfree/create-order', { method: 'POST', body: JSON.stringify(data) }
@@ -469,4 +470,7 @@ export const walletApi = {
   // Admin: credit (+) or debit (-) a customer's wallet.
   adjust: (data: { customerId: number; amount: number; note?: string }, token: string) =>
     request<{ success: boolean; balance: number }>('/wallet/adjust', { method: 'POST', body: JSON.stringify(data) }, token),
+  // Customer: credit wallet after a verified "add money" payment.
+  topup: (localOrderId: string, token: string) =>
+    request<{ success: boolean; balance: number; already?: boolean }>('/wallet/topup', { method: 'POST', body: JSON.stringify({ localOrderId }) }, token),
 };

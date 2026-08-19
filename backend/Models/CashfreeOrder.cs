@@ -25,6 +25,14 @@ public class CashfreeOrder
     [Column("amount_paise")]
     public int AmountPaise { get; set; }
 
+    // Loyalty wallet applied to this order (rupees) and the full order value before the wallet
+    // was subtracted. AmountPaise is what Cashfree actually charged (full_total − wallet_used).
+    [Column("wallet_used")]
+    public decimal WalletUsed { get; set; }
+
+    [Column("full_total")]
+    public decimal FullTotal { get; set; }
+
     [Column("currency")]
     public string Currency { get; set; } = "INR";
 

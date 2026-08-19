@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { getCart, cartTotal, clearCart, cartShipping, finalUnitPrice, unitBase } from '@/lib/cart';
 import PincodeChecker from '@/components/checkout/PincodeChecker';
 import { getCustomer, getToken } from '@/lib/auth';
-import { ordersApi, paymentsApi, cashfreeApi, couponsApi, settingsApi } from '@/lib/api';
+import { ordersApi, paymentsApi, cashfreeApi, couponsApi, settingsApi, walletApi } from '@/lib/api';
 import { trackEvent, toGa4Items, trackAdsConversion, getGaClientId } from '@/lib/analytics';
 import type { CartItem, Customer } from '@/types';
 
@@ -92,6 +92,12 @@ export default function CheckoutPage() {
   const [couponError, setCouponError] = useState('');
   const [couponLoading, setCouponLoading] = useState(false);
 
+  // Loyalty wallet
+  const [walletBalance, setWalletBalance] = useState(0);
+  const [walletRedeemPct, setWalletRedeemPct] = useState(20);
+  const [walletEnabled, setWalletEnabled] = useState(true);
+  const [useWallet, setUseWallet] = useState(false);
+
   const applyCustomer = (cust: Customer) => {
     setCustomer(cust);
     setShipping(s => ({
@@ -138,6 +144,19 @@ export default function CheckoutPage() {
     return () => window.removeEventListener('auth-changed', onAuth);
   }, [router]);
 
+  // Load loyalty settings + the signed-in customer's wallet balance.
+  useEffect(() => {
+    settingsApi.getAll().then(r => {
+      const s = r.settings ?? {};
+      setWalletEnabled((s.loyaltyEnabled ?? 'true') !== 'false');
+      const p = parseFloat(s.loyaltyRedeemMaxPercent ?? '20');
+      if (p > 0) setWalletRedeemPct(p);
+    }).catch(() => {});
+    const token = getToken();
+    if (token) walletApi.mine(token).then(r => setWalletBalance(r.balance || 0)).catch(() => setWalletBalance(0));
+    else setWalletBalance(0);
+  }, [customer]);
+
   // Local Balotra delivery = free shipping. Shipping is normally baked into each item's
   // price; for a Balotra post office / pincode we drop it so the customer pays the base rate.
   const isBalotra = /balotra/i.test(shipping.city || '') || (shipping.pincode || '').trim() === '344022';
@@ -171,6 +190,14 @@ export default function CheckoutPage() {
   // Cash on Delivery adds a flat ₹50 handling fee; online payment has none.
   const codFee = payMethod === 'cod' ? COD_FEE : 0;
   const total = Math.max(0, subtotal - discount) + codFee;
+
+  // Loyalty wallet: how much of this order can be paid from the wallet. Capped at the balance
+  // and at loyaltyRedeemMaxPercent of the order (same cap the server enforces). The remaining
+  // amount (amountToPay) is what the gateway charges / COD collects.
+  const walletShown = walletEnabled && !!customer && walletBalance > 0;
+  const walletCap = Math.floor(Math.min(walletBalance, total * walletRedeemPct / 100, total) * 100) / 100;
+  const walletApplied = walletShown && useWallet ? walletCap : 0;
+  const amountToPay = Math.max(0, +(total - walletApplied).toFixed(2));
   const requiresPan = false;   // PAN no longer mandatory at checkout (disabled on request)
 
   const handleApplyCoupon = async () => {
@@ -276,7 +303,7 @@ export default function CheckoutPage() {
     let res;
     try {
       res = await cashfreeApi.createOrder({
-        amount: total,
+        amount: amountToPay,
         currency: 'INR',
         cart: cartLines,
         customer,
@@ -285,6 +312,8 @@ export default function CheckoutPage() {
         customerName: shipping.name,
         customerEmail: shipping.email || customer?.email || '',
         customerPhone: shipping.phone,
+        walletUsed: walletApplied,
+        fullTotal: total,
       });
     } catch (e) {
       // Cashfree not configured yet → signal caller to fall back to Razorpay.
@@ -356,6 +385,7 @@ export default function CheckoutPage() {
         shippingCost,
         codFee: COD_FEE,
         total,
+        walletUsed: walletApplied,
         customerId: customer?.id?.toString(),
         customerName: shipping.name,
         customerEmail: shipping.email,
@@ -371,7 +401,7 @@ export default function CheckoutPage() {
         shippingState: shipping.state,
         placedAt: new Date().toISOString(),
         gaClientId: getGaClientId(),
-      });
+      }, getToken() ?? undefined);
       trackEvent('purchase', {
         transaction_id: localOrderId,
         currency: 'INR',
@@ -394,7 +424,7 @@ export default function CheckoutPage() {
     try {
       const cartLines = buildCartLines();
       const res = await paymentsApi.createOrder({
-        amount: total,
+        amount: amountToPay,
         currency: 'INR',
         cart: cartLines,
         customer,
@@ -428,6 +458,7 @@ export default function CheckoutPage() {
             shippingCost,
             codFee: 0,
             total,
+            walletUsed: walletApplied,
             customerId: customer?.id?.toString(),
             customerName: shipping.name,
             customerEmail: shipping.email,
@@ -443,7 +474,7 @@ export default function CheckoutPage() {
             shippingState: shipping.state,
             placedAt: new Date().toISOString(),
             gaClientId: getGaClientId(),
-          });
+          }, getToken() ?? undefined);
           // GA4: successful purchase (fired before clearing the cart so items are still available).
           trackEvent('purchase', {
             transaction_id: res.localOrderId,
@@ -617,11 +648,11 @@ export default function CheckoutPage() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '.75rem' }}>
               {payMethod === 'online' ? (
                 <button onClick={handlePayOnline} disabled={loading} className="button primary" style={{ width: '100%' }}>
-                  {loading ? 'Processing…' : `💳 Pay Online — ₹${total.toLocaleString('en-IN')}`}
+                  {loading ? 'Processing…' : `💳 Pay Online — ₹${amountToPay.toLocaleString('en-IN')}`}
                 </button>
               ) : (
                 <button onClick={handlePlaceCod} disabled={loading} className="button primary" style={{ width: '100%' }}>
-                  {loading ? 'Placing order…' : `🚚 Place COD Order — ₹${total.toLocaleString('en-IN')}`}
+                  {loading ? 'Placing order…' : `🚚 Place COD Order — ₹${amountToPay.toLocaleString('en-IN')}`}
                 </button>
               )}
               {payMethod === 'cod' && (
@@ -668,6 +699,20 @@ export default function CheckoutPage() {
             {couponError && <p style={{ color: '#c0392b', fontSize: '.82rem', marginTop: '.3rem' }}>{couponError}</p>}
           </div>
 
+          {/* Loyalty wallet */}
+          {walletShown && (
+            <div style={{ borderTop: '1px solid #eee', paddingTop: '.75rem', marginBottom: '.25rem' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '.6rem', cursor: 'pointer' }}>
+                <input type="checkbox" checked={useWallet} onChange={e => setUseWallet(e.target.checked)} style={{ accentColor: '#a7354d' }} />
+                <span style={{ fontSize: '.88rem', fontWeight: 600, color: '#1a1a1a' }}>👛 Use wallet balance</span>
+                <span style={{ marginLeft: 'auto', fontSize: '.82rem', color: '#666' }}>₹{walletBalance.toLocaleString('en-IN')} available</span>
+              </label>
+              {useWallet && (walletApplied > 0
+                ? <p style={{ fontSize: '.78rem', color: '#27ae60', margin: '.35rem 0 0' }}>−₹{walletApplied.toLocaleString('en-IN')} applied (max {walletRedeemPct}% of this order)</p>
+                : <p style={{ fontSize: '.78rem', color: '#999', margin: '.35rem 0 0' }}>Wallet can't be applied to this order.</p>)}
+            </div>
+          )}
+
           <div style={{ borderTop: '1px solid #eee', paddingTop: '.75rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '.9rem', marginBottom: '.4rem' }}>
               <span>Subtotal</span><span>₹{subtotal.toLocaleString('en-IN')}</span>
@@ -691,6 +736,16 @@ export default function CheckoutPage() {
               <span>Total</span>
               <span style={{ color: '#a7354d' }}>₹{total.toLocaleString('en-IN')}</span>
             </div>
+            {walletApplied > 0 && (
+              <>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '.9rem', marginTop: '.4rem', color: '#27ae60' }}>
+                  <span>👛 Paid from wallet</span><span>−₹{walletApplied.toLocaleString('en-IN')}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 800, fontSize: '1.1rem', marginTop: '.3rem' }}>
+                  <span>To Pay</span><span style={{ color: '#a7354d' }}>₹{amountToPay.toLocaleString('en-IN')}</span>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>

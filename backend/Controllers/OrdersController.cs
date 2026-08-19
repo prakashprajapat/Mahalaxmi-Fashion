@@ -280,6 +280,31 @@ public class OrdersController : ControllerBase
         decimal serverCodFee   = method == "cod" ? 50m : 0m;
         decimal serverTotal    = Math.Max(0m, serverSubtotal + serverShipping + serverCodFee - serverDiscount);
 
+        // ── WALLET REDEMPTION: validate how much of this order the customer pays from their
+        // loyalty wallet. Capped at (a) their actual balance and (b) loyaltyRedeemMaxPercent of
+        // the order. The order's sale value stays serverTotal; only the amount COLLECTED
+        // externally (gateway/COD) drops by the wallet portion. Guests can't redeem.
+        decimal walletApplied = 0m;
+        int walletCustId = 0;
+        if (req.WalletUsed > 0 && int.TryParse(req.CustomerId, out var _wc) && _wc > 0)
+        {
+            var wEnabled = (await _db.SiteSettings.Where(s => s.Key == "loyaltyEnabled")
+                .Select(s => s.Value).FirstOrDefaultAsync() ?? "true").Trim().ToLowerInvariant();
+            if (wEnabled == "true" || wEnabled == "1")
+            {
+                var bal = await _db.Customers.Where(c => c.Id == _wc).Select(c => c.WalletBalance).FirstOrDefaultAsync();
+                var maxPctStr = await _db.SiteSettings.Where(s => s.Key == "loyaltyRedeemMaxPercent")
+                    .Select(s => s.Value).FirstOrDefaultAsync();
+                decimal.TryParse(maxPctStr, out var maxPct);
+                if (maxPct <= 0) maxPct = 20m;
+                var cap = Math.Round(serverTotal * maxPct / 100m, 2);
+                var maxAllowed = Math.Min(Math.Min(bal, cap), serverTotal);
+                walletApplied = Math.Round(Math.Max(0m, Math.Min(req.WalletUsed, maxAllowed)), 2);
+                walletCustId = _wc;
+            }
+        }
+        decimal amountToCollect = Math.Max(0m, serverTotal - walletApplied);
+
         // ── PAYMENT GATE ──────────────────────────────────────────────────────────────
         // The server decides the status. COD always starts "Pending". A prepaid order is
         // only accepted if a Razorpay order for this same local id has actually been marked
@@ -299,7 +324,7 @@ public class OrdersController : ControllerBase
             if (cfOrder is null || cfOrder.Status != "paid")
                 return BadRequest(new { success = false, message = "Payment could not be verified for this order." });
 
-            var expectedPaiseCf = (int)Math.Round(serverTotal * 100m, MidpointRounding.AwayFromZero);
+            var expectedPaiseCf = (int)Math.Round(amountToCollect * 100m, MidpointRounding.AwayFromZero);
             if (expectedPaiseCf - cfOrder.AmountPaise > 100)
                 return BadRequest(new { success = false, message = "Payment amount does not match the order total." });
 
@@ -311,7 +336,7 @@ public class OrdersController : ControllerBase
             if (rp is null || rp.Status != "paid")
                 return BadRequest(new { success = false, message = "Payment could not be verified for this order." });
 
-            var expectedPaise = (int)Math.Round(serverTotal * 100m, MidpointRounding.AwayFromZero);
+            var expectedPaise = (int)Math.Round(amountToCollect * 100m, MidpointRounding.AwayFromZero);
             // Only block genuine underpayment (≥ ₹1 short). Paying the same or more — e.g. a
             // Balotra free-shipping order the client didn't discount — is fine.
             if (expectedPaise - rp.AmountPaise > 100)
@@ -349,6 +374,7 @@ public class OrdersController : ControllerBase
             existing.ShippingCost = serverShipping;
             existing.CodFee = serverCodFee;
             existing.Total = serverTotal;
+            existing.WalletUsed = walletApplied;
             existing.CartJson = cart;
             existing.CustomerJson = customerJson;
             existing.ShippingJson = shippingJson;
@@ -417,6 +443,7 @@ public class OrdersController : ControllerBase
                 // Coupon (only the server-validated code/discount is stored)
                 CouponCode = serverCouponCode,
                 DiscountAmount = serverDiscount,
+                WalletUsed = walletApplied,
             });
         }
 
@@ -437,6 +464,19 @@ public class OrdersController : ControllerBase
 
         await _db.SaveChangesAsync();
         await tx.CommitAsync();
+
+        // WALLET: settle the wallet portion once the order is safely committed. Idempotent — a
+        // retried PlaceOrder for the same order never debits the wallet twice.
+        if (walletApplied > 0 && walletCustId > 0)
+        {
+            try
+            {
+                var alreadyRedeemed = await _db.WalletTransactions.AnyAsync(t => t.Type == "redeem" && t.OrderId == orderId);
+                if (!alreadyRedeemed)
+                    await _wallet.MoveAsync(walletCustId, -walletApplied, "redeem", orderId, $"Used at checkout on order {orderId}");
+            }
+            catch { /* best-effort; the order is already placed */ }
+        }
 
         // Notify admin of the new order (email — fire-and-forget, never blocks the response).
         var itemsSummary = string.Join(", ", (req.Cart ?? new List<CartLineDto>()).Take(6).Select(c => $"{c.Name} x{Math.Max(1, c.Quantity)}"));
@@ -605,7 +645,25 @@ public class OrdersController : ControllerBase
             catch { /* loyalty is best-effort — never block a status update */ }
         }
 
+        // WALLET: when an order is Cancelled/Returned for the first time, put any wallet amount
+        // the customer spent on it back into their wallet.
+        if (!wasReturnedOrCancelled && nowReturnedOrCancelled)
+        {
+            try { await RefundWalletForOrderAsync(order); } catch { /* best-effort */ }
+        }
+
         return Ok(new { success = true, order = MapOrder(order) });
+    }
+
+    // Return the wallet amount spent on an order back to the customer (once). Safe to call more
+    // than once — the refund is recorded only if it hasn't been already.
+    private async Task RefundWalletForOrderAsync(SiteOrder order)
+    {
+        if (order.WalletUsed <= 0) return;
+        var custId = GetJsonStr(ParseJson(order.CustomerJson), "id");
+        if (!int.TryParse(custId, out var cid) || cid <= 0) return;
+        if (await _db.WalletTransactions.AnyAsync(t => t.Type == "refund" && t.OrderId == order.OrderId)) return;
+        await _wallet.MoveAsync(cid, order.WalletUsed, "refund", order.OrderId, $"Wallet refund for {order.Status.ToLower()} order {order.OrderId}");
     }
 
     // GET /api/orders/{orderId}/invoice — customer-downloadable HTML bill/invoice.
@@ -1460,7 +1518,9 @@ public class OrdersController : ControllerBase
             Phone:   GetJsonStr(cust, "phone") ?? "");
 
         var isCod = string.Equals(order.Method, "cod", StringComparison.OrdinalIgnoreCase);
-        var result = await _delhivery.CreateForwardShipmentAsync(order.OrderId, to, isCod ? order.Total : 0m, "Fashion item");
+        // COD cash to collect = order value minus any amount already paid from the wallet.
+        var codCollect = Math.Max(0m, order.Total - order.WalletUsed);
+        var result = await _delhivery.CreateForwardShipmentAsync(order.OrderId, to, isCod ? codCollect : 0m, "Fashion item");
         if (!result.Success || string.IsNullOrWhiteSpace(result.Awb))
             return BadRequest(new { success = false, message = result.Error ?? "Delhivery AWB generation failed." });
 
@@ -1593,7 +1653,8 @@ public class OrdersController : ControllerBase
             ReturnDecisionAt: GetJsonStr(rawJson, "returnDecisionAt"),
             ReturnRejectReason: GetJsonStr(rawJson, "returnRejectReason"),
             ReturnMediaPurgeAt: GetJsonStr(rawJson, "returnMediaPurgeAt"),
-            ReturnMediaDeleted: GetJsonBool(rawJson, "returnMediaDeleted")
+            ReturnMediaDeleted: GetJsonBool(rawJson, "returnMediaDeleted"),
+            WalletUsed: o.WalletUsed
         );
     }
 }

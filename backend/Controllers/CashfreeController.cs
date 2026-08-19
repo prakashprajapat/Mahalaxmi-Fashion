@@ -22,13 +22,15 @@ public class CashfreeController : ControllerBase
     private readonly IConfiguration _config;
     private readonly HttpClient _http;
     private readonly ILogger<CashfreeController> _logger;
+    private readonly Services.WalletService _wallet;
 
-    public CashfreeController(AppDbContext db, IConfiguration config, IHttpClientFactory httpFactory, ILogger<CashfreeController> logger)
+    public CashfreeController(AppDbContext db, IConfiguration config, IHttpClientFactory httpFactory, ILogger<CashfreeController> logger, Services.WalletService wallet)
     {
         _db = db;
         _config = config;
         _http = httpFactory.CreateClient("cashfree");
         _logger = logger;
+        _wallet = wallet;
     }
 
     private (string appId, string secret, string mode, string baseUrl) Creds()
@@ -115,6 +117,8 @@ public class CashfreeController : ControllerBase
             CfOrderId        = cfOrderId,
             PaymentSessionId = sessionId,
             AmountPaise      = amountPaise,
+            WalletUsed       = req.WalletUsed,
+            FullTotal        = req.FullTotal > 0 ? req.FullTotal : req.Amount,
             Currency         = req.Currency ?? "INR",
             Status           = "created",
             CartJson         = JsonSerializer.Serialize(req.Cart),
@@ -282,16 +286,20 @@ public class CashfreeController : ControllerBase
                         name = sName, email = sEmail, phone = sPhone,
                     });
 
+                    // Order value = full total (before wallet). Cashfree charged (full − wallet);
+                    // the wallet part is recorded so the amount collected reconciles.
+                    var fullTotal = order.FullTotal > 0 ? order.FullTotal : order.AmountPaise / 100m;
                     _db.SiteOrders.Add(new SiteOrder
                     {
                         OrderId      = localId,
                         Method       = "cashfree",
                         Status       = "Paid",
                         PaymentId    = cfPaymentId,
-                        Subtotal     = order.AmountPaise / 100m,
+                        Subtotal     = fullTotal,
                         ShippingCost = 0m,
                         CodFee       = 0m,
-                        Total        = order.AmountPaise / 100m,
+                        Total        = fullTotal,
+                        WalletUsed   = order.WalletUsed,
                         CartJson     = order.CartJson,
                         CustomerJson = recoveredCustomerJson,
                         ShippingJson = order.ShippingJson,
@@ -299,6 +307,35 @@ public class CashfreeController : ControllerBase
                         PlacedAt     = DateTimeOffset.UtcNow,
                     });
                     await _db.SaveChangesAsync();
+
+                    // Settle the wallet portion once (idempotent per order). Deduct from the
+                    // LOGGED-IN customer stored at create-order time (wallet is only applied for
+                    // logged-in buyers), falling back to the linked guest id.
+                    if (order.WalletUsed > 0)
+                    {
+                        int walletCustId = custId;
+                        try
+                        {
+                            var cj = JsonSerializer.Deserialize<JsonElement>(string.IsNullOrWhiteSpace(order.CustomerJson) ? "{}" : order.CustomerJson);
+                            if (cj.ValueKind == JsonValueKind.Object && cj.TryGetProperty("id", out var idEl))
+                            {
+                                var idStr = idEl.ValueKind == JsonValueKind.String ? idEl.GetString() : idEl.ToString();
+                                if (int.TryParse(idStr, out var cid2) && cid2 > 0) walletCustId = cid2;
+                            }
+                        }
+                        catch { /* use custId fallback */ }
+
+                        if (walletCustId > 0)
+                        {
+                            try
+                            {
+                                var already = await _db.WalletTransactions.AnyAsync(t => t.Type == "redeem" && t.OrderId == localId);
+                                if (!already)
+                                    await _wallet.MoveAsync(walletCustId, -order.WalletUsed, "redeem", localId, $"Used at checkout on order {localId}");
+                            }
+                            catch (Exception ex) { _logger.LogWarning(ex, "Cashfree wallet redeem failed for {Order}", localId); }
+                        }
+                    }
                 }
             }
         }
@@ -321,7 +358,9 @@ public record CreateCfOrderRequest(
     string? CustomerId,
     string? CustomerName,
     string? CustomerEmail,
-    string? CustomerPhone
+    string? CustomerPhone,
+    decimal WalletUsed = 0,
+    decimal FullTotal = 0
 );
 
 public record VerifyCfRequest(string? LocalOrderId);

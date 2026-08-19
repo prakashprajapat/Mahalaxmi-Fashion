@@ -64,7 +64,8 @@ public record OrderDto(
     string? ReturnDecisionAt = null,     // ISO 8601
     string? ReturnRejectReason = null,
     string? ReturnMediaPurgeAt = null,   // ISO 8601 — when rejected media auto-deletes
-    bool ReturnMediaDeleted = false
+    bool ReturnMediaDeleted = false,
+    decimal WalletUsed = 0
 );
 
 public record PlaceOrderRequest(
@@ -94,7 +95,9 @@ public record PlaceOrderRequest(
     decimal DiscountAmount = 0,
     // GA4 client id (from the browser's _ga cookie) so the server-side purchase
     // event attributes to the same GA4 session as the shopper.
-    string? GaClientId = null
+    string? GaClientId = null,
+    // Amount the customer chose to pay from their loyalty wallet (validated & capped server-side).
+    decimal WalletUsed = 0
 );
 
 public record AdminUpdateOrderRequest(

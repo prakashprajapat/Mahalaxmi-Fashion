@@ -264,6 +264,9 @@ using (var scope = app.Services.CreateScope())
         );
         CREATE INDEX IF NOT EXISTS idx_wallet_tx_customer ON wallet_transactions (customer_id, created_at DESC);
         CREATE UNIQUE INDEX IF NOT EXISTS uq_wallet_earn_order ON wallet_transactions (order_id) WHERE type = 'earn';
+        ALTER TABLE site_orders ADD COLUMN IF NOT EXISTS wallet_used NUMERIC(12,2) NOT NULL DEFAULT 0;
+        ALTER TABLE cashfree_orders ADD COLUMN IF NOT EXISTS wallet_used NUMERIC(12,2) NOT NULL DEFAULT 0;
+        ALTER TABLE cashfree_orders ADD COLUMN IF NOT EXISTS full_total NUMERIC(12,2) NOT NULL DEFAULT 0;
     ");
 
     // Seed Web Push VAPID keys once so push notifications work out of the box.

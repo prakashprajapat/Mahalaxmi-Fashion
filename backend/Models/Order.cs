@@ -70,6 +70,12 @@ public class SiteOrder
     [Column("discount_amount")]
     public decimal DiscountAmount { get; set; }
 
+    // Part of the order value paid from the customer's loyalty wallet. The order's sale value
+    // (Total, used for GST/invoice) is unchanged; this is just how much of it was settled by
+    // wallet instead of gateway/COD. Amount collected externally = Total − WalletUsed.
+    [Column("wallet_used")]
+    public decimal WalletUsed { get; set; }
+
     // GST invoice number (e.g. M/26-27/001), assigned once when the order is marked Ready for Shipping
     [Column("invoice_number")]
     public string? InvoiceNumber { get; set; }
