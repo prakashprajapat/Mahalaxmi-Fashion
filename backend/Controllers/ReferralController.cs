@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using MahalaxmiApi.Data;
 using MahalaxmiApi.Models;
 
@@ -57,13 +58,13 @@ public class ReferralController : ControllerBase
         }
         else
         {
+            // Upgrade any legacy id-based code (e.g. "PRAKASH4") to a random, non-guessable one.
+            if (string.Equals(coupon.Code, LegacyCode(customer), StringComparison.OrdinalIgnoreCase))
+                coupon.Code = await MakeUniqueCodeAsync(customer);
             // Keep the discount/min-order in sync with current settings.
-            if (coupon.Value != discount || coupon.MinOrder != minOrder)
-            {
-                coupon.Value = discount;
-                coupon.MinOrder = minOrder;
-                await _db.SaveChangesAsync();
-            }
+            coupon.Value = discount;
+            coupon.MinOrder = minOrder;
+            await _db.SaveChangesAsync();
         }
 
         // Stats: friends who ordered with this code, and total the referrer has earned.
@@ -88,17 +89,40 @@ public class ReferralController : ControllerBase
     private Task<string?> Setting(string key) =>
         _db.SiteSettings.Where(s => s.Key == key).Select(s => s.Value).FirstOrDefaultAsync();
 
-    // A clean, shareable, unique code built from the customer's first name + id, e.g. "PRAKASH42".
-    private async Task<string> MakeUniqueCodeAsync(Customer c)
+    private static string NamePart(Customer c)
+    {
+        var letters = new string((c.FirstName ?? "").Where(char.IsLetter).ToArray()).ToUpperInvariant();
+        if (letters.Length > 6) letters = letters.Substring(0, 6);
+        return string.IsNullOrEmpty(letters) ? "MFH" : letters;
+    }
+
+    // The OLD id-based code we now upgrade away from (first name up to 8 letters + customer id),
+    // reproduced exactly so existing codes like "PRAKASH4" are detected and upgraded.
+    private static string LegacyCode(Customer c)
     {
         var letters = new string((c.FirstName ?? "").Where(char.IsLetter).ToArray()).ToUpperInvariant();
         if (letters.Length > 8) letters = letters.Substring(0, 8);
         if (string.IsNullOrEmpty(letters)) letters = "MFH";
-        var baseCode = letters + c.Id;
-        var code = baseCode;
-        var n = 1;
-        while (await _db.Coupons.AnyAsync(x => x.Code.ToLower() == code.ToLower()))
-            code = baseCode + (++n);
+        return letters + c.Id;
+    }
+
+    // A clean, shareable, GUARANTEED-unique code: first name + a random 4-char suffix that
+    // does NOT expose the customer id, e.g. "PRAKASH7X2K". Retries on the rare collision.
+    private async Task<string> MakeUniqueCodeAsync(Customer c)
+    {
+        const string alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no confusable 0/O/1/I
+        var prefix = NamePart(c);
+        string code;
+        var attempts = 0;
+        do
+        {
+            var bytes = RandomNumberGenerator.GetBytes(4);
+            var suffix = new char[4];
+            for (var i = 0; i < 4; i++) suffix[i] = alphabet[bytes[i] % alphabet.Length];
+            code = prefix + new string(suffix);
+            attempts++;
+        }
+        while (attempts < 25 && await _db.Coupons.AnyAsync(x => x.Code.ToLower() == code.ToLower()));
         return code;
     }
 }
