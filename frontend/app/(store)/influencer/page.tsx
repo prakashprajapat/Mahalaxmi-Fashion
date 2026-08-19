@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import WhatsAppIcon from '@/components/icons/WhatsAppIcon';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? '';
 const SITE = 'https://www.mahalaxmifashionhub.com';
@@ -667,7 +668,7 @@ export default function InfluencerPage() {
                   fontSize: '.82rem', display: 'inline-flex', alignItems: 'center', gap: '.4rem',
                 }}
               >
-                📱 WhatsApp Share
+                <WhatsAppIcon size={16} /> WhatsApp Share
               </a>
               <button onClick={() => {
                 copy(`👗 Shop at Mahalaxmi Fashion Hub!\n\nUse my code: ${dashData.couponCode} 💥 for a discount\n\n🛍️ Link: ${affLink}`, 'caption');
@@ -824,8 +825,8 @@ export default function InfluencerPage() {
           <div style={{ fontWeight: 700, marginBottom: '.3rem', color: '#1a1a1a' }}>💬 Need Help?</div>
           <p style={{ color: '#666', fontSize: '.85rem', margin: '0 0 .75rem' }}>WhatsApp us for commission payments, orders, or any questions</p>
           <a href="https://wa.me/919429429880" target="_blank" rel="noopener noreferrer"
-            style={{ background: '#25D366', color: '#fff', textDecoration: 'none', borderRadius: '20px', padding: '.5rem 1.2rem', fontWeight: 700, fontSize: '.85rem' }}>
-            📱 WhatsApp Support
+            style={{ background: '#25D366', color: '#fff', textDecoration: 'none', borderRadius: '20px', padding: '.5rem 1.2rem', fontWeight: 700, fontSize: '.85rem', display: 'inline-flex', alignItems: 'center', gap: '.4rem' }}>
+            <WhatsAppIcon size={16} /> WhatsApp Support
           </a>
         </div>
       </div>

@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { settingsApi } from '@/lib/api';
 import { trackEvent } from '@/lib/analytics';
+import WhatsAppIcon from '@/components/icons/WhatsAppIcon';
 
 const DEFAULT_WA = '919429429880';
 const DEFAULT_ADDRESS_LINE1 = 'Ward No. 45, Near Mahadev Temple,';
@@ -154,7 +155,7 @@ export default function ContactPage() {
                   display: 'flex', alignItems: 'center', gap: '.5rem', justifyContent: 'center',
                   transition: 'background .2s',
                 }}>
-                💬 Send via WhatsApp
+                <WhatsAppIcon size={20} /> Send via WhatsApp
               </button>
 
               <p style={{ color: '#aaa', fontSize: '.78rem', textAlign: 'center' }}>

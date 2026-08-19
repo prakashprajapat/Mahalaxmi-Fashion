@@ -3,6 +3,7 @@ import { useState, useMemo } from 'react';
 import type { Product } from '@/types';
 import { productImageSrc } from '@/lib/productImages';
 import { finalUnitPrice } from '@/lib/price';
+import WhatsAppIcon from '@/components/icons/WhatsAppIcon';
 
 const WA_NUMBER = '919429429880';
 
@@ -67,7 +68,7 @@ export default function NightyClothCatalog({ products }: { products: Product[] }
               fontSize: '.85rem', textDecoration: 'none',
             }}
           >
-            💬 Chat on WhatsApp
+            <WhatsAppIcon size={18} /> Chat on WhatsApp
           </a>
         </div>
       </div>
@@ -173,7 +174,7 @@ function NightyClothCard({ product }: { product: Product }) {
             fontSize: '.85rem', textDecoration: 'none', border: 'none',
           }}
         >
-          💬 Order via WhatsApp
+          <WhatsAppIcon size={18} /> Order via WhatsApp
         </a>
       </div>
     </div>
