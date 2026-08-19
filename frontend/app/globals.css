@@ -683,10 +683,10 @@ button { cursor: pointer; font-family: inherit; }
 .policy-card a:hover { text-decoration: underline; }
 
 /* ─── Footer app buttons ─── */
-.footer-app-row { display: flex; gap: .5rem; margin-top: .75rem; flex-wrap: wrap; }
-.footer-app-btn { display: flex; flex-direction: row; align-items: center; gap: .55rem; min-height: 46px; flex: 1 1 0; min-width: 150px; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.18); border-radius: 8px; padding: .45rem .9rem; color: #f4eadf; font-size: .78rem; cursor: default; text-decoration: none; }
+.footer-app-row { display: flex; gap: .5rem; margin-top: .75rem; flex-wrap: wrap; align-items: stretch; }
+.footer-app-btn { box-sizing: border-box; display: flex; flex-direction: row; align-items: center; gap: .55rem; height: 48px; flex: 1 1 150px; min-width: 150px; background: rgba(255,255,255,.08); border: 1.5px solid rgba(255,255,255,.22); border-radius: 8px; padding: 0 .9rem; color: #f4eadf; font-size: .78rem; cursor: default; text-decoration: none; }
 .footer-app-btn svg { width: 22px; height: 22px; flex-shrink: 0; }
-.footer-app-btn .fab-text { display: flex; flex-direction: column; }
+.footer-app-btn .fab-text { display: flex; flex-direction: column; justify-content: center; }
 .footer-app-btn small { display: block; opacity: .72; font-size: .62rem; line-height: 1.1; text-transform: uppercase; }
 .footer-app-btn strong { display: block; font-size: .82rem; line-height: 1.2; }
 
@@ -1189,15 +1189,13 @@ button { cursor: pointer; font-family: inherit; }
 .cart-count{ display:inline-flex !important; align-items:center; justify-content:center; }
 /* ==================== END CART FIX ==================== */
 
-/* ── Footer live "Google Play" download button (clickable, gold-accented) ── */
+/* ── Footer live "Google Play" download button — same size & formatting as the
+      App Store button; only difference is it's clickable (pointer + hover lift). ── */
 a.footer-app-btn.footer-app-live{
-  cursor:pointer; opacity:1 !important; text-decoration:none;
-  border:1.5px solid var(--gold) !important;
-  background:rgba(201,162,75,.12) !important;
+  cursor:pointer; text-decoration:none;
   transition:background .2s, transform .2s;
 }
-a.footer-app-btn.footer-app-live:hover{ background:rgba(201,162,75,.22) !important; transform:translateY(-2px); }
-a.footer-app-btn.footer-app-live strong{ color:#fff !important; }
+a.footer-app-btn.footer-app-live:hover{ background:rgba(255,255,255,.16); transform:translateY(-2px); }
 /* ==================== END FOOTER APP BUTTON ==================== */
 
 /* ===== Mobile bottom navigation bar (Meesho-style) ===== */

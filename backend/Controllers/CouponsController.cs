@@ -53,7 +53,8 @@ public class CouponsController : ControllerBase
                 return BadRequest(new { success = false, message = "Referral codes are only valid on your first order." });
         }
 
-        // Influencer code — a customer can use a given influencer code only once.
+        // Influencer code — the DISCOUNT applies only once per customer (the creator still earns
+        // on repeat orders, but the shopper doesn't get the discount a second time).
         if ((req.CustomerId ?? -1) > 0)
         {
             var codeL = req.Code.ToLower().Trim();
@@ -64,7 +65,7 @@ public class CouponsController : ControllerBase
                     && o.CustomerJson.Contains("\"id\":\"" + req.CustomerId + "\"")
                     && o.CouponCode != null && o.CouponCode.ToLower() == codeL);
                 if (usedBefore)
-                    return BadRequest(new { success = false, message = "You have already used this code. It can be used only once." });
+                    return BadRequest(new { success = false, message = "You've already used this code — the discount applies only once." });
             }
         }
 
