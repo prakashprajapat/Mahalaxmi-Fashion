@@ -53,7 +53,7 @@ export default function WalletPage() {
           ₹{balance.toLocaleString('en-IN', { minimumFractionDigits: balance % 1 ? 2 : 0 })}
         </div>
         <div style={{ fontSize: '.82rem', opacity: .9, marginTop: '.5rem' }}>
-          Har delivered order par reward paao aur agle order me use karo.
+          Earn rewards on every delivered order and use them on your next purchase.
         </div>
       </div>
 
@@ -64,8 +64,8 @@ export default function WalletPage() {
       ) : txns.length === 0 ? (
         <div style={{ background: '#fff', border: '1px solid #eee', borderRadius: 12, padding: '2.5rem 1rem', textAlign: 'center', color: '#999' }}>
           <div style={{ fontSize: '2.2rem', marginBottom: '.4rem' }}>👛</div>
-          <p style={{ margin: 0 }}>Abhi tak koi wallet activity nahi.</p>
-          <p style={{ margin: '.3rem 0 0', fontSize: '.85rem', color: '#bbb' }}>Order deliver hote hi reward yahan dikhega.</p>
+          <p style={{ margin: 0 }}>No wallet activity yet.</p>
+          <p style={{ margin: '.3rem 0 0', fontSize: '.85rem', color: '#bbb' }}>Your reward will appear here once an order is delivered.</p>
         </div>
       ) : (
         <div style={{ background: '#fff', border: '1px solid #eee', borderRadius: 12, overflow: 'hidden' }}>

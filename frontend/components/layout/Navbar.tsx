@@ -451,6 +451,7 @@ export default function Navbar() {
                 {[
                   { href: '/account', label: '🏠 Dashboard' },
                   { href: '/orders', label: '📦 My Orders' },
+                  { href: '/account/wallet', label: '👛 My Wallet' },
                   { href: '/wishlist', label: '❤️ Wishlist' },
                   { href: '/cart', label: '🛒 Cart' },
                   { href: '/account/address', label: '📍 My Address' },
@@ -460,7 +461,6 @@ export default function Navbar() {
                   { href: '/account/saved-cards', label: '💳 Saved Cards' },
                   { href: '/account/downloads', label: '📥 Downloads' },
                   { href: '/reviews', label: '⭐ My Reviews' },
-                  { href: '/tracking', label: '🚚 Track Order' },
                 ].map(l => (
                   <Link key={l.href + l.label} href={l.href} onClick={() => setAccountOpen(false)}
                     style={{ display: 'block', padding: '.6rem .25rem', color: '#444', fontSize: '.92rem', textDecoration: 'none', borderBottom: '1px solid #f5f5f5' }}>
@@ -544,6 +544,7 @@ export default function Navbar() {
                 {[
                   { href: '/account', label: '🏠 Dashboard' },
                   { href: '/orders', label: '📦 My Orders' },
+                  { href: '/account/wallet', label: '👛 My Wallet' },
                   { href: '/wishlist', label: '❤️ Wishlist' },
                   { href: '/cart', label: '🛒 Cart' },
                   { href: '/account/address', label: '📍 My Address' },
@@ -553,7 +554,6 @@ export default function Navbar() {
                   { href: '/account/saved-cards', label: '💳 Saved Cards' },
                   { href: '/account/downloads', label: '📥 Downloads' },
                   { href: '/reviews', label: '⭐ My Reviews' },
-                  { href: '/tracking', label: '🚚 Track Order' },
                 ].map(l => (
                   <Link key={l.href + l.label} href={l.href} onClick={() => setMenuOpen(false)}
                     style={{ display: 'block', padding: '.45rem .25rem', color: '#555', fontSize: '.9rem', textDecoration: 'none' }}>

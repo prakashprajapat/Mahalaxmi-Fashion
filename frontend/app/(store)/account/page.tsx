@@ -148,7 +148,6 @@ function AccountContent() {
               { href: '/account/saved-cards',ico: '💳', label: 'Saved Cards' },
               { href: '/account/downloads',  ico: '📥', label: 'Downloads' },
               { href: '/reviews',            ico: '⭐', label: 'My Reviews' },
-              { href: '/tracking',           ico: '🚚', label: 'Track Order' },
             ].map(l => (
               <Link key={l.href + l.label} href={l.href}>
                 <span className="ico" aria-hidden="true">{l.ico}</span>
