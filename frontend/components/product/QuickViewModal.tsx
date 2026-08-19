@@ -500,7 +500,7 @@ export default function QuickViewModal({ product, onClose }: Props) {
 
         {/* Mobile: stack on small screens */}
         <style>{`
-          @media (max-width: 600px) {
+          @media (max-width: 1024px) {
             .qv-grid { grid-template-columns: 1fr !important; }
           }
           /* Thin horizontal scrollbar that sits just under the thumbnail strip */

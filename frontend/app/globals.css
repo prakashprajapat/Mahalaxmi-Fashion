@@ -167,11 +167,6 @@ button { cursor: pointer; font-family: inherit; }
   white-space: nowrap;
 }
 .account-cta:hover { background: var(--brand); color: #fff; }
-/* Account icon+label control in the desktop header (login when logged-out, My Account when logged-in) */
-.account-ico { display: inline-flex; align-items: center; gap: .4rem; background: none; }
-.account-ico svg { flex: 0 0 auto; }
-.account-ico:hover { background: var(--brand); color: #fff; }
-.account-ico:hover svg path { fill: #fff; }
 
 /* ─── Primary Button ─── */
 .btn-primary {
@@ -331,7 +326,7 @@ button { cursor: pointer; font-family: inherit; }
 .section-wrap .products-grid { grid-template-columns: repeat(5, 1fr); }
 @media (max-width: 1200px) { .products-grid { grid-template-columns: repeat(3, 1fr); } .section-wrap .products-grid { grid-template-columns: repeat(4, 1fr); } }
 @media (max-width: 900px)  { .products-grid { grid-template-columns: repeat(3, 1fr); } }
-@media (max-width: 600px) { .products-grid { grid-template-columns: repeat(2, 1fr) !important; gap: .75rem; } .section-wrap .products-grid { grid-template-columns: repeat(2, 1fr) !important; } }
+@media (max-width: 1024px) { .products-grid { grid-template-columns: repeat(2, 1fr) !important; gap: .75rem; } .section-wrap .products-grid { grid-template-columns: repeat(2, 1fr) !important; } }
 /* Old product-card styles removed — new ones in Product Card section above */
 
 /* ─── Account Shell ─── */
@@ -705,7 +700,7 @@ button { cursor: pointer; font-family: inherit; }
   .admin-sidebar { display: none; }
   .admin-content, .admin-topbar { margin-left: 0; }
 }
-@media (max-width: 600px) {
+@media (max-width: 1024px) {
   .brand-row { padding: .6rem 1rem; }
   .policy-nav { display: none; }
   .form-grid { grid-template-columns: 1fr; }
@@ -1176,7 +1171,7 @@ button { cursor: pointer; font-family: inherit; }
 /* ==================== END PREMIUM TOPBAR ==================== */
 
 /* ── Mobile header: logo + cart on row 1, full-width search on row 2 (visible) ── */
-@media (max-width: 600px){
+@media (max-width: 1024px){
   .brand-row{ display:flex !important; flex-wrap:wrap; gap:.55rem .7rem; padding:.6rem .9rem; align-items:center; }
   .brand{ flex:1 1 auto; min-width:0; }
   .brand-mark img{ height:52px !important; }
@@ -1206,7 +1201,7 @@ a.footer-app-btn.footer-app-live strong{ color:#fff !important; }
 
 /* ===== Mobile bottom navigation bar (Meesho-style) ===== */
 .bottom-nav { display: none; }
-@media (max-width: 600px) {
+@media (max-width: 1024px) {
   .bottom-nav {
     display: flex;
     position: fixed;
@@ -1239,7 +1234,7 @@ a.footer-app-btn.footer-app-live strong{ color:#fff !important; }
 .mobile-greet { display: none; }
 .search-icons { display: none; }
 .search-lens { display: none; }
-@media (max-width: 600px) {
+@media (max-width: 1024px) {
   .mobile-greet {
     display: flex; align-items: center; justify-content: space-between;
     padding: 8px 14px 4px; background: #fff;
@@ -1276,7 +1271,7 @@ a.footer-app-btn.footer-app-live strong{ color:#fff !important; }
 }
 
 /* ===== Mobile clean-up (Meesho-style: greeting + search -> straight to products) ===== */
-@media (max-width: 600px) {
+@media (max-width: 1024px) {
   /* Remove the whole department nav on mobile (Menu / Home / Best Sellers / Women / Men…).
      Category browsing now lives in the bottom-nav "Categories" drawer. */
   .department-nav { display: none !important; }
@@ -1317,7 +1312,7 @@ a.footer-app-btn.footer-app-live strong{ color:#fff !important; }
         the hero + curated sections + reviews + FAQ show on desktop only. ===== */
 .home-listing { display: none; }
 .home-desktop { display: block; }
-@media (max-width: 600px) {
+@media (max-width: 1024px) {
   .home-listing { display: block; }
   .home-desktop { display: none; }
 }
@@ -1327,12 +1322,7 @@ a.footer-app-btn.footer-app-live strong{ color:#fff !important; }
   position: fixed; right: 1.2rem; bottom: 1.5rem; z-index: 999;
   display: flex; flex-direction: column; align-items: flex-end; gap: 12px;
 }
-@media (max-width: 600px) { .help-fab-wrap { bottom: 74px; right: 1rem; } }
-/* When the Add-to-Cart bar is showing, lift the Help FAB above it so it doesn't
-   cover the View Cart / Checkout / ✕ buttons. */
-@media (max-width: 600px) {
-  body.cart-bar-open .help-fab-wrap { bottom: calc(122px + env(safe-area-inset-bottom, 0px)); }
-}
+@media (max-width: 1024px) { .help-fab-wrap { bottom: 74px; right: 1rem; } }
 .help-fab-menu { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
 .help-fab-item {
   display: inline-flex; align-items: center; gap: 8px;
@@ -1353,7 +1343,7 @@ a.footer-app-btn.footer-app-live strong{ color:#fff !important; }
 @keyframes helpFabIn { from { opacity: 0; transform: translateY(8px) scale(.9); } to { opacity: 1; transform: none; } }
 
 /* ===== Sticky mobile header: greeting + logo/search stay fixed; only products scroll ===== */
-@media (max-width: 600px) {
+@media (max-width: 1024px) {
   .m-head {
     position: sticky; top: 0; z-index: 400; background: #fff;
     box-shadow: 0 2px 8px rgba(0,0,0,.06);
@@ -1376,11 +1366,11 @@ a.footer-app-btn.footer-app-live strong{ color:#fff !important; }
 .dept-search svg { flex: 0 0 auto; color: #8b8f98; }
 .dept-search input { border: none; background: transparent; outline: none; font-size: .9rem; color: #333; width: 100%; }
 /* The greeting-bar search already covers mobile — never show this one there */
-@media (max-width: 600px) { .dept-search.show { display: none !important; } }
+@media (max-width: 1024px) { .dept-search.show { display: none !important; } }
 
 /* ===== Trust strip on mobile: 2 per row, custom order =====
    Row 1: Easy 7-Day Returns, 100% Genuine  ·  Row 2: Pan-India Delivery, Secure Payment */
-@media (max-width: 600px) {
+@media (max-width: 1024px) {
   .trust-grid { grid-template-columns: 1fr 1fr !important; gap: .7rem .5rem !important; }
   .trust-grid > :nth-child(1) { order: 4; } /* Secure Payment  -> last  */
   .trust-grid > :nth-child(2) { order: 1; } /* Easy 7-Day Returns -> 1st */
@@ -1391,7 +1381,7 @@ a.footer-app-btn.footer-app-live strong{ color:#fff !important; }
 
 /* ===== Desktop single-row header: logo + nav + search + cart + login on ONE row ===== */
 .hdr-nav { display: none; }
-@media (min-width: 901px) {
+@media (min-width: 1025px) {
   /* the whole header row sticks on scroll (was the department nav before) */
   .m-head { position: sticky; top: 0; z-index: 200; background: #fff; box-shadow: 0 1px 6px rgba(0,0,0,.08); }
   .brand-row { flex-wrap: nowrap !important; gap: 1.1rem !important; padding: .45rem 1.25rem !important; }
@@ -1417,7 +1407,7 @@ a.footer-app-btn.footer-app-live strong{ color:#fff !important; }
 }
 
 /* ===== Mobile: hero quality badges (Premium Quality / Comfort Fabrics / Trusted Shopping) in ONE row ===== */
-@media (max-width: 600px) {
+@media (max-width: 1024px) {
   .hero-badge-row { flex-wrap: nowrap !important; gap: .45rem !important; margin-top: .7rem !important; }
   .hero-badge-row > div { gap: .22rem !important; min-width: 0; flex: 0 1 auto; }
   .hero-badge-row > div > span:first-child { font-size: .82rem !important; }
