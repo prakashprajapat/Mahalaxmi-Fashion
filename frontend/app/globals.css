@@ -1193,6 +1193,8 @@ button { cursor: pointer; font-family: inherit; }
       App Store button; only difference is it's clickable (pointer + hover lift). ── */
 a.footer-app-btn.footer-app-live{
   cursor:pointer; text-decoration:none;
+  display:flex; flex-direction:row; align-items:center; gap:.55rem;
+  margin-bottom:0; font-size:.78rem;
   transition:background .2s, transform .2s;
 }
 a.footer-app-btn.footer-app-live:hover{ background:rgba(255,255,255,.16); transform:translateY(-2px); }
