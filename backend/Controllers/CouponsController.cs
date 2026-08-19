@@ -53,6 +53,21 @@ public class CouponsController : ControllerBase
                 return BadRequest(new { success = false, message = "Referral codes are only valid on your first order." });
         }
 
+        // Influencer code — a customer can use a given influencer code only once.
+        if ((req.CustomerId ?? -1) > 0)
+        {
+            var codeL = req.Code.ToLower().Trim();
+            var isInfluencer = await _db.Influencers.AnyAsync(i => i.CouponCode != null && i.CouponCode.ToLower() == codeL);
+            if (isInfluencer)
+            {
+                var usedBefore = await _db.SiteOrders.AnyAsync(o => o.CustomerJson != null
+                    && o.CustomerJson.Contains("\"id\":\"" + req.CustomerId + "\"")
+                    && o.CouponCode != null && o.CouponCode.ToLower() == codeL);
+                if (usedBefore)
+                    return BadRequest(new { success = false, message = "You have already used this code. It can be used only once." });
+            }
+        }
+
         if (req.OrderAmount < coupon.MinOrder)
             return BadRequest(new { success = false, message = $"Minimum order of ₹{coupon.MinOrder:0} required for this coupon." });
 

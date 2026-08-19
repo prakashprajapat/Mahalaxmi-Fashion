@@ -266,6 +266,18 @@ public class OrdersController : ControllerBase
             if (coupon is not null && coupon.Occasion == "referral" && callerId > 0)
                 referralReuse = await _db.SiteOrders.AnyAsync(o => o.CustomerJson != null && o.CustomerJson.Contains("\"id\":\"" + callerId + "\""));
 
+            // Influencer code: a customer can use any given influencer code only ONCE (blocked if
+            // they've already placed an order with the same code).
+            var influencerReuse = false;
+            if (coupon is not null && callerId > 0 && !referralReuse)
+            {
+                var isInfluencer = await _db.Influencers.AnyAsync(i => i.CouponCode != null && i.CouponCode.ToLower() == code.ToLower());
+                if (isInfluencer)
+                    influencerReuse = await _db.SiteOrders.AnyAsync(o => o.CustomerJson != null
+                        && o.CustomerJson.Contains("\"id\":\"" + callerId + "\"")
+                        && o.CouponCode != null && o.CouponCode.ToLower() == code.ToLower());
+            }
+
             var valid = coupon is not null
                 && (!coupon.ExpiresAt.HasValue || coupon.ExpiresAt.Value >= DateTimeOffset.UtcNow)
                 && (!coupon.MaxUses.HasValue || coupon.UsedCount < coupon.MaxUses.Value)
@@ -273,8 +285,10 @@ public class OrdersController : ControllerBase
                 && (!coupon.CustomerId.HasValue || coupon.CustomerId.Value == callerId)
                 // Refer & Earn: you can't use your OWN referral code…
                 && !(coupon.Occasion == "referral" && coupon.ReferrerCustomerId == callerId)
-                // …and a referral code works only on a customer's first order.
-                && !referralReuse;
+                // …a referral code works only on a customer's first order…
+                && !referralReuse
+                // …and an influencer code can be used only once per customer.
+                && !influencerReuse;
             if (valid && coupon is not null)
             {
                 serverDiscount = coupon.Type == "percent"
