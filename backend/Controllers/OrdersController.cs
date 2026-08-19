@@ -259,13 +259,22 @@ public class OrdersController : ControllerBase
             var code = req.CouponCode.Trim();
             var coupon = await _db.Coupons.FirstOrDefaultAsync(c => c.Code.ToLower() == code.ToLower() && c.IsActive);
             var callerId = int.TryParse(req.CustomerId, out var cid) ? cid : -1;
+
+            // Refer & Earn: the friend's discount applies only on their FIRST order — a customer
+            // can benefit from a referral code just once (no reusing referral codes).
+            var referralReuse = false;
+            if (coupon is not null && coupon.Occasion == "referral" && callerId > 0)
+                referralReuse = await _db.SiteOrders.AnyAsync(o => o.CustomerJson != null && o.CustomerJson.Contains("\"id\":\"" + callerId + "\""));
+
             var valid = coupon is not null
                 && (!coupon.ExpiresAt.HasValue || coupon.ExpiresAt.Value >= DateTimeOffset.UtcNow)
                 && (!coupon.MaxUses.HasValue || coupon.UsedCount < coupon.MaxUses.Value)
                 && serverSubtotal >= coupon.MinOrder
                 && (!coupon.CustomerId.HasValue || coupon.CustomerId.Value == callerId)
-                // Refer & Earn: you can't use your OWN referral code.
-                && !(coupon.Occasion == "referral" && coupon.ReferrerCustomerId == callerId);
+                // Refer & Earn: you can't use your OWN referral code…
+                && !(coupon.Occasion == "referral" && coupon.ReferrerCustomerId == callerId)
+                // …and a referral code works only on a customer's first order.
+                && !referralReuse;
             if (valid && coupon is not null)
             {
                 serverDiscount = coupon.Type == "percent"

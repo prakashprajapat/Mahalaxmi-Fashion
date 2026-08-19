@@ -684,8 +684,9 @@ button { cursor: pointer; font-family: inherit; }
 
 /* ─── Footer app buttons ─── */
 .footer-app-row { display: flex; gap: .5rem; margin-top: .75rem; flex-wrap: wrap; }
-.footer-app-btn { display: flex; flex-direction: column; justify-content: center; min-height: 42px; gap: 0; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.18); border-radius: 8px; padding: .45rem .75rem; color: #f4eadf; font-size: .78rem; cursor: default; }
-.footer-app-btn svg { width: 20px; height: 20px; flex-shrink: 0; }
+.footer-app-btn { display: flex; flex-direction: row; align-items: center; gap: .55rem; min-height: 46px; flex: 1 1 0; min-width: 150px; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.18); border-radius: 8px; padding: .45rem .9rem; color: #f4eadf; font-size: .78rem; cursor: default; text-decoration: none; }
+.footer-app-btn svg { width: 22px; height: 22px; flex-shrink: 0; }
+.footer-app-btn .fab-text { display: flex; flex-direction: column; }
 .footer-app-btn small { display: block; opacity: .72; font-size: .62rem; line-height: 1.1; text-transform: uppercase; }
 .footer-app-btn strong { display: block; font-size: .82rem; line-height: 1.2; }
 

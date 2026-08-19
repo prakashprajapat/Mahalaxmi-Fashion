@@ -45,6 +45,14 @@ public class CouponsController : ControllerBase
         if (coupon.Occasion == "referral" && coupon.ReferrerCustomerId.HasValue && coupon.ReferrerCustomerId.Value == (req.CustomerId ?? -1))
             return BadRequest(new { success = false, message = "You can't use your own referral code. Share it with friends instead!" });
 
+        // Refer & Earn — a referral code works only on a customer's first order.
+        if (coupon.Occasion == "referral" && (req.CustomerId ?? -1) > 0)
+        {
+            var alreadyOrdered = await _db.SiteOrders.AnyAsync(o => o.CustomerJson != null && o.CustomerJson.Contains("\"id\":\"" + req.CustomerId + "\""));
+            if (alreadyOrdered)
+                return BadRequest(new { success = false, message = "Referral codes are only valid on your first order." });
+        }
+
         if (req.OrderAmount < coupon.MinOrder)
             return BadRequest(new { success = false, message = $"Minimum order of ₹{coupon.MinOrder:0} required for this coupon." });
 
