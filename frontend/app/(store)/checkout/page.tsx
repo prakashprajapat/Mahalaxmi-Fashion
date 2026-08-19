@@ -709,7 +709,7 @@ export default function CheckoutPage() {
               </label>
               {useWallet && (walletApplied > 0
                 ? <p style={{ fontSize: '.78rem', color: '#27ae60', margin: '.35rem 0 0' }}>−₹{walletApplied.toLocaleString('en-IN')} applied (max {walletRedeemPct}% of this order)</p>
-                : <p style={{ fontSize: '.78rem', color: '#999', margin: '.35rem 0 0' }}>Wallet can't be applied to this order.</p>)}
+                : <p style={{ fontSize: '.78rem', color: '#999', margin: '.35rem 0 0' }}>Wallet cannot be applied to this order.</p>)}
             </div>
           )}
 
