@@ -41,6 +41,10 @@ public class CouponsController : ControllerBase
         if (coupon.CustomerId.HasValue && coupon.CustomerId.Value != (req.CustomerId ?? -1))
             return BadRequest(new { success = false, message = "This is a personal offer code and can only be used by the account it was sent to. Please log in with that account." });
 
+        // Refer & Earn — you can't use your own referral code.
+        if (coupon.Occasion == "referral" && coupon.ReferrerCustomerId.HasValue && coupon.ReferrerCustomerId.Value == (req.CustomerId ?? -1))
+            return BadRequest(new { success = false, message = "You can't use your own referral code. Share it with friends instead!" });
+
         if (req.OrderAmount < coupon.MinOrder)
             return BadRequest(new { success = false, message = $"Minimum order of ₹{coupon.MinOrder:0} required for this coupon." });
 

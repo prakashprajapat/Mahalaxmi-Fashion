@@ -46,6 +46,11 @@ public class Coupon
     [Column("is_active")]
     public bool IsActive { get; set; } = true;
 
+    // For customer Refer & Earn coupons (occasion = "referral"): the customer who OWNS this code.
+    // When someone else uses it and that order is delivered, this customer gets a wallet reward.
+    [Column("referrer_customer_id")]
+    public int? ReferrerCustomerId { get; set; }
+
     [Column("created_at")]
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 }

@@ -50,6 +50,16 @@ const SECTIONS = [
     ]
   },
   {
+    title: 'Refer & Earn',
+    desc: 'Each customer gets a personal referral code. A friend using it gets a discount on their first order, and the referrer earns wallet credit once that order is delivered. Change the amounts here anytime.',
+    fields: [
+      { key: 'referralEnabled', label: 'Enable Refer & Earn', type: 'toggle' },
+      { key: 'referralNewUserDiscount', label: 'Friend gets ₹ off (their first order)', type: 'text' },
+      { key: 'referralMinOrder', label: 'Minimum order for the friend discount (₹)', type: 'text' },
+      { key: 'referralReferrerReward', label: 'Referrer earns ₹ (wallet, on delivery)', type: 'text' },
+    ]
+  },
+  {
     title: 'Meta Lead Ads (Facebook / Instagram)',
     desc: 'Bring leads from your Facebook & Instagram Lead Ads straight into the "📥 Meta Ad Leads" page. In your Meta app, add the Webhooks product, set the Callback URL to https://mahalaxmifashionhub.com/api/meta/webhook and the Verify Token to the same value you enter below, then subscribe your Page to the "leadgen" field. App Secret is from your Meta app (Settings → Basic). Page Access Token needs the leads_retrieval permission. Secrets stay blank here after saving for security — re-enter only to change them.',
     fields: [

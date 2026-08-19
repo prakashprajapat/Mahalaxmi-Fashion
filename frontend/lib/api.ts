@@ -474,3 +474,11 @@ export const walletApi = {
   topup: (localOrderId: string, token: string) =>
     request<{ success: boolean; balance: number; already?: boolean }>('/wallet/topup', { method: 'POST', body: JSON.stringify({ localOrderId }) }, token),
 };
+
+// ── Refer & Earn ──────────────────────────────────────────────────────────────
+export const referralApi = {
+  mine: (token: string) =>
+    request<{ success: boolean; enabled: boolean; code: string; discount: number; minOrder: number; reward: number; friendsJoined: number; totalEarned: number }>(
+      '/referral/me', undefined, token
+    ),
+};

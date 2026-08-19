@@ -263,7 +263,9 @@ public class OrdersController : ControllerBase
                 && (!coupon.ExpiresAt.HasValue || coupon.ExpiresAt.Value >= DateTimeOffset.UtcNow)
                 && (!coupon.MaxUses.HasValue || coupon.UsedCount < coupon.MaxUses.Value)
                 && serverSubtotal >= coupon.MinOrder
-                && (!coupon.CustomerId.HasValue || coupon.CustomerId.Value == callerId);
+                && (!coupon.CustomerId.HasValue || coupon.CustomerId.Value == callerId)
+                // Refer & Earn: you can't use your OWN referral code.
+                && !(coupon.Occasion == "referral" && coupon.ReferrerCustomerId == callerId);
             if (valid && coupon is not null)
             {
                 serverDiscount = coupon.Type == "percent"
@@ -643,6 +645,37 @@ public class OrdersController : ControllerBase
                 }
             }
             catch { /* loyalty is best-effort — never block a status update */ }
+        }
+
+        // REFER & EARN: if this delivered order used a customer's referral code, credit the
+        // referrer's wallet (once). Self-referrals are blocked at checkout and double-guarded here.
+        if (justDelivered && !string.IsNullOrWhiteSpace(order.CouponCode))
+        {
+            try
+            {
+                var refEnabled = (await _db.SiteSettings.Where(s => s.Key == "referralEnabled")
+                    .Select(s => s.Value).FirstOrDefaultAsync() ?? "true").Trim().ToLowerInvariant();
+                if (refEnabled == "true" || refEnabled == "1")
+                {
+                    var refCoupon = await _db.Coupons.FirstOrDefaultAsync(
+                        c => c.Code.ToLower() == order.CouponCode!.ToLower() && c.Occasion == "referral");
+                    if (refCoupon?.ReferrerCustomerId is int referrerId && referrerId > 0)
+                    {
+                        var buyerId = GetJsonStr(ParseJson(order.CustomerJson), "id");
+                        var isSelf = int.TryParse(buyerId, out var bId) && bId == referrerId;
+                        var already = await _db.WalletTransactions.AnyAsync(t => t.Type == "referral" && t.OrderId == order.OrderId);
+                        if (!isSelf && !already)
+                        {
+                            decimal.TryParse(await _db.SiteSettings.Where(s => s.Key == "referralReferrerReward")
+                                .Select(s => s.Value).FirstOrDefaultAsync(), out var refReward);
+                            if (refReward <= 0) refReward = 100m;
+                            await _wallet.MoveAsync(referrerId, refReward, "referral", order.OrderId,
+                                $"Referral reward — a friend's order {order.OrderId} was delivered");
+                        }
+                    }
+                }
+            }
+            catch { /* best-effort */ }
         }
 
         // WALLET: when an order is Cancelled/Returned for the first time, put any wallet amount

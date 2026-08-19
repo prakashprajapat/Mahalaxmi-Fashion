@@ -267,6 +267,7 @@ using (var scope = app.Services.CreateScope())
         ALTER TABLE site_orders ADD COLUMN IF NOT EXISTS wallet_used NUMERIC(12,2) NOT NULL DEFAULT 0;
         ALTER TABLE cashfree_orders ADD COLUMN IF NOT EXISTS wallet_used NUMERIC(12,2) NOT NULL DEFAULT 0;
         ALTER TABLE cashfree_orders ADD COLUMN IF NOT EXISTS full_total NUMERIC(12,2) NOT NULL DEFAULT 0;
+        ALTER TABLE coupons ADD COLUMN IF NOT EXISTS referrer_customer_id INTEGER;
     ");
 
     // Seed Web Push VAPID keys once so push notifications work out of the box.
@@ -284,6 +285,16 @@ using (var scope = app.Services.CreateScope())
         db.SiteSettings.Add(new MahalaxmiApi.Models.SiteSetting { Key = "loyaltyEarnPercent", Value = "5" });   // ₹ credited per ₹100 spent (5 = 5%)
     if (!db.SiteSettings.Any(x => x.Key == "loyaltyRedeemMaxPercent"))
         db.SiteSettings.Add(new MahalaxmiApi.Models.SiteSetting { Key = "loyaltyRedeemMaxPercent", Value = "20" }); // max % of an order payable from wallet
+
+    // Refer & Earn defaults (admin-editable in Settings → "Refer & Earn").
+    if (!db.SiteSettings.Any(x => x.Key == "referralEnabled"))
+        db.SiteSettings.Add(new MahalaxmiApi.Models.SiteSetting { Key = "referralEnabled", Value = "true" });
+    if (!db.SiteSettings.Any(x => x.Key == "referralNewUserDiscount"))
+        db.SiteSettings.Add(new MahalaxmiApi.Models.SiteSetting { Key = "referralNewUserDiscount", Value = "100" }); // ₹ off for the friend's first order
+    if (!db.SiteSettings.Any(x => x.Key == "referralMinOrder"))
+        db.SiteSettings.Add(new MahalaxmiApi.Models.SiteSetting { Key = "referralMinOrder", Value = "499" });   // min order for the discount
+    if (!db.SiteSettings.Any(x => x.Key == "referralReferrerReward"))
+        db.SiteSettings.Add(new MahalaxmiApi.Models.SiteSetting { Key = "referralReferrerReward", Value = "100" }); // ₹ wallet to the referrer on delivery
     db.SaveChanges();
 }
 

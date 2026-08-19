@@ -139,6 +139,7 @@ function AccountContent() {
               { href: '/account',            ico: '🏠', label: 'Dashboard' },
               { href: '/orders',             ico: '📦', label: 'My Orders' },
               { href: '/account/wallet',     ico: '👛', label: 'My Wallet' },
+              { href: '/account/refer',      ico: '🤝', label: 'Refer & Earn' },
               { href: '/wishlist',           ico: '❤️', label: 'Wishlist' },
               { href: '/cart',               ico: '🛒', label: 'Cart' },
               { href: '/account/address',    ico: '📍', label: 'My Address' },
