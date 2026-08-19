@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { customersApi } from '@/lib/api';
+import { customersApi, walletApi, type WalletTxn } from '@/lib/api';
 import { getAdminToken } from '@/lib/auth';
 import { exportCustomers } from '@/lib/exportExcel';
 import type { Customer } from '@/types';
@@ -35,6 +35,38 @@ export default function AdminCustomersPage() {
   const [editForm, setEditForm] = useState({ firstName: '', lastName: '', email: '', phone: '' });
   const [editMsg, setEditMsg] = useState('');
   const [editSaving, setEditSaving] = useState(false);
+
+  // Wallet modal state
+  const [walletCust, setWalletCust] = useState<Customer | null>(null);
+  const [walletBalance, setWalletBalance] = useState(0);
+  const [walletTxns, setWalletTxns] = useState<WalletTxn[]>([]);
+  const [walletLoading, setWalletLoading] = useState(false);
+  const [walletAmt, setWalletAmt] = useState('');
+  const [walletNote, setWalletNote] = useState('');
+  const [walletBusy, setWalletBusy] = useState(false);
+
+  const openWallet = async (c: Customer) => {
+    setWalletCust(c); setWalletBalance(0); setWalletTxns([]); setWalletAmt(''); setWalletNote('');
+    setWalletLoading(true);
+    try {
+      const r = await walletApi.forCustomer(c.id, getAdminToken() ?? '');
+      setWalletBalance(r.balance || 0); setWalletTxns(r.transactions || []);
+    } catch { /* ignore */ }
+    finally { setWalletLoading(false); }
+  };
+
+  const doAdjust = async (sign: 1 | -1) => {
+    const amt = Math.abs(parseFloat(walletAmt)) * sign;
+    if (!walletCust || !amt) return;
+    setWalletBusy(true);
+    try {
+      await walletApi.adjust({ customerId: walletCust.id, amount: amt, note: walletNote || undefined }, getAdminToken() ?? '');
+      const r = await walletApi.forCustomer(walletCust.id, getAdminToken() ?? '');
+      setWalletBalance(r.balance || 0); setWalletTxns(r.transactions || []);
+      setWalletAmt(''); setWalletNote('');
+    } catch (e) { alert('Failed: ' + (e as Error).message); }
+    finally { setWalletBusy(false); }
+  };
   const [form, setForm] = useState({
     firstName: '',
     lastName: '',
@@ -249,6 +281,8 @@ export default function AdminCustomersPage() {
                 <td className="px-4 py-3 text-xs whitespace-nowrap">
                   <button onClick={() => openEdit(c)}
                     className="px-2 py-1 rounded bg-blue-50 text-blue-700 font-semibold mr-1">Edit</button>
+                  <button onClick={() => openWallet(c)}
+                    className="px-2 py-1 rounded bg-amber-50 text-amber-700 font-semibold mr-1">👛 Wallet</button>
                   <button onClick={() => handleDelete(c)}
                     className="px-2 py-1 rounded bg-red-50 text-red-600 font-semibold">Delete</button>
                 </td>
@@ -294,6 +328,63 @@ export default function AdminCustomersPage() {
                 className="px-4 py-2 rounded-lg bg-pink-700 text-white text-sm font-semibold">
                 {editSaving ? 'Saving…' : 'Save'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Wallet modal — view balance & statement, and credit / debit manually */}
+      {walletCust && (
+        <div onClick={() => setWalletCust(null)}
+          style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+          <div onClick={e => e.stopPropagation()}
+            style={{ background: '#fff', borderRadius: 12, padding: '1.5rem', width: '100%', maxWidth: 460, maxHeight: '85vh', overflowY: 'auto' }}>
+            <h2 className="text-lg font-bold text-gray-800 mb-1">👛 Wallet — {walletCust.firstName} {walletCust.lastName}</h2>
+            <p className="text-xs text-gray-500 mb-3">Code: {walletCust.customerCode}</p>
+
+            <div style={{ background: 'linear-gradient(135deg,#7a0a22,#a7354d)', color: '#fff', borderRadius: 12, padding: '1rem 1.25rem', marginBottom: '1rem' }}>
+              <div style={{ fontSize: '.8rem', opacity: .9 }}>Balance</div>
+              <div style={{ fontSize: '1.8rem', fontWeight: 800 }}>₹{walletBalance.toLocaleString('en-IN', { minimumFractionDigits: walletBalance % 1 ? 2 : 0 })}</div>
+            </div>
+
+            {/* Adjust */}
+            <div className="grid grid-cols-2 gap-2 mb-2">
+              <input className="border rounded-lg px-3 py-2 text-sm" placeholder="Amount ₹" type="number" min="0"
+                value={walletAmt} onChange={e => setWalletAmt(e.target.value)} />
+              <input className="border rounded-lg px-3 py-2 text-sm" placeholder="Note (optional)"
+                value={walletNote} onChange={e => setWalletNote(e.target.value)} />
+            </div>
+            <div className="flex gap-2 mb-4">
+              <button onClick={() => doAdjust(1)} disabled={walletBusy || !walletAmt}
+                className="flex-1 px-3 py-2 rounded-lg bg-green-600 text-white text-sm font-semibold disabled:opacity-40">+ Credit</button>
+              <button onClick={() => doAdjust(-1)} disabled={walletBusy || !walletAmt}
+                className="flex-1 px-3 py-2 rounded-lg bg-red-600 text-white text-sm font-semibold disabled:opacity-40">− Debit</button>
+            </div>
+
+            {/* History */}
+            <div className="text-xs font-semibold text-gray-500 mb-1">Recent activity</div>
+            {walletLoading ? (
+              <div className="text-center text-gray-400 py-4 text-sm">Loading…</div>
+            ) : walletTxns.length === 0 ? (
+              <div className="text-center text-gray-400 py-4 text-sm">No activity yet.</div>
+            ) : (
+              <div className="border rounded-lg divide-y">
+                {walletTxns.map(t => (
+                  <div key={t.id} className="flex items-center justify-between px-3 py-2 text-sm">
+                    <div className="min-w-0">
+                      <div className="font-medium text-gray-800 capitalize">{t.type.replace('_', ' ')}</div>
+                      <div className="text-xs text-gray-400 truncate">{t.note || t.orderId || ''}</div>
+                    </div>
+                    <div className={`font-bold ${t.amount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {t.amount >= 0 ? '+' : '−'}₹{Math.abs(t.amount).toLocaleString('en-IN')}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="flex justify-end mt-4">
+              <button onClick={() => setWalletCust(null)} className="px-4 py-2 rounded-lg border text-sm">Close</button>
             </div>
           </div>
         </div>

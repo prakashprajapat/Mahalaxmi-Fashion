@@ -448,3 +448,25 @@ export const wishlistApi = {
       '/wishlist/merge', { method: 'POST', body: JSON.stringify({ productIds }) }, token
     ),
 };
+
+// ── Loyalty Wallet ────────────────────────────────────────────────────────────
+export interface WalletTxn {
+  id: number;
+  amount: number;
+  type: string;
+  orderId: string | null;
+  note: string | null;
+  balanceAfter: number;
+  createdAt: string;
+}
+export const walletApi = {
+  // The signed-in customer's own wallet.
+  mine: (token: string) =>
+    request<{ success: boolean; balance: number; transactions: WalletTxn[] }>('/wallet', undefined, token),
+  // Admin: any customer's wallet.
+  forCustomer: (customerId: number, token: string) =>
+    request<{ success: boolean; balance: number; transactions: WalletTxn[] }>(`/wallet/customer/${customerId}`, undefined, token),
+  // Admin: credit (+) or debit (-) a customer's wallet.
+  adjust: (data: { customerId: number; amount: number; note?: string }, token: string) =>
+    request<{ success: boolean; balance: number }>('/wallet/adjust', { method: 'POST', body: JSON.stringify(data) }, token),
+};

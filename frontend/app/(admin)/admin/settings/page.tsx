@@ -41,6 +41,15 @@ const SECTIONS = [
     ]
   },
   {
+    title: 'Loyalty Wallet & Points',
+    desc: 'Customers earn wallet credit on every delivered order and can use it on future orders. Points are added automatically when an order is marked "Delivered". Change the rates here anytime.',
+    fields: [
+      { key: 'loyaltyEnabled', label: 'Enable Loyalty Wallet', type: 'toggle' },
+      { key: 'loyaltyEarnPercent', label: 'Reward % per order (e.g. 5 = ₹5 wallet per ₹100 spent)', type: 'text' },
+      { key: 'loyaltyRedeemMaxPercent', label: 'Max % of an order payable from wallet (e.g. 20)', type: 'text' },
+    ]
+  },
+  {
     title: 'Meta Lead Ads (Facebook / Instagram)',
     desc: 'Bring leads from your Facebook & Instagram Lead Ads straight into the "📥 Meta Ad Leads" page. In your Meta app, add the Webhooks product, set the Callback URL to https://mahalaxmifashionhub.com/api/meta/webhook and the Verify Token to the same value you enter below, then subscribe your Page to the "leadgen" field. App Secret is from your Meta app (Settings → Basic). Page Access Token needs the leads_retrieval permission. Secrets stay blank here after saving for security — re-enter only to change them.',
     fields: [

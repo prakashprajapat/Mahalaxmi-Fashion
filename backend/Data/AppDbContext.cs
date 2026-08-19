@@ -24,6 +24,7 @@ public class AppDbContext : DbContext
     public DbSet<WishlistItem> Wishlists   { get; set; }
     public DbSet<PushSubscription> PushSubscriptions { get; set; }
     public DbSet<MetaLead>    MetaLeads    { get; set; }
+    public DbSet<WalletTransaction> WalletTransactions { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

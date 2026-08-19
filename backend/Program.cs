@@ -20,6 +20,7 @@ builder.Services.AddScoped<EmailService>();
 builder.Services.AddScoped<SmsService>();
 builder.Services.AddScoped<DelhiveryService>();
 builder.Services.AddScoped<AdminNotifier>();
+builder.Services.AddScoped<WalletService>();
 builder.Services.AddHttpClient("razorpay");
 builder.Services.AddHttpClient("cashfree");
 builder.Services.AddHttpClient("delhivery");
@@ -250,6 +251,19 @@ using (var scope = app.Services.CreateScope())
             created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
         CREATE INDEX IF NOT EXISTS idx_meta_leads_created ON meta_leads (created_at DESC);
+        ALTER TABLE customers ADD COLUMN IF NOT EXISTS wallet_balance NUMERIC(12,2) NOT NULL DEFAULT 0;
+        CREATE TABLE IF NOT EXISTS wallet_transactions (
+            id            SERIAL PRIMARY KEY,
+            customer_id   INTEGER NOT NULL,
+            amount        NUMERIC(12,2) NOT NULL,
+            type          VARCHAR(24) NOT NULL,
+            order_id      VARCHAR(64),
+            note          TEXT,
+            balance_after NUMERIC(12,2) NOT NULL DEFAULT 0,
+            created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS idx_wallet_tx_customer ON wallet_transactions (customer_id, created_at DESC);
+        CREATE UNIQUE INDEX IF NOT EXISTS uq_wallet_earn_order ON wallet_transactions (order_id) WHERE type = 'earn';
     ");
 
     // Seed Web Push VAPID keys once so push notifications work out of the box.
@@ -259,6 +273,14 @@ using (var scope = app.Services.CreateScope())
         db.SiteSettings.Add(new MahalaxmiApi.Models.SiteSetting { Key = "vapidPrivateKey", Value = "8R3Upr3bCiDIlMXf5U7YNu7wXxMOFclG8fgaL1rbTns" });
     if (!db.SiteSettings.Any(x => x.Key == "vapidSubject"))
         db.SiteSettings.Add(new MahalaxmiApi.Models.SiteSetting { Key = "vapidSubject", Value = "mailto:mahalaxmifashionhub@gmail.com" });
+
+    // Loyalty wallet defaults (admin-editable in Settings → "Loyalty Wallet & Points").
+    if (!db.SiteSettings.Any(x => x.Key == "loyaltyEnabled"))
+        db.SiteSettings.Add(new MahalaxmiApi.Models.SiteSetting { Key = "loyaltyEnabled", Value = "true" });
+    if (!db.SiteSettings.Any(x => x.Key == "loyaltyEarnPercent"))
+        db.SiteSettings.Add(new MahalaxmiApi.Models.SiteSetting { Key = "loyaltyEarnPercent", Value = "5" });   // ₹ credited per ₹100 spent (5 = 5%)
+    if (!db.SiteSettings.Any(x => x.Key == "loyaltyRedeemMaxPercent"))
+        db.SiteSettings.Add(new MahalaxmiApi.Models.SiteSetting { Key = "loyaltyRedeemMaxPercent", Value = "20" }); // max % of an order payable from wallet
     db.SaveChanges();
 }
 

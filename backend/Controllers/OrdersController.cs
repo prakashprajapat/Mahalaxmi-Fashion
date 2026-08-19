@@ -30,14 +30,16 @@ public class OrdersController : ControllerBase
     private readonly Services.DelhiveryService _delhivery;
     private readonly Services.AdminNotifier _notify;
     private readonly Services.SmsService _sms;
+    private readonly Services.WalletService _wallet;
 
-    public OrdersController(AppDbContext db, IWebHostEnvironment env, Services.DelhiveryService delhivery, Services.AdminNotifier notify, Services.SmsService sms)
+    public OrdersController(AppDbContext db, IWebHostEnvironment env, Services.DelhiveryService delhivery, Services.AdminNotifier notify, Services.SmsService sms, Services.WalletService wallet)
     {
         _db = db;
         _env = env;
         _delhivery = delhivery;
         _notify = notify;
         _sms = sms;
+        _wallet = wallet;
     }
 
     // Deploy-safe uploads root: /var/www/mahalaxmi-uploads/returns (outside repo & publish dir).
@@ -544,7 +546,8 @@ public class OrdersController : ControllerBase
         if (!string.IsNullOrWhiteSpace(req.Courier))
             order.Courier = req.Courier.Trim();
         // BUG-2: Record exact delivery time for accurate return window calculation
-        if (string.Equals(req.Status, "Delivered", StringComparison.OrdinalIgnoreCase) && order.DeliveredAt is null)
+        var justDelivered = string.Equals(req.Status, "Delivered", StringComparison.OrdinalIgnoreCase) && order.DeliveredAt is null;
+        if (justDelivered)
             order.DeliveredAt = DateTimeOffset.UtcNow;
 
         order.UpdatedAt = DateTimeOffset.UtcNow;
@@ -570,6 +573,36 @@ public class OrdersController : ControllerBase
         else
         {
             await _db.SaveChangesAsync();
+        }
+
+        // LOYALTY: credit the buyer's wallet the first time an order is marked Delivered.
+        // Reward is a % of the merchandise paid (total minus shipping & COD fee), so shipping
+        // charges aren't rewarded. No-op for guest orders or when loyalty is turned off.
+        if (justDelivered)
+        {
+            try
+            {
+                var enabled = (await _db.SiteSettings.Where(s => s.Key == "loyaltyEnabled")
+                    .Select(s => s.Value).FirstOrDefaultAsync() ?? "true").Trim().ToLowerInvariant();
+                if (enabled == "true" || enabled == "1")
+                {
+                    var pctStr = await _db.SiteSettings.Where(s => s.Key == "loyaltyEarnPercent")
+                        .Select(s => s.Value).FirstOrDefaultAsync();
+                    decimal.TryParse(pctStr, out var pct);
+                    if (pct <= 0) pct = 5m;
+
+                    var custId = GetJsonStr(ParseJson(order.CustomerJson), "id");
+                    if (int.TryParse(custId, out var cid) && cid > 0)
+                    {
+                        var goods = order.Total - order.ShippingCost - order.CodFee;
+                        var reward = Math.Round(Math.Max(0, goods) * pct / 100m, 2);
+                        if (reward > 0)
+                            await _wallet.MoveAsync(cid, reward, "earn", order.OrderId,
+                                $"Loyalty {pct:0.##}% on delivered order {order.OrderId}");
+                    }
+                }
+            }
+            catch { /* loyalty is best-effort — never block a status update */ }
         }
 
         return Ok(new { success = true, order = MapOrder(order) });

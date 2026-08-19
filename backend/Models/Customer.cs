@@ -110,6 +110,10 @@ public class Customer
     [Column("photo_url")]
     public string? PhotoUrl { get; set; }
 
+    // Loyalty wallet balance in rupees. Always equals the running sum of wallet_transactions.
+    [Column("wallet_balance")]
+    public decimal WalletBalance { get; set; }
+
     [Column("deactivated_at")]
     public DateTimeOffset? DeactivatedAt { get; set; }
 
