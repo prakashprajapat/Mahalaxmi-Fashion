@@ -204,6 +204,7 @@ public class AuthController : ControllerBase
 
     // POST /api/auth/admin-recover/reset
     [HttpPost("admin-recover/reset")]
+    [EnableRateLimiting("auth")]  // SEC-8: brute-force protection on the reset endpoint itself
     public async Task<IActionResult> AdminRecoverReset([FromBody] AdminRecoverResetRequest req)
     {
         if (string.IsNullOrWhiteSpace(req.NewPassword) || req.NewPassword.Length < 8)
@@ -218,8 +219,17 @@ public class AuthController : ControllerBase
         if (token is null)
             return BadRequest(new { success = false, message = "Invalid or expired session. Please start over." });
 
+        // SEC: lock the OTP after 5 wrong guesses so the 6-digit code can't be brute-forced
+        // within the 15-minute window (matches the customer reset flow).
+        if (token.Attempts >= 5)
+            return BadRequest(new { success = false, message = "Too many incorrect attempts. Please start over." });
+
         if (!BCrypt.Net.BCrypt.Verify(req.Otp, token.OtpHash))
+        {
+            token.Attempts++;
+            await _db.SaveChangesAsync();
             return BadRequest(new { success = false, message = "Incorrect OTP." });
+        }
 
         token.Used = true;
         var newHash = BCrypt.Net.BCrypt.HashPassword(req.NewPassword, workFactor: 12);
