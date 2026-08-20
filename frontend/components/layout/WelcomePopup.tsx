@@ -12,6 +12,13 @@ export default function WelcomePopup() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    // Don't show the "Join Our Family" popup inside the installed mobile app.
+    // A TWA/PWA app always runs in standalone display-mode, so we skip the popup there.
+    const inApp = window.matchMedia('(display-mode: standalone)').matches
+      || (navigator as any).standalone === true
+      || document.referrer.startsWith('android-app://');
+    if (inApp) return;
+
     const stored = localStorage.getItem(POPUP_KEY);
     if (stored && Date.now() - Number(stored) < POPUP_TTL) return;
     const t = setTimeout(() => setVisible(true), 3500);
