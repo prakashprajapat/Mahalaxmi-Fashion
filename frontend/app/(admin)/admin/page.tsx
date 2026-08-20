@@ -20,21 +20,26 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     const token = getAdminToken() ?? '';
-    Promise.all([
+    // Load each section independently: a staff account may not have permission for
+    // every section (e.g. Customers → 403). Using allSettled means one missing
+    // permission no longer blanks the whole dashboard — the rest still loads.
+    Promise.allSettled([
       ordersApi.getAll(undefined, token),
       customersApi.getAll(token),
       productsApi.getAll({ pageSize: 1 }),
-    ]).then(([ordersRes, customersRes, productsRes]) => {
-      const orders = ordersRes.orders;
+    ]).then(([ordersR, customersR, productsR]) => {
+      const orders = ordersR.status === 'fulfilled' ? ordersR.value.orders : [];
+      const totalCustomers = customersR.status === 'fulfilled' ? customersR.value.total : 0;
+      const totalProducts = productsR.status === 'fulfilled' ? productsR.value.total : 0;
       setStats({
         totalOrders: orders.length,
         totalRevenue: orders.reduce((s, o) => s + o.total, 0),
-        totalCustomers: customersRes.total,
-        totalProducts: productsRes.total,
+        totalCustomers,
+        totalProducts,
         pendingOrders: orders.filter(o => ['Order Received', 'Pending', 'Order Packed'].includes(o.status)).length,
       });
       setRecentOrders(orders.slice(0, 10));
-    }).catch(console.error);
+    });
   }, []);
 
   const cards = stats ? [
