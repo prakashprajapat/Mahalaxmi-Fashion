@@ -454,6 +454,44 @@ function CustomColourModal({
   );
 }
 
+// ─── Searchable multi-select "filter" for sizes / colours (single + multiple) ───
+function PickFilter({ label, options, selectedValues, onToggle }: {
+  label: string;
+  options: { value: string; label: string; code?: string }[];
+  selectedValues: string[];
+  onToggle: (value: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState('');
+  const filtered = options.filter(o => o.label.toLowerCase().includes(q.trim().toLowerCase()));
+  const count = options.filter(o => selectedValues.includes(o.value)).length;
+  return (
+    <div style={{ position:'relative', display:'inline-block' }}>
+      <button type="button" onClick={() => setOpen(o => !o)}
+        style={{ border:'1.5px solid #a7354d', background: count > 0 ? '#fdf0f3' : '#fff', color:'#a7354d', borderRadius:'20px', padding:'.28rem .8rem', fontSize:'.8rem', fontWeight:700, cursor:'pointer' }}>
+        🔍 {label}{count > 0 ? ` (${count})` : ''} ▾
+      </button>
+      {open && (
+        <>
+          <div onClick={() => setOpen(false)} style={{ position:'fixed', inset:0, zIndex:40 }} />
+          <div style={{ position:'absolute', top:'calc(100% + 4px)', left:0, zIndex:50, background:'#fff', border:'1.5px solid #ddd', borderRadius:10, boxShadow:'0 6px 20px rgba(0,0,0,.15)', width:240, maxHeight:300, overflowY:'auto', padding:'.5rem' }}>
+            <input autoFocus value={q} onChange={e => setQ(e.target.value)} placeholder="Search…"
+              style={{ width:'100%', border:'1.5px solid #eee', borderRadius:8, padding:'.4rem .55rem', fontSize:'.82rem', marginBottom:'.4rem', boxSizing:'border-box' }} />
+            {filtered.length === 0 && <p style={{ fontSize:'.78rem', color:'#999', padding:'.3rem' }}>No match</p>}
+            {filtered.map(o => (
+              <label key={o.value} style={{ display:'flex', alignItems:'center', gap:'.5rem', padding:'.32rem .25rem', cursor:'pointer', fontSize:'.83rem' }}>
+                <input type="checkbox" checked={selectedValues.includes(o.value)} onChange={() => onToggle(o.value)} />
+                {o.code && <span style={{ width:16, height:16, borderRadius:'50%', background:o.code, border:'1px solid #ccc', flexShrink:0 }} />}
+                <span>{o.label}</span>
+              </label>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 const lbl: React.CSSProperties = { fontSize:'.82rem', fontWeight:600, display:'block', marginBottom:'.3rem', color:'#444' };
 const inp: React.CSSProperties = { width:'100%', border:'1.5px solid #ddd', borderRadius:'8px', padding:'.6rem .75rem', fontSize:'.88rem', boxSizing:'border-box' };
@@ -664,7 +702,7 @@ export default function AddProductPage() {
         zoomed: col.zoomed,
       }));
       const extraJson = JSON.stringify({
-        sizes: [...selSizes, ...customSizes],
+        sizes: [...new Set([...selSizes, ...customSizes])],
         colors: selectedColours,
         customColors: customColours,
         images: galleryImages,
@@ -725,6 +763,25 @@ export default function AddProductPage() {
   const selectedColours = packValue >= 2
     ? []
     : [...new Set([...selColors, ...customColours.map(c => c.name), ...splitList(availColours)])];
+
+  // Options + toggle for the colour multi-select filter (presets + saved custom colours).
+  const colourFilterOptions = [
+    ...COLORS_PRESET.map(c => ({ value: c, label: c, code: c.toLowerCase() })),
+    ...savedColours
+      .filter(sc => !COLORS_PRESET.some(p => p.toLowerCase() === sc.name.toLowerCase()))
+      .map(sc => ({ value: sc.name, label: sc.name, code: sc.code || '#ccc' })),
+  ];
+  const colourSelectedValues = [...selColors, ...customColours.map(c => c.name)];
+  const toggleColourValue = (val: string) => {
+    if (COLORS_PRESET.includes(val)) { toggleColor(val); return; }
+    if (customColours.some(c => c.name.toLowerCase() === val.toLowerCase()))
+      setCustomColours(p => p.filter(c => c.name.toLowerCase() !== val.toLowerCase()));
+    else {
+      const sc = savedColours.find(s => s.name === val);
+      addSavedColour({ name: val, code: sc?.code || '#ccc' });
+    }
+  };
+
   const stockKeys = selectedSizes.length > 0
     ? (selectedColours.length > 0
         ? selectedSizes.flatMap(size => selectedColours.map(colour => `${size}|${colour}`))
@@ -1039,6 +1096,8 @@ export default function AddProductPage() {
               style={{ border:'1.5px dashed #ddd', background:'#fff', color:'#888', borderRadius:'20px', padding:'.28rem .7rem', fontSize:'.8rem', cursor:'pointer' }}>
               + Custom
             </button>
+            <PickFilter label="Select sizes" options={allSizes.map(s => ({ value: s, label: s }))}
+              selectedValues={selSizes} onToggle={toggleSize} />
           </div>
 
           {/* Colours row */}
@@ -1072,6 +1131,8 @@ export default function AddProductPage() {
               style={{ border:'1.5px dashed #ddd', background:'#fff', color:'#888', borderRadius:'20px', padding:'.28rem .7rem', fontSize:'.8rem', cursor:'pointer' }}>
               + Custom
             </button>
+            <PickFilter label="Select colours" options={colourFilterOptions}
+              selectedValues={colourSelectedValues} onToggle={toggleColourValue} />
           </div>
 
           {/* Custom colour chips (added) */}
@@ -1159,34 +1220,40 @@ export default function AddProductPage() {
             </div>
           )}
 
-          {/* ── Colour / Design Photos ── one Front/Side/Back/Zoomed gallery per photo-design.
-               (Only for photo-column designs; plain colour-code circles don't need a gallery.) */}
-          {getPackOfNumber(packOf) < 2 && customColours.some(c => c.photo) && (
-            <div style={{ marginTop:'1.5rem', borderTop:'1px solid #f0f0f0', paddingTop:'1.5rem' }}>
-              <p style={{ fontSize:'.75rem', fontWeight:700, color:'#a7354d', textTransform:'uppercase', letterSpacing:'.06em', margin:'0 0 .25rem' }}>
-                COLOUR / DESIGN PHOTOS
-              </p>
-              <p style={{ fontSize:'.8rem', color:'#888', marginBottom:'1.25rem' }}>
-                Har design ke liye Front, Side, Back aur Zoomed photo daalein. Storefront par jab customer ye design chunega, uske ye saare photos dikhenge. (FRONT = column wala photo.)
-              </p>
-              <div style={{ display:'flex', flexDirection:'column', gap:'1.5rem' }}>
-                {customColours.map((c, idx) => c.photo ? (
-                  <div key={idx}>
-                    <div style={{ display:'flex', alignItems:'center', gap:'.6rem', marginBottom:'.75rem' }}>
-                      <img src={c.photo} alt={c.name} style={{ width:'34px', height:'34px', borderRadius:'50%', objectFit:'cover', border:'2px solid #a7354d', flexShrink:0 }} />
-                      <span style={{ fontWeight:700, fontSize:'.92rem' }}>{c.name}</span>
+          {/* ── Colour / Design Photos ── Front/Side/Back/Zoomed gallery for the 2nd photo-column
+               design onward (Column B, C…). The FIRST design (Column A) uses the main Product
+               Photos below, so it needs no separate gallery here. */}
+          {getPackOfNumber(packOf) < 2 && (() => {
+            const designs = customColours.map((c, i) => ({ c, i })).filter(x => x.c.photo);
+            const extra = designs.slice(1);   // skip Column A (the default design)
+            if (extra.length === 0) return null;
+            return (
+              <div style={{ marginTop:'1.5rem', borderTop:'1px solid #f0f0f0', paddingTop:'1.5rem' }}>
+                <p style={{ fontSize:'.75rem', fontWeight:700, color:'#a7354d', textTransform:'uppercase', letterSpacing:'.06em', margin:'0 0 .25rem' }}>
+                  COLOUR / DESIGN PHOTOS
+                </p>
+                <p style={{ fontSize:'.8rem', color:'#888', marginBottom:'1.25rem' }}>
+                  Pehla design (Column A) main Product Photos use karta hai. Extra design (Column B, C…) ke liye yahan Front, Side, Back aur Zoomed photo daalein — storefront par customer jab ye design chunega to uske ye photos dikhenge. (FRONT = column wala photo.)
+                </p>
+                <div style={{ display:'flex', flexDirection:'column', gap:'1.5rem' }}>
+                  {extra.map(({ c, i }) => (
+                    <div key={i}>
+                      <div style={{ display:'flex', alignItems:'center', gap:'.6rem', marginBottom:'.75rem' }}>
+                        <img src={c.photo} alt={c.name} style={{ width:'34px', height:'34px', borderRadius:'50%', objectFit:'cover', border:'2px solid #a7354d', flexShrink:0 }} />
+                        <span style={{ fontWeight:700, fontSize:'.92rem' }}>{c.name}</span>
+                      </div>
+                      <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:'.75rem' }}>
+                        <PhotoSlot label="FRONT"     value={c.photo}     onChange={v => updateDesignPhoto(i,'photo',v)} isFirst />
+                        <PhotoSlot label="SIDE VIEW" value={c.side || ''}   onChange={v => updateDesignPhoto(i,'side',v)} />
+                        <PhotoSlot label="BACK VIEW" value={c.back || ''}   onChange={v => updateDesignPhoto(i,'back',v)} />
+                        <PhotoSlot label="ZOOMED IN" value={c.zoomed || ''} onChange={v => updateDesignPhoto(i,'zoomed',v)} />
+                      </div>
                     </div>
-                    <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:'.75rem' }}>
-                      <PhotoSlot label="FRONT"     value={c.photo}     onChange={v => updateDesignPhoto(idx,'photo',v)} isFirst />
-                      <PhotoSlot label="SIDE VIEW" value={c.side || ''}   onChange={v => updateDesignPhoto(idx,'side',v)} />
-                      <PhotoSlot label="BACK VIEW" value={c.back || ''}   onChange={v => updateDesignPhoto(idx,'back',v)} />
-                      <PhotoSlot label="ZOOMED IN" value={c.zoomed || ''} onChange={v => updateDesignPhoto(idx,'zoomed',v)} />
-                    </div>
-                  </div>
-                ) : null)}
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* Auto stock bar */}
           <div style={{ display:'flex', alignItems:'center', gap:'.75rem', background:'#f9f9f9', borderRadius:'8px', padding:'.55rem 1rem', marginTop:'.5rem' }}>
