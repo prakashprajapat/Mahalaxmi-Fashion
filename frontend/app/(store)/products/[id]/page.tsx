@@ -227,15 +227,12 @@ export default function ProductPage({ params }: { params: { id: string } }) {
   const variantStock = extra.variantMatrix ? (extra.variantMatrix[variantKey] ?? null) : null;
   const outOfStock = product.stock === 'Out of Stock' || (variantStock !== null && variantStock === 0);
 
-  // If the chosen size/colour has fewer pieces than the current quantity, pull it down.
-  useEffect(() => {
-    if (variantStock !== null && variantStock > 0 && qty > variantStock) setQty(variantStock);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [variantStock]);
+  // Never let the add-to-cart quantity exceed the available stock for this variant.
+  const cappedQty = (variantStock !== null && variantStock > 0) ? Math.min(qty, variantStock) : qty;
 
   const handleAddToCart = () => {
     if (outOfStock) return;
-    addToCart(product, qty, size || undefined, color || undefined, variantStock ?? undefined);
+    addToCart(product, cappedQty, size || undefined, color || undefined, variantStock ?? undefined);
     setAdded(true);
     window.dispatchEvent(new Event('cart-updated'));
     setTimeout(() => setAdded(false), 2000);
