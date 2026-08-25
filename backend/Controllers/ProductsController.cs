@@ -42,6 +42,11 @@ public class ProductsController : ControllerBase
     {
         var isAdmin = HttpContext.User.Identity?.IsAuthenticated == true;
 
+        // SEC/DoS: clamp paging so a hostile ?pageSize=99999999 can't force a huge query/response.
+        // Admin needs larger pages (catalogue/QC tools); the public catalogue is capped tighter.
+        page = Math.Max(1, page);
+        pageSize = Math.Clamp(pageSize, 1, isAdmin ? 5000 : 100);
+
         // PERF: Cache public product lists for 60 seconds (admin bypasses cache)
         if (!isAdmin)
         {
