@@ -786,7 +786,7 @@ export default function Navbar() {
                 {/* Mobile / Email OTP */}
                 <button type="button" onClick={switchToOtp} title="Login with Mobile or Email OTP"
                   style={{ flex: 1, height: 46, borderRadius: 9, background: loginMode === 'otp' ? '#fdf0f3' : '#fff', color: '#a01836', fontWeight: 700, fontSize: '.82rem', whiteSpace: 'nowrap', letterSpacing: '-.01em', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '.4rem', border: '1.5px solid #a01836', cursor: 'pointer' }}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#a01836" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M11 18h2"/></svg>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a01836" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M11 18h2"/></svg>
                   Mobile Login
                 </button>
 
@@ -794,8 +794,8 @@ export default function Navbar() {
                 {facebookAppId ? (
                   <a href={`https://www.facebook.com/v18.0/dialog/oauth?client_id=${facebookAppId}&redirect_uri=${encodeURIComponent(typeof window !== 'undefined' ? window.location.origin + '/account/social-callback' : '')}&scope=email,public_profile&response_type=code&state=facebook`}
                     title="Continue with Facebook"
-                    style={{ flex: 1, height: 46, borderRadius: 9, background: '#1877f2', color: '#fff', fontWeight: 700, fontSize: '.82rem', whiteSpace: 'nowrap', textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '.4rem', border: 'none', cursor: 'pointer' }}>
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="white" style={{ flexShrink: 0 }}><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+                    style={{ flex: 1, height: 46, borderRadius: 9, background: '#fff', color: '#333', fontWeight: 700, fontSize: '.82rem', whiteSpace: 'nowrap', textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '.4rem', border: '1.5px solid #ddd', cursor: 'pointer' }}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="#1877f2" style={{ flexShrink: 0 }}><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
                     Facebook
                   </a>
                 ) : (
