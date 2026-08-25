@@ -371,9 +371,9 @@ function AccountContent() {
 
               {/* Mobile / Email OTP */}
               <button type="button" onClick={switchToOtp} title="Login with Mobile or Email OTP"
-                style={{ flex:1, height:46, borderRadius:9, background: loginMode === 'otp' ? '#fdf0f3' : '#fff', color:'#a01836', fontWeight:700, fontSize:'.82rem', whiteSpace:'nowrap', letterSpacing:'-.01em', display:'flex', alignItems:'center', justifyContent:'center', gap:'.4rem', border: loginMode === 'otp' ? '1.5px solid #a01836' : '1.5px solid #ddd', cursor:'pointer' }}>
+                style={{ flex:1, height:46, borderRadius:9, background: loginMode === 'otp' ? '#fdf0f3' : '#fff', color:'#a01836', fontWeight:700, fontSize:'.82rem', whiteSpace:'nowrap', letterSpacing:'-.01em', display:'flex', alignItems:'center', justifyContent:'center', gap:'.4rem', border: '1.5px solid #a01836', cursor:'pointer' }}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#a01836" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink:0 }}><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M11 18h2"/></svg>
-                Mobile/Email
+                Mobile Login
               </button>
             </div>
           </form>
