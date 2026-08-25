@@ -786,8 +786,8 @@ export default function Navbar() {
                 {/* Mobile / Email OTP */}
                 <button type="button" onClick={switchToOtp} title="Login with Mobile or Email OTP"
                   style={{ flex: 1, height: 46, borderRadius: 9, background: loginMode === 'otp' ? '#fdf0f3' : '#fff', color: '#a01836', fontWeight: 700, fontSize: '.82rem', whiteSpace: 'nowrap', letterSpacing: '-.01em', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '.4rem', border: '1.5px solid #a01836', cursor: 'pointer' }}>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a01836" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M11 18h2"/></svg>
-                  Mobile Login
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="#a01836" style={{ flexShrink: 0 }}><path d="M17 1H7c-1.1 0-2 .9-2 2v18c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V3c0-1.1-.9-2-2-2zm-5 21c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/></svg>
+                  Mobile
                 </button>
 
                 {/* Facebook */}
