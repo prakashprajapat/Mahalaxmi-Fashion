@@ -2,7 +2,8 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { getCart, removeFromCart, updateQuantity, cartTotal, finalUnitPrice } from '@/lib/cart';
+import { getCart, saveCart, removeFromCart, updateQuantity, cartTotal, finalUnitPrice } from '@/lib/cart';
+import { productsApi } from '@/lib/api';
 import type { CartItem } from '@/types';
 
 export default function CartPage() {
@@ -13,6 +14,45 @@ export default function CartPage() {
     const onUpdate = () => setCart(getCart());
     window.addEventListener('cart-updated', onUpdate);
     return () => window.removeEventListener('cart-updated', onUpdate);
+  }, []);
+
+  // Re-check every cart line against the product's CURRENT stock and cap the quantity.
+  // This fixes older cart items (added before per-variant stock was tracked) and keeps
+  // the cart honest even if stock dropped since the item was added.
+  useEffect(() => {
+    const current = getCart();
+    if (current.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      const ids = [...new Set(current.map(i => i.dbId))];
+      const byId: Record<number, any> = {};
+      await Promise.all(ids.map(async id => {
+        try { byId[id] = (await productsApi.getById(id)).product; } catch { /* ignore */ }
+      }));
+      if (cancelled) return;
+      let changed = false;
+      const next = current.map(item => {
+        const p = byId[item.dbId];
+        if (!p) return item;
+        let extra: any = {};
+        try { extra = JSON.parse((p as any).extraJson ?? '{}'); } catch { return item; }
+        const vm = extra.variantMatrix;
+        if (!vm || typeof vm !== 'object') return item;
+        const size = item.selectedSize ?? '';
+        const color = item.selectedColor ?? '';
+        let stock: any = color ? vm[`${size}|${color}`] : vm[size];
+        if (stock === undefined && size) stock = vm[size];
+        if (typeof stock !== 'number') return item;
+        const cappedQ = Math.max(1, Math.min(item.quantity, stock));
+        if (cappedQ !== item.quantity || item.maxStock !== stock) {
+          changed = true;
+          return { ...item, quantity: cappedQ, maxStock: stock };
+        }
+        return item;
+      });
+      if (changed) { saveCart(next); setCart(next); }
+    })();
+    return () => { cancelled = true; };
   }, []);
 
   if (cart.length === 0) return (
