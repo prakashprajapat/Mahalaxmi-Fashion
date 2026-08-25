@@ -40,6 +40,44 @@ export default function AdminStaffPage() {
   const [pwMsg, setPwMsg]          = useState('');
   const [saving, setSaving]        = useState(false);
 
+  // ── Edit staff (name / role / permissions) ──────────────────────────────
+  const [editStaff, setEditStaff] = useState<any | null>(null);
+  const [editForm, setEditForm]   = useState({ name: '', role: 'staff', permissions: [] as string[] });
+  const [editMsg, setEditMsg]     = useState('');
+
+  const openEdit = (s: any) => {
+    setEditMsg('');
+    setEditForm({
+      name: s.name || '',
+      role: s.role === 'manager' ? 'manager' : 'staff',
+      permissions: (s.permissions || '').split(',').map((p: string) => p.trim()).filter(Boolean),
+    });
+    setEditStaff(s);
+  };
+
+  const toggleEditPerm = (key: string) => setEditForm(f => ({
+    ...f,
+    permissions: f.permissions.includes(key) ? f.permissions.filter(k => k !== key) : [...f.permissions, key],
+  }));
+
+  const handleSaveEdit = async () => {
+    if (!editStaff) return;
+    if (!editForm.name.trim()) { setEditMsg('❌ Name is required.'); return; }
+    setSaving(true); setEditMsg('');
+    try {
+      await staffApi.update(editStaff.id, {
+        name: editForm.name.trim(),
+        role: editForm.role,
+        permissions: editForm.permissions.join(','),
+      }, getAdminToken() ?? '');
+      setEditStaff(null);
+      setPwMsg('✅ Staff permissions updated.');
+      refresh();
+    } catch (e) {
+      setEditMsg('❌ ' + ((e as Error).message || 'Failed to update.'));
+    } finally { setSaving(false); }
+  };
+
   const refresh = () => {
     staffApi.list(getAdminToken() ?? '').then(setExtraStaff).catch(() => {});
   };
@@ -146,11 +184,18 @@ export default function AdminStaffPage() {
                 <td style={{ padding: '.75rem 1rem', color: '#888', fontSize: '.85rem' }}>{s.lastLogin}</td>
                 <td style={{ padding: '.75rem 1rem' }}>
                   {s.role !== 'admin' && (
-                    <button
-                      onClick={() => handleRemoveStaff(s.id)}
-                      style={{ background: 'none', border: '1px solid #e74c3c', color: '#e74c3c', borderRadius: '6px', padding: '.2rem .6rem', fontSize: '.78rem', cursor: 'pointer', fontWeight: 600 }}>
-                      Remove
-                    </button>
+                    <div style={{ display: 'flex', gap: '.4rem' }}>
+                      <button
+                        onClick={() => openEdit(s)}
+                        style={{ background: 'none', border: '1px solid #a7354d', color: '#a7354d', borderRadius: '6px', padding: '.2rem .6rem', fontSize: '.78rem', cursor: 'pointer', fontWeight: 600 }}>
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleRemoveStaff(s.id)}
+                        style={{ background: 'none', border: '1px solid #e74c3c', color: '#e74c3c', borderRadius: '6px', padding: '.2rem .6rem', fontSize: '.78rem', cursor: 'pointer', fontWeight: 600 }}>
+                        Remove
+                      </button>
+                    </div>
                   )}
                 </td>
               </tr>
@@ -240,6 +285,72 @@ export default function AdminStaffPage() {
           {saving ? 'Saving…' : 'Change Password'}
         </button>
       </div>
+
+      {/* Edit Staff modal */}
+      {editStaff && (
+        <div
+          onClick={() => setEditStaff(null)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{ background: '#fff', borderRadius: '14px', padding: '1.5rem', width: '100%', maxWidth: '620px', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,.3)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+              <h2 style={{ fontWeight: 700, fontSize: '1.1rem' }}>
+                Edit Staff — <span style={{ color: '#a7354d' }}>{editStaff.username}</span>
+              </h2>
+              <button onClick={() => setEditStaff(null)}
+                style={{ background: 'none', border: 'none', fontSize: '1.4rem', cursor: 'pointer', color: '#999', lineHeight: 1 }}>×</button>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <div>
+                <label style={lbl}>Name</label>
+                <input value={editForm.name} onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))}
+                  placeholder="Staff name" style={inp} />
+              </div>
+              <div>
+                <label style={lbl}>Role</label>
+                <select value={editForm.role} onChange={e => setEditForm(f => ({ ...f, role: e.target.value }))} style={inp}>
+                  <option value="staff">Staff</option>
+                  <option value="manager">Manager</option>
+                </select>
+              </div>
+            </div>
+
+            <div style={{ marginTop: '1.25rem' }}>
+              <label style={lbl}>Permissions — which sections can this staff use?</label>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '.5rem .75rem', marginTop: '.4rem' }}>
+                {SECTIONS.map(sec => (
+                  <label key={sec.key} style={{ display: 'flex', alignItems: 'center', gap: '.5rem', fontSize: '.85rem', cursor: 'pointer', color: '#333' }}>
+                    <input type="checkbox" checked={editForm.permissions.includes(sec.key)} onChange={() => toggleEditPerm(sec.key)} />
+                    {sec.label}
+                  </label>
+                ))}
+              </div>
+              <p style={{ fontSize: '.75rem', color: '#888', margin: '.5rem 0 0' }}>
+                Staff sees &amp; uses only the checked sections. Dashboard is always visible.
+              </p>
+            </div>
+
+            {editMsg && (
+              <p style={{ color: editMsg.startsWith('✅') ? '#27ae60' : '#c0392b', fontSize: '.88rem', margin: '.75rem 0 0', fontWeight: 600 }}>
+                {editMsg}
+              </p>
+            )}
+
+            <div style={{ display: 'flex', gap: '.6rem', marginTop: '1.25rem' }}>
+              <button onClick={handleSaveEdit} disabled={saving}
+                style={{ background: '#a7354d', color: '#fff', border: 'none', borderRadius: '8px', padding: '.65rem 1.5rem', fontSize: '.9rem', fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? .7 : 1 }}>
+                {saving ? 'Saving…' : 'Save Changes'}
+              </button>
+              <button onClick={() => setEditStaff(null)}
+                style={{ background: '#f2f2f2', color: '#555', border: 'none', borderRadius: '8px', padding: '.65rem 1.5rem', fontSize: '.9rem', fontWeight: 600, cursor: 'pointer' }}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
