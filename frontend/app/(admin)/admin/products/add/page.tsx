@@ -2,7 +2,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { productsApi } from '@/lib/api';
+import { productsApi, settingsApi } from '@/lib/api';
 import { getAdminToken } from '@/lib/auth';
 import { getTaxonomy } from '@/lib/womenTaxonomy';
 import { runProductQC, deepImageDuplicateCheck, type QcIssue } from '@/lib/productQC';
@@ -395,6 +395,12 @@ function CustomColourModal({
             <input value={code} onChange={e => applyCode(e.target.value)}
               placeholder="#cccccc"
               style={{ width:'100px', border:'1.5px solid #ddd', borderRadius:'8px', padding:'.4rem .55rem', fontSize:'.82rem', fontFamily:'monospace', boxSizing:'border-box' }} />
+            {/* Native RGB colour chart — click to open the full colour gradient / RGB picker */}
+            <input type="color"
+              value={/^#[0-9a-fA-F]{6}$/.test(code) ? code : '#cccccc'}
+              onChange={e => applyCode(e.target.value)}
+              title="Pick from colour chart"
+              style={{ width:'40px', height:'36px', border:'1.5px solid #ddd', borderRadius:'8px', padding:0, background:'#fff', cursor:'pointer', flexShrink:0 }} />
             <div style={{ width:'28px', height:'28px', background:code, border:'2px solid #ddd', borderRadius:'4px', flexShrink:0, transition:'background .15s' }} />
             <span style={{ fontSize:'.72rem', color:'#888' }}>{hexToRgb(code)}</span>
           </div>
@@ -482,6 +488,9 @@ export default function AddProductPage() {
   const [customSizes, setCustomSizes] = useState<string[]>([]);
   const [selColors, setSelColors]     = useState<string[]>([]);
   const [customColours, setCustomColours] = useState<CustomColour[]>([]);
+  // Reusable catalog saved in the DB (so custom colours/sizes appear on every new product).
+  const [savedSizes, setSavedSizes]     = useState<string[]>([]);
+  const [savedColours, setSavedColours] = useState<{ name: string; code: string }[]>([]);
   const [variantStock, setVariantStock] = useState<Record<string, string>>({});
   const [showColModal, setShowColModal]   = useState(false);
 
@@ -548,16 +557,45 @@ export default function AddProductPage() {
       setDiscPrice(String(Math.round(Number(price) * (1 - n / 100))));
   };
 
+  // ── Load reusable catalog (custom colours & sizes saved earlier) ──
+  useEffect(() => {
+    settingsApi.getAll().then(r => {
+      const s = (r as any).settings ?? {};
+      try { const sz = JSON.parse(s.catalogSizes || '[]'); if (Array.isArray(sz)) setSavedSizes(sz.filter((x: any) => typeof x === 'string')); } catch {}
+      try { const cl = JSON.parse(s.catalogColours || '[]'); if (Array.isArray(cl)) setSavedColours(cl.filter((x: any) => x && x.name)); } catch {}
+    }).catch(() => {});
+  }, []);
+
+  const persistSizes = (list: string[]) => {
+    setSavedSizes(list);
+    try { settingsApi.upsert('catalogSizes', JSON.stringify(list), getAdminToken() ?? ''); } catch {}
+  };
+  const persistColours = (list: { name: string; code: string }[]) => {
+    setSavedColours(list);
+    try { settingsApi.upsert('catalogColours', JSON.stringify(list), getAdminToken() ?? ''); } catch {}
+  };
+
   // ── Size / colour toggles ──
   const toggleSize  = (s: string) => setSelSizes(p  => p.includes(s) ? p.filter(x => x !== s) : [...p, s]);
   const toggleColor = (c: string) => setSelColors(p => p.includes(c) ? p.filter(x => x !== c) : [...p, c]);
 
+  // Add a saved colour (from the reusable catalog) into this product's colour list.
+  const addSavedColour = (sc: { name: string; code: string }) =>
+    setCustomColours(p => p.some(c => c.name.toLowerCase() === sc.name.toLowerCase())
+      ? p : [...p, { name: sc.name, code: sc.code || '', photo: '', columnLetter: LETTERS[p.length] ?? 'A' }]);
+
   const addCustomSize = () => {
-    const s = window.prompt('Enter custom size:');
+    const s = window.prompt('Enter custom size (multiple sizes comma se daalein, e.g. 42,41,63):');
     if (s?.trim()) {
-      const value = s.trim();
-      setCustomSizes(p => p.includes(value) ? p : [...p, value]);
-      setSelSizes(p => p.includes(value) ? p : [...p, value]);
+      // Split on comma so "42,41,63" becomes three separate sizes: 42, 41, 63.
+      const values = s.split(',').map(v => v.trim()).filter(Boolean);
+      if (values.length === 0) return;
+      setCustomSizes(p => [...p, ...values.filter(v => !p.includes(v))]);
+      setSelSizes(p  => [...p, ...values.filter(v => !p.includes(v))]);
+      // Save new sizes to the reusable catalog so they show on every future product.
+      const merged = [...savedSizes];
+      values.forEach(v => { if (!merged.includes(v)) merged.push(v); });
+      if (merged.length !== savedSizes.length) persistSizes(merged);
     }
   };
 
@@ -675,7 +713,7 @@ export default function AddProductPage() {
     setAvailColours(''); setBestSeller(false); setTotalQty('');
   };
 
-  const allSizes = [...SIZES_PRESET, ...customSizes];
+  const allSizes = [...new Set([...SIZES_PRESET, ...savedSizes, ...customSizes])];
   const packValue = getPackOfNumber(packOf);
   const selectedSizes = [...new Set(selSizes)];
   const selectedColours = packValue >= 2
@@ -1000,6 +1038,21 @@ export default function AddProductPage() {
                   boxShadow: selColors.includes(c) ? '0 0 0 2px #fdf0f3' : 'none',
                 }} />
             ))}
+            {/* Saved custom colours (reusable catalog) — click to add to this product */}
+            {savedColours
+              .filter(sc => !COLORS_PRESET.some(p => p.toLowerCase() === sc.name.toLowerCase()))
+              .map((sc, i) => {
+                const active = customColours.some(c => c.name.toLowerCase() === sc.name.toLowerCase());
+                return (
+                  <button key={'saved-' + i} onClick={() => addSavedColour(sc)} title={sc.name} aria-label={sc.name}
+                    style={{
+                      width:'32px', height:'32px', borderRadius:'50%', padding:0, flexShrink:0, cursor:'pointer',
+                      background: sc.code || '#ccc',
+                      border: active ? '3px solid #a7354d' : '1.5px solid #ccc',
+                      boxShadow: active ? '0 0 0 2px #fdf0f3' : 'none',
+                    }} />
+                );
+              })}
             <button onClick={() => setShowColModal(true)}
               style={{ border:'1.5px dashed #ddd', background:'#fff', color:'#888', borderRadius:'20px', padding:'.28rem .7rem', fontSize:'.8rem', cursor:'pointer' }}>
               + Custom
@@ -1182,7 +1235,12 @@ export default function AddProductPage() {
       {showColModal && (
         <CustomColourModal
           nextLetter={LETTERS[customColours.length] ?? 'A'}
-          onAdd={c => setCustomColours(p => [...p, c])}
+          onAdd={c => {
+            setCustomColours(p => [...p, c]);
+            // Save the colour (name + code only, no photo) to the reusable catalog.
+            if (!savedColours.some(x => x.name.toLowerCase() === c.name.toLowerCase()))
+              persistColours([...savedColours, { name: c.name, code: c.code || '' }]);
+          }}
           onClose={() => setShowColModal(false)}
         />
       )}
