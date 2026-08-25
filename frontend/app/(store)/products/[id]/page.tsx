@@ -227,9 +227,15 @@ export default function ProductPage({ params }: { params: { id: string } }) {
   const variantStock = extra.variantMatrix ? (extra.variantMatrix[variantKey] ?? null) : null;
   const outOfStock = product.stock === 'Out of Stock' || (variantStock !== null && variantStock === 0);
 
+  // If the chosen size/colour has fewer pieces than the current quantity, pull it down.
+  useEffect(() => {
+    if (variantStock !== null && variantStock > 0 && qty > variantStock) setQty(variantStock);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [variantStock]);
+
   const handleAddToCart = () => {
     if (outOfStock) return;
-    addToCart(product, qty, size || undefined, color || undefined);
+    addToCart(product, qty, size || undefined, color || undefined, variantStock ?? undefined);
     setAdded(true);
     window.dispatchEvent(new Event('cart-updated'));
     setTimeout(() => setAdded(false), 2000);
@@ -460,8 +466,14 @@ export default function ProductPage({ params }: { params: { id: string } }) {
               <div style={{ display: 'flex', alignItems: 'center', border: '1.5px solid #ddd', borderRadius: '8px', overflow: 'hidden' }}>
                 <button onClick={() => setQty(q => Math.max(1, q-1))} style={{ width: '36px', height: '36px', border: 'none', background: '#f5f5f5', cursor: 'pointer', fontSize: '1.1rem' }}>−</button>
                 <span style={{ width: '36px', textAlign: 'center', fontWeight: 700 }}>{qty}</span>
-                <button onClick={() => setQty(q => q+1)} style={{ width: '36px', height: '36px', border: 'none', background: '#f5f5f5', cursor: 'pointer', fontSize: '1.1rem' }}>+</button>
+                <button
+                  onClick={() => setQty(q => (variantStock !== null && q >= variantStock) ? q : q + 1)}
+                  disabled={variantStock !== null && qty >= variantStock}
+                  style={{ width: '36px', height: '36px', border: 'none', background: '#f5f5f5', cursor: (variantStock !== null && qty >= variantStock) ? 'not-allowed' : 'pointer', fontSize: '1.1rem', opacity: (variantStock !== null && qty >= variantStock) ? .5 : 1 }}>+</button>
               </div>
+              {variantStock !== null && variantStock > 0 && qty >= variantStock && (
+                <span style={{ fontSize: '.78rem', color: '#e74c3c', fontWeight: 600 }}>Only {variantStock} in stock</span>
+              )}
             </div>
 
             {/* CTAs */}

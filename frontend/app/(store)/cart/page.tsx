@@ -53,7 +53,12 @@ export default function CartPage() {
                     <span className="w-6 text-center text-sm">{item.quantity}</span>
                     <button
                       onClick={() => { updateQuantity(item.dbId, item.quantity + 1, item.selectedSize, item.selectedColor); setCart(getCart()); }}
+                      disabled={typeof item.maxStock === 'number' && item.quantity >= item.maxStock}
+                      style={typeof item.maxStock === 'number' && item.quantity >= item.maxStock ? { opacity: .4, cursor: 'not-allowed' } : undefined}
                       className="w-7 h-7 rounded border text-sm">+</button>
+                    {typeof item.maxStock === 'number' && item.quantity >= item.maxStock && (
+                      <span className="text-xs text-red-500">Only {item.maxStock} left</span>
+                    )}
                     <button
                       onClick={() => { removeFromCart(item.dbId, item.selectedSize, item.selectedColor); setCart(getCart()); }}
                       className="ml-auto text-sm text-red-500 hover:underline">Remove</button>

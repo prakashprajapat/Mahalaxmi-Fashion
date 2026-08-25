@@ -496,10 +496,11 @@ export default function EditProductPage() {
             ? JSON.parse(p.extraJson)
             : (p.extraJson ?? {});
 
-          // Sizes
+          // Sizes — ALL saved sizes stay selected (both preset like M/L and custom like 42);
+          // custom (non-preset) ones are also registered so they render as chips.
           const exSizes: string[] = ex.sizes ?? [];
           const presetSet = new Set(SIZES_PRESET);
-          setSelSizes(exSizes.filter((s: string) => presetSet.has(s)));
+          setSelSizes(exSizes);
           setCustomSizes(exSizes.filter((s: string) => !presetSet.has(s)));
 
           // Colours
@@ -651,7 +652,7 @@ export default function EditProductPage() {
       }
       setQcOpen(false);
       const stockMatrix    = Object.fromEntries(stockKeys.map(key => [key, Number(variantStock[key]) || 0]));
-      const saveQty        = stockKeys.length > 0 ? stockTotal : (Number(totalQty) || 0);
+      const saveQty        = stockKeys.length > 0 ? (Number(totalQty) || stockTotal) : (Number(totalQty) || 0);
       const packImages     = filledPackCols.map(col => ({
         label: col.letter, letter: col.letter,
         url: col.front, front: col.front, side: col.side, back: col.back, zoomed: col.zoomed,
@@ -708,8 +709,14 @@ export default function EditProductPage() {
         : selSizes)
     : [];
   const stockTotal = stockKeys.reduce((sum, key) => sum + (Number(variantStock[key]) || 0), 0);
-  const effectiveQty = stockKeys.length > 0 ? stockTotal : (Number(totalQty) || 0);
+  const effectiveQty = stockKeys.length > 0 ? (Number(totalQty) || stockTotal) : (Number(totalQty) || 0);
   const effectiveStockStatus = stockStatusFromQty(effectiveQty);
+
+  // Auto-fill Total Quantity from the size×colour matrix grand total (still editable).
+  useEffect(() => {
+    if (stockKeys.length > 0) setTotalQty(String(stockTotal));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stockTotal, stockKeys.length]);
 
   useEffect(() => {
     setVariantStock(prev => {
@@ -928,7 +935,10 @@ export default function EditProductPage() {
           </div>
 
           <div>
-            <label style={lbl}>Total Quantity (pcs)</label>
+            <label style={lbl}>
+              Total Quantity (pcs)
+              {stockKeys.length > 0 && <span style={{ fontWeight:400, color:'#888', fontSize:'.75rem' }}> — auto from stock table (editable)</span>}
+            </label>
             <input type="number" value={totalQty} onChange={e => setTotalQty(e.target.value)} placeholder="e.g. 50" style={inp} />
           </div>
 

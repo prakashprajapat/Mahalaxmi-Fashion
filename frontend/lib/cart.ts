@@ -22,16 +22,25 @@ export function saveCart(cart: CartItem[]): void {
   window.dispatchEvent(new Event('cart-updated'));
 }
 
-export function addToCart(product: Product & { selectedColor?: string }, quantity = 1, size?: string, color?: string): void {
+// Cap a requested quantity to the available stock (when known). Always at least 1.
+function capQty(q: number, max?: number): number {
+  const capped = (typeof max === 'number' && max >= 0) ? Math.min(q, max) : q;
+  return Math.max(1, capped);
+}
+
+export function addToCart(product: Product & { selectedColor?: string }, quantity = 1, size?: string, color?: string, maxStock?: number): void {
   const cart = getCart();
   const normalizedProduct = { ...product, image: productImageSrc(product.image) || product.image };
   const selectedColor = color ?? product.selectedColor;
   const key = `${product.dbId}-${size ?? ''}-${selectedColor ?? ''}`;
   const idx = cart.findIndex(i => `${i.dbId}-${i.selectedSize ?? ''}-${i.selectedColor ?? ''}` === key);
   if (idx >= 0) {
-    cart[idx].quantity += quantity;
+    // Never let the combined quantity exceed the known stock for this variant.
+    const cap = maxStock ?? cart[idx].maxStock;
+    cart[idx].quantity = capQty(cart[idx].quantity + quantity, cap);
+    if (maxStock !== undefined) cart[idx].maxStock = maxStock;
   } else {
-    cart.push({ ...normalizedProduct, quantity, selectedSize: size, selectedColor });
+    cart.push({ ...normalizedProduct, quantity: capQty(quantity, maxStock), selectedSize: size, selectedColor, maxStock });
   }
   saveCart(cart);
 
@@ -59,7 +68,7 @@ export function updateQuantity(dbId: number, quantity: number, size?: string, co
   const idx = cart.findIndex(i => `${i.dbId}-${i.selectedSize ?? ''}-${i.selectedColor ?? ''}` === `${dbId}-${size ?? ''}-${color ?? ''}`);
   if (idx >= 0) {
     if (quantity <= 0) cart.splice(idx, 1);
-    else cart[idx].quantity = quantity;
+    else cart[idx].quantity = capQty(quantity, cart[idx].maxStock);   // never exceed available stock
   }
   saveCart(cart);
 }

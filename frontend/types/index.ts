@@ -28,6 +28,7 @@ export interface CartItem extends Product {
   quantity: number;
   selectedSize?: string;
   selectedColor?: string;
+  maxStock?: number;   // available stock for this size×colour variant (caps quantity)
 }
 
 export interface Customer {
