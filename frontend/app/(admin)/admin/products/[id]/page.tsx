@@ -15,7 +15,9 @@ const GST_RATES = [0, 5, 12, 18];
 const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-type CustomColour = { name: string; code: string; photo: string; columnLetter: string };
+// `photo` is the FRONT view (column thumbnail); side/back/zoomed are the rest of that
+// design's gallery (shown on the storefront when the customer picks this colour/design).
+type CustomColour = { name: string; code: string; photo: string; columnLetter: string; side?: string; back?: string; zoomed?: string };
 type PackColumn   = { letter: string; front: string; side: string; back: string; zoomed: string };
 type MainPhotos   = { front: string; side: string; back: string; zoomed: string };
 type AddOn        = { name: string; price: string };
@@ -619,6 +621,10 @@ export default function EditProductPage() {
   const updateCol = (idx: number, field: keyof PackColumn, val: string) =>
     setPackCols(prev => prev.map((c, i) => i === idx ? { ...c, [field]: val } : c));
 
+  // ── Colour/Design gallery photo update (Front/Side/Back/Zoomed per photo-design) ──
+  const updateDesignPhoto = (idx: number, field: 'photo' | 'side' | 'back' | 'zoomed', val: string) =>
+    setCustomColours(prev => prev.map((c, i) => i === idx ? { ...c, [field]: val } : c));
+
   // ── Save ──
   const handleSave = async (force = false) => {
     setSaving(true);
@@ -1122,6 +1128,35 @@ export default function EditProductPage() {
                   ))}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* ── Colour / Design Photos ── one Front/Side/Back/Zoomed gallery per photo-design.
+               (Only for photo-column designs; plain colour-code circles don't need a gallery.) */}
+          {getPackOfNumber(packOf) < 2 && customColours.some(c => c.photo) && (
+            <div style={{ marginTop:'1.5rem', borderTop:'1px solid #f0f0f0', paddingTop:'1.5rem' }}>
+              <p style={{ fontSize:'.75rem', fontWeight:700, color:'#a7354d', textTransform:'uppercase', letterSpacing:'.06em', margin:'0 0 .25rem' }}>
+                COLOUR / DESIGN PHOTOS
+              </p>
+              <p style={{ fontSize:'.8rem', color:'#888', marginBottom:'1.25rem' }}>
+                Har design ke liye Front, Side, Back aur Zoomed photo daalein. Storefront par jab customer ye design chunega, uske ye saare photos dikhenge. (FRONT = column wala photo.)
+              </p>
+              <div style={{ display:'flex', flexDirection:'column', gap:'1.5rem' }}>
+                {customColours.map((c, idx) => c.photo ? (
+                  <div key={idx}>
+                    <div style={{ display:'flex', alignItems:'center', gap:'.6rem', marginBottom:'.75rem' }}>
+                      <img src={c.photo} alt={c.name} style={{ width:'34px', height:'34px', borderRadius:'50%', objectFit:'cover', border:'2px solid #a7354d', flexShrink:0 }} />
+                      <span style={{ fontWeight:700, fontSize:'.92rem' }}>{c.name}</span>
+                    </div>
+                    <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:'.75rem' }}>
+                      <PhotoSlot label="FRONT"     value={c.photo}     onChange={v => updateDesignPhoto(idx,'photo',v)} isFirst />
+                      <PhotoSlot label="SIDE VIEW" value={c.side || ''}   onChange={v => updateDesignPhoto(idx,'side',v)} />
+                      <PhotoSlot label="BACK VIEW" value={c.back || ''}   onChange={v => updateDesignPhoto(idx,'back',v)} />
+                      <PhotoSlot label="ZOOMED IN" value={c.zoomed || ''} onChange={v => updateDesignPhoto(idx,'zoomed',v)} />
+                    </div>
+                  </div>
+                ) : null)}
+              </div>
             </div>
           )}
 

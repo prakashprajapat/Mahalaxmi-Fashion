@@ -40,6 +40,7 @@ export default function InfluencersAdminPage() {
       const res = await fetch(`${API}/api/influencers?status=${filter}`, { headers });
       if (res.ok) setList(await res.json());
     } finally { setLoading(false); }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filter]);
 
   useEffect(() => { load(); }, [load]);
@@ -50,6 +51,7 @@ export default function InfluencersAdminPage() {
       const res = await fetch(`${API}/api/influencers/report`, { headers });
       if (res.ok) setReport(await res.json());
     } finally { setReportLoading(false); }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => { loadReport(); }, [loadReport]);
@@ -60,6 +62,7 @@ export default function InfluencersAdminPage() {
       const res = await fetch(`${API}/api/influencers/fraud-report`, { headers });
       if (res.ok) setFraud(await res.json());
     } finally { setFraudLoading(false); }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => { if (view === 'fraud' && !fraud) loadFraud(); }, [view, fraud, loadFraud]);

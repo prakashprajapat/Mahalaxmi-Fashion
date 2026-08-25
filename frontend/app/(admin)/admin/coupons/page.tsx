@@ -28,6 +28,7 @@ export default function CouponsPage() {
     catch { /* ignore */ } finally { setLoading(false); }
   };
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { load(); }, []);
 
   const resetForm = () => { setForm({ ...empty }); setEditId(null); setMsg(''); };

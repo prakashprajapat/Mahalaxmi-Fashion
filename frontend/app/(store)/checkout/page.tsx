@@ -183,6 +183,7 @@ export default function CheckoutPage() {
         setCouponApplied({ code: res.code, discount: res.discount, message: res.message });
       } catch { /* code not valid for this order — ignore */ }
     })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [subtotal, couponApplied]);
 
   const discount = couponApplied?.discount ?? 0;
