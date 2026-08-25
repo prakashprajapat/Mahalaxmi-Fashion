@@ -785,8 +785,8 @@ export default function Navbar() {
 
                 {/* Mobile / Email OTP */}
                 <button type="button" onClick={switchToOtp} title="Login with Mobile or Email OTP"
-                  style={{ flex: 1, height: 46, borderRadius: 9, background: loginMode === 'otp' ? '#fdf0f3' : '#fff', color: '#a01836', fontWeight: 700, fontSize: '.82rem', whiteSpace: 'nowrap', letterSpacing: '-.01em', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '.4rem', border: '1.5px solid #a01836', cursor: 'pointer' }}>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="#a01836" style={{ flexShrink: 0 }}><path d="M17 1H7c-1.1 0-2 .9-2 2v18c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V3c0-1.1-.9-2-2-2zm-5 21c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/></svg>
+                  style={{ flex: 1, height: 46, borderRadius: 9, background: loginMode === 'otp' ? '#fdf0f3' : '#fff', color: '#a01836', fontWeight: 700, fontSize: '.82rem', whiteSpace: 'nowrap', letterSpacing: '-.01em', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '.4rem', border: '1.5px solid #ddd', cursor: 'pointer' }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}><rect x="6" y="2" width="12" height="20" rx="2.6" stroke="#a01836" strokeWidth="1.7"/><line x1="10.4" y1="5" x2="13.6" y2="5" stroke="#a01836" strokeWidth="1.7" strokeLinecap="round"/><circle cx="12" cy="18.6" r="1" fill="#a01836"/></svg>
                   Mobile
                 </button>
 
