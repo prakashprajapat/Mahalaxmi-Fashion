@@ -12,7 +12,10 @@ const ORDER_STATUS_TABS: { key: string; label: string; hidden?: boolean }[] = [
   { key: 'Pending',              label: 'Pending' },
   { key: 'On Hold',              label: 'On Hold' },
   { key: 'Ready for Shipping',   label: 'Ready to Ship' },
-  // "Shipped" tab removed — AWB bante hi Delhivery sync order ko seedha Transit me le jata hai.
+  // Delhivery AWB bante hi sync order ko Transit me le jata hai, par MANUAL courier
+  // (India Post/DTDC) wale "Shipped" par ruk jate the aur kisi tab me nahi dikhte the —
+  // isliye Shipped tab wapas rakha hai taki wo orphan na hon.
+  { key: 'Shipped',              label: 'Shipped' },
   { key: 'Transit',              label: 'Transit' },
   { key: 'Delivered',            label: 'Delivered' },
   { key: 'Cancel Requested',     label: 'Cancel Req.' },
@@ -852,7 +855,11 @@ export default function AdminOrdersPage() {
                       {o.shippingName || o.customerName || '—'}{o.customerPhone ? ` · ${o.customerPhone}` : ''}<br />
                       {[o.shippingAddress, o.shippingCity, o.shippingState, o.shippingPincode].filter(Boolean).join(', ') || '—'}
                     </div>
-                    {o.awb ? (
+                    {/* The reverse AWB is only actually set once the return moves to "Return Transit"
+                        (assignReturnAwb sets that status). Before that the order still carries its
+                        FORWARD delivery AWB, so gate on the status — not on o.awb — otherwise the
+                        input never appears for a delivered order and no return AWB can be entered. */}
+                    {o.status === 'Return Transit' && o.awb ? (
                       <p style={{ fontSize: '.82rem', color: '#2e7d32', fontWeight: 700, margin: '0 0 .5rem' }}>
                         ✓ Return AWB: {o.awb}{o.courier ? ` (${o.courier})` : ''}
                       </p>

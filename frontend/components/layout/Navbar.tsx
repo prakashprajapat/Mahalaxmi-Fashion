@@ -13,6 +13,9 @@ import type { Product } from '@/types';
 
 // Cache the catalogue once (module-level) so search suggestions don't refetch on every keystroke.
 let _searchCache: Product[] | null = null;
+// Shared in-flight fetch so quick typing before the first response doesn't fire the
+// 200-item catalogue request several times over (and race each other's results).
+let _searchCachePromise: Promise<Product[]> | null = null;
 
 // Module-level settings cache — survives re-renders and SPA navigation
 let _settingsCache: Record<string, string> | null = null;
@@ -152,8 +155,8 @@ export default function Navbar() {
     const query = q.trim().toLowerCase();
     if (query.length < 2) { setSuggestions([]); return; }
     if (!_searchCache) {
-      try { const r = await productsApi.getAll({ pageSize: 200 }); _searchCache = r.products ?? []; }
-      catch { _searchCache = []; }
+      _searchCachePromise ??= productsApi.getAll({ pageSize: 200 }).then(r => r.products ?? []).catch(() => []);
+      _searchCache = await _searchCachePromise;
     }
     const matches = _searchCache.filter(p =>
       (p.name ?? '').toLowerCase().includes(query) ||

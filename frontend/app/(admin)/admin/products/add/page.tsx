@@ -165,6 +165,9 @@ function PhotoSlot({
   const [report, setReport]           = useState<ConvResult | null>(null);
   const [converting, setConverting]   = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  // The Total-Quantity auto-fill should only kick in once the admin edits the stock matrix,
+  // so a manually typed Total isn't wiped the moment any cell changes.
+  const matrixTouched = useRef(false);
 
   const handleFile = (file: File) => {
     setConverting(true); setReport(null);
@@ -652,6 +655,12 @@ export default function AddProductPage() {
   const handleSave = async (force = false) => {
     setSaving(true);
     try {
+      // Pricing guard: price must be > 0 and a discount price can never be ≥ the MRP (or negative).
+      const priceNum = Number(price);
+      if (!priceNum || priceNum <= 0) { alert('Please enter a valid price greater than 0.'); setSaving(false); return; }
+      if (discPrice && Number(discPrice) < 0) { alert('Discount price cannot be negative.'); setSaving(false); return; }
+      if (discPrice && Number(discPrice) >= priceNum) { alert('Discount price must be LESS than the MRP (price). Please fix it.'); setSaving(false); return; }
+
       const packValue = getPackOfNumber(packOf);
       const normalizedPackCols = normalizePackColumns(packCols, packValue);
       const filledPackCols = normalizedPackCols.filter(hasPackPhoto);
@@ -702,7 +711,9 @@ export default function AddProductPage() {
         zoomed: col.zoomed,
       }));
       const extraJson = JSON.stringify({
-        sizes: [...new Set([...selSizes, ...customSizes])],
+        // Only the currently-SELECTED sizes (selSizes). Using the union with customSizes
+        // re-added sizes the admin had de-selected, advertising a size with no stock entry.
+        sizes: [...new Set(selSizes)],
         colors: selectedColours,
         customColors: customColours,
         images: galleryImages,
@@ -792,8 +803,9 @@ export default function AddProductPage() {
   const effectiveStockStatus = stockStatusFromQty(effectiveQty);
 
   // Auto-fill Total Quantity from the size×colour matrix grand total (still editable).
+  // Only after the admin actually edits the matrix, so a manually typed Total isn't clobbered.
   useEffect(() => {
-    if (stockKeys.length > 0) setTotalQty(String(stockTotal));
+    if (matrixTouched.current && stockKeys.length > 0) setTotalQty(String(stockTotal));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stockTotal, stockKeys.length]);
 
@@ -1181,7 +1193,7 @@ export default function AddProductPage() {
                             return (
                               <td key={col} style={{ padding:'.25rem .4rem', borderBottom:'1px solid #f0e0e4', textAlign:'center' }}>
                                 <input type="number" min={0} value={variantStock[key] ?? ''}
-                                  onChange={e => setVariantStock(p => ({ ...p, [key]: e.target.value }))}
+                                  onChange={e => { matrixTouched.current = true; const v = e.target.value; setVariantStock(p => ({ ...p, [key]: v === '' ? '' : String(Math.max(0, Number(v) || 0)) })); }}
                                   placeholder="0"
                                   style={{ width:'60px', border:'1.5px solid #ddd', borderRadius:'6px', padding:'.3rem', fontSize:'.8rem', textAlign:'center', boxSizing:'border-box' }} />
                               </td>
@@ -1209,7 +1221,7 @@ export default function AddProductPage() {
                     <label key={size} style={{ display:'flex', alignItems:'center', gap:'.5rem', border:'1px solid #eee', borderRadius:'8px', padding:'.4rem .6rem', background:'#fff' }}>
                       <span style={{ fontSize:'.8rem', fontWeight:700, color:'#a7354d', minWidth:'32px' }}>{size}</span>
                       <input type="number" min={0} value={variantStock[size] ?? ''}
-                        onChange={e => setVariantStock(p => ({ ...p, [size]: e.target.value }))}
+                        onChange={e => { matrixTouched.current = true; const v = e.target.value; setVariantStock(p => ({ ...p, [size]: v === '' ? '' : String(Math.max(0, Number(v) || 0)) })); }}
                         placeholder="0"
                         style={{ width:'70px', border:'1.5px solid #ddd', borderRadius:'6px', padding:'.3rem .4rem', fontSize:'.82rem', textAlign:'center', boxSizing:'border-box' }} />
                       <span style={{ fontSize:'.72rem', color:'#888' }}>pcs</span>
