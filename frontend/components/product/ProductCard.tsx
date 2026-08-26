@@ -14,10 +14,6 @@ export default function ProductCard({ product, priority = false }: { product: Pr
   const [wishlisted, setWishlisted] = useState(isInWishlist(product.dbId));
   const [quickView, setQuickView] = useState(false);
   const [imgError, setImgError] = useState(false);
-  // Smooth loading: keep a shimmer skeleton until the photo has actually decoded,
-  // then fade it in. When there is no image we treat it as "loaded" so the
-  // skeleton doesn't shimmer forever behind the placeholder emoji.
-  const [imgLoaded, setImgLoaded] = useState(false);
 
   // Keep the heart in sync: reflect saved state on load (SSR renders it false) and whenever
   // the wishlist changes anywhere on the page.
@@ -70,7 +66,7 @@ export default function ProductCard({ product, priority = false }: { product: Pr
     <>
       <div className="product-card" style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', height: '100%' }} onClick={openQuickView}>
         {/* Image */}
-        <div className={`product-card-img${(imgLoaded || !image || imgError) ? ' img-loaded' : ''}`}>
+        <div className="product-card-img">
           <div onClick={openQuickView}>
             {image && !imgError ? (
               /^https?:/i.test(image) ? (
@@ -80,18 +76,13 @@ export default function ProductCard({ product, priority = false }: { product: Pr
                   priority={priority}
                   sizes="(max-width: 640px) 46vw, (max-width: 1024px) 30vw, 240px"
                   style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-                  onLoad={() => setImgLoaded(true)}
                   onError={() => setImgError(true)}
                 />
               ) : (
                 <img src={image} alt={product.name}
                   loading={priority ? 'eager' : 'lazy'}
                   decoding="async"
-                  // Cached images can finish before React attaches onLoad — the ref
-                  // catches that case so the photo never stays stuck invisible.
-                  ref={(el) => { if (el && el.complete && el.naturalWidth > 0) setImgLoaded(true); }}
                   style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-                  onLoad={() => setImgLoaded(true)}
                   onError={() => setImgError(true)}
                 />
               )

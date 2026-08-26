@@ -72,8 +72,10 @@ public class CouponsController : ControllerBase
         if (req.OrderAmount < coupon.MinOrder)
             return BadRequest(new { success = false, message = $"Minimum order of ₹{coupon.MinOrder:0} required for this coupon." });
 
+        // Percent discount is capped at the order amount so it can never exceed the total
+        // (a mis-configured >100% coupon must not give money back).
         var discount = coupon.Type == "percent"
-            ? Math.Round(req.OrderAmount * coupon.Value / 100, 2)
+            ? Math.Min(Math.Round(req.OrderAmount * coupon.Value / 100, 2), req.OrderAmount)
             : Math.Min(coupon.Value, req.OrderAmount);
 
         return Ok(new
@@ -110,6 +112,8 @@ public class CouponsController : ControllerBase
             return BadRequest(new { success = false, message = "Code is required." });
         if (req.Value <= 0)
             return BadRequest(new { success = false, message = "Value must be positive." });
+        if (req.Type == "percent" && req.Value > 100)
+            return BadRequest(new { success = false, message = "Percentage discount cannot exceed 100%." });
 
         var exists = await _db.Coupons.AnyAsync(c => c.Code.ToLower() == req.Code.ToLower().Trim());
         if (exists) return Conflict(new { success = false, message = "Coupon code already exists." });
@@ -138,6 +142,15 @@ public class CouponsController : ControllerBase
         if (!await IsAdmin()) return Unauthorized();
         var coupon = await _db.Coupons.FindAsync(id);
         if (coupon is null) return NotFound();
+
+        // Same guards as Create — otherwise an edit could set an empty code, a non-positive
+        // value, or a >100% discount (and a missing code would throw a 500 on .Trim()).
+        if (string.IsNullOrWhiteSpace(req.Code))
+            return BadRequest(new { success = false, message = "Code is required." });
+        if (req.Value <= 0)
+            return BadRequest(new { success = false, message = "Value must be positive." });
+        if (req.Type == "percent" && req.Value > 100)
+            return BadRequest(new { success = false, message = "Percentage discount cannot exceed 100%." });
 
         coupon.Code      = req.Code.Trim().ToUpper();
         coupon.Type      = req.Type == "percent" ? "percent" : "flat";

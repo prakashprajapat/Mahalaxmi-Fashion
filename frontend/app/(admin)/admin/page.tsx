@@ -33,7 +33,11 @@ export default function AdminDashboard() {
       const totalProducts = productsR.status === 'fulfilled' ? productsR.value.total : 0;
       setStats({
         totalOrders: orders.length,
-        totalRevenue: orders.reduce((s, o) => s + o.total, 0),
+        // Number() so a string `total` from the API doesn't string-concatenate into a garbage
+        // revenue figure; cancelled/returned orders are excluded so it reflects real revenue.
+        totalRevenue: orders
+          .filter(o => !['Cancelled', 'Return', 'Return Requested', 'Return Transit'].includes(o.status))
+          .reduce((s, o) => s + (Number(o.total) || 0), 0),
         totalCustomers,
         totalProducts,
         pendingOrders: orders.filter(o => ['Order Received', 'Pending', 'Order Packed'].includes(o.status)).length,
@@ -88,7 +92,7 @@ export default function AdminDashboard() {
                   className="cursor-pointer hover:bg-gray-50">
                   <td className="py-2 pr-4 font-mono text-xs">{o.id}</td>
                   <td className="py-2 pr-4">{o.customerName || '—'}</td>
-                  <td className="py-2 pr-4 font-medium">₹{o.total.toLocaleString('en-IN')}</td>
+                  <td className="py-2 pr-4 font-medium">₹{Number(o.total).toLocaleString('en-IN')}</td>
                   <td className="py-2 pr-4 capitalize">{o.method}</td>
                   <td className="py-2">
                     <span className={`badge ${

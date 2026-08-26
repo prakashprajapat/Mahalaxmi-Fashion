@@ -46,16 +46,21 @@ export default function CouponsPage() {
 
   const handleSave = async () => {
     if (!form.code.trim() || !form.value) return setMsg('Code and Value are required.');
+    const val = parseFloat(form.value);
+    if (!val || val <= 0) return setMsg('Value must be greater than 0.');
+    if (form.type === 'percent' && val > 100) return setMsg('Percentage discount cannot be more than 100%.');
     setSaving(true); setMsg('');
     try {
       const payload = {
         code: form.code.trim().toUpperCase(),
         type: form.type,
-        value: parseFloat(form.value),
+        value: val,
         occasion: form.occasion,
         minOrder: parseFloat(form.minOrder) || 0,
         maxUses: form.maxUses ? parseInt(form.maxUses) : null,
-        expiresAt: form.expiresAt ? new Date(form.expiresAt).toISOString() : null,
+        // Expire at END of the chosen day (local), not UTC midnight — otherwise a coupon set to
+        // "expires 31 Aug" stopped working at ~5:30 AM IST on the 31st.
+        expiresAt: form.expiresAt ? new Date(form.expiresAt + 'T23:59:59').toISOString() : null,
         isActive: form.isActive,
       };
       if (editId) { await couponsApi.update(editId, payload, token); setMsg('Updated!'); }
