@@ -449,7 +449,9 @@ export default function ProductsClient({ products, title, initialQ = '', banner 
             </div>
           ) : (
             <div className="products-grid">
-              {filtered.map((p: any) => <ProductCard key={p.dbId} product={p} />)}
+              {/* First screen-full loads eagerly so the top of the grid is never blank;
+                  the rest lazy-load as the shopper scrolls (keeps a big catalogue fast). */}
+              {filtered.map((p: any, i: number) => <ProductCard key={p.dbId} product={p} priority={i < 8} />)}
             </div>
           )}
         </div>

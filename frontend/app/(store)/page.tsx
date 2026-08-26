@@ -1,6 +1,5 @@
 import type { Metadata } from 'next';
 import { productsApi, settingsApi } from '@/lib/api';
-import { BestSellersSection, NewArrivalsSection } from '@/components/home/HomeSections';
 import ProductsClient from '@/components/products/ProductsClient';
 import HomeHero from '@/components/home/HomeHero';
 import OfferBanner from '@/components/home/OfferBanner';
@@ -37,36 +36,24 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function HomePage() {
   const { products } = await productsApi.getAll({ pageSize: 200 }).catch(() => ({ products: [] as any[] }));
 
-  const bestSellers = products.filter((p: any) => p.bestSeller);
-
   return (
     <>
-      {/* Mobile: header chips → hero banner → products. The hero is injected between the
-          filter chips and the product grid via ProductsClient's `banner` slot. */}
-      <div className="home-listing">
-        <ProductsClient products={products as any[]} title="" banner={<HomeHero />} />
-      </div>
-
-      {/* Desktop-only sections below (hidden on mobile): hero at top, then curated sections */}
-      <div className="home-desktop">
+      {/* Hero + offer strip — shown on every device */}
       <HomeHero />
-
-      {/* Dynamic Offer Banner — client-rendered so admin toggle reflects instantly */}
       <OfferBanner />
 
-      {/* Best Sellers — simple preview grid */}
-      <BestSellersSection products={bestSellers} />
+      {/* FULL, filterable product listing — ALL products, on desktop / tablet / mobile / app.
+          (Previously the desktop home page showed only curated Best Sellers + New Arrivals;
+          now the whole catalogue appears everywhere, like the category pages.) */}
+      <ProductsClient products={products as any[]} title="" />
 
-      {/* New Arrivals — client component */}
-      <NewArrivalsSection products={products} />
-
-      {/* Live Google rating + reviews (trust signal). Renders only once configured
-          in admin Settings (googlePlaceId + googlePlacesApiKey). */}
-      <GoogleReviews />
-
-      {/* SEO: FAQ rich results + AI Overviews (visible accordion + FAQPage schema) */}
-      <FaqSection />
-      </div>{/* /home-desktop */}
+      {/* Desktop-only trust + SEO sections below the listing */}
+      <div className="home-desktop">
+        {/* Live Google rating + reviews (renders only once configured in admin Settings) */}
+        <GoogleReviews />
+        {/* SEO: FAQ rich results + AI Overviews (visible accordion + FAQPage schema) */}
+        <FaqSection />
+      </div>
     </>
   );
 }
