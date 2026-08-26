@@ -165,6 +165,13 @@ public class OrdersController : ControllerBase
     {
         var orderId = CleanOrderId(req.Id);
         var method = req.Method.ToLower().Trim();
+
+        // GUARD: never accept an order with an empty cart. Without this, a COD submit on an
+        // empty cart created a "ghost" order (₹0 goods + ₹50 COD fee, no items). Reject it here
+        // BEFORE we auto-create any guest profile or write anything to the database.
+        if (req.Cart is null || req.Cart.Count == 0)
+            return BadRequest(new { success = false, message = "Your cart is empty. Please add items before placing an order." });
+
         // NOTE: the order status is decided by the server further below (after the amount is
         // recomputed and — for prepaid — the payment is verified). A client-supplied status is
         // never trusted, so a caller can't create a fake "Paid" prepaid order.

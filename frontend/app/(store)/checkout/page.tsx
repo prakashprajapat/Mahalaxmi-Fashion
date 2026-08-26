@@ -346,6 +346,7 @@ export default function CheckoutPage() {
   // Pay Online: Cashfree first; falls back to Razorpay only if Cashfree keys
   // are not configured (or admin has set paymentGateway=razorpay in Settings).
   const handlePayOnline = async () => {
+    if (cart.length === 0) { alert('Your cart is empty. Please add items before placing an order.'); router.push('/cart'); return; }
     if (!validateShipping()) return;
     setLoading(true);
     try {
@@ -369,6 +370,9 @@ export default function CheckoutPage() {
   // Cash on Delivery: no gateway. Place the order directly with method 'cod'.
   // The ₹50 COD fee is also enforced server-side, so it can't be bypassed.
   const handlePlaceCod = async () => {
+    // Never place an order with an empty cart — otherwise a stray click (e.g. after the
+    // cart was cleared or a double-submit) would create a ₹0-goods / ₹50-COD ghost order.
+    if (cart.length === 0) { alert('Your cart is empty. Please add items before placing an order.'); router.push('/cart'); return; }
     if (!validateShipping()) return;
     setLoading(true);
     try {
