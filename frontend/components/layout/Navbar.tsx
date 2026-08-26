@@ -94,8 +94,8 @@ export default function Navbar() {
     };
   }, []);
 
-  // Close menu on route change
-  useEffect(() => { setMenuOpen(false); }, []);
+  // Close menu on route change (depend on pathname so it also fires on back/forward nav)
+  useEffect(() => { setMenuOpen(false); }, [pathname]);
 
   // Load login settings — cached for 5 min to avoid repeated API calls
   useEffect(() => {
@@ -292,7 +292,7 @@ export default function Navbar() {
           </nav>
 
           <form className="search" role="search" style={{ position: 'relative' }}
-            onSubmit={e => { e.preventDefault(); setShowSuggest(false); if (search.trim()) router.push(`/products?q=${encodeURIComponent(search)}`); }}>
+            onSubmit={e => { e.preventDefault(); setShowSuggest(false); if (search.trim()) router.push(`/products?q=${encodeURIComponent(search.trim())}`); }}>
             <span className="search-lens" aria-hidden="true">
               <svg viewBox="0 0 24 24" width="18" height="18"><path fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" d="M11 5a6 6 0 1 0 0 12 6 6 0 0 0 0-12Zm4.5 10.5L20 20" /></svg>
             </span>
@@ -316,7 +316,7 @@ export default function Navbar() {
                   if(!SR){ document.getElementById('searchInput')?.focus(); return; }
                   try {
                     const r=new SR(); r.lang='en-IN'; r.interimResults=false;
-                    r.onresult=(e:any)=>{ const t=e.results[0][0].transcript; setSearch(t); if(t.trim()) router.push(`/products?q=${encodeURIComponent(t)}`); };
+                    r.onresult=(e:any)=>{ const t=e.results[0][0].transcript; setSearch(t); if(t.trim()) router.push(`/products?q=${encodeURIComponent(t.trim())}`); };
                     r.onerror=()=>{ document.getElementById('searchInput')?.focus(); };
                     r.start();
                   } catch { document.getElementById('searchInput')?.focus(); }
@@ -430,7 +430,7 @@ export default function Navbar() {
 
         {/* Desktop: search bar appears after "More Styles" once the page is scrolled */}
         <form className={`dept-search${scrolled ? ' show' : ''}`} role="search"
-          onSubmit={e => { e.preventDefault(); if (search.trim()) router.push(`/products?q=${encodeURIComponent(search)}`); }}>
+          onSubmit={e => { e.preventDefault(); if (search.trim()) router.push(`/products?q=${encodeURIComponent(search.trim())}`); }}>
           <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" d="M11 5a6 6 0 1 0 0 12 6 6 0 0 0 0-12Zm4.5 10.5L20 20" /></svg>
           <input type="search" placeholder="Search products…" aria-label="Search products"
             value={search} onChange={e => setSearch(e.target.value)} />

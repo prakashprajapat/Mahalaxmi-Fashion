@@ -248,7 +248,13 @@ export default function AdminOrdersPage() {
       (o.shippingPincode ?? '').includes(search) ||
       (o.awb ?? '').toLowerCase().includes(q) ||
       (o.cart ?? []).some(c => (c.sku ?? '').toLowerCase().includes(q) || (c.name ?? '').toLowerCase().includes(q));
-    const matchDate = !dateFilter || (o.placedAt ?? o.createdAt).startsWith(dateFilter);
+    // Compare against the order's LOCAL date (same as what the table shows), not the raw
+    // UTC string — otherwise an order placed near midnight lands in the wrong day.
+    const matchDate = !dateFilter || (() => {
+      const d = new Date(o.placedAt ?? o.createdAt);
+      const local = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      return local === dateFilter;
+    })();
     const matchSize = !filterSize ||
       (o.cart ?? []).some(c => (c.size ?? '').toLowerCase().includes(filterSize.toLowerCase()));
     const matchColour = !filterColour ||
@@ -309,6 +315,10 @@ export default function AdminOrdersPage() {
       return next;
     });
   };
+
+  // Clear any selection when the visible tab changes — otherwise a bulk action could hit
+  // orders selected on a different tab that are no longer on screen.
+  useEffect(() => { setSelectedIds(new Set()); }, [mainTab, activeTab]);
 
   const bulkUpdateStatus = async (status: string) => {
     if (!selectedIds.size) return;
@@ -503,7 +513,7 @@ export default function AdminOrdersPage() {
                     <td style={{ padding: '.65rem 1rem', fontFamily: 'monospace', fontWeight: 700, fontSize: '.82rem', color: o.shippingPincode ? '#1a1a1a' : '#ccc', whiteSpace: 'nowrap' }}>{o.shippingPincode || '—'}</td>
                     <td style={{ padding: '.5rem 1rem', minWidth: '270px' }}>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '.45rem' }}>
-                        {o.cart.map((c, ci) => {
+                        {(o.cart ?? []).map((c, ci) => {
                           const thumb = productImageSrc(c.colorPhoto || c.image);
                           // `size` historically holds "size / colour" — strip the colour part when we show it separately
                           const sizeOnly = c.color ? (c.size || '').split(' / ').filter(p => p && p !== c.color).join(' / ') : (c.size || '');
@@ -535,7 +545,7 @@ export default function AdminOrdersPage() {
                     </td>
                     <td style={{ padding: '.5rem 1rem', fontSize: '.75rem', color: '#444' }}>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '.45rem' }}>
-                        {o.cart.map((c, ci) => {
+                        {(o.cart ?? []).map((c, ci) => {
                           const sizeOnly = c.color ? (c.size || '').split(' / ').filter(p => p && p !== c.color).join(' / ') : (c.size || '');
                           return <div key={ci} style={{ minHeight: 40, display: 'flex', alignItems: 'center', fontWeight: 600 }}>{sizeOnly || '—'}</div>;
                         })}
@@ -543,7 +553,7 @@ export default function AdminOrdersPage() {
                     </td>
                     <td style={{ padding: '.5rem 1rem', fontSize: '.75rem', color: '#444' }}>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '.45rem' }}>
-                        {o.cart.map((c, ci) => (
+                        {(o.cart ?? []).map((c, ci) => (
                           <div key={ci} style={{ minHeight: 40, display: 'flex', alignItems: 'center', gap: '.3rem', flexWrap: 'wrap' }}>
                             {c.colorCode && <span style={{ width: 11, height: 11, borderRadius: '50%', background: c.colorCode, border: '1px solid #ccc', display: 'inline-block', flexShrink: 0 }} />}
                             <span>{c.color || c.colorColumn ? `${c.color || ''}${c.colorColumn ? ` (Col ${c.colorColumn})` : ''}` : '—'}</span>

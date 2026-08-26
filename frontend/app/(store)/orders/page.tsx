@@ -68,6 +68,18 @@ function canReturn(order: Order): boolean {
   return Date.now() - delivered < DAYS_7;
 }
 
+// Thumbnail for a picked return photo. Creates the blob URL once per file and revokes it on
+// unmount — the old inline URL.createObjectURL(p) ran on every keystroke (flicker + memory leak).
+function PhotoThumb({ file }: { file: File }) {
+  const [url, setUrl] = useState('');
+  useEffect(() => {
+    const u = URL.createObjectURL(file);
+    setUrl(u);
+    return () => URL.revokeObjectURL(u);
+  }, [file]);
+  return <img src={url} alt="" style={{ width: 54, height: 54, objectFit: 'cover', borderRadius: 6, border: '1px solid #eee' }} />;
+}
+
 export default function OrdersPage() {
   const router = useRouter();
   const [customer, setCustomer] = useState<Customer | null>(null);
@@ -328,7 +340,7 @@ export default function OrdersPage() {
                         <span className={`badge ${order.status === 'Delivered' ? 'badge-green' : order.status === 'Cancelled' ? 'badge-red' : 'badge-yellow'}`}>
                           {order.status}
                         </span>
-                        <strong style={{ color: '#a7354d' }}>₹{order.total.toLocaleString('en-IN')}</strong>
+                        <strong style={{ color: '#a7354d' }}>₹{Number(order.total).toLocaleString('en-IN')}</strong>
                       </div>
                     </div>
 
@@ -417,7 +429,7 @@ export default function OrdersPage() {
                           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '.4rem', marginBottom: '.4rem' }}>
                             {openPhotos.map((p, i) => (
                               <div key={i} style={{ position: 'relative' }}>
-                                <img src={URL.createObjectURL(p)} alt="" style={{ width: 54, height: 54, objectFit: 'cover', borderRadius: 6, border: '1px solid #eee' }} />
+                                <PhotoThumb file={p} />
                                 <button type="button" onClick={() => removePhoto('open', i)} style={{ position: 'absolute', top: -6, right: -6, width: 18, height: 18, borderRadius: '50%', background: '#e74c3c', color: '#fff', border: 'none', fontSize: '.7rem', cursor: 'pointer', lineHeight: 1 }}>×</button>
                               </div>
                             ))}
@@ -448,7 +460,7 @@ export default function OrdersPage() {
                           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '.4rem', marginBottom: '.4rem' }}>
                             {closePhotos.map((p, i) => (
                               <div key={i} style={{ position: 'relative' }}>
-                                <img src={URL.createObjectURL(p)} alt="" style={{ width: 54, height: 54, objectFit: 'cover', borderRadius: 6, border: '1px solid #eee' }} />
+                                <PhotoThumb file={p} />
                                 <button type="button" onClick={() => removePhoto('close', i)} style={{ position: 'absolute', top: -6, right: -6, width: 18, height: 18, borderRadius: '50%', background: '#e74c3c', color: '#fff', border: 'none', fontSize: '.7rem', cursor: 'pointer', lineHeight: 1 }}>×</button>
                               </div>
                             ))}
@@ -495,7 +507,7 @@ export default function OrdersPage() {
                         {cancellingId === order.id ? 'Cancelling…' : '✕ Cancel Order'}
                       </button>
                     )}
-                    {canReturn(order) && returnOrderId !== order.id && returnSubmitted !== order.id && (
+                    {canReturn(order) && !((order as any).returnStatus || (order as any).returnReason || order.returnReason) && returnOrderId !== order.id && returnSubmitted !== order.id && (
                       <button
                         className="button secondary"
                         onClick={() => setReturnOrderId(order.id)}
