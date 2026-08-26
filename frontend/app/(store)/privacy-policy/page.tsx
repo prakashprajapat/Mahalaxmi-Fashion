@@ -34,6 +34,15 @@ export default function PrivacyPolicyPage() {
             <li>We maintain suitable safeguards to protect customer information from unauthorized access.</li>
           </ol>
 
+          <h2>Cookies &amp; Tracking</h2>
+          <p>Our website uses cookies and similar technologies to keep the site working and, with your consent, to understand how visitors use the site and to show relevant offers.</p>
+          <ol>
+            <li><strong>Essential cookies</strong> — required for basic functions such as keeping you signed in and remembering the items in your cart. These are always active and cannot be switched off.</li>
+            <li><strong>Analytics cookies</strong> — Google Analytics helps us understand page visits and improve the store. These are set only after you accept.</li>
+            <li><strong>Advertising cookies</strong> — the Meta (Facebook) Pixel helps us measure and improve our ads. These are set only after you accept.</li>
+          </ol>
+          <p>When you first visit, a cookie banner lets you <strong>Accept</strong> or <strong>Decline</strong> non-essential cookies. Analytics and advertising cookies stay switched off unless you choose Accept. You can change your choice at any time by clearing the saved site data for this website in your browser, which will show the banner again.</p>
+
           <h2>Data Retention</h2>
           <p>We retain your data for as long as your account is active or as needed to provide services. You may request deletion of your personal data by contacting us on WhatsApp.</p>
 
@@ -49,7 +58,7 @@ export default function PrivacyPolicyPage() {
           </ol>
 
           <p>Store contact: Ward No. 45, Near Mahadev Temple, Balotra, Rajasthan, India | <a href="https://wa.me/919429429880" target="_blank" rel="noopener noreferrer">+91 9429429880</a></p>
-          <p>Last updated: June 2026</p>
+          <p>Last updated: August 2026</p>
         </article>
       </main>
     </>
