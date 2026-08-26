@@ -7,12 +7,19 @@ import Link from 'next/link';
 //     Google Consent Mode set in layout.tsx.
 //   • Only when the visitor clicks "Accept" do we flip consent to granted.
 //   • The choice is remembered in localStorage so the banner shows only once.
+//   • Not shown inside the installed mobile app (TWA/PWA standalone).
 const STORAGE_KEY = 'mfh_cookie_consent';
 
 export default function CookieConsent() {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
+    // Don't show inside the installed app — it runs in standalone display-mode.
+    const inApp = window.matchMedia('(display-mode: standalone)').matches
+      || (navigator as any).standalone === true
+      || document.referrer.startsWith('android-app://');
+    if (inApp) return;
+
     let choice: string | null = null;
     try { choice = localStorage.getItem(STORAGE_KEY); } catch {}
     if (!choice) setVisible(true);
@@ -39,50 +46,42 @@ export default function CookieConsent() {
     save('accepted');
   };
 
-  const decline = () => {
-    // Consent stays denied (the Consent Mode default). Just remember the choice.
-    save('declined');
-  };
+  const decline = () => save('declined'); // consent stays denied (Consent Mode default)
 
   if (!visible) return null;
+
+  const btn: React.CSSProperties = {
+    height: 30, padding: '0 .9rem', borderRadius: 7,
+    fontWeight: 700, fontSize: '.74rem', cursor: 'pointer',
+  };
 
   return (
     <div
       role="dialog"
       aria-label="Cookie consent"
       style={{
-        position: 'fixed', left: 12, right: 12, bottom: 12, zIndex: 1200,
-        maxWidth: 560, margin: '0 auto',
-        background: '#fff', border: '1px solid #eadfe2', borderRadius: 14,
-        boxShadow: '0 10px 30px rgba(0,0,0,.15)',
-        padding: '1rem 1.1rem',
+        position: 'fixed', left: 14, bottom: 14, zIndex: 1200,
+        width: 300, maxWidth: 'calc(100vw - 28px)',
+        background: '#fff', border: '1px solid #eadfe2', borderRadius: 12,
+        boxShadow: '0 8px 24px rgba(0,0,0,.14)',
+        padding: '.7rem .8rem',
       }}>
-      <p style={{ margin: 0, fontSize: '.9rem', fontWeight: 700, color: '#1a1a1a' }}>
+      <p style={{ margin: 0, fontSize: '.8rem', fontWeight: 700, color: '#1a1a1a' }}>
         🍪 We value your privacy
       </p>
-      <p style={{ margin: '.35rem 0 .8rem', fontSize: '.82rem', color: '#666', lineHeight: 1.5 }}>
-        We use cookies to keep the site working and, with your permission, for analytics and
-        marketing to improve your shopping experience. You can accept or decline non-essential
-        cookies. Read our{' '}
+      <p style={{ margin: '.25rem 0 .55rem', fontSize: '.72rem', color: '#666', lineHeight: 1.45 }}>
+        We use cookies for analytics &amp; a better experience. Read our{' '}
         <Link href="/privacy-policy" style={{ color: '#a01836', fontWeight: 600, textDecoration: 'underline' }}>
           Privacy Policy
         </Link>.
       </p>
-      <div style={{ display: 'flex', gap: '.6rem' }}>
-        <button
-          onClick={decline}
-          style={{
-            flex: 1, height: 42, borderRadius: 9, background: '#fff', color: '#a01836',
-            border: '1.5px solid #ddd', fontWeight: 700, fontSize: '.85rem', cursor: 'pointer',
-          }}>
+      <div style={{ display: 'flex', gap: '.5rem', justifyContent: 'flex-end' }}>
+        <button onClick={decline}
+          style={{ ...btn, background: '#fff', color: '#a01836', border: '1.5px solid #ddd' }}>
           Decline
         </button>
-        <button
-          onClick={accept}
-          style={{
-            flex: 1, height: 42, borderRadius: 9, background: '#a01836', color: '#fff',
-            border: 'none', fontWeight: 700, fontSize: '.85rem', cursor: 'pointer',
-          }}>
+        <button onClick={accept}
+          style={{ ...btn, background: '#a01836', color: '#fff', border: 'none' }}>
           Accept
         </button>
       </div>
