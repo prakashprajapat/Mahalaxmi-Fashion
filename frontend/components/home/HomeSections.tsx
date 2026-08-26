@@ -48,7 +48,9 @@ export function BestSellersSection({ products }: { products: Product[] }) {
         </div>
 
         <div className="products-grid">
-          {sorted.map((p, i) => <ProductCard key={p.dbId} product={p} priority={i < 4} />)}
+          {/* Load ALL Best Sellers eagerly (this is the top preview section) so the second
+              row never shows as blank cards while lazy-loading. */}
+          {sorted.map((p) => <ProductCard key={p.dbId} product={p} priority />)}
         </div>
       </div>
     </section>
