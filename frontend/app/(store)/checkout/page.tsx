@@ -121,8 +121,8 @@ export default function CheckoutPage() {
       setLoading(true);
       cashfreeApi.verify(cfOrder).then(v => {
         if (v.verified) { clearCart(); setOrderId(cfOrder); setStep('confirm'); }
-        else { alert('Payment is not confirmed yet. If money was deducted, your order will be created automatically — or contact us on WhatsApp with order ID ' + cfOrder); router.push('/cart'); }
-      }).catch(() => alert('Could not check payment status. Please contact us on WhatsApp with order ID ' + cfOrder))
+        else { alert('Your payment was not completed, so your order has NOT been placed. If any amount was deducted it will be refunded automatically, or your order will be confirmed shortly — please do not pay again. For help, contact us on WhatsApp (payment reference: ' + cfOrder + ').'); router.push('/cart'); }
+      }).catch(() => alert('We could not confirm your payment right now, so your order is NOT placed yet — please do not pay again. If any amount was deducted, contact us on WhatsApp (payment reference: ' + cfOrder + ').'))
       .finally(() => { setLoading(false); try { window.history.replaceState({}, '', '/checkout'); } catch {} });
       return;
     }
@@ -477,51 +477,59 @@ export default function CheckoutPage() {
           email: shipping.email || customer?.email || '',
         },
         handler: async (response: { razorpay_payment_id: string; razorpay_order_id: string; razorpay_signature: string }) => {
-          await paymentsApi.verify({
-            razorpayOrderId: response.razorpay_order_id,
-            razorpayPaymentId: response.razorpay_payment_id,
-            razorpaySignature: response.razorpay_signature,
-          });
-          await ordersApi.place({
-            id: res.localOrderId,
-            method: 'razorpay',
-            status: 'Pending',
-            paymentId: response.razorpay_payment_id,
-            cart: cartLines,
-            subtotal,
-            shippingCost,
-            codFee: 0,
-            total,
-            walletUsed: walletApplied,
-            customerId: customer?.id?.toString(),
-            customerName: shipping.name,
-            customerEmail: shipping.email,
-            customerPhone: shipping.phone,
-            panNumber: requiresPan ? panData.panNumber : undefined,
-            panName: requiresPan ? panData.panName : undefined,
-            couponCode: attributionCode(),
-            discountAmount: couponApplied?.discount ?? 0,
-            shippingName: shipping.name,
-            shippingAddress: shipping.address,
-            shippingCity: shipping.city,
-            shippingPincode: shipping.pincode,
-            shippingState: shipping.state,
-            placedAt: new Date().toISOString(),
-            gaClientId: getGaClientId(),
-          }, getToken() ?? undefined);
-          // GA4: successful purchase (fired before clearing the cart so items are still available).
-          trackEvent('purchase', {
-            transaction_id: res.localOrderId,
-            currency: 'INR',
-            value: total,
-            coupon: attributionCode() || undefined,
-            items: cartToItems(cart),
-          });
-          trackAdsConversion({ value: total, currency: 'INR', transactionId: res.localOrderId });
-          clearCart();
-          setOrderId(res.localOrderId);
-          setStep('confirm');
-          setLoading(false);
+          // The success screen (with the order number) must ONLY appear once the payment is
+          // verified AND the order is actually saved. If either step fails, we show a clear
+          // support message instead — never a fake "Order Placed".
+          try {
+            await paymentsApi.verify({
+              razorpayOrderId: response.razorpay_order_id,
+              razorpayPaymentId: response.razorpay_payment_id,
+              razorpaySignature: response.razorpay_signature,
+            });
+            await ordersApi.place({
+              id: res.localOrderId,
+              method: 'razorpay',
+              status: 'Pending',
+              paymentId: response.razorpay_payment_id,
+              cart: cartLines,
+              subtotal,
+              shippingCost,
+              codFee: 0,
+              total,
+              walletUsed: walletApplied,
+              customerId: customer?.id?.toString(),
+              customerName: shipping.name,
+              customerEmail: shipping.email,
+              customerPhone: shipping.phone,
+              panNumber: requiresPan ? panData.panNumber : undefined,
+              panName: requiresPan ? panData.panName : undefined,
+              couponCode: attributionCode(),
+              discountAmount: couponApplied?.discount ?? 0,
+              shippingName: shipping.name,
+              shippingAddress: shipping.address,
+              shippingCity: shipping.city,
+              shippingPincode: shipping.pincode,
+              shippingState: shipping.state,
+              placedAt: new Date().toISOString(),
+              gaClientId: getGaClientId(),
+            }, getToken() ?? undefined);
+            // GA4: successful purchase (fired before clearing the cart so items are still available).
+            trackEvent('purchase', {
+              transaction_id: res.localOrderId,
+              currency: 'INR',
+              value: total,
+              coupon: attributionCode() || undefined,
+              items: cartToItems(cart),
+            });
+            trackAdsConversion({ value: total, currency: 'INR', transactionId: res.localOrderId });
+            clearCart();
+            setOrderId(res.localOrderId);
+            setStep('confirm');
+          } catch {
+            alert('Your payment was received, but we could not confirm your order automatically. Please do NOT pay again — contact us on WhatsApp (payment reference: ' + res.localOrderId + ') and we will confirm your order for you.');
+          } finally {
+            setLoading(false);
+          }
         },
         modal: { ondismiss: () => setLoading(false) },
       };

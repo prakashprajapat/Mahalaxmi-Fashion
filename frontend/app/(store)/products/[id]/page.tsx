@@ -279,7 +279,7 @@ export default function ProductPage({ params }: { params: { id: string } }) {
       <nav style={{ background: '#f9f9f9', borderBottom: '1px solid #eee', padding: '.6rem 1.5rem', fontSize: '.83rem', color: '#888' }}>
         <Link href="/" style={{ color: '#a7354d' }}>Home</Link> &rsaquo;{' '}
         <Link href="/products" style={{ color: '#a7354d' }}>Products</Link> &rsaquo;{' '}
-        {product.category && <><Link href={`/${product.category.toLowerCase().replace(' ','-')}`} style={{ color: '#a7354d' }}>{product.category}</Link> &rsaquo; </>}
+        {product.category && <><Link href={`/${product.category.toLowerCase().replace(/ /g, '-')}`} style={{ color: '#a7354d' }}>{product.category}</Link> &rsaquo; </>}
         <span>{product.name}</span>
       </nav>
 

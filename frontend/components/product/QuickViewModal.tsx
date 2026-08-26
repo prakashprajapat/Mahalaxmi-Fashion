@@ -141,7 +141,9 @@ export default function QuickViewModal({ product, onClose }: Props) {
     && (selectedVariantStock === null || selectedVariantStock > 0);
 
   const handleAdd = () => {
-    addToCart(product as any, qty, size || undefined, colour || undefined);
+    // Pass the known variant stock so the cart caps the quantity (prevents overselling —
+    // e.g. adding 5 of a variant that only has 2 in stock).
+    addToCart(product as any, qty, size || undefined, colour || undefined, selectedVariantStock ?? undefined);
     window.dispatchEvent(new Event('cart-updated'));
     setAdded(true);
     setTimeout(() => { setAdded(false); onClose(); }, 800);
@@ -385,8 +387,9 @@ export default function QuickViewModal({ product, onClose }: Props) {
                   −
                 </button>
                 <span style={{ fontSize: '1rem', fontWeight: 700, minWidth: '24px', textAlign: 'center' }}>{qty}</span>
-                <button onClick={() => setQty(q => q + 1)}
-                  style={{ width: '34px', height: '34px', border: '1.5px solid #ddd', borderRadius: '8px', background: '#f8f8f8', fontSize: '1.1rem', cursor: 'pointer', fontWeight: 700 }}>
+                <button onClick={() => setQty(q => (selectedVariantStock != null ? Math.min(selectedVariantStock, q + 1) : q + 1))}
+                  disabled={selectedVariantStock != null && qty >= selectedVariantStock}
+                  style={{ width: '34px', height: '34px', border: '1.5px solid #ddd', borderRadius: '8px', background: '#f8f8f8', fontSize: '1.1rem', cursor: (selectedVariantStock != null && qty >= selectedVariantStock) ? 'not-allowed' : 'pointer', fontWeight: 700, opacity: (selectedVariantStock != null && qty >= selectedVariantStock) ? 0.4 : 1 }}>
                   +
                 </button>
               </div>

@@ -63,7 +63,7 @@ function AccountContent() {
       trackEvent('login', { method: 'password' });   // GA4
       window.dispatchEvent(new Event('auth-changed'));
       // After login, go to the home page by default (or back to wherever the user came from).
-      router.push(returnTo.startsWith('/') ? returnTo : '/');
+      router.push(/^\/(?![/\\])/.test(returnTo) ? returnTo : '/');
     } catch (e) {
       setError((e as Error).message || 'Login failed. Please check your credentials.');
     } finally { setLoading(false); }
@@ -104,7 +104,7 @@ function AccountContent() {
       setCustomer(res.customer);
       trackEvent('login', { method: 'otp' });   // GA4
       window.dispatchEvent(new Event('auth-changed'));
-      router.push(returnTo.startsWith('/') ? returnTo : '/');
+      router.push(/^\/(?![/\\])/.test(returnTo) ? returnTo : '/');
     } catch (err) {
       setOtpMsg((err as Error).message || 'Invalid OTP. Please try again.');
     } finally { setOtpLoading(false); }
@@ -160,10 +160,10 @@ function AccountContent() {
           <div className="form-card">
             <h2>Account Dashboard</h2>
             <div className="form-grid" style={{ pointerEvents: 'none' }}>
-              <label>Name<input value={`${customer.firstName} ${customer.lastName}`.trim() || '—'} readOnly /></label>
+              <label>Name<input value={`${customer.firstName ?? ''} ${customer.lastName ?? ''}`.trim() || '—'} readOnly /></label>
               <label>Customer ID<input value={customer.customerCode || '—'} readOnly /></label>
               <label>Email<input value={customer.email ?? '—'} readOnly /></label>
-              <label>Phone<input value={customer.phone} readOnly /></label>
+              <label>Phone<input value={customer.phone || '—'} readOnly /></label>
               <label className="full-field">Address
                 <input value={[customer.addrLine1, customer.addrLine2, customer.postOffice, customer.district, customer.state, customer.pincode].filter(Boolean).join(', ') || '—'} readOnly />
               </label>
