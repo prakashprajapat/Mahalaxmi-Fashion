@@ -3,6 +3,7 @@ import Script from 'next/script';
 import { settingsApi } from '@/lib/api';
 import PWARegister from '@/components/pwa/PWARegister';
 import CookieConsent from '@/components/CookieConsent';
+import LogoPreload from '@/components/LogoPreload';
 import './globals.css';
 
 export const viewport: Viewport = {
@@ -108,8 +109,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <link rel="dns-prefetch" href="https://www.googletagmanager.com" />
 
         {/* Preload the hero logo (the LCP element on the home page) so the browser
-            discovers it immediately instead of after HTML parse — fixes "LCP request discovery". */}
-        <link rel="preload" as="image" href="/logo.webp?v=5" />
+            discovers it immediately instead of after HTML parse — fixes "LCP request discovery".
+            Rendered only on storefront pages (skipped on /admin, where the logo isn't used —
+            that avoids the "preloaded but not used" console warning on admin pages). */}
+        <LogoPreload />
 
         {/* Hero heading font (Playfair Display) — loaded NON-render-blocking:
             fetched with media="print" (so it doesn't block first paint), then a tiny
