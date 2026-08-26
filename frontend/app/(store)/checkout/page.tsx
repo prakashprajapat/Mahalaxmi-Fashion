@@ -80,6 +80,8 @@ export default function CheckoutPage() {
   const [orderId, setOrderId] = useState('');
   const [honeypot, setHoneypot] = useState('');
   const [payMethod, setPayMethod] = useState<'online' | 'cod'>('online');
+  const [codConfirm, setCodConfirm] = useState(false); // "Confirm Cash on Delivery Order" popup
+  const [codAvailable, setCodAvailable] = useState(true); // COD allowed for the entered pincode?
 
   const [shipping, setShipping] = useState({
     name: '', email: '', phone: '', address: '', city: '', pincode: '', state: '',
@@ -185,6 +187,25 @@ export default function CheckoutPage() {
     })();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [subtotal, couponApplied]);
+
+  // COD availability for the entered pincode. The backend switches COD off for pincodes the
+  // store has blocked (fraud/returns control) and for areas the courier doesn't do COD in.
+  // If COD isn't available we hide the option and fall back to online payment.
+  useEffect(() => {
+    const pin = (shipping.pincode || '').replace(/\D/g, '');
+    if (pin.length !== 6) { setCodAvailable(true); return; }
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await ordersApi.checkPincode(pin);
+        if (cancelled) return;
+        const ok = r.cod !== false;
+        setCodAvailable(ok);
+        if (!ok) setPayMethod('online');
+      } catch { if (!cancelled) setCodAvailable(true); }
+    })();
+    return () => { cancelled = true; };
+  }, [shipping.pincode]);
 
   const discount = couponApplied?.discount ?? 0;
   const shippingCost = 0;   // shipping is folded into item prices (or waived for Balotra); no separate charge
@@ -369,11 +390,19 @@ export default function CheckoutPage() {
 
   // Cash on Delivery: no gateway. Place the order directly with method 'cod'.
   // The ₹50 COD fee is also enforced server-side, so it can't be bypassed.
-  const handlePlaceCod = async () => {
+  const handlePlaceCod = () => {
     // Never place an order with an empty cart — otherwise a stray click (e.g. after the
     // cart was cleared or a double-submit) would create a ₹0-goods / ₹50-COD ghost order.
     if (cart.length === 0) { alert('Your cart is empty. Please add items before placing an order.'); router.push('/cart'); return; }
     if (!validateShipping()) return;
+    // Flipkart-style confirmation step: show a "Confirm Cash on Delivery Order" popup and
+    // only place the order once the customer taps Confirm.
+    setCodConfirm(true);
+  };
+
+  // Actually place the COD order — runs after the customer confirms in the popup.
+  const doPlaceCod = async () => {
+    setCodConfirm(false);
     setLoading(true);
     try {
       const cartLines = buildCartLines();
@@ -643,11 +672,18 @@ export default function CheckoutPage() {
                 <span style={{ fontWeight: 600, fontSize: '.92rem' }}>💳 Pay Online</span>
                 <span style={{ fontSize: '.8rem', color: '#666' }}>UPI / Card / Net Banking</span>
               </label>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '.6rem', border: `1.5px solid ${payMethod === 'cod' ? '#a7354d' : '#ddd'}`, background: payMethod === 'cod' ? '#fff8f9' : '#fff', borderRadius: '10px', padding: '.75rem .9rem', cursor: 'pointer' }}>
-                <input type="radio" name="payMethod" checked={payMethod === 'cod'} onChange={() => setPayMethod('cod')} style={{ accentColor: '#a7354d' }} />
-                <span style={{ fontWeight: 600, fontSize: '.92rem' }}>🚚 Cash on Delivery</span>
-                <span style={{ fontSize: '.8rem', color: '#c0392b', fontWeight: 600 }}>+₹{COD_FEE} extra</span>
-              </label>
+              {codAvailable ? (
+                <label style={{ display: 'flex', alignItems: 'center', gap: '.6rem', border: `1.5px solid ${payMethod === 'cod' ? '#a7354d' : '#ddd'}`, background: payMethod === 'cod' ? '#fff8f9' : '#fff', borderRadius: '10px', padding: '.75rem .9rem', cursor: 'pointer' }}>
+                  <input type="radio" name="payMethod" checked={payMethod === 'cod'} onChange={() => setPayMethod('cod')} style={{ accentColor: '#a7354d' }} />
+                  <span style={{ fontWeight: 600, fontSize: '.92rem' }}>🚚 Cash on Delivery</span>
+                  <span style={{ fontSize: '.8rem', color: '#c0392b', fontWeight: 600 }}>+₹{COD_FEE} extra</span>
+                </label>
+              ) : (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '.6rem', border: '1.5px solid #eee', background: '#fafafa', borderRadius: '10px', padding: '.75rem .9rem', opacity: .7 }}>
+                  <span style={{ fontWeight: 600, fontSize: '.92rem', color: '#999' }}>🚚 Cash on Delivery</span>
+                  <span style={{ fontSize: '.78rem', color: '#c0392b' }}>Not available for this pincode — please pay online</span>
+                </div>
+              )}
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '.75rem' }}>
@@ -754,6 +790,51 @@ export default function CheckoutPage() {
           </div>
         </div>
       </div>
+
+      {/* Confirm Cash on Delivery Order — shown before a COD order is placed */}
+      {codConfirm && (
+        <div
+          role="dialog"
+          aria-label="Confirm Cash on Delivery Order"
+          onClick={() => setCodConfirm(false)}
+          style={{ position: 'fixed', inset: 0, zIndex: 3000, background: 'rgba(0,0,0,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{ background: '#fff', borderRadius: 14, maxWidth: 420, width: '100%', boxShadow: '0 18px 50px rgba(0,0,0,.25)', overflow: 'hidden' }}>
+            <div style={{ padding: '1.25rem 1.4rem 0' }}>
+              <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800, color: '#1a1a1a' }}>Confirm Cash on Delivery Order</h3>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '.85rem', margin: '.9rem 0 .3rem' }}>
+                <div style={{ fontSize: '2rem', lineHeight: 1 }}>🚚</div>
+                <p style={{ margin: 0, color: '#7a0a22', fontWeight: 600, fontSize: '.95rem' }}>
+                  Pay via UPI or Cash when you receive your order
+                </p>
+              </div>
+              <div style={{ background: '#fbf3f5', border: '1px solid #f0dfe4', borderRadius: 10, padding: '.7rem .85rem', margin: '.9rem 0 1.1rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '.86rem', color: '#555' }}>
+                  <span>Order total (incl. ₹{COD_FEE} COD fee)</span>
+                  <strong style={{ color: '#a7354d' }}>₹{total.toLocaleString('en-IN')}</strong>
+                </div>
+                <p style={{ margin: '.4rem 0 0', fontSize: '.74rem', color: '#999' }}>
+                  Tip: pay online now to avoid the ₹{COD_FEE} handling fee.
+                </p>
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: '.6rem', padding: '0 1.4rem 1.25rem' }}>
+              <button
+                onClick={() => setCodConfirm(false)}
+                style={{ flex: 1, height: 44, borderRadius: 9, border: '1.5px solid #ddd', background: '#fff', color: '#a01836', fontWeight: 700, fontSize: '.92rem', cursor: 'pointer' }}>
+                Cancel
+              </button>
+              <button
+                onClick={doPlaceCod}
+                disabled={loading}
+                style={{ flex: 1.3, height: 44, borderRadius: 9, border: 'none', background: '#a7354d', color: '#fff', fontWeight: 800, fontSize: '.92rem', cursor: loading ? 'default' : 'pointer', opacity: loading ? .7 : 1 }}>
+                {loading ? 'Placing…' : 'Confirm order'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

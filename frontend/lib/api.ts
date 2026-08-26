@@ -110,6 +110,32 @@ export const ordersApi = {
       `/orders/${orderId}`, { method: 'DELETE' }, token
     ),
 
+  // Admin-only: fraud/risk analysis — pincode-wise order/cancel/return stats,
+  // the high-risk customer "red zone", and the current COD-blocked pincodes.
+  riskSummary: (token: string) =>
+    request<{
+      success: boolean;
+      highRiskThreshold: number;
+      codBlocked: string[];
+      pincodes: Array<{
+        pincode: string; city?: string | null; state?: string | null;
+        total: number; cod: number; cancelled: number; returned: number; delivered: number;
+        cancelRate: number; returnRate: number; risky: boolean; codBlocked: boolean;
+      }>;
+      riskyCustomers: Array<{
+        customerId: string; name?: string | null; phone?: string | null;
+        total: number; cancelled: number; returned: number;
+      }>;
+    }>('/orders/risk/summary', undefined, token),
+
+  // Admin-only: turn Cash-on-Delivery on/off for a single pincode.
+  setCodBlock: (pincode: string, blocked: boolean, token: string) =>
+    request<{ success: boolean; codBlocked: string[] }>(
+      '/orders/risk/cod-block',
+      { method: 'POST', body: JSON.stringify({ pincode, blocked }) },
+      token
+    ),
+
   // Open the customer invoice (HTML) in a new tab. JWT can't ride a plain link, so we
   // fetch with the auth header then render from a blob URL. Backend enforces 12-month expiry.
   downloadInvoice: async (orderId: string, token: string) => {

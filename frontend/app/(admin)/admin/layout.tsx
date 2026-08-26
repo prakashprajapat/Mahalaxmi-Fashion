@@ -10,6 +10,7 @@ import { settingsApi } from '@/lib/api';
 const ALL_NAV: { href?: string; label?: string; exact?: boolean; heading?: string }[] = [
   { href: '/admin',             label: '📊 Dashboard',       exact: true },
   { href: '/admin/orders',      label: '📦 Orders' },
+  { href: '/admin/risk',        label: '🛡️ Fraud & Risk' },
   { heading: 'Inventory' },
   { href: '/admin/products',    label: '👗 Products' },
   { href: '/admin/products/add',label: '➕ Add / Edit Product' },

@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using System.Security.Claims;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -31,8 +32,17 @@ public class OrdersController : ControllerBase
     private readonly Services.AdminNotifier _notify;
     private readonly Services.SmsService _sms;
     private readonly Services.WalletService _wallet;
+    private readonly IMemoryCache _cache;
 
-    public OrdersController(AppDbContext db, IWebHostEnvironment env, Services.DelhiveryService delhivery, Services.AdminNotifier notify, Services.SmsService sms, Services.WalletService wallet)
+    // Fraud/risk controls:
+    //  • codBlockedPincodes — SiteSetting storing pincodes where COD is switched off by the store.
+    //  • A customer with more than this many Cancelled orders is treated as "high risk" (red zone)
+    //    and is not allowed to place COD orders.
+    private const string CodBlockedKey = "codBlockedPincodes";
+    private const string PublicSettingsCacheKey = "public_settings";
+    private const int HighRiskCancelThreshold = 2; // > 2 (i.e. 3+) cancelled orders ⇒ high risk
+
+    public OrdersController(AppDbContext db, IWebHostEnvironment env, Services.DelhiveryService delhivery, Services.AdminNotifier notify, Services.SmsService sms, Services.WalletService wallet, IMemoryCache cache)
     {
         _db = db;
         _env = env;
@@ -40,6 +50,32 @@ public class OrdersController : ControllerBase
         _notify = notify;
         _sms = sms;
         _wallet = wallet;
+        _cache = cache;
+    }
+
+    // Parse a stored pincode list (any format — comma/space/JSON) into a set of 6-digit pins.
+    private static HashSet<string> ParsePinList(string? raw)
+    {
+        var set = new HashSet<string>();
+        if (string.IsNullOrWhiteSpace(raw)) return set;
+        foreach (System.Text.RegularExpressions.Match m in System.Text.RegularExpressions.Regex.Matches(raw, "\\d{6}"))
+            set.Add(m.Value);
+        return set;
+    }
+
+    private async Task<HashSet<string>> GetCodBlockedPincodesAsync()
+    {
+        var raw = await _db.SiteSettings.Where(s => s.Key == CodBlockedKey).Select(s => s.Value).FirstOrDefaultAsync();
+        return ParsePinList(raw);
+    }
+
+    // How many orders this customer has had Cancelled (used for the high-risk COD rule).
+    private async Task<int> CancelledCountAsync(string? customerId)
+    {
+        if (string.IsNullOrWhiteSpace(customerId) || customerId == "0") return 0;
+        var needle = "\"id\":\"" + customerId + "\"";
+        return await _db.SiteOrders.CountAsync(o =>
+            o.Status == "Cancelled" && o.CustomerJson != null && o.CustomerJson.Contains(needle));
     }
 
     // Deploy-safe uploads root: /var/www/mahalaxmi-uploads/returns (outside repo & publish dir).
@@ -217,9 +253,25 @@ public class OrdersController : ControllerBase
         // Local Balotra delivery ships free: the per-product shipping (normally folded into
         // the price) is dropped when the shipping address is a Balotra post office / pincode.
         var shipCity = (req.ShippingCity ?? "").Trim();
-        var shipPin  = (req.ShippingPincode ?? "").Trim();
+        var shipPin  = new string((req.ShippingPincode ?? "").Where(char.IsDigit).ToArray());
         bool isBalotra = shipCity.IndexOf("balotra", StringComparison.OrdinalIgnoreCase) >= 0
                          || shipPin == "344022";
+
+        // ── FRAUD / RISK: Cash-on-Delivery guards (server-side, can't be bypassed) ──
+        // Only apply to COD; prepaid orders are already paid so they carry no COD risk.
+        if (method == "cod")
+        {
+            // (a) Pincode where the store has switched COD off (too many fake/return orders).
+            var blockedPins = await GetCodBlockedPincodesAsync();
+            if (shipPin.Length == 6 && blockedPins.Contains(shipPin))
+                return BadRequest(new { success = false, message = "Cash on Delivery isn't available for this pincode right now. Please choose online payment to place your order." });
+
+            // (b) High-risk customer (too many past cancelled orders) — force prepaid.
+            var priorCancels = await CancelledCountAsync(req.CustomerId);
+            if (priorCancels > HighRiskCancelThreshold)
+                return BadRequest(new { success = false, message = "Cash on Delivery isn't available for this account due to previously cancelled orders. Please pay online to place your order." });
+        }
+
         decimal serverSubtotal = 0m;
         var cartLines = req.Cart ?? new List<CartLineDto>();
         var skus = cartLines.Select(c => (c.Sku ?? "").Trim()).Where(s => s.Length > 0).Distinct().ToList();
@@ -1489,18 +1541,152 @@ public class OrdersController : ControllerBase
         else if (st is "AS" or "AR" or "MN" or "ML" or "MZ" or "NL" or "TR" or "SK" or "JK" or "LA" or "AN") (minDays, maxDays) = (5, 9);
         else (minDays, maxDays) = (4, 7);
 
+        // Store-level COD block: if the admin has switched COD off for this pincode (fraud/returns
+        // control), report COD as unavailable so the checkout hides the COD option automatically.
+        var storeBlocked = await GetCodBlockedPincodesAsync();
+        bool codAllowed = r.cod && !storeBlocked.Contains(p);
+
         return Ok(new
         {
             success = true,
             known = r.known,
             serviceable = r.ok,
-            cod = r.cod,
+            cod = codAllowed,
             city = r.city,
             state = r.state,
             etaMinDays = minDays,
             etaMaxDays = maxDays,
         });
     }
+
+    // ── FRAUD / RISK ANALYTICS ───────────────────────────────────────────────────
+    // GET /api/orders/risk/summary  (Admin) — pincode-wise order/cancel/return analysis
+    // plus the list of high-risk customers (the "red zone") and the current COD-blocked pins.
+    [HttpGet("risk/summary")]
+    [Authorize]
+    public async Task<IActionResult> RiskSummary()
+    {
+        if (!User.HasSectionAccess("orders", "reports", "reconcile"))
+            return Forbid();
+
+        var all = await _db.SiteOrders.AsNoTracking().ToListAsync();
+        var blocked = await GetCodBlockedPincodesAsync();
+
+        var returnStatuses = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            { "Return Requested", "Return Transit", "Return" };
+
+        // Per-pincode aggregation.
+        var pinAgg = new Dictionary<string, (int total, int cod, int cancelled, int returned, int delivered, string? city, string? state)>();
+        // Per-customer cancellation tally for the "red zone".
+        var custAgg = new Dictionary<string, (string? name, string? phone, int total, int cancelled, int returned)>();
+
+        foreach (var o in all)
+        {
+            var sj  = ParseJson(o.ShippingJson);
+            var cj  = ParseJson(o.CustomerJson);
+            var pin = new string((GetJsonStr(sj, "pincode") ?? "").Where(char.IsDigit).ToArray());
+            var status = o.Status ?? "";
+            bool isCancelled = string.Equals(status, "Cancelled", StringComparison.OrdinalIgnoreCase);
+            bool isReturned  = returnStatuses.Contains(status);
+            bool isDelivered = string.Equals(status, "Delivered", StringComparison.OrdinalIgnoreCase);
+            bool isCod = string.Equals(o.Method, "cod", StringComparison.OrdinalIgnoreCase);
+
+            if (pin.Length == 6)
+            {
+                pinAgg.TryGetValue(pin, out var a);
+                a.total++;
+                if (isCod) a.cod++;
+                if (isCancelled) a.cancelled++;
+                if (isReturned) a.returned++;
+                if (isDelivered) a.delivered++;
+                a.city ??= GetJsonStr(sj, "city");
+                a.state ??= GetJsonStr(sj, "state");
+                pinAgg[pin] = a;
+            }
+
+            var cid = GetJsonStr(cj, "id");
+            if (!string.IsNullOrWhiteSpace(cid) && cid != "0")
+            {
+                custAgg.TryGetValue(cid, out var c);
+                c.name  = !string.IsNullOrWhiteSpace(GetJsonStr(cj, "name")) ? GetJsonStr(cj, "name")! : c.name;
+                c.phone = !string.IsNullOrWhiteSpace(GetJsonStr(cj, "phone")) ? GetJsonStr(cj, "phone")! : c.phone;
+                c.total++;
+                if (isCancelled) c.cancelled++;
+                if (isReturned) c.returned++;
+                custAgg[cid] = c;
+            }
+        }
+
+        var pincodes = pinAgg.Select(kv => new
+        {
+            pincode   = kv.Key,
+            city      = kv.Value.city,
+            state     = kv.Value.state,
+            total     = kv.Value.total,
+            cod       = kv.Value.cod,
+            cancelled = kv.Value.cancelled,
+            returned  = kv.Value.returned,
+            delivered = kv.Value.delivered,
+            cancelRate = kv.Value.total > 0 ? Math.Round(100.0 * kv.Value.cancelled / kv.Value.total, 1) : 0,
+            returnRate = kv.Value.total > 0 ? Math.Round(100.0 * kv.Value.returned  / kv.Value.total, 1) : 0,
+            // "Risky" = enough orders to judge AND a high combined cancel+return rate.
+            risky = kv.Value.total >= 3 && (kv.Value.cancelled + kv.Value.returned) * 100.0 / kv.Value.total >= 40.0,
+            codBlocked = blocked.Contains(kv.Key),
+        })
+        .OrderByDescending(p => p.cancelled + p.returned)
+        .ThenByDescending(p => p.total)
+        .ToList();
+
+        var riskyCustomers = custAgg
+            .Where(kv => kv.Value.cancelled > HighRiskCancelThreshold)
+            .Select(kv => new
+            {
+                customerId = kv.Key,
+                name       = kv.Value.name,
+                phone      = kv.Value.phone,
+                total      = kv.Value.total,
+                cancelled  = kv.Value.cancelled,
+                returned   = kv.Value.returned,
+            })
+            .OrderByDescending(c => c.cancelled)
+            .ToList();
+
+        return Ok(new
+        {
+            success = true,
+            highRiskThreshold = HighRiskCancelThreshold,
+            codBlocked = blocked.OrderBy(x => x).ToList(),
+            pincodes,
+            riskyCustomers,
+        });
+    }
+
+    // POST /api/orders/risk/cod-block  (Admin) — turn COD on/off for one pincode.
+    [HttpPost("risk/cod-block")]
+    [Authorize]
+    public async Task<IActionResult> SetCodBlock([FromBody] CodBlockRequest req)
+    {
+        if (!User.HasSectionAccess("orders", "reports"))
+            return Forbid();
+
+        var pin = new string((req.Pincode ?? "").Where(char.IsDigit).ToArray());
+        if (pin.Length != 6)
+            return BadRequest(new { success = false, message = "Enter a valid 6-digit pincode." });
+
+        var set = await GetCodBlockedPincodesAsync();
+        if (req.Blocked) set.Add(pin); else set.Remove(pin);
+        var value = string.Join(",", set.OrderBy(x => x));
+
+        var s = await _db.SiteSettings.FirstOrDefaultAsync(x => x.Key == CodBlockedKey);
+        if (s is null) _db.SiteSettings.Add(new SiteSetting { Key = CodBlockedKey, Value = value });
+        else { s.Value = value; s.UpdatedAt = DateTimeOffset.UtcNow; }
+        await _db.SaveChangesAsync();
+        _cache.Remove(PublicSettingsCacheKey); // so the storefront sees the change promptly
+
+        return Ok(new { success = true, codBlocked = set.OrderBy(x => x).ToList() });
+    }
+
+    public record CodBlockRequest(string Pincode, bool Blocked);
 
     // GET /api/orders/live-track/{awb}  (Public)
     // Live Delhivery tracking timeline for the customer tracking page — shipment-safe

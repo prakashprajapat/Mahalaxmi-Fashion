@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { customersApi, walletApi, type WalletTxn } from '@/lib/api';
+import { customersApi, walletApi, ordersApi, type WalletTxn } from '@/lib/api';
 import { getAdminToken } from '@/lib/auth';
 import { exportCustomers } from '@/lib/exportExcel';
 import type { Customer } from '@/types';
@@ -79,6 +79,9 @@ export default function AdminCustomersPage() {
     password: 'Mfh@12345',
   });
 
+  // High-risk customers (>2 cancelled orders) — shown as a red "HIGH RISK" badge.
+  const [highRiskIds, setHighRiskIds] = useState<Set<string>>(new Set());
+
   const fetchCustomers = () => {
     const token = getAdminToken() ?? '';
     setLoading(true);
@@ -92,6 +95,13 @@ export default function AdminCustomersPage() {
     fetchCustomers();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search, page]);
+
+  // Load the high-risk "red zone" list once, so we can flag those customers.
+  useEffect(() => {
+    ordersApi.riskSummary(getAdminToken() ?? '')
+      .then(r => setHighRiskIds(new Set((r.riskyCustomers || []).map(c => String(c.customerId)))))
+      .catch(() => { /* non-blocking */ });
+  }, []);
 
   const openEdit = (c: Customer) => {
     setEditCust(c);
@@ -267,7 +277,15 @@ export default function AdminCustomersPage() {
                     ? <img src={c.photoUrl} alt="" className="w-9 h-9 rounded-full object-cover" />
                     : <span className="w-9 h-9 rounded-full bg-pink-50 text-pink-700 font-bold flex items-center justify-center text-xs">{(c.firstName || '?').charAt(0).toUpperCase()}</span>}
                 </td>
-                <td className="px-4 py-3">{c.firstName} {c.lastName}</td>
+                <td className="px-4 py-3">
+                  {c.firstName} {c.lastName}
+                  {highRiskIds.has(String(c.id)) && (
+                    <span title="More than 2 cancelled orders — Cash on Delivery is blocked for this customer"
+                      style={{ marginLeft: 6, background: '#ffebee', color: '#c62828', borderRadius: 20, padding: '2px 8px', fontSize: '.66rem', fontWeight: 800, whiteSpace: 'nowrap' }}>
+                      🚩 HIGH RISK
+                    </span>
+                  )}
+                </td>
                 <td className="px-4 py-3 text-xs text-gray-500">{c.email}</td>
                 <td className="px-4 py-3 text-xs">{c.phone}</td>
                 <td className={`px-4 py-3 text-xs ${isToday(c.dateOfBirth) ? 'font-bold text-pink-700' : ''}`}>
