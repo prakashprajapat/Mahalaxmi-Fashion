@@ -138,10 +138,6 @@ function PhotoSlot({
   const [report, setReport]   = useState<ConvResult | null>(null);
   const [converting, setConverting] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
-  // Tracks whether the admin has actually edited the stock matrix. The Total-Quantity auto-fill
-  // must NOT run on initial load — otherwise editing a product whose stored qty differs from the
-  // matrix sum (or that has no matrix yet) would silently reset its quantity to 0.
-  const matrixTouched = useRef(false);
 
   const handleFile = (file: File) => {
     setConverting(true); setReport(null);
@@ -446,6 +442,11 @@ export default function EditProductPage() {
   const router = useRouter();
   const params = useParams();
   const productId = Number(params.id);
+
+  // Tracks whether the admin has actually edited the stock matrix. The Total-Quantity auto-fill
+  // must NOT run on initial load — otherwise editing a product whose stored qty differs from the
+  // matrix sum (or that has no matrix yet) would silently reset its quantity to 0.
+  const matrixTouched = useRef(false);
 
   const [loadingProduct, setLoadingProduct] = useState(true);
   const [notFound, setNotFound] = useState(false);

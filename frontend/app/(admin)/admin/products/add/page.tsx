@@ -165,9 +165,6 @@ function PhotoSlot({
   const [report, setReport]           = useState<ConvResult | null>(null);
   const [converting, setConverting]   = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
-  // The Total-Quantity auto-fill should only kick in once the admin edits the stock matrix,
-  // so a manually typed Total isn't wiped the moment any cell changes.
-  const matrixTouched = useRef(false);
 
   const handleFile = (file: File) => {
     setConverting(true); setReport(null);
@@ -501,6 +498,10 @@ const inp: React.CSSProperties = { width:'100%', border:'1.5px solid #ddd', bord
 
 export default function AddProductPage() {
   const router = useRouter();
+
+  // The Total-Quantity auto-fill should only kick in once the admin edits the stock matrix,
+  // so a manually typed Total isn't wiped the moment any cell changes.
+  const matrixTouched = useRef(false);
 
   // Basic fields
   const [sku, setSku]           = useState('MFH…');
