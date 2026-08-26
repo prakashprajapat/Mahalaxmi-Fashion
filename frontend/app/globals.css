@@ -611,9 +611,23 @@ button { cursor: pointer; font-family: inherit; }
 .product-card { background: #fff; border-radius: 12px; border: 1.5px solid #eee; overflow: hidden; display: flex; flex-direction: column; transition: box-shadow .2s, transform .2s; position: relative; }
 .product-card:hover { box-shadow: 0 8px 28px rgba(0,0,0,.13); transform: translateY(-2px); z-index: 1; }
 .product-card-img { position: relative; aspect-ratio: 3/4; overflow: hidden; background: #fff; }
+/* Smooth loading skeleton: while the photo is still downloading, show a soft
+   animated shimmer. Once the image has decoded (JS adds .img-loaded) the shimmer
+   stops, the background goes plain white, and the photo fades in. */
+.product-card-img:not(.img-loaded) {
+  background: linear-gradient(100deg, #f4eef0 30%, #fbf7f8 50%, #f4eef0 70%);
+  background-size: 200% 100%;
+  animation: mfhCardShimmer 1.3s ease-in-out infinite;
+}
 .product-card-img a { display: block; width: 100%; height: 100%; }
-.product-card-img img { width: 100%; height: 100%; object-fit: contain; transition: transform .45s ease; }
+.product-card-img img { width: 100%; height: 100%; object-fit: contain; opacity: 0; transition: opacity .4s ease, transform .45s ease; }
+.product-card-img.img-loaded img { opacity: 1; }
 .product-card-img:hover img { transform: scale(1.12); }
+@keyframes mfhCardShimmer { 0% { background-position: 150% 0; } 100% { background-position: -150% 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .product-card-img:not(.img-loaded) { animation: none; }
+  .product-card-img img { transition: none; opacity: 1; }
+}
 .product-card-img > div { display: block; width: 100%; height: 100%; }
 /* Quick view hover hint — color overlay removed */
 .product-quick-view-hint { display: none; }
