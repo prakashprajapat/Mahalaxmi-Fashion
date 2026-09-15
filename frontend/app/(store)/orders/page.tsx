@@ -327,7 +327,7 @@ export default function OrdersPage() {
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               {filteredOrders.map(order => (
-                <div key={order.id} className="form-card" style={{ padding: '1.25rem' }}>
+                <div key={order.id} className="form-card ord-card">
                   <div onClick={() => setDetailOrder(order)} style={{ cursor: 'pointer' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '.5rem', marginBottom: '.75rem' }}>
                       <div>
@@ -343,7 +343,11 @@ export default function OrdersPage() {
                         <strong style={{ color: '#a7354d' }}>₹{Number(order.total).toLocaleString('en-IN')}</strong>
                       </div>
                     </div>
+                  </div>
 
+                  <div className="ord-body">
+                  <div className="ord-body-main">
+                    <div onClick={() => setDetailOrder(order)} style={{ cursor: 'pointer' }}>
                     {/* Items preview — large product photo on the left, details beside it */}
                     <div className="ord-items">
                       {order.cart.slice(0, 3).map((item, i) => {
@@ -506,8 +510,10 @@ export default function OrdersPage() {
                     <p style={{ color: '#27ae60', fontSize: '.85rem', marginBottom: '.5rem' }}>✓ Return request submitted successfully.</p>
                   )}
 
-                  {/* Action buttons */}
-                  <div style={{ display: 'flex', gap: '.5rem', flexWrap: 'wrap' }}>
+                  </div>{/* /ord-body-main */}
+
+                  {/* Action buttons — stacked column on the right */}
+                  <div className="ord-actions">
                     {invoiceValid(order) ? (
                       <button className="button secondary" onClick={() => handleInvoice(order.id)}
                         style={{ fontSize: '.82rem', padding: '.4rem .85rem', borderColor: '#7a0a22', color: '#7a0a22' }}>
@@ -541,7 +547,8 @@ export default function OrdersPage() {
                     <Link href={`/tracking?awb=${order.awb ?? ''}`} className="button secondary" style={{ fontSize: '.82rem', padding: '.4rem .85rem' }}>
                       📦 Track
                     </Link>
-                  </div>
+                  </div>{/* /ord-actions */}
+                  </div>{/* /ord-body */}
                 </div>
               ))}
             </div>

@@ -1609,3 +1609,23 @@ a.footer-app-btn.footer-app-live:hover{ background:rgba(255,255,255,.16); transf
   .ord-item-name { font-size: .88rem; }
   .ord-item-price { font-size: .92rem; }
 }
+
+/* ─── Orders list: two-column card — items left, action buttons stacked right ─── */
+.ord-card { padding: 1.25rem; }
+.ord-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 208px;
+  gap: 1.25rem;
+  align-items: start;
+}
+.ord-body-main { min-width: 0; }
+.ord-actions { display: flex; flex-direction: column; gap: .5rem; }
+.ord-actions .button { width: 100%; }
+.ord-actions > span { font-size: .78rem; color: #999; text-align: center; padding: .25rem 0; }
+
+@media (max-width: 820px) {
+  .ord-body { grid-template-columns: 1fr; gap: .85rem; }
+  .ord-actions { flex-direction: row; flex-wrap: wrap; }
+  .ord-actions .button { width: auto; }
+  .ord-actions > span { text-align: left; }
+}
