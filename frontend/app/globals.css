@@ -1629,3 +1629,96 @@ a.footer-app-btn.footer-app-live:hover{ background:rgba(255,255,255,.16); transf
   .ord-actions .button { width: auto; }
   .ord-actions > span { text-align: left; }
 }
+
+/* ─── Product detail page: right-hand details column ─── */
+.pdp-col { display: flex; flex-direction: column; gap: 1.1rem; }
+
+.pdp-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
+.pdp-eyebrow {
+  font-size: .75rem; font-weight: 800; color: var(--brand);
+  text-transform: uppercase; letter-spacing: .1em; margin: 0 0 .4rem;
+}
+.pdp-title { font-size: 1.6rem; font-weight: 800; margin: 0; color: var(--text); line-height: 1.25; }
+.pdp-head-acts { position: relative; display: flex; gap: .5rem; flex: 0 0 auto; }
+.pdp-ico {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 38px; height: 38px; border-radius: 999px;
+  border: 1.5px solid var(--border); background: #fff; color: #555;
+  transition: border-color .2s, color .2s, background .2s;
+}
+.pdp-ico:hover { border-color: var(--brand); color: var(--brand); background: var(--brand-light); }
+.pdp-ico.on { border-color: var(--brand); color: var(--brand); background: var(--brand-light); }
+.pdp-share-msg {
+  position: absolute; top: calc(100% + 8px); right: 0; white-space: nowrap;
+  background: var(--text); color: #fff; font-size: .72rem; font-weight: 600;
+  padding: .3rem .6rem; border-radius: 6px; z-index: 5;
+}
+
+.pdp-rating { display: flex; align-items: center; gap: .45rem; margin-top: -.5rem; }
+.pdp-rating b { font-size: .88rem; color: #444; }
+.pdp-rating span { font-size: .82rem; color: #999; }
+
+.pdp-off {
+  background: #e8f5e9; color: #27ae60; padding: .2rem .6rem;
+  border-radius: 6px; font-size: .82rem; font-weight: 800;
+}
+.pdp-tax { font-size: .76rem; color: var(--muted); margin: .3rem 0 0; }
+
+.pdp-specs {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  background: #f8f8f9; border: 1px solid #eee; border-radius: 12px; overflow: hidden;
+}
+.pdp-spec { display: flex; flex-direction: column; gap: .2rem; padding: .8rem 1rem; }
+.pdp-spec + .pdp-spec { border-left: 1px solid #eee; }
+.pdp-spec span { font-size: .72rem; color: var(--muted); }
+.pdp-spec b { font-size: .92rem; font-weight: 700; color: var(--text); text-transform: capitalize; }
+.pdp-spec b.ok { color: #27ae60; }
+.pdp-spec b.no { color: #e74c3c; }
+
+.pdp-label-row { display: flex; align-items: center; justify-content: space-between; gap: .75rem; margin-bottom: .5rem; }
+.pdp-label { font-weight: 700; font-size: .9rem; margin: 0; }
+
+.pdp-delivery {
+  display: flex; align-items: center; gap: .75rem;
+  padding: .85rem 1rem; background: #f8f8f9; border: 1px solid #eee; border-radius: 12px;
+  color: var(--brand);
+}
+.pdp-delivery > span { display: flex; flex-direction: column; gap: .12rem; }
+.pdp-delivery b { font-size: .88rem; font-weight: 700; color: var(--text); }
+.pdp-delivery small { font-size: .75rem; color: var(--muted); }
+
+.pdp-buy { display: flex; align-items: stretch; gap: .75rem; flex-wrap: wrap; }
+.pdp-qty {
+  display: flex; align-items: center; flex: 0 0 auto;
+  border: 1.5px solid var(--border); border-radius: 999px; overflow: hidden; background: #fff;
+}
+.pdp-qty button {
+  width: 42px; height: 48px; border: none; background: none;
+  font-size: 1.2rem; color: var(--text); line-height: 1;
+}
+.pdp-qty button:hover:not(:disabled) { background: var(--brand-light); color: var(--brand); }
+.pdp-qty button:disabled { opacity: .35; cursor: not-allowed; }
+.pdp-qty span { min-width: 34px; text-align: center; font-weight: 800; font-size: .95rem; }
+.pdp-atc {
+  flex: 1 1 200px;
+  height: 48px;
+  border-radius: 999px;
+  font-size: .92rem;
+  font-weight: 800;
+  letter-spacing: .06em;
+}
+
+.pdp-trust {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: .5rem;
+  border-top: 1px solid #eee; padding-top: 1rem;
+}
+.pdp-trust > div { display: flex; flex-direction: column; align-items: center; gap: .35rem; text-align: center; }
+.pdp-trust svg { color: var(--brand); }
+.pdp-trust span { font-size: .76rem; font-weight: 600; color: #555; }
+
+@media (max-width: 600px) {
+  .pdp-title { font-size: 1.3rem; }
+  .pdp-atc { flex-basis: 100%; }
+  .pdp-trust { gap: .35rem; }
+  .pdp-trust span { font-size: .7rem; }
+}

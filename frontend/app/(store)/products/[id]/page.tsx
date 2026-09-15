@@ -32,6 +32,17 @@ interface ExtraJson {
   customColors?: Array<{ name?: string; code?: string; photo?: string; columnLetter?: string }>;
 }
 
+// Products have no dedicated fabric column yet, so read it out of the text the
+// merchant already writes (name / subcategory / description). Falls back to the
+// subcategory, and the Fabric cell is hidden when nothing is found.
+const FABRIC_WORDS = ['Cotton', 'Rayon', 'Silk', 'Georgette', 'Chiffon', 'Satin', 'Linen',
+  'Denim', 'Velvet', 'Crepe', 'Modal', 'Hosiery', 'Lycra', 'Viscose', 'Khadi', 'Chanderi',
+  'Organza', 'Muslin', 'Poplin', 'Net'];
+function detectFabric(p: Product): string {
+  const hay = `${p.name} ${p.subcategory ?? ''} ${p.description ?? ''}`.toLowerCase();
+  return FABRIC_WORDS.find(f => hay.includes(f.toLowerCase())) ?? (p.subcategory ?? '');
+}
+
 function Stars({ n, onClick }: { n: number; onClick?: (v: number) => void }) {
   return (
     <span style={{ cursor: onClick ? 'pointer' : 'default' }}>
@@ -60,6 +71,7 @@ export default function ProductPage({ params }: { params: { id: string } }) {
   const [canReview, setCanReview] = useState(false);
   // Review form
   const [rating, setRating] = useState(5);
+  const [shareMsg, setShareMsg] = useState('');
   const [reviewText, setReviewText] = useState('');
   const [reviewFiles, setReviewFiles] = useState<File[]>([]);
   const [reviewMsg, setReviewMsg] = useState('');
@@ -173,6 +185,7 @@ export default function ProductPage({ params }: { params: { id: string } }) {
 
   const price = finalUnitPrice(product);
   const saving = product.price > price ? Math.round(((product.price - price) / product.price) * 100) : 0;
+  const fabric = detectFabric(product);
   const isPackProduct = Boolean(product.packOf && product.packOf > 1);
 
   const gallery: string[] = [];
@@ -236,6 +249,26 @@ export default function ProductPage({ params }: { params: { id: string } }) {
     setAdded(true);
     window.dispatchEvent(new Event('cart-updated'));
     setTimeout(() => setAdded(false), 2000);
+  };
+
+  // Share this product: native share sheet on mobile, copy-link everywhere else.
+  const handleShare = async () => {
+    const url = window.location.href;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: product.name, text: product.name, url });
+        return;
+      } catch {
+        return; // user dismissed the sheet
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      setShareMsg('Link copied!');
+    } catch {
+      setShareMsg(url);
+    }
+    setTimeout(() => setShareMsg(''), 2200);
   };
 
   const handleWishlist = () => {
@@ -376,29 +409,65 @@ export default function ProductPage({ params }: { params: { id: string } }) {
           </div>
 
           {/* Details */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-            <div>
-              <p style={{ fontSize: '.78rem', color: '#aaa', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: '.35rem' }}>{product.category}</p>
-              <h1 style={{ fontSize: '1.6rem', fontWeight: 700, margin: '0 0 .5rem', color: '#1a1a1a', lineHeight: 1.25 }}>{product.name}</h1>
-              {avgRating && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '.5rem', marginBottom: '.25rem' }}>
-                  <Stars n={Math.round(Number(avgRating))} />
-                  <span style={{ fontSize: '.85rem', color: '#555', fontWeight: 600 }}>{avgRating}</span>
-                  <span style={{ fontSize: '.8rem', color: '#aaa' }}>({reviews.length} review{reviews.length !== 1 ? 's' : ''})</span>
-                </div>
-              )}
-              <p style={{ fontSize: '.85rem', color: product.stock === 'In Stock' ? '#27ae60' : '#e74c3c', fontWeight: 600 }}>{product.stock}</p>
+          <div className="pdp-col">
+            <div className="pdp-head">
+              <div style={{ minWidth: 0 }}>
+                <p className="pdp-eyebrow">{product.category}</p>
+                <h1 className="pdp-title">{product.name}</h1>
+              </div>
+              <div className="pdp-head-acts">
+                <button type="button" className={`pdp-ico${wishlisted ? ' on' : ''}`} onClick={handleWishlist}
+                  aria-label={wishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
+                  title={wishlisted ? 'Saved to wishlist' : 'Add to wishlist'}>
+                  <svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true">
+                    <path fill={wishlisted ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"
+                      d="M12 20.3S4.4 15.6 4.4 10.6a4.1 4.1 0 0 1 7.6-2.5 4.1 4.1 0 0 1 7.6 2.5c0 5-7.6 9.7-7.6 9.7Z" />
+                  </svg>
+                </button>
+                <button type="button" className="pdp-ico" onClick={handleShare}
+                  aria-label="Share this product" title="Share this product">
+                  <svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true">
+                    <circle cx="18" cy="5.5" r="2.5" fill="none" stroke="currentColor" strokeWidth="1.8" />
+                    <circle cx="6" cy="12" r="2.5" fill="none" stroke="currentColor" strokeWidth="1.8" />
+                    <circle cx="18" cy="18.5" r="2.5" fill="none" stroke="currentColor" strokeWidth="1.8" />
+                    <path fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" d="M8.4 10.8 15.6 6.9M8.4 13.2l7.2 3.9" />
+                  </svg>
+                </button>
+                {shareMsg && <span className="pdp-share-msg">{shareMsg}</span>}
+              </div>
             </div>
 
+            {avgRating && (
+              <div className="pdp-rating">
+                <Stars n={Math.round(Number(avgRating))} />
+                <b>{avgRating}</b>
+                <span>({reviews.length} Rating{reviews.length !== 1 ? 's' : ''})</span>
+              </div>
+            )}
+
             {/* Price */}
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: '.75rem', flexWrap: 'wrap' }}>
-              <span className="price" style={{ fontSize: '2rem' }}>₹{price.toLocaleString('en-IN')}</span>
-              {saving > 0 && (
-                <>
-                  <span className="price-orig" style={{ fontSize: '1.1rem' }}>₹{product.price.toLocaleString('en-IN')}</span>
-                  <span style={{ background: '#e8f5e9', color: '#27ae60', padding: '.2rem .6rem', borderRadius: '20px', fontSize: '.82rem', fontWeight: 700 }}>Save {saving}%</span>
-                </>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: '.75rem', flexWrap: 'wrap' }}>
+                <span className="price" style={{ fontSize: '2rem' }}>₹{price.toLocaleString('en-IN')}</span>
+                {saving > 0 && (
+                  <>
+                    <span className="price-orig" style={{ fontSize: '1.1rem' }}>₹{product.price.toLocaleString('en-IN')}</span>
+                    <span className="pdp-off">{saving}% OFF</span>
+                  </>
+                )}
+              </div>
+              <p className="pdp-tax">Inclusive of all taxes</p>
+            </div>
+
+            {/* Fabric + Availability */}
+            <div className="pdp-specs">
+              {fabric && (
+                <div className="pdp-spec"><span>Fabric</span><b>{fabric}</b></div>
               )}
+              <div className="pdp-spec">
+                <span>Availability</span>
+                <b className={outOfStock ? 'no' : 'ok'}>{outOfStock ? 'Out of Stock' : product.stock}</b>
+              </div>
             </div>
 
             {/* Colour / Design — every colour is its own swatch, no name label */}
@@ -430,7 +499,10 @@ export default function ProductPage({ params }: { params: { id: string } }) {
             {/* Sizes */}
             {sizes.length > 0 && (
               <div>
-                <p style={{ fontWeight: 600, fontSize: '.9rem', marginBottom: '.5rem' }}>Select Size</p>
+                <div className="pdp-label-row">
+                  <p className="pdp-label">Select Size</p>
+                  <SizeGuideButton />
+                </div>
                 <div style={{ display: 'flex', gap: '.5rem', flexWrap: 'wrap' }}>
                   {sizes.map(s => {
                     const vKey = colors.length > 0 ? `${s}|${color}` : s;
@@ -457,53 +529,64 @@ export default function ProductPage({ params }: { params: { id: string } }) {
               </div>
             )}
 
-            {/* Quantity */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '.75rem' }}>
-              <span style={{ fontWeight: 600, fontSize: '.9rem' }}>Quantity:</span>
-              <div style={{ display: 'flex', alignItems: 'center', border: '1.5px solid #ddd', borderRadius: '8px', overflow: 'hidden' }}>
-                <button onClick={() => setQty(q => Math.max(1, q-1))} style={{ width: '36px', height: '36px', border: 'none', background: '#f5f5f5', cursor: 'pointer', fontSize: '1.1rem' }}>−</button>
-                <span style={{ width: '36px', textAlign: 'center', fontWeight: 700 }}>{qty}</span>
-                <button
-                  onClick={() => setQty(q => (variantStock !== null && q >= variantStock) ? q : q + 1)}
-                  disabled={variantStock !== null && qty >= variantStock}
-                  style={{ width: '36px', height: '36px', border: 'none', background: '#f5f5f5', cursor: (variantStock !== null && qty >= variantStock) ? 'not-allowed' : 'pointer', fontSize: '1.1rem', opacity: (variantStock !== null && qty >= variantStock) ? .5 : 1 }}>+</button>
+            {/* All-India delivery assurance */}
+            <div className="pdp-delivery">
+              <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+                <path fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" d="M12 21.5s7-5.6 7-11a7 7 0 1 0-14 0c0 5.4 7 11 7 11Z" />
+                <circle cx="12" cy="10.2" r="2.6" fill="none" stroke="currentColor" strokeWidth="1.7" />
+              </svg>
+              <span><b>All India Delivery Available</b><small>Delivery available across India</small></span>
+            </div>
+
+            {/* Quantity + Add to Cart */}
+            <div>
+              <p className="pdp-label" style={{ marginBottom: '.5rem' }}>Quantity</p>
+              <div className="pdp-buy">
+                <div className="pdp-qty">
+                  <button onClick={() => setQty(q => Math.max(1, q-1))} aria-label="Decrease quantity">−</button>
+                  <span>{qty}</span>
+                  <button
+                    onClick={() => setQty(q => (variantStock !== null && q >= variantStock) ? q : q + 1)}
+                    disabled={variantStock !== null && qty >= variantStock}
+                    aria-label="Increase quantity">+</button>
+                </div>
+                <button onClick={handleAddToCart} disabled={outOfStock} className="button primary pdp-atc" style={{ opacity: outOfStock ? .5 : 1 }}>
+                  {outOfStock ? 'OUT OF STOCK' : added ? '✓ ADDED TO CART' : 'ADD TO CART'}
+                </button>
               </div>
               {variantStock !== null && variantStock > 0 && qty >= variantStock && (
-                <span style={{ fontSize: '.78rem', color: '#e74c3c', fontWeight: 600 }}>Only {variantStock} in stock</span>
+                <p style={{ fontSize: '.78rem', color: '#e74c3c', fontWeight: 600, marginTop: '.4rem' }}>Only {variantStock} in stock</p>
               )}
             </div>
 
-            {/* CTAs */}
-            <div style={{ display: 'flex', gap: '.75rem', flexWrap: 'wrap' }}>
-              <button onClick={handleAddToCart} disabled={outOfStock} className="button primary" style={{ flex: 1, minWidth: '140px', opacity: outOfStock ? .5 : 1 }}>
-                {outOfStock ? 'Out of Stock' : added ? '✓ Added to Cart!' : 'Add to Cart'}
-              </button>
-              <button onClick={() => { if (!outOfStock) { handleAddToCart(); router.push('/checkout'); } }} disabled={outOfStock} className="button secondary" style={{ flex: 1, minWidth: '140px', opacity: outOfStock ? .5 : 1 }}>
-                Buy Now
-              </button>
-            </div>
-
-            <button onClick={handleWishlist} style={{ background: 'none', border: '1.5px solid #ddd', borderRadius: '8px', padding: '.6rem 1rem', cursor: 'pointer', color: wishlisted ? '#a7354d' : '#666', fontWeight: 600, fontSize: '.9rem', width: '100%' }}>
-              {wishlisted ? '❤️ Saved to Wishlist' : '🤍 Add to Wishlist'}
+            <button onClick={() => { if (!outOfStock) { handleAddToCart(); router.push('/checkout'); } }} disabled={outOfStock} className="button secondary" style={{ width: '100%', opacity: outOfStock ? .5 : 1 }}>
+              Buy Now
             </button>
 
-            {/* Trust signals near the buy buttons */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '.5rem', background: '#faf6f2', border: '1px solid #f0e6ea', borderRadius: '10px', padding: '.8rem' }}>
-              {[
-                { icon: '🔒', text: 'Secure Checkout' },
-                { icon: '🔄', text: 'Easy 7-Day Returns' },
-                { icon: '✅', text: '100% Genuine Product' },
-                { icon: '🚚', text: 'Fast Pan-India Delivery' },
-              ].map(b => (
-                <div key={b.text} style={{ display: 'flex', alignItems: 'center', gap: '.45rem', fontSize: '.8rem', color: '#5c1a28', fontWeight: 600 }}>
-                  <span aria-hidden="true">{b.icon}</span>{b.text}
-                </div>
-              ))}
-            </div>
-
-            {/* Size guide + delivery date estimate */}
-            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <SizeGuideButton />
+            {/* Free delivery / returns / COD */}
+            <div className="pdp-trust">
+              <div>
+                <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+                  <path fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" d="M2.5 6.5h10v9h-10zM12.5 9.5h4l3 3v3h-7z" />
+                  <circle cx="6.2" cy="17.8" r="1.7" fill="none" stroke="currentColor" strokeWidth="1.6" />
+                  <circle cx="16.6" cy="17.8" r="1.7" fill="none" stroke="currentColor" strokeWidth="1.6" />
+                </svg>
+                <span>Free Delivery</span>
+              </div>
+              <div>
+                <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+                  <path fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" d="M20.5 7.5 12 3 3.5 7.5v9L12 21l8.5-4.5v-9ZM3.7 7.6 12 12l8.3-4.4M12 12v9" />
+                </svg>
+                <span>Easy Returns</span>
+              </div>
+              <div>
+                <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+                  <rect x="2.5" y="6" width="19" height="12" rx="2.5" fill="none" stroke="currentColor" strokeWidth="1.6" />
+                  <circle cx="12" cy="12" r="2.6" fill="none" stroke="currentColor" strokeWidth="1.6" />
+                  <path stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" d="M5.8 12h.01M18.2 12h.01" />
+                </svg>
+                <span>Cash on Delivery</span>
+              </div>
             </div>
             <DeliveryEstimate />
             <TrustBadges />
