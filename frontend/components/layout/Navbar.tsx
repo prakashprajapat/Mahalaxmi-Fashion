@@ -441,6 +441,16 @@ export default function Navbar() {
                       {customerPhone && <span>{customerPhone}</span>}
                     </div>
 
+                    <Link className="acct-menu-item" role="menuitem" href="/account" onClick={() => setAcctMenu(false)}>
+                      <svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true">
+                        <rect x="3.2" y="3.2" width="7.4" height="7.4" rx="1.8" fill="none" stroke="currentColor" strokeWidth="1.7" />
+                        <rect x="13.4" y="3.2" width="7.4" height="7.4" rx="1.8" fill="none" stroke="currentColor" strokeWidth="1.7" />
+                        <rect x="3.2" y="13.4" width="7.4" height="7.4" rx="1.8" fill="none" stroke="currentColor" strokeWidth="1.7" />
+                        <rect x="13.4" y="13.4" width="7.4" height="7.4" rx="1.8" fill="none" stroke="currentColor" strokeWidth="1.7" />
+                      </svg>
+                      <span><b>Dashboard</b><small>Wallet, Refer &amp; Earn, Wishlist &amp; more</small></span>
+                    </Link>
+
                     <Link className="acct-menu-item" role="menuitem" href="/orders" onClick={() => setAcctMenu(false)}>
                       <svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true">
                         <path fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"
