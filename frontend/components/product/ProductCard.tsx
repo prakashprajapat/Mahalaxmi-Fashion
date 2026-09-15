@@ -1,5 +1,5 @@
 'use client';
-// Link import removed — Details now opens QuickView
+import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
@@ -7,13 +7,14 @@ import type { Product } from '@/types';
 import { addToCart, finalUnitPrice } from '@/lib/cart';
 import { addToWishlist, removeFromWishlist, isInWishlist } from '@/lib/wishlist';
 import { productImageSrc } from '@/lib/productImages';
-import QuickViewModal from '@/components/product/QuickViewModal';
+import { productSlug } from '@/lib/productSlug';
 
 export default function ProductCard({ product, priority = false }: { product: Product; priority?: boolean }) {
   const router = useRouter();
   const [wishlisted, setWishlisted] = useState(isInWishlist(product.dbId));
-  const [quickView, setQuickView] = useState(false);
   const [imgError, setImgError] = useState(false);
+  // Clicking a card goes straight to the full product page (no quick-view popup).
+  const href = `/products/${productSlug(product.name, product.dbId)}`;
 
   // Keep the heart in sync: reflect saved state on load (SSR renders it false) and whenever
   // the wishlist changes anywhere on the page.
@@ -39,7 +40,7 @@ export default function ProductCard({ product, priority = false }: { product: Pr
     e.preventDefault();
     e.stopPropagation();
     if ((product.stock ?? '').toLowerCase().includes('out of stock')) return;
-    if (needsSelection) { setQuickView(true); return; }
+    if (needsSelection) { router.push(href); return; }
     addToCart(product);
     window.dispatchEvent(new Event('cart-updated'));
     router.push('/checkout');
@@ -57,17 +58,17 @@ export default function ProductCard({ product, priority = false }: { product: Pr
     }
   };
 
-  const openQuickView = (e: React.MouseEvent) => {
+  const openProduct = (e: React.MouseEvent) => {
     e.preventDefault();
-    setQuickView(true);
+    router.push(href);
   };
 
   return (
     <>
-      <div className="product-card" style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', height: '100%' }} onClick={openQuickView}>
+      <div className="product-card" style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', height: '100%' }} onClick={openProduct}>
         {/* Image */}
         <div className="product-card-img">
-          <div onClick={openQuickView}>
+          <div onClick={openProduct}>
             {image && !imgError ? (
               /^https?:/i.test(image) ? (
                 <Image src={image} alt={product.name}
@@ -132,9 +133,11 @@ export default function ProductCard({ product, priority = false }: { product: Pr
             )}
           </div>
 
-          <span className="product-card-name" title={product.name} style={{ display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: 600, color: '#1a1a1a', fontSize: '.9rem', margin: '.25rem 0', lineHeight: 1.3 }}>
+          <Link href={href} onClick={e => e.stopPropagation()}
+            className="product-card-name" title={product.name}
+            style={{ display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: 600, color: '#1a1a1a', fontSize: '.9rem', margin: '.25rem 0', lineHeight: 1.3, textDecoration: 'none' }}>
             {product.name}
-          </span>
+          </Link>
 
           {/* Rating — real reviews only ("New" tag now sits next to the stock badge) */}
           {(product.reviewCount ?? 0) > 0 && (
@@ -160,10 +163,6 @@ export default function ProductCard({ product, priority = false }: { product: Pr
         </div>
       </div>
 
-      {/* Quick View Modal */}
-      {quickView && (
-        <QuickViewModal product={product} onClose={() => setQuickView(false)} />
-      )}
     </>
   );
 }

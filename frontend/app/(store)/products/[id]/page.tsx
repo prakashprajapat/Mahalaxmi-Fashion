@@ -330,6 +330,7 @@ export default function ProductPage({ params }: { params: { id: string } }) {
           <div>
             {/* Outer wrapper: position:relative, NO overflow:hidden — magnifier can spill out */}
             <div
+              className="pdp-gallery-main"
               style={{ position: 'relative', aspectRatio: '3/4', marginBottom: '.75rem', cursor: imgHovered && activeImg ? 'crosshair' : 'default', touchAction: 'none' }}
               onMouseEnter={() => { setImgHovered(true); setTouchZoom(false); }}
               onMouseLeave={() => setImgHovered(false)}

@@ -1722,3 +1722,20 @@ a.footer-app-btn.footer-app-live:hover{ background:rgba(255,255,255,.16); transf
   .pdp-trust { gap: .35rem; }
   .pdp-trust span { font-size: .7rem; }
 }
+
+/* ─── Product page: keep image + buy area inside one screen on desktop ─── */
+@media (min-width: 900px) {
+  /* Cap the photo so Add to Cart stays above the fold instead of needing a scroll. */
+  .pdp-gallery-main {
+    height: min(66vh, 560px);
+    width: auto;
+    max-width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .pdp-col { gap: .85rem; }
+  .pdp-title { font-size: 1.45rem; }
+  .pdp-spec { padding: .6rem .9rem; }
+  .pdp-delivery { padding: .7rem .9rem; }
+  .pdp-trust { padding-top: .8rem; }
+}
