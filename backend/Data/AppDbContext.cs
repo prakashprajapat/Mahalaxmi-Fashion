@@ -25,6 +25,7 @@ public class AppDbContext : DbContext
     public DbSet<PushSubscription> PushSubscriptions { get; set; }
     public DbSet<MetaLead>    MetaLeads    { get; set; }
     public DbSet<WalletTransaction> WalletTransactions { get; set; }
+    public DbSet<CustomerAddress> CustomerAddresses { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

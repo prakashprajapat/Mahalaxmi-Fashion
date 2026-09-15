@@ -1,12 +1,13 @@
-'use client';
-import { useState, useEffect } from 'react';
-import Link from 'next/link';
+"use client";
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { getCustomer, getToken, setCustomer as saveCustomer } from '@/lib/auth';
-import { customersApi } from '@/lib/api';
+import { getCustomer, getToken } from '@/lib/auth';
+import { addressesApi } from '@/lib/api';
+import type { SavedAddress, AddressInput } from '@/lib/api';
 import type { Customer } from '@/types';
-import { INDIA_STATES, getDistrictsForState } from '@/lib/indianLocations';
+import { INDIA_STATES } from '@/lib/indianLocations';
 
+// Rough PIN → state lookup so the shopper does not have to pick it by hand.
 function getPincodeState(pincode: string): string {
   if (pincode.length < 2) return '';
   const prefix = parseInt(pincode.substring(0, 2), 10);
@@ -31,164 +32,274 @@ function getPincodeState(pincode: string): string {
   return '';
 }
 
+const LABELS = ['Home', 'Office', 'Other'];
+
+const EMPTY: AddressInput = {
+  label: 'Home', fullName: '', phone: '', addrLine1: '', addrLine2: '',
+  pincode: '', city: '', state: '', isDefault: false,
+};
+
 export default function AddressPage() {
   const router = useRouter();
   const [customer, setCustomer] = useState<Customer | null>(null);
-  const [form, setForm] = useState({
-    addrLine1: '', addrLine2: '', pincode: '', postOffice: '', state: '', district: '',
-  });
-  const [loading, setLoading] = useState(false);
-  const [msg, setMsg] = useState('');
+  const [list, setList] = useState<SavedAddress[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  const [editing, setEditing] = useState(false);
-  const districts = getDistrictsForState(form.state);
+  const [msg, setMsg] = useState('');
+
+  // null = form closed, 0 = adding, >0 = editing that address
+  const [formFor, setFormFor] = useState<number | null>(null);
+  const [form, setForm] = useState<AddressInput>(EMPTY);
+
+  const refresh = useCallback(async () => {
+    const token = getToken();
+    if (!token) return;
+    try {
+      const r = await addressesApi.list(token);
+      setList(r.addresses ?? []);
+    } catch (e) {
+      setError((e as Error).message || 'Could not load your addresses.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     const c = getCustomer();
     if (!c) { router.push('/account'); return; }
     setCustomer(c);
+    refresh();
+  }, [router, refresh]);
+
+  const set = (field: keyof AddressInput) => (value: string) =>
+    setForm(f => ({ ...f, [field]: value }));
+
+  const onPincode = (raw: string) => {
+    const pincode = raw.replace(/\D/g, '').slice(0, 6);
+    const state = getPincodeState(pincode);
+    setForm(f => ({ ...f, pincode, ...(state ? { state } : {}) }));
+  };
+
+  const openAdd = () => {
+    setError(''); setMsg('');
     setForm({
-      addrLine1: c.addrLine1 ?? '',
-      addrLine2: c.addrLine2 ?? '',
-      pincode: c.pincode ?? '',
-      postOffice: c.postOffice ?? '',
-      state: c.state ?? '',
-      district: c.district ?? '',
+      ...EMPTY,
+      fullName: customer ? `${customer.firstName ?? ''} ${customer.lastName ?? ''}`.trim() : '',
+      phone: customer?.phone ?? '',
+      isDefault: list.length === 0,
     });
-  }, [router]);
-
-  const set = (field: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
-    setForm(f => ({ ...f, [field]: e.target.value }));
-
-  const handleStateChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const state = e.target.value;
-    setForm(f => ({ ...f, state, district: '' }));
+    setFormFor(0);
   };
 
-  const handlePincodeChange = (val: string) => {
-    const state = val.length >= 2 ? getPincodeState(val) : '';
-    setForm(f => ({ ...f, pincode: val, ...(state ? { state, district: '' } : {}) }));
+  const openEdit = (a: SavedAddress) => {
+    setError(''); setMsg('');
+    setForm({
+      label: a.label, fullName: a.fullName, phone: a.phone,
+      addrLine1: a.addrLine1, addrLine2: a.addrLine2,
+      pincode: a.pincode, city: a.city, state: a.state, isDefault: a.isDefault,
+    });
+    setFormFor(a.id);
   };
 
-  const handleSave = async () => {
+  // Existing customers already gave us one address on their profile — offer it
+  // as a starting point instead of making them type it again.
+  const importProfileAddress = () => {
     if (!customer) return;
-    if (!form.addrLine1.trim()) { setError('Address Line 1 is required.'); return; }
-    if (form.pincode && !/^\d{6}$/.test(form.pincode)) { setError('Pincode must be 6 digits.'); return; }
-    setLoading(true); setError(''); setMsg('');
+    setError(''); setMsg('');
+    setForm({
+      ...EMPTY,
+      label: 'Home',
+      fullName: `${customer.firstName ?? ''} ${customer.lastName ?? ''}`.trim(),
+      phone: customer.phone ?? '',
+      addrLine1: customer.addrLine1 ?? '',
+      addrLine2: customer.addrLine2 ?? '',
+      pincode: customer.pincode ?? '',
+      city: customer.district ?? '',
+      state: customer.state ?? '',
+      isDefault: true,
+    });
+    setFormFor(0);
+  };
+
+  const save = async () => {
+    const token = getToken();
+    if (!token) return;
+    if (!form.fullName.trim()) { setError('Full name is required.'); return; }
+    if (!/^\d{10}$/.test(form.phone.replace(/\D/g, ''))) { setError('Enter a valid 10-digit mobile number.'); return; }
+    if (!form.addrLine1.trim()) { setError('Address is required.'); return; }
+    if (!/^\d{6}$/.test(form.pincode)) { setError('Enter a valid 6-digit PIN code.'); return; }
+
+    setSaving(true); setError(''); setMsg('');
     try {
-      await customersApi.updateProfile(customer.id, {
-        ...customer,
-        ...form,
-      }, getToken() ?? '');
-      saveCustomer({ ...customer, ...form });
-      window.dispatchEvent(new Event('auth-changed'));
-      setMsg('Address updated successfully!');
-      setEditing(false);
-    } catch (e) { setError((e as Error).message || 'Update failed.'); }
-    finally { setLoading(false); }
+      if (formFor && formFor > 0) await addressesApi.update(formFor, form, token);
+      else await addressesApi.create(form, token);
+      setFormFor(null);
+      setMsg(formFor ? 'Address updated.' : 'Address saved.');
+      await refresh();
+    } catch (e) {
+      setError((e as Error).message || 'Could not save this address.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const remove = async (a: SavedAddress) => {
+    const token = getToken();
+    if (!token) return;
+    if (!window.confirm(`Delete the ${a.label} address of ${a.fullName}?`)) return;
+    setError(''); setMsg('');
+    try {
+      await addressesApi.remove(a.id, token);
+      setMsg('Address deleted.');
+      await refresh();
+    } catch (e) { setError((e as Error).message || 'Could not delete.'); }
+  };
+
+  const makeDefault = async (a: SavedAddress) => {
+    const token = getToken();
+    if (!token) return;
+    setError(''); setMsg('');
+    try {
+      await addressesApi.setDefault(a.id, token);
+      await refresh();
+    } catch (e) { setError((e as Error).message || 'Could not update.'); }
   };
 
   if (!customer) return null;
+
+  const hasProfileAddress = Boolean(customer.addrLine1);
 
   return (
     <>
       <section className="page-hero">
         <p className="eyebrow">My Account</p>
-        <h1>My Address</h1>
-        <p>Manage your saved delivery address.</p>
+        <h1>My Addresses</h1>
+        <p>Save your Home and Office addresses to check out faster.</p>
       </section>
 
       <main className="account-shell" style={{ display: 'block' }}>
         <section>
           <div className="form-card">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
-              <h2 style={{ margin: 0 }}>Saved Address</h2>
-              {!editing && (
-                <button onClick={() => setEditing(true)} className="button secondary" style={{ padding: '.4rem 1rem', fontSize: '.85rem' }}>
-                  ✏️ Edit
-                </button>
+            <div className="addr-head">
+              <h2>Saved Addresses</h2>
+              {formFor === null && (
+                <button onClick={openAdd} className="button primary addr-add">+ Add New Address</button>
               )}
             </div>
 
-            {!editing ? (
-              /* View mode */
-              form.addrLine1 ? (
-                <div style={{ background: '#fdf0f3', borderRadius: '10px', padding: '1.25rem', border: '1.5px solid #f5c6cb' }}>
-                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '.75rem' }}>
-                    <span style={{ fontSize: '1.5rem' }}>📍</span>
-                    <div>
-                      <p style={{ fontWeight: 700, marginBottom: '.25rem' }}>{customer.firstName} {customer.lastName}</p>
-                      <p style={{ color: '#555', marginBottom: '.15rem' }}>{form.addrLine1}</p>
-                      {form.addrLine2 && <p style={{ color: '#555', marginBottom: '.15rem' }}>{form.addrLine2}</p>}
-                      {form.postOffice && <p style={{ color: '#555', marginBottom: '.15rem' }}>PO: {form.postOffice}</p>}
-                      <p style={{ color: '#555', marginBottom: '.15rem' }}>{[form.district, form.state, form.pincode].filter(Boolean).join(', ')}</p>
-                      <p style={{ color: '#888', fontSize: '.85rem' }}>📞 {customer.phone}</p>
+            {error && <p className="addr-msg err">{error}</p>}
+            {msg && <p className="addr-msg ok">{msg}</p>}
+
+            {loading ? (
+              <p style={{ color: '#888', fontSize: '.9rem' }}>Loading your addresses…</p>
+            ) : (
+              <>
+                {list.length === 0 && formFor === null && (
+                  <div className="addr-empty">
+                    <p>No saved addresses yet.</p>
+                    {hasProfileAddress && (
+                      <button onClick={importProfileAddress} className="button secondary">
+                        Use my profile address
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {list.length > 0 && (
+                  <div className="addr-grid">
+                    {list.map(a => (
+                      <div key={a.id} className={`addr-card${a.isDefault ? ' is-default' : ''}`}>
+                        <span className="addr-label">
+                          {a.label.toUpperCase()}
+                          {a.isDefault && <em>DEFAULT</em>}
+                        </span>
+                        <strong>{a.fullName}</strong>
+                        <span className="addr-phone">+91 {a.phone}</span>
+                        <span className="addr-lines">
+                          {[a.addrLine1, a.addrLine2].filter(Boolean).join(', ')}
+                          <br />{[a.city, a.state].filter(Boolean).join(', ')}{a.pincode ? ` - ${a.pincode}` : ''}
+                        </span>
+                        <div className="addr-actions">
+                          <button onClick={() => openEdit(a)}>Edit</button>
+                          <button onClick={() => remove(a)} className="danger">Delete</button>
+                          {!a.isDefault && <button onClick={() => makeDefault(a)} className="mark">Set as default</button>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {formFor !== null && (
+                  <div className="addr-form">
+                    <h3>{formFor > 0 ? 'Edit Address' : 'Add New Address'}</h3>
+
+                    <span className="addr-flabel">Address Type</span>
+                    <div className="addr-chips">
+                      {LABELS.map(l => (
+                        <button key={l} type="button"
+                          className={form.label === l ? 'on' : ''}
+                          onClick={() => set('label')(l)}>{l}</button>
+                      ))}
+                    </div>
+
+                    <div className="addr-two">
+                      <label>
+                        <span className="addr-flabel">Full Name *</span>
+                        <input value={form.fullName} onChange={e => set('fullName')(e.target.value)} />
+                      </label>
+                      <label>
+                        <span className="addr-flabel">Mobile Number *</span>
+                        <input value={form.phone} inputMode="numeric"
+                          onChange={e => set('phone')(e.target.value.replace(/\D/g, '').slice(0, 10))} />
+                      </label>
+                    </div>
+
+                    <label>
+                      <span className="addr-flabel">Address (House / Street / Area) *</span>
+                      <textarea rows={2} value={form.addrLine1} onChange={e => set('addrLine1')(e.target.value)} />
+                    </label>
+
+                    <label>
+                      <span className="addr-flabel">Landmark (optional)</span>
+                      <input value={form.addrLine2} onChange={e => set('addrLine2')(e.target.value)} />
+                    </label>
+
+                    <div className="addr-three">
+                      <label>
+                        <span className="addr-flabel">PIN Code *</span>
+                        <input value={form.pincode} inputMode="numeric" onChange={e => onPincode(e.target.value)} />
+                      </label>
+                      <label>
+                        <span className="addr-flabel">City / District</span>
+                        <input value={form.city} onChange={e => set('city')(e.target.value)} />
+                      </label>
+                      <label>
+                        <span className="addr-flabel">State</span>
+                        <select value={form.state} onChange={e => set('state')(e.target.value)}>
+                          <option value="">Select state</option>
+                          {INDIA_STATES.map(st => <option key={st} value={st}>{st}</option>)}
+                        </select>
+                      </label>
+                    </div>
+
+                    <label className="addr-check">
+                      <input type="checkbox" checked={Boolean(form.isDefault)}
+                        onChange={e => setForm(f => ({ ...f, isDefault: e.target.checked }))} />
+                      <span>Make this my default delivery address</span>
+                    </label>
+
+                    <div className="addr-form-actions">
+                      <button onClick={save} disabled={saving} className="button primary">
+                        {saving ? 'Saving…' : formFor > 0 ? 'Update Address' : 'Save Address'}
+                      </button>
+                      <button onClick={() => { setFormFor(null); setError(''); }} className="button secondary">
+                        Cancel
+                      </button>
                     </div>
                   </div>
-                </div>
-              ) : (
-                <div style={{ textAlign: 'center', padding: '2rem', color: '#888' }}>
-                  <div style={{ fontSize: '2.5rem', marginBottom: '.75rem' }}>📍</div>
-                  <p style={{ marginBottom: '1rem' }}>No saved address found.</p>
-                  <button onClick={() => setEditing(true)} className="button primary">Add Address</button>
-                </div>
-              )
-            ) : (
-              /* Edit mode */
-              <div className="form-grid">
-                <div style={{ gridColumn: '1 / -1' }}>
-                  <label style={{ fontSize: '.82rem', fontWeight: 600, display: 'block', marginBottom: '.3rem' }}>Address Line 1 *</label>
-                  <input value={form.addrLine1} onChange={set('addrLine1')}
-                    placeholder="House no., Street, Area"
-                    style={{ width: '100%', border: '1.5px solid #ddd', borderRadius: '8px', padding: '.6rem .75rem', fontSize: '.88rem', boxSizing: 'border-box' }} />
-                </div>
-                <div style={{ gridColumn: '1 / -1' }}>
-                  <label style={{ fontSize: '.82rem', fontWeight: 600, display: 'block', marginBottom: '.3rem' }}>Address Line 2</label>
-                  <input value={form.addrLine2} onChange={set('addrLine2')}
-                    placeholder="Landmark, Colony (optional)"
-                    style={{ width: '100%', border: '1.5px solid #ddd', borderRadius: '8px', padding: '.6rem .75rem', fontSize: '.88rem', boxSizing: 'border-box' }} />
-                </div>
-                <div>
-                  <label style={{ fontSize: '.82rem', fontWeight: 600, display: 'block', marginBottom: '.3rem' }}>Pincode</label>
-                  <input value={form.pincode} maxLength={6} onChange={e => handlePincodeChange(e.target.value.replace(/\D/g, ''))}
-                    placeholder="6-digit pincode"
-                    style={{ width: '100%', border: '1.5px solid #ddd', borderRadius: '8px', padding: '.6rem .75rem', fontSize: '.88rem', boxSizing: 'border-box' }} />
-                </div>
-                <div>
-                  <label style={{ fontSize: '.82rem', fontWeight: 600, display: 'block', marginBottom: '.3rem' }}>Post Office</label>
-                  <input value={form.postOffice} onChange={set('postOffice')}
-                    placeholder="Post office name"
-                    style={{ width: '100%', border: '1.5px solid #ddd', borderRadius: '8px', padding: '.6rem .75rem', fontSize: '.88rem', boxSizing: 'border-box' }} />
-                </div>
-                <div>
-                  <label style={{ fontSize: '.82rem', fontWeight: 600, display: 'block', marginBottom: '.3rem' }}>City / District *</label>
-                  <select value={form.district} onChange={set('district')} disabled={!form.state}
-                    style={{ width: '100%', border: '1.5px solid #ddd', borderRadius: '8px', padding: '.6rem .75rem', fontSize: '.88rem', boxSizing: 'border-box' }}>
-                    <option value="">{form.state ? 'Select district' : 'Select state first'}</option>
-                    {districts.map(d => <option key={d} value={d}>{d}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label style={{ fontSize: '.82rem', fontWeight: 600, display: 'block', marginBottom: '.3rem' }}>State</label>
-                  <select value={form.state} onChange={handleStateChange}
-                    style={{ width: '100%', border: '1.5px solid #ddd', borderRadius: '8px', padding: '.6rem .75rem', fontSize: '.88rem' }}>
-                    <option value="">Select state</option>
-                    {INDIA_STATES.map(s => <option key={s}>{s}</option>)}
-                  </select>
-                </div>
-
-                {error && <p style={{ color: '#c0392b', fontSize: '.88rem', gridColumn: '1 / -1' }}>{error}</p>}
-                {msg && <p style={{ color: '#27ae60', fontSize: '.88rem', gridColumn: '1 / -1' }}>{msg}</p>}
-
-                <div className="form-actions" style={{ gridColumn: '1 / -1' }}>
-                  <button onClick={handleSave} className="button primary" disabled={loading}>
-                    {loading ? 'Saving…' : 'Save Address'}
-                  </button>
-                  <button onClick={() => { setEditing(false); setError(''); }} className="button secondary">
-                    Cancel
-                  </button>
-                </div>
-              </div>
+                )}
+              </>
             )}
           </div>
         </section>

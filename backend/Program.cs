@@ -268,6 +268,28 @@ using (var scope = app.Services.CreateScope())
         ALTER TABLE cashfree_orders ADD COLUMN IF NOT EXISTS wallet_used NUMERIC(12,2) NOT NULL DEFAULT 0;
         ALTER TABLE cashfree_orders ADD COLUMN IF NOT EXISTS full_total NUMERIC(12,2) NOT NULL DEFAULT 0;
         ALTER TABLE coupons ADD COLUMN IF NOT EXISTS referrer_customer_id INTEGER;
+
+        -- Address book: a customer can save several delivery addresses (Home, Office, ...)
+        -- and mark one default. The single address on `customers` is left untouched.
+        CREATE TABLE IF NOT EXISTS customer_addresses (
+            id          SERIAL PRIMARY KEY,
+            customer_id INTEGER NOT NULL,
+            label       VARCHAR(30)  NOT NULL DEFAULT 'Home',
+            full_name   VARCHAR(120) NOT NULL DEFAULT '',
+            phone       VARCHAR(20)  NOT NULL DEFAULT '',
+            addr_line1  TEXT         NOT NULL DEFAULT '',
+            addr_line2  TEXT         NOT NULL DEFAULT '',
+            pincode     VARCHAR(10)  NOT NULL DEFAULT '',
+            city        VARCHAR(80)  NOT NULL DEFAULT '',
+            state       VARCHAR(80)  NOT NULL DEFAULT '',
+            is_default  BOOLEAN      NOT NULL DEFAULT FALSE,
+            created_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS idx_cust_addr_customer ON customer_addresses (customer_id, is_default DESC, id);
+
+        -- Cash on Delivery advance: how much the customer already paid online. The courier
+        -- must then collect only (total - wallet_used - advance_paid).
+        ALTER TABLE site_orders ADD COLUMN IF NOT EXISTS advance_paid NUMERIC(12,2) NOT NULL DEFAULT 0;
     ");
 
     // Seed Web Push VAPID keys once so push notifications work out of the box.

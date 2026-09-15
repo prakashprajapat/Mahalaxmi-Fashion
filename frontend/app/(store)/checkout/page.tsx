@@ -4,7 +4,9 @@ import { useRouter } from 'next/navigation';
 import { getCart, cartTotal, clearCart, cartShipping, finalUnitPrice, unitBase } from '@/lib/cart';
 import PincodeChecker from '@/components/checkout/PincodeChecker';
 import { getCustomer, getToken } from '@/lib/auth';
-import { ordersApi, paymentsApi, cashfreeApi, couponsApi, settingsApi, walletApi } from '@/lib/api';
+import { ordersApi, paymentsApi, cashfreeApi, couponsApi, settingsApi, walletApi, addressesApi } from '@/lib/api';
+import type { SavedAddress } from '@/lib/api';
+import Link from 'next/link';
 import { trackEvent, toGa4Items, trackAdsConversion, getGaClientId } from '@/lib/analytics';
 import type { CartItem, Customer } from '@/types';
 
@@ -88,6 +90,40 @@ export default function CheckoutPage() {
   });
 
   const [panData, setPanData] = useState({ panNumber: '', panName: '' });
+
+  // Saved address book. Picking a card fills the shipping form below, so the
+  // shopper never retypes an address they have already given us.
+  const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
+  const [pickedAddressId, setPickedAddressId] = useState<number | null>(null);
+
+  const applyAddress = (a: SavedAddress) => {
+    setPickedAddressId(a.id);
+    setShipping(s => ({
+      ...s,
+      name: a.fullName || s.name,
+      phone: a.phone || s.phone,
+      address: [a.addrLine1, a.addrLine2].filter(Boolean).join(', '),
+      pincode: a.pincode || s.pincode,
+      city: a.city || s.city,
+      state: a.state || s.state,
+    }));
+  };
+
+  useEffect(() => {
+    const token = getToken();
+    if (!token) return;
+    let cancelled = false;
+    addressesApi.list(token)
+      .then(r => {
+        if (cancelled || !r?.addresses?.length) return;
+        setSavedAddresses(r.addresses);
+        const preferred = r.addresses.find(a => a.isDefault) ?? r.addresses[0];
+        if (preferred) applyAddress(preferred);
+      })
+      .catch(() => { /* address book is optional — the form still works */ });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const [couponCode, setCouponCode] = useState('');
   const [couponApplied, setCouponApplied] = useState<{ code: string; discount: number; message: string } | null>(null);
@@ -595,6 +631,40 @@ export default function CheckoutPage() {
             {/* Honeypot — hidden from users, bots fill it */}
             <input type="text" name="website" value={honeypot} onChange={e => setHoneypot(e.target.value)}
               style={{ display: 'none' }} tabIndex={-1} autoComplete="off" aria-hidden="true" />
+            {savedAddresses.length > 0 && (
+              <div className="ck-addr-book">
+                <div className="ck-addr-head">
+                  <div>
+                    <h2>Saved Addresses</h2>
+                    <p>Select your delivery address.</p>
+                  </div>
+                  <Link href="/account/address" className="ck-addr-manage">+ Manage Addresses</Link>
+                </div>
+                <div className="ck-addr-grid">
+                  {savedAddresses.map(a => (
+                    <button key={a.id} type="button" onClick={() => applyAddress(a)}
+                      className={`ck-addr-card${pickedAddressId === a.id ? ' picked' : ''}`}>
+                      <span className="ck-addr-label">
+                        <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+                          <path fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" d="M12 21.5s7-5.6 7-11a7 7 0 1 0-14 0c0 5.4 7 11 7 11Z" />
+                          <circle cx="12" cy="10.2" r="2.4" fill="none" stroke="currentColor" strokeWidth="1.9" />
+                        </svg>
+                        {a.label.toUpperCase()}
+                        {a.isDefault && <em>DEFAULT</em>}
+                      </span>
+                      <strong>{a.fullName}</strong>
+                      <span className="ck-addr-phone">+91 {a.phone}</span>
+                      <span className="ck-addr-lines">
+                        {[a.addrLine1, a.addrLine2].filter(Boolean).join(', ')}
+                        <br />{[a.city, a.state].filter(Boolean).join(', ')}{a.pincode ? ` - ${a.pincode}` : ''}
+                      </span>
+                      {pickedAddressId === a.id && <span className="ck-addr-tick" aria-hidden="true">✓</span>}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <h2 style={{ fontWeight: 700, fontSize: '1.1rem', marginBottom: '1.25rem' }}>Shipping Details</h2>
             <div className="checkout-shipping-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: '1rem' }}>
               {/* Full Name */}

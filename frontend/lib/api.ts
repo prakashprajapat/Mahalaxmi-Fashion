@@ -476,6 +476,35 @@ export const wishlistApi = {
     ),
 };
 
+// ── Saved delivery addresses (address book) ───────────────────────────────────
+export interface SavedAddress {
+  id: number;
+  label: string;
+  fullName: string;
+  phone: string;
+  addrLine1: string;
+  addrLine2: string;
+  pincode: string;
+  city: string;
+  state: string;
+  isDefault: boolean;
+}
+
+export type AddressInput = Omit<SavedAddress, 'id' | 'isDefault'> & { isDefault?: boolean };
+
+export const addressesApi = {
+  list: (token: string) =>
+    request<{ success: boolean; addresses: SavedAddress[] }>('/addresses', undefined, token),
+  create: (data: AddressInput, token: string) =>
+    request<{ success: boolean; address: SavedAddress }>('/addresses', { method: 'POST', body: JSON.stringify(data) }, token),
+  update: (id: number, data: AddressInput, token: string) =>
+    request<{ success: boolean; address: SavedAddress }>(`/addresses/${id}`, { method: 'PUT', body: JSON.stringify(data) }, token),
+  remove: (id: number, token: string) =>
+    request<{ success: boolean }>(`/addresses/${id}`, { method: 'DELETE' }, token),
+  setDefault: (id: number, token: string) =>
+    request<{ success: boolean }>(`/addresses/${id}/default`, { method: 'POST' }, token),
+};
+
 // ── Loyalty Wallet ────────────────────────────────────────────────────────────
 export interface WalletTxn {
   id: number;
