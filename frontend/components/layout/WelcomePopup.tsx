@@ -205,6 +205,26 @@ export default function WelcomePopup() {
                 }}>
                 No thanks, I&apos;ll miss out
               </button>
+
+              {/* Small nudge to the Android app, under the dismiss link */}
+              <div style={{ marginTop: '.55rem', display: 'flex', justifyContent: 'center' }}>
+                <a
+                  href="https://play.google.com/store/apps/details?id=com.mahalaxmifashionhub.www.twa"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: '.4rem',
+                    fontSize: '.76rem', fontWeight: 700, color: '#a7354d',
+                    textDecoration: 'none', border: '1px solid #f0dde2',
+                    background: '#fdf0f3', borderRadius: '999px', padding: '.32rem .75rem',
+                  }}>
+                  <svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true">
+                    <rect x="6.2" y="2.4" width="11.6" height="19.2" rx="2.6" fill="none" stroke="currentColor" strokeWidth="1.8" />
+                    <path stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" d="M10.4 18.5h3.2" />
+                  </svg>
+                  Get the Mahalaxmi app
+                </a>
+              </div>
             </>
           )}
         </div>
