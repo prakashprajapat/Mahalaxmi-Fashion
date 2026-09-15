@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chat Widget Preview</title>
+<style>
+  :root{--brand:#a7354d;--brand-dark:#7d1f34}
+  *,*::before,*::after{box-sizing:border-box}
+  body{margin:0;padding:26px 16px 60px;background:#f4f5f7;
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#1a1a1a}
+  .wrap{max-width:900px;margin:0 auto}
+  h1{font-size:1.15rem;margin:0 0 4px}
+  .sub{color:#666;font-size:.86rem;margin:0 0 24px}
+  .row{display:flex;gap:28px;flex-wrap:wrap}
+  .step{flex:0 0 auto}
+  .lbl{font-size:.74rem;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:#666;margin:0 0 10px}
+
+  .panel{width:360px;height:520px;background:#fff;border-radius:16px;overflow:hidden;
+    box-shadow:0 12px 40px rgba(0,0,0,.2);display:flex;flex-direction:column}
+  .head{background:var(--brand);color:#fff;padding:.85rem 1rem;display:flex;align-items:center;gap:.6rem}
+  .head .av{width:36px;height:36px;border-radius:50%;background:#fff;color:var(--brand);
+    display:flex;align-items:center;justify-content:center;font-weight:800}
+  .head .t{flex:1;min-width:0}
+  .head .t b{display:block;font-weight:700;font-size:.95rem;line-height:1.1}
+  .head .t span{font-size:.72rem;opacity:.9}
+  .head .x{background:none;border:none;color:#fff;font-size:1.4rem;cursor:pointer;line-height:1}
+
+  .form{flex:1;overflow-y:auto;padding:1.1rem 1rem;background:#faf6f2;display:flex;flex-direction:column;gap:.7rem}
+  .bubble{background:#fff;border-radius:12px;padding:.7rem .8rem;font-size:.86rem;line-height:1.45;
+    box-shadow:0 1px 3px rgba(0,0,0,.08)}
+  .flbl{font-size:.76rem;font-weight:700;color:#5c1a28}
+  .form input{border:1.5px solid #e0d5d5;border-radius:10px;padding:.6rem .8rem;font-size:.88rem;outline:none;font-family:inherit}
+  .tel{display:flex;align-items:stretch;border:1.5px solid #e0d5d5;border-radius:10px;overflow:hidden;background:#fff}
+  .tel span{display:flex;align-items:center;padding:0 .6rem;background:#f6f0f1;font-size:.85rem;font-weight:700;
+    color:#5c1a28;border-right:1.5px solid #e0d5d5}
+  .tel input{flex:1;border:none;padding:.6rem .8rem;font-size:.88rem;outline:none;min-width:0}
+  .go{margin-top:.3rem;background:var(--brand);color:#fff;border:none;border-radius:999px;padding:.65rem 1rem;
+    font-size:.9rem;font-weight:800;cursor:pointer;font-family:inherit}
+  .fine{font-size:.7rem;color:#8a7a70;text-align:center}
+
+  .msgs{flex:1;overflow-y:auto;padding:.9rem;background:#faf6f2;display:flex;flex-direction:column;gap:.6rem}
+  .msg{max-width:85%;padding:.55rem .75rem;border-radius:12px;font-size:.86rem;line-height:1.4;
+    box-shadow:0 1px 3px rgba(0,0,0,.08)}
+  .bot{align-self:flex-start;background:#fff;border-bottom-left-radius:4px}
+  .chips{display:flex;flex-wrap:wrap;gap:.4rem;padding:.5rem .9rem 0}
+  .chips button{border:1px solid var(--brand);color:var(--brand);background:#fff;border-radius:16px;
+    padding:.3rem .7rem;font-size:.76rem;cursor:pointer;font-family:inherit}
+  .inputrow{display:flex;gap:.5rem;padding:.7rem .8rem;border-top:1px solid #eee;background:#fff}
+  .inputrow input{flex:1;border:1.5px solid #e0d5d5;border-radius:20px;padding:.55rem .9rem;font-size:.86rem;outline:none;font-family:inherit}
+  .send{background:#ccc;color:#fff;border:none;border-radius:50%;width:40px;height:40px;flex-shrink:0;
+    display:flex;align-items:center;justify-content:center}
+  .wa{text-align:center;font-size:.68rem;color:#999;padding:0 0 .5rem}
+  .wa a{color:var(--brand-dark);font-weight:600}
+  .note{font-size:.8rem;color:#666;margin-top:22px;line-height:1.6}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Chat — pehle naam aur mobile, phir baat</h1>
+  <p class="sub">Laxmi khulte hi ye form dikhega. Details dene ke baad hi chat shuru hogi.</p>
+
+  <div class="row">
+    <div class="step">
+      <p class="lbl">Step 1 — details</p>
+      <div class="panel">
+        <div class="head">
+          <div class="av">L</div>
+          <div class="t"><b>Laxmi · Shopping Help</b><span>Mahalaxmi Fashion Hub</span></div>
+          <button class="x">×</button>
+        </div>
+        <div class="form">
+          <div class="bubble">Namaste! 🙏 Before we start, please tell me your name and mobile number so I can help you better.</div>
+          <label class="flbl">Your Name</label>
+          <input placeholder="e.g. Priya Sharma" value="Priya Sharma">
+          <label class="flbl">Mobile Number</label>
+          <div class="tel"><span>+91</span><input placeholder="10-digit number" value="9876543210"></div>
+          <button class="go">Start Chat →</button>
+          <span class="fine">We only use this to reply to your query.</span>
+        </div>
+        <div class="wa">Or <a href="#">chat on WhatsApp</a></div>
+      </div>
+    </div>
+
+    <div class="step">
+      <p class="lbl">Step 2 — chat</p>
+      <div class="panel">
+        <div class="head">
+          <div class="av">L</div>
+          <div class="t"><b>Laxmi · Shopping Help</b><span>Mahalaxmi Fashion Hub</span></div>
+          <button class="x">×</button>
+        </div>
+        <div class="msgs">
+          <div class="msg bot">Hi Priya! 👋 I'm Laxmi, your shopping assistant at Mahalaxmi Fashion Hub. Ask me about sarees, nighty, delivery, returns, or any product — I'm here to help 😊</div>
+        </div>
+        <div class="chips">
+          <button>Delivery time?</button><button>Return policy?</button><button>Show best sarees</button>
+        </div>
+        <div class="inputrow">
+          <input placeholder="Type your question...">
+          <span class="send"><svg width="18" height="18" viewBox="0 0 24 24" fill="#fff"><path d="M2 21l21-9L2 3v7l15 2-15 2z"/></svg></span>
+        </div>
+        <div class="wa">Or <a href="#">chat on WhatsApp</a></div>
+      </div>
+    </div>
+  </div>
+
+  <p class="note">
+    <strong>Naam se greeting:</strong> ab Laxmi pehle naam se bulati hai — "Hi Priya!" — generic greeting ki jagah.
+    <br><br>
+    <strong>Dobara nahi poochega:</strong> details us device par yaad rakhi jaati hain, to agli baar seedha chat khulegi.
+    Jo customer pehle se login hai, usse poocha hi nahi jayega — uska naam aur phone account se le liya jayega.
+    <br><br>
+    <strong>Aapko email me:</strong> chat ka transcript pehle se aapko email hota hai — ab uske saath naam aur
+    mobile number bhi aayega, chahe customer login ho ya na ho. Yaani har chat ek lead ban jayegi.
+    <br><br>
+    <strong>Validation:</strong> naam kam se kam 2 akshar, aur mobile 10 digit ka jo 6-9 se shuru ho. Galat hone par
+    laal me message dikhega, chat shuru nahi hogi.
+  </p>
+</div>
+</body>
+</html>
