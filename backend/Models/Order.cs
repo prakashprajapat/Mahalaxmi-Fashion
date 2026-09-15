@@ -76,6 +76,11 @@ public class SiteOrder
     [Column("wallet_used")]
     public decimal WalletUsed { get; set; }
 
+    // Cash on Delivery advance: the part of the order the customer already paid online
+    // before the order was accepted. The courier collects Total − WalletUsed − AdvancePaid.
+    [Column("advance_paid")]
+    public decimal AdvancePaid { get; set; }
+
     // GST invoice number (e.g. M/26-27/001), assigned once when the order is marked Ready for Shipping
     [Column("invoice_number")]
     public string? InvoiceNumber { get; set; }

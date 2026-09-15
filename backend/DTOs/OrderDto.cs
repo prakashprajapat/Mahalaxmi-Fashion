@@ -65,7 +65,8 @@ public record OrderDto(
     string? ReturnRejectReason = null,
     string? ReturnMediaPurgeAt = null,   // ISO 8601 — when rejected media auto-deletes
     bool ReturnMediaDeleted = false,
-    decimal WalletUsed = 0
+    decimal WalletUsed = 0,
+    decimal AdvancePaid = 0
 );
 
 public record PlaceOrderRequest(

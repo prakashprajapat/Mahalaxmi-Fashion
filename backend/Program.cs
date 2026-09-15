@@ -297,6 +297,11 @@ using (var scope = app.Services.CreateScope())
         db.SiteSettings.Add(new MahalaxmiApi.Models.SiteSetting { Key = "vapidPublicKey", Value = "BCo-85lQ2ng-FCpfH3RGxkA6vgVC34zaT6wRSGN_WU7k-pVytCRpd1vRMXnlq7S9RpXQXR9leRHqsoh_sAvjfoI" });
     if (!db.SiteSettings.Any(x => x.Key == "vapidPrivateKey"))
         db.SiteSettings.Add(new MahalaxmiApi.Models.SiteSetting { Key = "vapidPrivateKey", Value = "8R3Upr3bCiDIlMXf5U7YNu7wXxMOFclG8fgaL1rbTns" });
+    // Cash on Delivery money rules — editable from admin Settings.
+    if (!db.SiteSettings.Any(x => x.Key == "codAdvanceAmount"))
+        db.SiteSettings.Add(new MahalaxmiApi.Models.SiteSetting { Key = "codAdvanceAmount", Value = "0" });
+    if (!db.SiteSettings.Any(x => x.Key == "codFeeAmount"))
+        db.SiteSettings.Add(new MahalaxmiApi.Models.SiteSetting { Key = "codFeeAmount", Value = "50" });
     if (!db.SiteSettings.Any(x => x.Key == "vapidSubject"))
         db.SiteSettings.Add(new MahalaxmiApi.Models.SiteSetting { Key = "vapidSubject", Value = "mailto:mahalaxmifashionhub@gmail.com" });
 

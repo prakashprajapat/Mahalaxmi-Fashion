@@ -196,6 +196,15 @@ public class OrdersController : ControllerBase
     }
 
     // POST /api/orders  (Place order — public)
+    // Reads a rupee amount from site settings, falling back when unset or unparseable.
+    private async Task<decimal> ReadMoneySettingAsync(string key, decimal fallback)
+    {
+        var raw = await _db.SiteSettings.Where(s => s.Key == key).Select(s => s.Value).FirstOrDefaultAsync();
+        if (string.IsNullOrWhiteSpace(raw)) return fallback;
+        return decimal.TryParse(raw.Trim(), System.Globalization.NumberStyles.Any,
+            System.Globalization.CultureInfo.InvariantCulture, out var v) && v >= 0m ? v : fallback;
+    }
+
     [HttpPost]
     public async Task<IActionResult> PlaceOrder([FromBody] PlaceOrderRequest req)
     {
@@ -365,7 +374,21 @@ public class OrdersController : ControllerBase
         // COD adds a flat ₹50 handling fee, enforced SERVER-SIDE (the client value is never
         // trusted): COD orders always pay exactly ₹50 extra; prepaid orders never get a COD fee.
         decimal serverShipping = 0m;
-        decimal serverCodFee   = method == "cod" ? 50m : 0m;
+        // Cash on Delivery money rules live in Settings so the store can change them
+        // without a deploy:
+        //   codAdvanceAmount — paid online up front (fake-order deterrent), default 100
+        //   codFeeAmount     — flat handling fee added to the order, default 0
+        decimal codAdvance = 0m, codFeeSetting = 0m;
+        if (method == "cod")
+        {
+            // Default 0 keeps the advance switched OFF: checkout cannot collect it yet, and a
+            // required-but-uncollectable advance would block every COD order. Turn it on from
+            // admin Settings once the checkout flow is live.
+            codAdvance    = await ReadMoneySettingAsync("codAdvanceAmount", 0m);
+            // Default 50 = the flat fee this store already charged before it became a setting.
+            codFeeSetting = await ReadMoneySettingAsync("codFeeAmount", 50m);
+        }
+        decimal serverCodFee   = codFeeSetting;
         decimal serverTotal    = Math.Max(0m, serverSubtotal + serverShipping + serverCodFee - serverDiscount);
 
         // ── WALLET REDEMPTION: validate how much of this order the customer pays from their
@@ -400,8 +423,27 @@ public class OrdersController : ControllerBase
         // than the total we computed here. This blocks (a) fake "Paid" prepaid orders placed
         // without paying, and (b) total-tampering where the customer pays less than they owe.
         string finalStatus;
+        decimal advancePaid = 0m;
         if (method == "cod")
         {
+            // The advance must actually have been paid before we accept the order, otherwise
+            // a caller could place a COD order and skip it. Capped at the order value.
+            if (codAdvance > 0m)
+            {
+                var wanted = Math.Min(codAdvance, amountToCollect);
+                if (wanted > 0m)
+                {
+                    var cfAdvance = await _db.CashfreeOrders.FirstOrDefaultAsync(c => c.LocalOrderId == orderId);
+                    if (cfAdvance is null || cfAdvance.Status != "paid")
+                        return BadRequest(new { success = false, message = "The Cash on Delivery advance has not been paid." });
+
+                    var wantedPaise = (int)Math.Round(wanted * 100m, MidpointRounding.AwayFromZero);
+                    if (wantedPaise - cfAdvance.AmountPaise > 100)
+                        return BadRequest(new { success = false, message = "The advance paid is less than required." });
+
+                    advancePaid = wanted;
+                }
+            }
             finalStatus = "Pending";
         }
         else if (method == "cashfree")
@@ -463,6 +505,7 @@ public class OrdersController : ControllerBase
             existing.CodFee = serverCodFee;
             existing.Total = serverTotal;
             existing.WalletUsed = walletApplied;
+            existing.AdvancePaid = advancePaid;
             existing.CartJson = cart;
             existing.CustomerJson = customerJson;
             existing.ShippingJson = shippingJson;
@@ -532,6 +575,7 @@ public class OrdersController : ControllerBase
                 CouponCode = serverCouponCode,
                 DiscountAmount = serverDiscount,
                 WalletUsed = walletApplied,
+                AdvancePaid = advancePaid,
             });
         }
 
@@ -1772,7 +1816,8 @@ public class OrdersController : ControllerBase
 
         var isCod = string.Equals(order.Method, "cod", StringComparison.OrdinalIgnoreCase);
         // COD cash to collect = order value minus any amount already paid from the wallet.
-        var codCollect = Math.Max(0m, order.Total - order.WalletUsed);
+        // Never ask the courier for money the customer has already paid online.
+        var codCollect = Math.Max(0m, order.Total - order.WalletUsed - order.AdvancePaid);
         var result = await _delhivery.CreateForwardShipmentAsync(order.OrderId, to, isCod ? codCollect : 0m, "Fashion item");
         if (!result.Success || string.IsNullOrWhiteSpace(result.Awb))
             return BadRequest(new { success = false, message = result.Error ?? "Delhivery AWB generation failed." });
@@ -1907,7 +1952,8 @@ public class OrdersController : ControllerBase
             ReturnRejectReason: GetJsonStr(rawJson, "returnRejectReason"),
             ReturnMediaPurgeAt: GetJsonStr(rawJson, "returnMediaPurgeAt"),
             ReturnMediaDeleted: GetJsonBool(rawJson, "returnMediaDeleted"),
-            WalletUsed: o.WalletUsed
+            WalletUsed: o.WalletUsed,
+            AdvancePaid: o.AdvancePaid
         );
     }
 }
