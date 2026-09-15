@@ -1950,3 +1950,10 @@ a.footer-app-btn.footer-app-live:hover{ background:rgba(255,255,255,.16); transf
   .addr-two, .addr-three { grid-template-columns: 1fr; }
   .addr-grid { grid-template-columns: 1fr; }
 }
+
+/* ─── Phone: keep the chat button clear of the floating cart bar ───
+   The cart bar sits just above the bottom nav; without this the chat button
+   lands right on top of its Checkout button. */
+@media (max-width: 1024px) {
+  body.has-cart-bar .help-fab-wrap { bottom: calc(126px + env(safe-area-inset-bottom, 0px)); }
+}

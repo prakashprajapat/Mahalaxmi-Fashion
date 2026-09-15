@@ -37,6 +37,14 @@ export default function FloatingCart() {
 
   // Don't show on cart/checkout pages, or when cart is empty, or dismissed
   const hide = HIDE_PATHS.some(p => pathname.startsWith(p)) || count === 0 || dismissed;
+
+  // Tell the rest of the page this bar is on screen. The floating chat button
+  // reads this and lifts itself above the bar instead of covering Checkout.
+  useEffect(() => {
+    document.body.classList.toggle('has-cart-bar', !hide);
+    return () => document.body.classList.remove('has-cart-bar');
+  }, [hide]);
+
   if (hide) return null;
 
   return (
