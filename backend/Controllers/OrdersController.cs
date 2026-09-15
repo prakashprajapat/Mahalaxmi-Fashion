@@ -376,8 +376,8 @@ public class OrdersController : ControllerBase
         decimal serverShipping = 0m;
         // Cash on Delivery money rules live in Settings so the store can change them
         // without a deploy:
-        //   codAdvanceAmount — paid online up front (fake-order deterrent), default 100
-        //   codFeeAmount     — flat handling fee added to the order, default 0
+        //   codAdvanceAmount — paid online up front (fake-order deterrent), seeded 0 = off
+        //   codFeeAmount     — flat handling fee added to the order, seeded 50
         decimal codAdvance = 0m, codFeeSetting = 0m;
         if (method == "cod")
         {
