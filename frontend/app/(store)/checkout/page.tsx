@@ -83,6 +83,10 @@ export default function CheckoutPage() {
   const [honeypot, setHoneypot] = useState('');
   const [payMethod, setPayMethod] = useState<'online' | 'cod'>('online');
   const [codConfirm, setCodConfirm] = useState(false); // "Confirm Cash on Delivery Order" popup
+  // Cash on Delivery money rules come from admin Settings; the server enforces the same
+  // numbers, so these are only for what the shopper sees.
+  const [codFeeAmt, setCodFeeAmt] = useState(COD_FEE);
+  const [codAdvanceAmt, setCodAdvanceAmt] = useState(0);
   const [codAvailable, setCodAvailable] = useState(true); // COD allowed for the entered pincode?
 
   const [shipping, setShipping] = useState({
@@ -155,8 +159,28 @@ export default function CheckoutPage() {
     const cfOrder = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('cf_order') : null;
     if (cfOrder) {
       setLoading(true);
-      cashfreeApi.verify(cfOrder).then(v => {
-        if (v.verified) { clearCart(); setOrderId(cfOrder); setStep('confirm'); }
+      cashfreeApi.verify(cfOrder).then(async v => {
+        if (v.verified) {
+          // Cash on Delivery advance: the order was deliberately NOT placed before the
+          // payment, so place it now that the advance is confirmed. An abandoned payment
+          // therefore leaves no order behind.
+          let pending: any = null;
+          try {
+            const raw = sessionStorage.getItem('mfh-pending-cod');
+            pending = raw ? JSON.parse(raw) : null;
+          } catch { /* private mode */ }
+          if (pending?.id === cfOrder && pending.payload) {
+            try {
+              await ordersApi.place(pending.payload, getToken() ?? undefined);
+            } catch (e) {
+              alert('Your advance payment went through, but we could not place the order automatically. Please contact us on WhatsApp with this reference: ' + cfOrder + ' — do NOT pay again.');
+              return;
+            } finally {
+              try { sessionStorage.removeItem('mfh-pending-cod'); } catch {}
+            }
+          }
+          clearCart(); setOrderId(cfOrder); setStep('confirm');
+        }
         else { alert('Your payment was not completed, so your order has NOT been placed. If any amount was deducted it will be refunded automatically, or your order will be confirmed shortly — please do not pay again. For help, contact us on WhatsApp (payment reference: ' + cfOrder + ').'); router.push('/cart'); }
       }).catch(() => alert('We could not confirm your payment right now, so your order is NOT placed yet — please do not pay again. If any amount was deducted, contact us on WhatsApp (payment reference: ' + cfOrder + ').'))
       .finally(() => { setLoading(false); try { window.history.replaceState({}, '', '/checkout'); } catch {} });
@@ -187,6 +211,10 @@ export default function CheckoutPage() {
     settingsApi.getAll().then(r => {
       const s = r.settings ?? {};
       setWalletEnabled((s.loyaltyEnabled ?? 'true') !== 'false');
+      const fee = parseFloat(s.codFeeAmount ?? '');
+      if (!Number.isNaN(fee) && fee >= 0) setCodFeeAmt(fee);
+      const adv = parseFloat(s.codAdvanceAmount ?? '');
+      if (!Number.isNaN(adv) && adv >= 0) setCodAdvanceAmt(adv);
       const p = parseFloat(s.loyaltyRedeemMaxPercent ?? '20');
       if (p > 0) setWalletRedeemPct(p);
     }).catch(() => {});
@@ -246,7 +274,7 @@ export default function CheckoutPage() {
   const discount = couponApplied?.discount ?? 0;
   const shippingCost = 0;   // shipping is folded into item prices (or waived for Balotra); no separate charge
   // Cash on Delivery adds a flat ₹50 handling fee; online payment has none.
-  const codFee = payMethod === 'cod' ? COD_FEE : 0;
+  const codFee = payMethod === 'cod' ? codFeeAmt : 0;
   const total = Math.max(0, subtotal - discount) + codFee;
 
   // Loyalty wallet: how much of this order can be paid from the wallet. Capped at the balance
@@ -256,6 +284,9 @@ export default function CheckoutPage() {
   const walletCap = Math.floor(Math.min(walletBalance, total * walletRedeemPct / 100, total) * 100) / 100;
   const walletApplied = walletShown && useWallet ? walletCap : 0;
   const amountToPay = Math.max(0, +(total - walletApplied).toFixed(2));
+  // Cash on Delivery advance: paid online now, the courier collects the rest.
+  const codAdvanceDue = payMethod === 'cod' ? Math.min(codAdvanceAmt, amountToPay) : 0;
+  const codDueOnDelivery = Math.max(0, +(amountToPay - codAdvanceDue).toFixed(2));
   const requiresPan = false;   // PAN no longer mandatory at checkout (disabled on request)
 
   const handleApplyCoupon = async () => {
@@ -436,24 +467,19 @@ export default function CheckoutPage() {
     setCodConfirm(true);
   };
 
-  // Actually place the COD order — runs after the customer confirms in the popup.
-  const doPlaceCod = async () => {
-    setCodConfirm(false);
-    setLoading(true);
-    try {
-      const cartLines = buildCartLines();
-      // Unique order number: timestamp + 4 random digits — two orders in the same
-      // millisecond can never collide (prevents duplicate order numbers site-wide).
-      const localOrderId = 'MFH' + Date.now() + Math.floor(1000 + Math.random() * 9000);
-      await ordersApi.place({
-        id: localOrderId,
-        method: 'cod',
+  // The COD order payload, built once so it can also be replayed after the advance
+  // payment sends the shopper away to Cashfree and back.
+  const buildCodPayload = (localOrderId: string) => {
+    const cartLines = buildCartLines();
+    return {
+      id: localOrderId,
+      method: 'cod',
         status: 'Pending',
         paymentId: '',
         cart: cartLines,
         subtotal,
         shippingCost,
-        codFee: COD_FEE,
+      codFee,
         total,
         walletUsed: walletApplied,
         customerId: customer?.id?.toString(),
@@ -469,21 +495,72 @@ export default function CheckoutPage() {
         shippingCity: shipping.city,
         shippingPincode: shipping.pincode,
         shippingState: shipping.state,
-        placedAt: new Date().toISOString(),
-        gaClientId: getGaClientId(),
-      }, getToken() ?? undefined);
-      trackEvent('purchase', {
-        transaction_id: localOrderId,
-        currency: 'INR',
-        value: total,
-        coupon: attributionCode() || undefined,
-        items: cartToItems(cart),
-      });
-      trackAdsConversion({ value: total, currency: 'INR', transactionId: localOrderId });
-      clearCart();
-      setOrderId(localOrderId);
-      setStep('confirm');
-      setLoading(false);
+      placedAt: new Date().toISOString(),
+      gaClientId: getGaClientId(),
+    };
+  };
+
+  const finishCod = (localOrderId: string) => {
+    trackEvent('purchase', {
+      transaction_id: localOrderId,
+      currency: 'INR',
+      value: total,
+      coupon: attributionCode() || undefined,
+      items: cartToItems(cart),
+    });
+    trackAdsConversion({ value: total, currency: 'INR', transactionId: localOrderId });
+    clearCart();
+    setOrderId(localOrderId);
+    setStep('confirm');
+    setLoading(false);
+  };
+
+  // Actually place the COD order — runs after the customer confirms in the popup.
+  const doPlaceCod = async () => {
+    setCodConfirm(false);
+    setLoading(true);
+    try {
+      // With an advance switched on, the shopper pays that part online first. The order is
+      // only placed once the payment comes back verified, so an abandoned payment leaves no
+      // order behind — which is the whole point of taking an advance.
+      if (codAdvanceDue > 0) {
+        const cf = await cashfreeApi.createOrder({
+          amount: codAdvanceDue,
+          currency: 'INR',
+          cart: buildCartLines(),
+          customer,
+          shipping,
+          customerId: customer?.id?.toString(),
+          customerName: shipping.name,
+          customerEmail: shipping.email || customer?.email || '',
+          customerPhone: shipping.phone,
+          walletUsed: walletApplied,
+          fullTotal: total,
+        });
+        // Cashfree hands us the order number; the order will be placed under the same one.
+        try {
+          sessionStorage.setItem('mfh-pending-cod', JSON.stringify({
+            id: cf.localOrderId,
+            payload: buildCodPayload(cf.localOrderId),
+          }));
+        } catch { /* private mode — the webhook still records the payment */ }
+
+        await ensureCashfreeSdk();
+        // @ts-expect-error Cashfree SDK loaded via script tag
+        const cashfree = window.Cashfree({ mode: cf.mode === 'sandbox' ? 'sandbox' : 'production' });
+        const result = await cashfree.checkout({ paymentSessionId: cf.paymentSessionId, redirectTarget: '_self' });
+        if (result?.error) {
+          alert('Payment could not be started: ' + (result.error?.message || 'Please try again.'));
+          setLoading(false);
+        }
+        return;
+      }
+
+      // Unique order number: timestamp + 4 random digits — two orders in the same
+      // millisecond can never collide (prevents duplicate order numbers site-wide).
+      const localOrderId = 'MFH' + Date.now() + Math.floor(1000 + Math.random() * 9000);
+      await ordersApi.place(buildCodPayload(localOrderId) as any, getToken() ?? undefined);
+      finishCod(localOrderId);
     } catch (e) {
       alert('Order failed: ' + (e as Error).message);
       setLoading(false);
@@ -754,7 +831,11 @@ export default function CheckoutPage() {
                 <label style={{ display: 'flex', alignItems: 'center', gap: '.6rem', border: `1.5px solid ${payMethod === 'cod' ? '#a7354d' : '#ddd'}`, background: payMethod === 'cod' ? '#fff8f9' : '#fff', borderRadius: '10px', padding: '.75rem .9rem', cursor: 'pointer' }}>
                   <input type="radio" name="payMethod" checked={payMethod === 'cod'} onChange={() => setPayMethod('cod')} style={{ accentColor: '#a7354d' }} />
                   <span style={{ fontWeight: 600, fontSize: '.92rem' }}>🚚 Cash on Delivery</span>
-                  <span style={{ fontSize: '.8rem', color: '#c0392b', fontWeight: 600 }}>+₹{COD_FEE} extra</span>
+                  {codAdvanceAmt > 0
+                    ? <span style={{ fontSize: '.8rem', color: '#c0392b', fontWeight: 600 }}>₹{codAdvanceAmt} advance online</span>
+                    : codFeeAmt > 0
+                      ? <span style={{ fontSize: '.8rem', color: '#c0392b', fontWeight: 600 }}>+₹{codFeeAmt} extra</span>
+                      : null}
                 </label>
               ) : (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '.6rem', border: '1.5px solid #eee', background: '#fafafa', borderRadius: '10px', padding: '.75rem .9rem', opacity: .7 }}>
@@ -771,12 +852,20 @@ export default function CheckoutPage() {
                 </button>
               ) : (
                 <button onClick={handlePlaceCod} disabled={loading} className="button primary" style={{ width: '100%' }}>
-                  {loading ? 'Placing order…' : `🚚 Place COD Order — ₹${amountToPay.toLocaleString('en-IN')}`}
+                  {loading
+                    ? 'Placing order…'
+                    : codAdvanceDue > 0
+                      ? `💳 Pay ₹${codAdvanceDue.toLocaleString('en-IN')} Advance & Place Order`
+                      : `🚚 Place COD Order — ₹${amountToPay.toLocaleString('en-IN')}`}
                 </button>
               )}
               {payMethod === 'cod' && (
                 <p style={{ fontSize: '.8rem', color: '#666', margin: 0, textAlign: 'center' }}>
-                  A ₹{COD_FEE} handling fee is added for Cash on Delivery. Pay the total in cash when your order arrives.
+                  {codAdvanceDue > 0
+                    ? `Pay ₹${codAdvanceDue.toLocaleString('en-IN')} online now to confirm your order. The remaining ₹${codDueOnDelivery.toLocaleString('en-IN')} is paid in cash when it arrives.`
+                    : codFeeAmt > 0
+                      ? `A ₹${codFeeAmt} handling fee is added for Cash on Delivery. Pay the total in cash when your order arrives.`
+                      : 'Pay in cash when your order arrives.'}
                 </p>
               )}
             </div>
@@ -865,6 +954,18 @@ export default function CheckoutPage() {
                 </div>
               </>
             )}
+            {codAdvanceDue > 0 && (
+              <div style={{ marginTop: '.7rem', paddingTop: '.7rem', borderTop: '1px dashed #e6d9dd' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '.92rem', fontWeight: 800 }}>
+                  <span>Pay now (advance)</span>
+                  <span style={{ color: '#a7354d' }}>₹{codAdvanceDue.toLocaleString('en-IN')}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '.92rem', marginTop: '.25rem' }}>
+                  <span>Pay on delivery</span>
+                  <span>₹{codDueOnDelivery.toLocaleString('en-IN')}</span>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -889,11 +990,13 @@ export default function CheckoutPage() {
               </div>
               <div style={{ background: '#fbf3f5', border: '1px solid #f0dfe4', borderRadius: 10, padding: '.7rem .85rem', margin: '.9rem 0 1.1rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '.86rem', color: '#555' }}>
-                  <span>Order total (incl. ₹{COD_FEE} COD fee)</span>
+                  <span>Order total{codFee > 0 ? ` (incl. ₹${codFee} COD fee)` : ''}</span>
                   <strong style={{ color: '#a7354d' }}>₹{total.toLocaleString('en-IN')}</strong>
                 </div>
                 <p style={{ margin: '.4rem 0 0', fontSize: '.74rem', color: '#999' }}>
-                  Tip: pay online now to avoid the ₹{COD_FEE} handling fee.
+                  {codAdvanceDue > 0
+                    ? `You will pay ₹${codAdvanceDue.toLocaleString('en-IN')} online now and ₹${codDueOnDelivery.toLocaleString('en-IN')} in cash on delivery.`
+                    : `Tip: pay online now to avoid the ₹${codFeeAmt} handling fee.`}
                 </p>
               </div>
             </div>
