@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Orders Item Preview</title>
+<style>
+  :root{--brand:#a7354d;--text:#1a1a1a;--muted:#666;--border:#e0e0e0}
+  *,*::before,*::after{box-sizing:border-box}
+  body{margin:0;padding:26px 16px 60px;background:#f4f5f7;
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:var(--text)}
+  .wrap{max-width:760px;margin:0 auto}
+  h1{font-size:1.15rem;margin:0 0 4px}
+  .sub{color:var(--muted);font-size:.86rem;margin:0 0 22px}
+  .lbl{font-size:.74rem;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin:24px 0 8px}
+  .form-card{background:#fff;border:1px solid var(--border);border-radius:14px;padding:1.25rem;
+    box-shadow:0 1px 4px rgba(0,0,0,.06)}
+  .ohead{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:.5rem;margin-bottom:.75rem}
+  .ohead strong{font-size:1rem}
+  .ohead .date{display:block;font-size:.8rem;color:#888;margin-top:.1rem}
+  .badge{background:#e7f6ec;color:#1a7f3c;font-size:.76rem;font-weight:700;padding:.2rem .6rem;border-radius:6px}
+  .tot{color:var(--brand);font-weight:800}
+  .vfd{font-size:.82rem;color:var(--brand);font-weight:600;margin:.75rem 0 0}
+
+  /* ---- the new styles ---- */
+  .ord-items{display:flex;flex-direction:column;gap:.6rem;margin-bottom:.6rem}
+  .ord-item{display:flex;align-items:flex-start;gap:.9rem;padding:.7rem;border:1px solid #f0f0f0;
+    border-radius:12px;background:#fcfcfc}
+  .ord-item-img{width:96px;height:116px;flex:0 0 auto;object-fit:cover;border-radius:10px;
+    border:1px solid #eee;background:#f5f5f5}
+  .ord-item-img-ph{display:flex;align-items:center;justify-content:center;font-size:1.8rem}
+  .ord-item-body{display:flex;flex-direction:column;gap:.3rem;flex:1;min-width:0}
+  .ord-item-name{font-size:.95rem;font-weight:700;color:var(--text);line-height:1.35}
+  .ord-item-meta{display:flex;flex-wrap:wrap;gap:.35rem}
+  .ord-chip{display:inline-flex;align-items:center;gap:.3rem;padding:.12rem .5rem;background:#f3f3f3;
+    border-radius:6px;font-size:.73rem;font-weight:600;color:#555}
+  .ord-dot{width:10px;height:10px;border-radius:50%;border:1px solid #ccc;display:inline-block;flex:0 0 auto}
+  .ord-item-qty{font-size:.78rem;color:var(--muted)}
+  .ord-item-price{font-size:1rem;font-weight:800;color:var(--brand);margin-top:.1rem}
+  @media (max-width:600px){
+    .ord-item{gap:.7rem;padding:.55rem}
+    .ord-item-img{width:74px;height:92px;border-radius:8px}
+    .ord-item-name{font-size:.88rem}
+    .ord-item-price{font-size:.92rem}
+  }
+
+  .before .old-row{display:flex;align-items:center;gap:.5rem;font-size:.85rem;color:#555;margin-bottom:.4rem}
+  .before .old-thumb{width:34px;height:34px;border-radius:6px;background:#e9e9e9;flex-shrink:0;
+    display:flex;align-items:center;justify-content:center;font-size:1rem}
+  .note{font-size:.8rem;color:var(--muted);margin-top:12px;line-height:1.55}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Orders page — item ka naya layout</h1>
+  <p class="sub">Photo left side par badi, uske bagal me naam, size/colour, qty aur price.</p>
+
+  <p class="lbl">Pehle</p>
+  <div class="form-card before">
+    <div class="ohead">
+      <div><strong>Order #MFH1783679406196</strong><span class="date">Placed: 10 Jul 2026</span></div>
+      <div style="display:flex;align-items:center;gap:.75rem"><span class="badge">Delivered</span><span class="tot">₹440</span></div>
+    </div>
+    <div class="old-row"><span class="old-thumb">👗</span><span>Premium Cotton Nighty (M) × 1</span></div>
+    <p class="vfd">View full details →</p>
+  </div>
+
+  <p class="lbl">Ab</p>
+  <div class="form-card">
+    <div class="ohead">
+      <div><strong>Order #MFH1783679406196</strong><span class="date">Placed: 10 Jul 2026</span></div>
+      <div style="display:flex;align-items:center;gap:.75rem"><span class="badge">Delivered</span><span class="tot">₹440</span></div>
+    </div>
+    <div class="ord-items">
+      <div class="ord-item">
+        <div class="ord-item-img ord-item-img-ph">👗</div>
+        <div class="ord-item-body">
+          <span class="ord-item-name">Premium Cotton Nighty For Women</span>
+          <span class="ord-item-meta">
+            <span class="ord-chip">Size: M</span>
+            <span class="ord-chip"><i class="ord-dot" style="background:#7a2230"></i>Color: MAROON</span>
+          </span>
+          <span class="ord-item-qty">Qty: 1</span>
+          <span class="ord-item-price">₹440</span>
+        </div>
+      </div>
+    </div>
+    <p class="vfd">View full details →</p>
+  </div>
+  <p class="note">
+    Photo ab <strong>96 × 116 px</strong> hai (pehle 34 × 34 thi) — mobile par 74 × 92 ho jayegi.
+    Size aur Colour ab alag chips me hain, colour ke saath uska chhota gol swatch bhi.
+    Jis item me colour save nahi hai uska chip nahi dikhega. Ek order me 3 se zyada items hon
+    to "+N more items" waise hi neeche likha aayega.
+  </p>
+</div>
+</body>
+</html>
