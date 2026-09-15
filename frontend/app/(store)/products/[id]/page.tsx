@@ -66,7 +66,6 @@ export default function ProductPage({ params }: { params: { id: string } }) {
   const [loading, setLoading] = useState(true);
   const [imgHovered, setImgHovered] = useState(false);
   const [zoomPos, setZoomPos] = useState({ x: 50, y: 50, cx: 0, cy: 0 });
-  const [touchZoom, setTouchZoom] = useState(false);
   const [canReview, setCanReview] = useState(false);
   // Review form
   const [rating, setRating] = useState(5);
@@ -316,8 +315,10 @@ export default function ProductPage({ params }: { params: { id: string } }) {
       </nav>
 
       <style>{`
-        @media (max-width: 700px) {
+        @media (max-width: 899px) {
           .product-detail-grid { grid-template-columns: 1fr !important; }
+        }
+        @media (max-width: 700px) {
           .product-reviews-grid { grid-template-columns: 1fr !important; }
         }
       `}</style>
@@ -326,12 +327,12 @@ export default function ProductPage({ params }: { params: { id: string } }) {
         <div className="product-detail-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2.5rem', alignItems: 'start' }}>
 
           {/* Image Gallery */}
-          <div>
+          <div className="pdp-gallery-col">
             {/* Outer wrapper: position:relative, NO overflow:hidden — magnifier can spill out */}
             <div
               className="pdp-gallery-main"
-              style={{ position: 'relative', aspectRatio: '3/4', marginBottom: '.75rem', cursor: imgHovered && activeImg ? 'crosshair' : 'default', touchAction: 'none' }}
-              onMouseEnter={() => { setImgHovered(true); setTouchZoom(false); }}
+              style={{ position: 'relative', aspectRatio: '3/4', marginBottom: '.75rem', cursor: imgHovered && activeImg ? 'crosshair' : 'default' }}
+              onMouseEnter={() => setImgHovered(true)}
               onMouseLeave={() => setImgHovered(false)}
               onMouseMove={e => {
                 const rect = e.currentTarget.getBoundingClientRect();
@@ -342,29 +343,6 @@ export default function ProductPage({ params }: { params: { id: string } }) {
                   cy: e.clientY,
                 });
               }}
-              onTouchStart={e => {
-                if (!activeImg) return;
-                setImgHovered(true); setTouchZoom(true);
-                const t = e.touches[0];
-                const rect = e.currentTarget.getBoundingClientRect();
-                setZoomPos({
-                  x: Math.round(((t.clientX - rect.left) / rect.width)  * 100),
-                  y: Math.round(((t.clientY - rect.top)  / rect.height) * 100),
-                  cx: t.clientX, cy: t.clientY,
-                });
-              }}
-              onTouchMove={e => {
-                if (!activeImg) return;
-                const t = e.touches[0];
-                const rect = e.currentTarget.getBoundingClientRect();
-                setZoomPos({
-                  x: Math.round(((t.clientX - rect.left) / rect.width)  * 100),
-                  y: Math.round(((t.clientY - rect.top)  / rect.height) * 100),
-                  cx: t.clientX, cy: t.clientY,
-                });
-              }}
-              onTouchEnd={() => setImgHovered(false)}
-              onTouchCancel={() => setImgHovered(false)}
             >
               {/* Inner: overflow:hidden clips the image only */}
               <div style={{ position: 'absolute', inset: 0, borderRadius: '12px', overflow: 'hidden', background: '#f5f5f5' }}>
@@ -379,7 +357,7 @@ export default function ProductPage({ params }: { params: { id: string } }) {
                 <div style={{
                   position: 'fixed',
                   left: zoomPos.cx,
-                  top: touchZoom ? zoomPos.cy - 100 : zoomPos.cy,
+                  top: zoomPos.cy,
                   transform: 'translate(-50%, -50%)',
                   width: '160px', height: '160px',
                   borderRadius: '50%',
@@ -394,7 +372,7 @@ export default function ProductPage({ params }: { params: { id: string } }) {
               )}
             </div>
             {gallery.length > 1 && (
-              <div style={{ display: 'flex', gap: '.5rem', flexWrap: 'wrap' }}>
+              <div className="pdp-thumbs" style={{ display: 'flex', gap: '.5rem', flexWrap: 'wrap' }}>
                 {gallery.map((img, i) => (
                   <button key={i} onClick={() => setActiveImg(img)} style={{
                     width: '64px', height: '64px', borderRadius: '8px', overflow: 'hidden',

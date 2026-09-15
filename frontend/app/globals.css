@@ -1742,3 +1742,61 @@ a.footer-app-btn.footer-app-live:hover{ background:rgba(255,255,255,.16); transf
   border-bottom: 1px solid #eee;
 }
 .pdp-desc p { color: #555; font-size: .88rem; line-height: 1.7; margin: 0; }
+
+/* ─── Product page on phones: premium stacked layout, no touch-zoom ─── */
+@media (max-width: 899px) {
+  /* The gallery column's children join the stack directly, so the description
+     can sit AFTER the buy section instead of pushing it down the page. */
+  .pdp-gallery-col { display: contents; }
+  .pdp-gallery-main { order: 1; margin-bottom: .6rem !important; }
+  .pdp-thumbs { order: 2; }
+  .pdp-col { order: 3; }
+  .pdp-desc { order: 4; }
+
+  .pdp-gallery-main > div { border-radius: 14px !important; box-shadow: 0 2px 14px rgba(0, 0, 0, .07); }
+
+  /* Thumbnails: one swipeable row rather than a wrapping block */
+  .pdp-thumbs {
+    flex-wrap: nowrap !important;
+    overflow-x: auto;
+    padding-bottom: .2rem;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .pdp-thumbs::-webkit-scrollbar { display: none; }
+  .pdp-thumbs button { width: 58px !important; height: 58px !important; border-radius: 10px !important; }
+
+  .pdp-col { gap: 1rem; }
+  .pdp-eyebrow { font-size: .7rem; margin-bottom: .3rem; }
+  .pdp-title { font-size: 1.25rem; line-height: 1.3; }
+  .pdp-ico { width: 40px; height: 40px; }
+
+  .pdp-specs { border-radius: 14px; }
+  .pdp-spec { padding: .7rem .85rem; }
+
+  .pdp-label { font-size: .88rem; }
+
+  /* Bigger tap targets on the buy row */
+  .pdp-buy { gap: .6rem; }
+  .pdp-qty { height: 52px; }
+  .pdp-qty button { width: 46px; height: 52px; font-size: 1.3rem; }
+  .pdp-qty span { min-width: 38px; font-size: 1rem; }
+  .pdp-atc { height: 52px; flex-basis: 100% !important; font-size: .95rem; }
+
+  .pdp-trust { gap: .3rem; padding-top: .9rem; }
+
+  /* Description reads as its own card at the end */
+  .pdp-desc {
+    margin-top: .4rem;
+    background: #fbf9f7;
+    border: 1px solid #f0e6ea;
+    border-radius: 14px;
+    padding: 1rem 1.05rem;
+  }
+  .pdp-desc h2 { font-size: 1rem; }
+  .pdp-desc p { font-size: .9rem; }
+}
+
+@media (max-width: 700px) {
+  .pdp-title { font-size: 1.15rem; }
+}
