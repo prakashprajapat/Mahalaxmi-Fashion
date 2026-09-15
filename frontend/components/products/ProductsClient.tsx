@@ -341,7 +341,6 @@ export default function ProductsClient({ products, title, initialQ = '', banner 
           .pf-mobile-bar { display: none !important; }
           .pf-sort-desktop { display: flex !important; }
           .pf-sort-mobile { display: none !important; }
-          .pf-search { padding: 0 0 1rem; }
         }
 
         /* ── Mobile layout ── */
@@ -351,8 +350,6 @@ export default function ProductsClient({ products, title, initialQ = '', banner 
           .pf-mobile-bar { display: flex !important; }
           .pf-sort-desktop { display: none !important; }
           .pf-sort-mobile { display: flex !important; }
-          /* Header already has a search bar on mobile — hide the in-page duplicate. */
-          .pf-search { display: none !important; }
         }
       `}</style>
 
@@ -378,15 +375,7 @@ export default function ProductsClient({ products, title, initialQ = '', banner 
             <h1 style={{ fontSize: '1.3rem', fontWeight: 800, color: '#1a1a1a', margin: 0 }}>{title}</h1>
           </div>
 
-          {/* Search */}
-          <div className="pf-search">
-            <div style={{ display: 'flex', alignItems: 'center', gap: '.5rem', background: '#f5f5f5', borderRadius: 10, padding: '.5rem .85rem' }}>
-              <svg width="15" height="15" fill="none" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" stroke="#aaa" strokeWidth="2"/><path d="m20 20-3-3" stroke="#aaa" strokeWidth="2" strokeLinecap="round"/></svg>
-              <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search products..."
-                style={{ border: 'none', background: 'transparent', outline: 'none', flex: 1, fontSize: '.88rem', color: '#333' }} />
-              {q && <button onClick={() => setQ('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#aaa', fontSize: '.95rem', lineHeight: 1 }}>✕</button>}
-            </div>
-          </div>
+          {/* In-page search box removed — the header search bar is the only one now. */}
 
           {/* ── Mobile sticky bar ── */}
           <div className="pf-mobile-bar" style={{ position: 'sticky', top: 0, zIndex: 100, background: '#fff', borderBottom: '1px solid #eee', borderTop: '1px solid #eee', alignItems: 'stretch' }}>
