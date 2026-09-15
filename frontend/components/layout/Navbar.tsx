@@ -9,6 +9,7 @@ import { customersApi, settingsApi, productsApi } from '@/lib/api';
 import { trackEvent } from '@/lib/analytics';
 import { productSlug } from '@/lib/productSlug';
 import { productImageSrc } from '@/lib/productImages';
+import { getWishlist } from '@/lib/wishlist';
 import type { Product } from '@/types';
 
 // Cache the catalogue once (module-level) so search suggestions don't refetch on every keystroke.
@@ -66,6 +67,11 @@ export default function Navbar() {
   const [cartBounce, setCartBounce] = useState(false);
   const [customerName, setCustomerName] = useState('');
   const [customerPhoto, setCustomerPhoto] = useState('');
+  const [customerFull, setCustomerFull] = useState('');
+  const [customerPhone, setCustomerPhone] = useState('');
+  const [wishCount, setWishCount] = useState(0);
+  const [acctMenu, setAcctMenu] = useState(false);
+  const acctRef = useRef<HTMLDivElement | null>(null);
   const [showWaLogin, setShowWaLogin] = useState(true);
   const [enableGoogleLogin, setEnableGoogleLogin] = useState(false);
   const [googleClientId, setGoogleClientId] = useState('');
@@ -86,19 +92,39 @@ export default function Navbar() {
       const c = getCustomer();
       setIsLoggedIn(!!c);
       setCustomerName(c ? c.firstName : '');
+      setCustomerFull(c ? [c.firstName, c.lastName].filter(Boolean).join(' ').trim() : '');
+      setCustomerPhone(c && c.phone ? c.phone : '');
       setCustomerPhoto(c && (c as any).photoUrl ? (c as any).photoUrl : '');
+      try { setWishCount(getWishlist().length); } catch { setWishCount(0); }
     };
     update();
     window.addEventListener('cart-updated', update);
     window.addEventListener('auth-changed', update);
+    window.addEventListener('wishlist-updated', update);
     return () => {
       window.removeEventListener('cart-updated', update);
       window.removeEventListener('auth-changed', update);
+      window.removeEventListener('wishlist-updated', update);
     };
   }, []);
 
+  // Desktop account dropdown: close on outside click or Esc.
+  useEffect(() => {
+    if (!acctMenu) return;
+    const onDown = (e: MouseEvent) => {
+      if (acctRef.current && !acctRef.current.contains(e.target as Node)) setAcctMenu(false);
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setAcctMenu(false); };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [acctMenu]);
+
   // Close menu on route change (depend on pathname so it also fires on back/forward nav)
-  useEffect(() => { setMenuOpen(false); }, [pathname]);
+  useEffect(() => { setMenuOpen(false); setAcctMenu(false); }, [pathname]);
 
   // Load login settings — cached for 5 min to avoid repeated API calls
   useEffect(() => {
@@ -357,12 +383,26 @@ export default function Navbar() {
           </form>
 
           <div className="brand-actions">
-            <Link className="cart-link" href="/cart" style={{ position: 'relative' }}>
-              Cart{count > 0 && (
-                <span className={`cart-count${cartBounce ? ' cart-bounce' : ''}`}
-                  style={{ minWidth: '18px', transition: 'background .2s', marginLeft: 6 }}>
-                  {count}
-                </span>
+            {/* Wishlist — icon button with count badge */}
+            <Link className="hdr-ico-btn" href="/wishlist" aria-label="Wishlist" title="Wishlist">
+              <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+                <path fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"
+                  d="M12 20.3S4.4 15.6 4.4 10.6a4.1 4.1 0 0 1 7.6-2.5 4.1 4.1 0 0 1 7.6 2.5c0 5-7.6 9.7-7.6 9.7Z" />
+              </svg>
+              {wishCount > 0 && <span className="hdr-badge">{wishCount}</span>}
+            </Link>
+
+            {/* Cart — solid brand pill */}
+            <Link className="cart-link" href="/cart" aria-label="Cart">
+              <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+                <path fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"
+                  d="M2.5 3.5h2.2l2.1 10.3a1.6 1.6 0 0 0 1.6 1.3h8.3a1.6 1.6 0 0 0 1.6-1.3L20 6.6H5.6" />
+                <circle cx="9.5" cy="19.5" r="1.4" fill="currentColor" />
+                <circle cx="17" cy="19.5" r="1.4" fill="currentColor" />
+              </svg>
+              <span>Cart</span>
+              {count > 0 && (
+                <span className={`cart-count${cartBounce ? ' cart-bounce' : ''}`}>{count}</span>
               )}
             </Link>
             <style>{`
@@ -372,18 +412,77 @@ export default function Navbar() {
                 60%      { transform: scale(.85); }
                 80%      { transform: scale(1.15); }
               }
-              .cart-bounce { animation: cartBounce .6s ease; background: #27ae60 !important; }
+              .cart-bounce { animation: cartBounce .6s ease; background: #27ae60 !important; color: #fff !important; }
             `}</style>
+
             {isLoggedIn ? (
-              <Link className="account-cta account-ico" href="/account"
-                aria-label="My Account" title="My Account">
-                <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm0 2c-3.9 0-7 2.2-7 5v1h14v-1c0-2.8-3.1-5-7-5Z" /></svg>
-                <span>{customerName ? customerName.split(' ')[0] : 'Account'}</span>
-              </Link>
+              /* Account — avatar pill that opens a dropdown */
+              <div className="acct-wrap" ref={acctRef}>
+                <button type="button"
+                  className={`acct-pill${acctMenu ? ' open' : ''}`}
+                  onClick={() => setAcctMenu(o => !o)}
+                  aria-haspopup="menu" aria-expanded={acctMenu}
+                  aria-label="My Account" title="My Account">
+                  <span className="acct-avatar">
+                    {customerPhoto
+                      ? <img src={customerPhoto} alt="" />
+                      : (customerName ? customerName.charAt(0).toUpperCase() : 'U')}
+                  </span>
+                  <span className="acct-name">{customerFull || customerName || 'Account'}</span>
+                  <svg className="acct-chev" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+                    <path fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" d="m6 9 6 6 6-6" />
+                  </svg>
+                </button>
+
+                {acctMenu && (
+                  <div className="acct-menu" role="menu">
+                    <div className="acct-menu-head">
+                      <strong>{customerFull || customerName || 'My Account'}</strong>
+                      {customerPhone && <span>{customerPhone}</span>}
+                    </div>
+
+                    <Link className="acct-menu-item" role="menuitem" href="/orders" onClick={() => setAcctMenu(false)}>
+                      <svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true">
+                        <path fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"
+                          d="M20.5 7.5 12 3 3.5 7.5v9L12 21l8.5-4.5v-9ZM3.7 7.6 12 12l8.3-4.4M12 12v9" />
+                      </svg>
+                      <span><b>My Orders</b><small>View and track your orders</small></span>
+                    </Link>
+
+                    <Link className="acct-menu-item" role="menuitem" href="/account/address" onClick={() => setAcctMenu(false)}>
+                      <svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true">
+                        <path fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"
+                          d="M12 21.5s7-5.6 7-11a7 7 0 1 0-14 0c0 5.4 7 11 7 11Z" />
+                        <circle cx="12" cy="10.2" r="2.6" fill="none" stroke="currentColor" strokeWidth="1.7" />
+                      </svg>
+                      <span><b>My Address</b><small>Manage delivery addresses</small></span>
+                    </Link>
+
+                    <Link className="acct-menu-item" role="menuitem" href="/account/edit" onClick={() => setAcctMenu(false)}>
+                      <svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true">
+                        <circle cx="12" cy="8.2" r="3.7" fill="none" stroke="currentColor" strokeWidth="1.7" />
+                        <path fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"
+                          d="M4.8 20.2c0-3.4 3.2-6 7.2-6s7.2 2.6 7.2 6" />
+                      </svg>
+                      <span><b>Edit Profile</b><small>Update your details</small></span>
+                    </Link>
+
+                    <div className="acct-menu-sep" />
+
+                    <button type="button" className="acct-menu-item acct-menu-danger" role="menuitem"
+                      onClick={() => { logout(); resetLoginForm(); setAcctMenu(false); window.dispatchEvent(new Event('auth-changed')); router.push('/account'); }}>
+                      <svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true">
+                        <path fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"
+                          d="M15 4.5h3.5A1.5 1.5 0 0 1 20 6v12a1.5 1.5 0 0 1-1.5 1.5H15M10 16l-4-4 4-4M6 12h10" />
+                      </svg>
+                      <span><b>Logout</b><small>Logout from your account</small></span>
+                    </button>
+                  </div>
+                )}
+              </div>
             ) : (
               <button type="button" className="account-cta account-ico" onClick={openLogin}
-                aria-label="Login / Signup" title="Login / Signup"
-                style={{ cursor: 'pointer' }}>
+                aria-label="Login / Signup" title="Login / Signup">
                 <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm0 2c-3.9 0-7 2.2-7 5v1h14v-1c0-2.8-3.1-5-7-5Z" /></svg>
                 <span>Login</span>
               </button>
