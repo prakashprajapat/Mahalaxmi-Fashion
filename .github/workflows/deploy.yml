@@ -24,4 +24,6 @@ jobs:
             git pull origin main
             # deploy.sh builds the BACKEND as well as the frontend and rolls back on a
             # failed build, so a broken commit can never take the site down.
-            ./deploy.sh
+            # Run through bash: the script's execute bit does not survive every checkout,
+            # and ./deploy.sh then fails with "Permission denied".
+            bash deploy.sh
