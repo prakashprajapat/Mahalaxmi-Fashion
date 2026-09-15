@@ -17,10 +17,11 @@ jobs:
           username: root
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
-            cd /var/www/mahalaxmi
+            # The repo lives in mahalaxmi-nextjs; the old path did not exist, so every
+            # automatic deploy silently failed and had to be run by hand.
+            set -e
+            cd /var/www/mahalaxmi-nextjs
             git pull origin main
-            cd frontend
-            npm install --omit=dev
-            npm run build
-            pm2 restart all
-            echo "✅ Deploy complete at $(date)"
+            # deploy.sh builds the BACKEND as well as the frontend and rolls back on a
+            # failed build, so a broken commit can never take the site down.
+            ./deploy.sh
