@@ -344,18 +344,36 @@ export default function OrdersPage() {
                       </div>
                     </div>
 
-                    {/* Items preview (with thumbnails) */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '.4rem', marginBottom: '.5rem' }}>
+                    {/* Items preview — large product photo on the left, details beside it */}
+                    <div className="ord-items">
                       {order.cart.slice(0, 3).map((item, i) => {
                         const thumb = productImageSrc(item.colorPhoto || item.image);
+                        const sizeOnly = item.color
+                          ? (item.size || '').split(' / ').filter(p => p && p !== item.color).join(' / ')
+                          : (item.size || '');
                         return (
-                          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '.5rem', fontSize: '.85rem', color: '#555' }}>
+                          <div key={i} className="ord-item">
                             {thumb
-                              ? <img src={thumb} alt="" style={{ width: 34, height: 34, borderRadius: 6, objectFit: 'cover', border: '1px solid #eee', flexShrink: 0 }} />
-                              : <div style={{ width: 34, height: 34, borderRadius: 6, background: '#f5f5f5', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>👗</div>}
-                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                              {item.name}{item.size ? ` (${item.size})` : ''} × {item.quantity}
-                            </span>
+                              ? <img className="ord-item-img" src={thumb} alt={item.name} loading="lazy" />
+                              : <div className="ord-item-img ord-item-img-ph">👗</div>}
+                            <div className="ord-item-body">
+                              <span className="ord-item-name">{item.name}</span>
+                              {(sizeOnly || item.color) && (
+                                <span className="ord-item-meta">
+                                  {sizeOnly && <span className="ord-chip">Size: {sizeOnly}</span>}
+                                  {item.color && (
+                                    <span className="ord-chip">
+                                      {item.colorCode && <i className="ord-dot" style={{ background: item.colorCode }} />}
+                                      Color: {item.color}
+                                    </span>
+                                  )}
+                                </span>
+                              )}
+                              <span className="ord-item-qty">Qty: {item.quantity}</span>
+                              {item.lineTotal != null && (
+                                <span className="ord-item-price">₹{Number(item.lineTotal).toLocaleString('en-IN')}</span>
+                              )}
+                            </div>
                           </div>
                         );
                       })}
