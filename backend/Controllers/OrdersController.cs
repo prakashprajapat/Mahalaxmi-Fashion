@@ -69,13 +69,27 @@ public class OrdersController : ControllerBase
         return ParsePinList(raw);
     }
 
+    // customer_json is a jsonb column. EF translates a plain string Contains() into
+    // like_escape(jsonb, unknown), which Postgres does not have (42883) — it blew up every
+    // order that reached this check. Casting to text in SQL is the portable fix.
+    private async Task<int> CountOrdersMatchingCustomerAsync(string customerId, string? status = null, string? couponCode = null)
+    {
+        var pattern = "%\"id\":\"" + customerId + "\"%";
+        var rows = await _db.Database.SqlQuery<int>(
+            $@"SELECT COUNT(*)::int AS ""Value"" FROM site_orders
+               WHERE customer_json IS NOT NULL
+                 AND customer_json::text LIKE {pattern}
+                 AND (CAST({status} AS text) IS NULL OR status = CAST({status} AS text))
+                 AND (CAST({couponCode} AS text) IS NULL OR lower(coupon_code) = lower(CAST({couponCode} AS text)))"
+        ).ToListAsync();
+        return rows.FirstOrDefault();
+    }
+
     // How many orders this customer has had Cancelled (used for the high-risk COD rule).
     private async Task<int> CancelledCountAsync(string? customerId)
     {
         if (string.IsNullOrWhiteSpace(customerId) || customerId == "0") return 0;
-        var needle = "\"id\":\"" + customerId + "\"";
-        return await _db.SiteOrders.CountAsync(o =>
-            o.Status == "Cancelled" && o.CustomerJson != null && o.CustomerJson.Contains(needle));
+        return await CountOrdersMatchingCustomerAsync(customerId, status: "Cancelled");
     }
 
     // Deploy-safe uploads root: /var/www/mahalaxmi-uploads/returns (outside repo & publish dir).
@@ -332,7 +346,7 @@ public class OrdersController : ControllerBase
             // can benefit from a referral code just once (no reusing referral codes).
             var referralReuse = false;
             if (coupon is not null && coupon.Occasion == "referral" && callerId > 0)
-                referralReuse = await _db.SiteOrders.AnyAsync(o => o.CustomerJson != null && o.CustomerJson.Contains("\"id\":\"" + callerId + "\""));
+                referralReuse = await CountOrdersMatchingCustomerAsync(callerId.ToString()) > 0;
 
             // Influencer code: the DISCOUNT is one-per-customer, but the influencer still earns
             // commission on every order made with their code. So on a repeat use we keep the
@@ -342,9 +356,7 @@ public class OrdersController : ControllerBase
             {
                 var isInfluencer = await _db.Influencers.AnyAsync(i => i.CouponCode != null && i.CouponCode.ToLower() == code.ToLower());
                 if (isInfluencer)
-                    influencerDiscountUsed = await _db.SiteOrders.AnyAsync(o => o.CustomerJson != null
-                        && o.CustomerJson.Contains("\"id\":\"" + callerId + "\"")
-                        && o.CouponCode != null && o.CouponCode.ToLower() == code.ToLower());
+                    influencerDiscountUsed = await CountOrdersMatchingCustomerAsync(callerId.ToString(), couponCode: code) > 0;
             }
 
             var valid = coupon is not null

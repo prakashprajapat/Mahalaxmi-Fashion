@@ -14,6 +14,20 @@ public class CouponsController : ControllerBase
     private readonly AppDbContext _db;
     public CouponsController(AppDbContext db) => _db = db;
 
+    // customer_json is jsonb, so a LINQ Contains() becomes like_escape(jsonb, unknown) —
+    // a function Postgres does not have. Cast to text in SQL instead.
+    private async Task<int> CountOrdersMatchingCustomerAsync(int customerId, string? couponCode = null)
+    {
+        var pattern = "%\"id\":\"" + customerId + "\"%";
+        var rows = await _db.Database.SqlQuery<int>(
+            $@"SELECT COUNT(*)::int AS ""Value"" FROM site_orders
+               WHERE customer_json IS NOT NULL
+                 AND customer_json::text LIKE {pattern}
+                 AND (CAST({couponCode} AS text) IS NULL OR lower(coupon_code) = lower(CAST({couponCode} AS text)))"
+        ).ToListAsync();
+        return rows.FirstOrDefault();
+    }
+
     // ── Admin auth helper ────────────────────────────────────────────────────
     // Admin = a valid JWT carrying the "role":"admin" claim (same auth as the rest of the admin panel).
     private Task<bool> IsAdmin() => Task.FromResult(User.HasSectionAccess("coupons"));
@@ -48,7 +62,7 @@ public class CouponsController : ControllerBase
         // Refer & Earn — a referral code works only on a customer's first order.
         if (coupon.Occasion == "referral" && (req.CustomerId ?? -1) > 0)
         {
-            var alreadyOrdered = await _db.SiteOrders.AnyAsync(o => o.CustomerJson != null && o.CustomerJson.Contains("\"id\":\"" + req.CustomerId + "\""));
+            var alreadyOrdered = await CountOrdersMatchingCustomerAsync(req.CustomerId!.Value) > 0;
             if (alreadyOrdered)
                 return BadRequest(new { success = false, message = "Referral codes are only valid on your first order." });
         }
@@ -61,9 +75,7 @@ public class CouponsController : ControllerBase
             var isInfluencer = await _db.Influencers.AnyAsync(i => i.CouponCode != null && i.CouponCode.ToLower() == codeL);
             if (isInfluencer)
             {
-                var usedBefore = await _db.SiteOrders.AnyAsync(o => o.CustomerJson != null
-                    && o.CustomerJson.Contains("\"id\":\"" + req.CustomerId + "\"")
-                    && o.CouponCode != null && o.CouponCode.ToLower() == codeL);
+                var usedBefore = await CountOrdersMatchingCustomerAsync(req.CustomerId!.Value, couponCode: codeL) > 0;
                 if (usedBefore)
                     return BadRequest(new { success = false, message = "You've already used this code — the discount applies only once." });
             }
