@@ -44,3 +44,11 @@ backend/appsettings.json
 backend/appsettings.Production.json
 backend/out/
 import_products.py
+
+# Admin-uploaded product images — these live on the VPS, not in git.
+# (The 27 images already committed stay tracked; only new uploads are ignored.)
+frontend/public/product-images/
+
+# Stray clones / scratch repos accidentally created inside the project
+/Mahalaxmi-Fashion/
+/mahalaxmi-nextjs/
