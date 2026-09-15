@@ -1800,3 +1800,15 @@ a.footer-app-btn.footer-app-live:hover{ background:rgba(255,255,255,.16); transf
 @media (max-width: 700px) {
   .pdp-title { font-size: 1.15rem; }
 }
+
+/* ─── Phone: product page already has its own sticky Add-to-Cart bar ─── */
+@media (max-width: 768px) {
+  /* One price, one call to action - the floating cart bar would repeat both. */
+  body.has-pdp-cart .floating-cart-bar { display: none !important; }
+
+  /* Lift the chat button clear of the sticky bar + bottom nav. */
+  body.has-pdp-cart .help-fab-wrap { bottom: calc(124px + env(safe-area-inset-bottom, 0px)); }
+
+  /* Room at the end of the page so the last content is never trapped behind the bars. */
+  body.has-pdp-cart { padding-bottom: calc(118px + env(safe-area-inset-bottom, 0px)); }
+}

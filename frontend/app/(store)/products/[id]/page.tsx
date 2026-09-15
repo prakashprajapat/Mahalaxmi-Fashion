@@ -66,6 +66,13 @@ export default function ProductPage({ params }: { params: { id: string } }) {
   const [loading, setLoading] = useState(true);
   const [imgHovered, setImgHovered] = useState(false);
   const [zoomPos, setZoomPos] = useState({ x: 50, y: 50, cx: 0, cy: 0 });
+
+  // Marks the page while the mobile sticky Add-to-Cart bar is on screen, so the
+  // floating cart bar hides and the chat button lifts clear of it.
+  useEffect(() => {
+    document.body.classList.add('has-pdp-cart');
+    return () => document.body.classList.remove('has-pdp-cart');
+  }, []);
   const [canReview, setCanReview] = useState(false);
   // Review form
   const [rating, setRating] = useState(5);
@@ -669,22 +676,33 @@ export default function ProductPage({ params }: { params: { id: string } }) {
 
       {/* Sticky Add-to-Cart bar — mobile only */}
       <div className="pdp-sticky-cart">
-        <span className="pdp-sticky-price">₹{price.toLocaleString('en-IN')}</span>
-        <button onClick={handleAddToCart} disabled={outOfStock} className="button primary" style={{ flex: 1, margin: 0 }}>
-          {outOfStock ? 'Out of Stock' : added ? '✓ Added!' : '🛒 Add to Cart'}
+        <span className="pdp-sticky-money">
+          <b>₹{price.toLocaleString('en-IN')}</b>
+          {saving > 0 && <s>₹{product.price.toLocaleString('en-IN')}</s>}
+        </span>
+        <button onClick={handleAddToCart} disabled={outOfStock} className="button primary pdp-sticky-btn">
+          {outOfStock ? 'OUT OF STOCK' : added ? '✓ ADDED' : 'ADD TO CART'}
         </button>
       </div>
       <style>{`
         .pdp-sticky-cart { display: none; }
         @media (max-width: 768px) {
           .pdp-sticky-cart {
-            display: flex; align-items: center; gap: .75rem;
-            position: fixed; left: 0; right: 0; bottom: 0; z-index: 900;
-            background: #fff; border-top: 1px solid #eee;
-            padding: .55rem .9rem .55rem .9rem; padding-right: 76px;
-            box-shadow: 0 -2px 12px rgba(0,0,0,.08);
+            display: flex; align-items: center; gap: .8rem;
+            position: fixed; left: 0; right: 0; z-index: 480;
+            /* sits directly on top of the bottom nav, never over it */
+            bottom: calc(60px + env(safe-area-inset-bottom, 0px));
+            background: #fff; border-top: 1px solid #efe7ea;
+            padding: .6rem .9rem;
+            box-shadow: 0 -4px 16px rgba(0,0,0,.09);
           }
-          .pdp-sticky-price { font-weight: 800; color: #a7354d; font-size: 1.1rem; white-space: nowrap; }
+          .pdp-sticky-money { display: flex; flex-direction: column; line-height: 1.15; white-space: nowrap; }
+          .pdp-sticky-money b { font-weight: 800; color: #a7354d; font-size: 1.15rem; }
+          .pdp-sticky-money s { font-size: .74rem; color: #999; }
+          .pdp-sticky-btn {
+            flex: 1; margin: 0; height: 48px; border-radius: 999px;
+            font-size: .9rem; font-weight: 800; letter-spacing: .05em;
+          }
         }
       `}</style>
     </>
