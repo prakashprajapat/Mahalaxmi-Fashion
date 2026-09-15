@@ -336,7 +336,7 @@ export default function ProductsClient({ products, title, initialQ = '', banner 
 
         /* ── Desktop layout ── */
         @media (min-width: 900px) {
-          .pf-page { max-width: 1400px; margin: 0 auto; padding: 1.5rem 2rem; display: grid; grid-template-columns: 260px 1fr; gap: 2rem; align-items: start; }
+          .pf-page { max-width: var(--shell, 1760px); margin: 0 auto; padding: 1.5rem clamp(1rem, 2vw, 2rem); display: grid; grid-template-columns: 260px 1fr; gap: 2rem; align-items: start; }
           .pf-sidebar-desktop { display: block; position: sticky; top: 80px; background: #fff; border: 1px solid #eee; border-radius: 12px; padding: 1rem 1.25rem; }
           .pf-mobile-bar { display: none !important; }
           .pf-sort-desktop { display: flex !important; }

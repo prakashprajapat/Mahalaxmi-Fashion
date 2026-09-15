@@ -17,7 +17,7 @@ export default function HomeHero() {
         <div aria-hidden="true" style={{ position: 'absolute', inset: '7px', border: '1.5px solid rgba(201,162,75,.55)', borderRadius: '12px', pointerEvents: 'none' }} />
 
         <div className="hero-grid" style={{
-          maxWidth: 1180, margin: '0 auto', position: 'relative',
+          maxWidth: 1500, margin: '0 auto', position: 'relative',
           display: 'grid', gridTemplateColumns: '1.25fr .75fr',
           gap: 'clamp(.75rem, 2.5vw, 1.75rem)', alignItems: 'center',
         }}>

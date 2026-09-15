@@ -12,6 +12,9 @@
   --muted: #666;
   --border: #e0e0e0;
   --radius: 8px;
+  /* One shared page width. Header, hero, product grid and footer all use it,
+     so the site fills big monitors instead of stopping at 1400px. */
+  --shell: 1760px;
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -317,15 +320,15 @@ button { cursor: pointer; font-family: inherit; }
   color: var(--brand);
   margin: 0 0 1.25rem;
 }
-.section-wrap { max-width: 1400px; margin: 0 auto; padding: 2.5rem 1.5rem; }
+.section-wrap { max-width: var(--shell); margin: 0 auto; padding: 2.5rem clamp(1rem, 2.5vw, 2rem); }
 
 /* ─── Product Grid ─── */
 /* Default (inside sidebar layout ~1140px content area) */
-.products-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.25rem; }
+.products-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 1.25rem; }
 /* Full-width pages (homepage sections, no sidebar) */
-.section-wrap .products-grid { grid-template-columns: repeat(5, 1fr); }
-@media (max-width: 1200px) { .products-grid { grid-template-columns: repeat(3, 1fr); } .section-wrap .products-grid { grid-template-columns: repeat(4, 1fr); } }
-@media (max-width: 900px)  { .products-grid { grid-template-columns: repeat(3, 1fr); } }
+.section-wrap .products-grid { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
+/* 1200px / 900px column overrides removed - auto-fill above picks the column
+   count from the available width, so the grid fits every screen size. */
 @media (max-width: 1024px) { .products-grid { grid-template-columns: repeat(2, 1fr) !important; gap: .75rem; } .section-wrap .products-grid { grid-template-columns: repeat(2, 1fr) !important; } }
 /* Old product-card styles removed — new ones in Product Card section above */
 
@@ -569,7 +572,7 @@ button { cursor: pointer; font-family: inherit; }
 
 /* ─── Footer ─── */
 .site-footer { background: #6b1c30; color: #f4eadf; padding-top: 3rem; }
-.site-footer-grid { max-width: 1400px; margin: 0 auto; padding: 0 1.5rem 2.5rem; display: grid; grid-template-columns: 1.7fr .85fr .95fr 1fr 1.1fr; gap: 2rem; }
+.site-footer-grid { max-width: var(--shell); margin: 0 auto; padding: 0 1.5rem 2.5rem; display: grid; grid-template-columns: 1.7fr .85fr .95fr 1fr 1.1fr; gap: 2rem; }
 .site-footer-brand .brand strong { color: #fff; }
 .site-footer-brand .brand-tagline { color: #f1bd79; font-weight: 800; text-transform: uppercase; }
 .site-footer-brand .brand-mark img { width: 84px; height: 84px; }
@@ -577,7 +580,7 @@ button { cursor: pointer; font-family: inherit; }
 .site-footer-col h2 { color: #f1bd79; font-size: .92rem; font-weight: 800; margin: 0 0 1rem; text-transform: uppercase; letter-spacing: .06em; }
 .site-footer-col a { display: block; color: #fff1e0; font-size: .88rem; margin-bottom: .5rem; transition: color .2s; }
 .site-footer-col a:hover { color: #fff; }
-.site-footer-baseline { border-top: 1px solid rgba(241,189,121,.2); padding: 1.25rem 1.5rem; display: flex; justify-content: space-between; align-items: center; max-width: 1400px; margin: 0 auto; font-size: .8rem; gap: 1rem; }
+.site-footer-baseline { border-top: 1px solid rgba(241,189,121,.2); padding: 1.25rem 1.5rem; display: flex; justify-content: space-between; align-items: center; max-width: var(--shell); margin: 0 auto; font-size: .8rem; gap: 1rem; }
 .site-footer-legal { display: flex; gap: 1.25rem; }
 .site-footer-legal a { color: #d9c9bb; }
 .site-footer-legal a:hover { color: #fff; }
@@ -1388,7 +1391,7 @@ a.footer-app-btn.footer-app-live:hover{ background:rgba(255,255,255,.16); transf
 @media (min-width: 1025px) {
   /* the whole header row sticks on scroll (was the department nav before) */
   .m-head { position: sticky; top: 0; z-index: 200; background: #fff; box-shadow: 0 1px 6px rgba(0,0,0,.08); }
-  .brand-row { flex-wrap: nowrap !important; gap: 1.1rem !important; padding: .45rem 1.25rem !important; }
+  .brand-row { flex-wrap: nowrap !important; gap: 1.1rem !important; padding: .45rem clamp(1rem, 2vw, 2rem) !important; max-width: var(--shell); margin: 0 auto; }
   .brand { flex: 0 0 auto !important; }
   .brand-mark img { height: 54px !important; max-width: 200px !important; }
 
@@ -1403,8 +1406,8 @@ a.footer-app-btn.footer-app-live:hover{ background:rgba(255,255,255,.16); transf
   }
   .hdr-nav a:hover, .hdr-nav a.active { color: #7a0a22; border-bottom-color: var(--gold, #c9a24b); }
 
-  .search { flex: 1 1 auto !important; max-width: 460px !important; }
-  .brand-actions { flex: 0 0 auto !important; }
+  .search { flex: 1 1 auto !important; max-width: 560px !important; }
+  .brand-actions { flex: 0 0 auto !important; margin-left: auto !important; }
 
   /* the separate department-nav row is merged into the header above — hide it */
   .department-nav { display: none !important; }
