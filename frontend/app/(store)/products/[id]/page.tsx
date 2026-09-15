@@ -65,14 +65,14 @@ export default function ProductPage({ params }: { params: { id: string } }) {
   const [wishlisted, setWishlisted] = useState(false);
   const [loading, setLoading] = useState(true);
   const [imgHovered, setImgHovered] = useState(false);
+  // True only for a real mouse. Phones fire a synthetic mouseenter on tap but never
+  // a mouseleave, which left the magnifier stuck over the page.
+  const [canHover, setCanHover] = useState(false);
+  useEffect(() => {
+    setCanHover(window.matchMedia('(hover: hover) and (pointer: fine)').matches);
+  }, []);
   const [zoomPos, setZoomPos] = useState({ x: 50, y: 50, cx: 0, cy: 0 });
 
-  // Marks the page while the mobile sticky Add-to-Cart bar is on screen, so the
-  // floating cart bar hides and the chat button lifts clear of it.
-  useEffect(() => {
-    document.body.classList.add('has-pdp-cart');
-    return () => document.body.classList.remove('has-pdp-cart');
-  }, []);
   const [canReview, setCanReview] = useState(false);
   // Review form
   const [rating, setRating] = useState(5);
@@ -339,7 +339,7 @@ export default function ProductPage({ params }: { params: { id: string } }) {
             <div
               className="pdp-gallery-main"
               style={{ position: 'relative', aspectRatio: '3/4', marginBottom: '.75rem', cursor: imgHovered && activeImg ? 'crosshair' : 'default' }}
-              onMouseEnter={() => setImgHovered(true)}
+              onMouseEnter={() => { if (canHover) setImgHovered(true); }}
               onMouseLeave={() => setImgHovered(false)}
               onMouseMove={e => {
                 const rect = e.currentTarget.getBoundingClientRect();
@@ -360,7 +360,7 @@ export default function ProductPage({ params }: { params: { id: string } }) {
                 {saving > 0 && <span className="badge badge-red" style={{ position: 'absolute', top: product.bestSeller ? 44 : 12, left: 12 }}>{saving}% off</span>}
               </div>
               {/* Circular magnifier — position:fixed so no overflow can clip it */}
-              {imgHovered && activeImg && (
+              {canHover && imgHovered && activeImg && (
                 <div style={{
                   position: 'fixed',
                   left: zoomPos.cx,
@@ -525,27 +525,27 @@ export default function ProductPage({ params }: { params: { id: string } }) {
             {/* Quantity + Add to Cart */}
             <div>
               <p className="pdp-label" style={{ marginBottom: '.5rem' }}>Quantity</p>
-              <div className="pdp-buy">
-                <div className="pdp-qty">
-                  <button onClick={() => setQty(q => Math.max(1, q-1))} aria-label="Decrease quantity">−</button>
-                  <span>{qty}</span>
-                  <button
-                    onClick={() => setQty(q => (variantStock !== null && q >= variantStock) ? q : q + 1)}
-                    disabled={variantStock !== null && qty >= variantStock}
-                    aria-label="Increase quantity">+</button>
-                </div>
-                <button onClick={handleAddToCart} disabled={outOfStock} className="button primary pdp-atc" style={{ opacity: outOfStock ? .5 : 1 }}>
-                  {outOfStock ? 'OUT OF STOCK' : added ? '✓ ADDED TO CART' : 'ADD TO CART'}
-                </button>
+              <div className="pdp-qty">
+                <button onClick={() => setQty(q => Math.max(1, q-1))} aria-label="Decrease quantity">−</button>
+                <span>{qty}</span>
+                <button
+                  onClick={() => setQty(q => (variantStock !== null && q >= variantStock) ? q : q + 1)}
+                  disabled={variantStock !== null && qty >= variantStock}
+                  aria-label="Increase quantity">+</button>
               </div>
               {variantStock !== null && variantStock > 0 && qty >= variantStock && (
                 <p style={{ fontSize: '.78rem', color: '#e74c3c', fontWeight: 600, marginTop: '.4rem' }}>Only {variantStock} in stock</p>
               )}
             </div>
 
-            <button onClick={() => { if (!outOfStock) { handleAddToCart(); router.push('/checkout'); } }} disabled={outOfStock} className="button secondary" style={{ width: '100%', opacity: outOfStock ? .5 : 1 }}>
-              Buy Now
-            </button>
+            <div className="pdp-cta-row">
+              <button onClick={handleAddToCart} disabled={outOfStock} className="button primary pdp-cta" style={{ opacity: outOfStock ? .5 : 1 }}>
+                {outOfStock ? 'OUT OF STOCK' : added ? '✓ ADDED' : 'ADD TO CART'}
+              </button>
+              <button onClick={() => { if (!outOfStock) { handleAddToCart(); router.push('/checkout'); } }} disabled={outOfStock} className="button secondary pdp-cta" style={{ opacity: outOfStock ? .5 : 1 }}>
+                BUY NOW
+              </button>
+            </div>
 
             {/* Free delivery / returns / COD */}
             <div className="pdp-trust">
@@ -674,37 +674,6 @@ export default function ProductPage({ params }: { params: { id: string } }) {
       {/* Personalization — the visitor's own browsing history (client-side only) */}
       <RecentlyViewed excludeId={product.dbId} />
 
-      {/* Sticky Add-to-Cart bar — mobile only */}
-      <div className="pdp-sticky-cart">
-        <span className="pdp-sticky-money">
-          <b>₹{price.toLocaleString('en-IN')}</b>
-          {saving > 0 && <s>₹{product.price.toLocaleString('en-IN')}</s>}
-        </span>
-        <button onClick={handleAddToCart} disabled={outOfStock} className="button primary pdp-sticky-btn">
-          {outOfStock ? 'OUT OF STOCK' : added ? '✓ ADDED' : 'ADD TO CART'}
-        </button>
-      </div>
-      <style>{`
-        .pdp-sticky-cart { display: none; }
-        @media (max-width: 768px) {
-          .pdp-sticky-cart {
-            display: flex; align-items: center; gap: .8rem;
-            position: fixed; left: 0; right: 0; z-index: 480;
-            /* sits directly on top of the bottom nav, never over it */
-            bottom: calc(60px + env(safe-area-inset-bottom, 0px));
-            background: #fff; border-top: 1px solid #efe7ea;
-            padding: .6rem .9rem;
-            box-shadow: 0 -4px 16px rgba(0,0,0,.09);
-          }
-          .pdp-sticky-money { display: flex; flex-direction: column; line-height: 1.15; white-space: nowrap; }
-          .pdp-sticky-money b { font-weight: 800; color: #a7354d; font-size: 1.15rem; }
-          .pdp-sticky-money s { font-size: .74rem; color: #999; }
-          .pdp-sticky-btn {
-            flex: 1; margin: 0; height: 48px; border-radius: 999px;
-            font-size: .9rem; font-weight: 800; letter-spacing: .05em;
-          }
-        }
-      `}</style>
     </>
   );
 }

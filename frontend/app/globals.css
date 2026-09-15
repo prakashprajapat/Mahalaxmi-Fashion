@@ -1668,10 +1668,10 @@ a.footer-app-btn.footer-app-live:hover{ background:rgba(255,255,255,.16); transf
   display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   background: #f8f8f9; border: 1px solid #eee; border-radius: 12px; overflow: hidden;
 }
-.pdp-spec { display: flex; flex-direction: column; gap: .2rem; padding: .8rem 1rem; }
+.pdp-spec { display: flex; flex-direction: column; gap: .1rem; padding: .55rem .85rem; }
 .pdp-spec + .pdp-spec { border-left: 1px solid #eee; }
-.pdp-spec span { font-size: .72rem; color: var(--muted); }
-.pdp-spec b { font-size: .92rem; font-weight: 700; color: var(--text); text-transform: capitalize; }
+.pdp-spec span { font-size: .68rem; color: var(--muted); }
+.pdp-spec b { font-size: .86rem; font-weight: 700; color: var(--text); text-transform: capitalize; }
 .pdp-spec b.ok { color: #27ae60; }
 .pdp-spec b.no { color: #e74c3c; }
 
@@ -1679,7 +1679,16 @@ a.footer-app-btn.footer-app-live:hover{ background:rgba(255,255,255,.16); transf
 .pdp-label { font-weight: 700; font-size: .9rem; margin: 0; }
 
 
-.pdp-buy { display: flex; align-items: stretch; gap: .75rem; flex-wrap: wrap; }
+.pdp-cta-row { display: grid; grid-template-columns: 1fr 1fr; gap: .7rem; }
+.pdp-cta {
+  height: 48px;
+  width: 100%;
+  border-radius: 999px;
+  font-size: .86rem;
+  font-weight: 800;
+  letter-spacing: .05em;
+  padding: 0 .5rem;
+}
 .pdp-qty {
   display: flex; align-items: center; flex: 0 0 auto;
   border: 1.5px solid var(--border); border-radius: 999px; overflow: hidden; background: #fff;
@@ -1691,14 +1700,6 @@ a.footer-app-btn.footer-app-live:hover{ background:rgba(255,255,255,.16); transf
 .pdp-qty button:hover:not(:disabled) { background: var(--brand-light); color: var(--brand); }
 .pdp-qty button:disabled { opacity: .35; cursor: not-allowed; }
 .pdp-qty span { min-width: 34px; text-align: center; font-weight: 800; font-size: .95rem; }
-.pdp-atc {
-  flex: 1 1 200px;
-  height: 48px;
-  border-radius: 999px;
-  font-size: .92rem;
-  font-weight: 800;
-  letter-spacing: .06em;
-}
 
 .pdp-trust {
   display: grid; grid-template-columns: repeat(3, 1fr); gap: .5rem;
@@ -1710,7 +1711,6 @@ a.footer-app-btn.footer-app-live:hover{ background:rgba(255,255,255,.16); transf
 
 @media (max-width: 600px) {
   .pdp-title { font-size: 1.3rem; }
-  .pdp-atc { flex-basis: 100%; }
   .pdp-trust { gap: .35rem; }
   .pdp-trust span { font-size: .7rem; }
 }
@@ -1777,11 +1777,11 @@ a.footer-app-btn.footer-app-live:hover{ background:rgba(255,255,255,.16); transf
   .pdp-label { font-size: .88rem; }
 
   /* Bigger tap targets on the buy row */
-  .pdp-buy { gap: .6rem; }
-  .pdp-qty { height: 52px; }
-  .pdp-qty button { width: 46px; height: 52px; font-size: 1.3rem; }
+  .pdp-qty { height: 50px; }
+  .pdp-qty button { width: 46px; height: 50px; font-size: 1.3rem; }
   .pdp-qty span { min-width: 38px; font-size: 1rem; }
-  .pdp-atc { height: 52px; flex-basis: 100% !important; font-size: .95rem; }
+  .pdp-cta { height: 50px; font-size: .78rem; letter-spacing: .02em; }
+  .pdp-spec { padding: .5rem .75rem; }
 
   .pdp-trust { gap: .3rem; padding-top: .9rem; }
 
@@ -1801,17 +1801,6 @@ a.footer-app-btn.footer-app-live:hover{ background:rgba(255,255,255,.16); transf
   .pdp-title { font-size: 1.15rem; }
 }
 
-/* ─── Phone: product page already has its own sticky Add-to-Cart bar ─── */
-@media (max-width: 768px) {
-  /* One price, one call to action - the floating cart bar would repeat both. */
-  body.has-pdp-cart .floating-cart-bar { display: none !important; }
-
-  /* Lift the chat button clear of the sticky bar + bottom nav. */
-  body.has-pdp-cart .help-fab-wrap { bottom: calc(124px + env(safe-area-inset-bottom, 0px)); }
-
-  /* Room at the end of the page so the last content is never trapped behind the bars. */
-  body.has-pdp-cart { padding-bottom: calc(118px + env(safe-area-inset-bottom, 0px)); }
-}
 
 /* ─── Checkout: saved address picker ─── */
 .ck-addr-book { margin-bottom: 1.5rem; }
