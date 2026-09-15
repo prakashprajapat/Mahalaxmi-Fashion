@@ -1678,14 +1678,6 @@ a.footer-app-btn.footer-app-live:hover{ background:rgba(255,255,255,.16); transf
 .pdp-label-row { display: flex; align-items: center; justify-content: space-between; gap: .75rem; margin-bottom: .5rem; }
 .pdp-label { font-weight: 700; font-size: .9rem; margin: 0; }
 
-.pdp-delivery {
-  display: flex; align-items: center; gap: .75rem;
-  padding: .85rem 1rem; background: #f8f8f9; border: 1px solid #eee; border-radius: 12px;
-  color: var(--brand);
-}
-.pdp-delivery > span { display: flex; flex-direction: column; gap: .12rem; }
-.pdp-delivery b { font-size: .88rem; font-weight: 700; color: var(--text); }
-.pdp-delivery small { font-size: .75rem; color: var(--muted); }
 
 .pdp-buy { display: flex; align-items: stretch; gap: .75rem; flex-wrap: wrap; }
 .pdp-qty {
@@ -1736,6 +1728,17 @@ a.footer-app-btn.footer-app-live:hover{ background:rgba(255,255,255,.16); transf
   .pdp-col { gap: .85rem; }
   .pdp-title { font-size: 1.45rem; }
   .pdp-spec { padding: .6rem .9rem; }
-  .pdp-delivery { padding: .7rem .9rem; }
   .pdp-trust { padding-top: .8rem; }
 }
+
+/* ─── Product page: description under the photo ─── */
+.pdp-desc { margin-top: 1.25rem; }
+.pdp-desc h2 {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--text);
+  margin: 0 0 .5rem;
+  padding-bottom: .5rem;
+  border-bottom: 1px solid #eee;
+}
+.pdp-desc p { color: #555; font-size: .88rem; line-height: 1.7; margin: 0; }

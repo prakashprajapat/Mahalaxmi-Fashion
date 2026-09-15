@@ -14,7 +14,6 @@ import RelatedProducts from '@/components/product/RelatedProducts';
 import RecentlyViewed from '@/components/product/RecentlyViewed';
 import DeliveryEstimate from '@/components/product/DeliveryEstimate';
 import SizeGuideButton from '@/components/product/SizeGuideButton';
-import TrustBadges from '@/components/product/TrustBadges';
 import { addRecentlyViewed } from '@/lib/recentlyViewed';
 import { trackEvent } from '@/lib/analytics';
 import type { Product, Review } from '@/types';
@@ -407,6 +406,14 @@ export default function ProductPage({ params }: { params: { id: string } }) {
                 ))}
               </div>
             )}
+
+            {/* Description sits under the photo (like the reference layout) */}
+            {product.description && (
+              <div className="pdp-desc">
+                <h2>Product Details</h2>
+                <p>{product.description}</p>
+              </div>
+            )}
           </div>
 
           {/* Details */}
@@ -530,15 +537,6 @@ export default function ProductPage({ params }: { params: { id: string } }) {
               </div>
             )}
 
-            {/* All-India delivery assurance */}
-            <div className="pdp-delivery">
-              <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
-                <path fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" d="M12 21.5s7-5.6 7-11a7 7 0 1 0-14 0c0 5.4 7 11 7 11Z" />
-                <circle cx="12" cy="10.2" r="2.6" fill="none" stroke="currentColor" strokeWidth="1.7" />
-              </svg>
-              <span><b>All India Delivery Available</b><small>Delivery available across India</small></span>
-            </div>
-
             {/* Quantity + Add to Cart */}
             <div>
               <p className="pdp-label" style={{ marginBottom: '.5rem' }}>Quantity</p>
@@ -590,30 +588,6 @@ export default function ProductPage({ params }: { params: { id: string } }) {
               </div>
             </div>
             <DeliveryEstimate />
-            <TrustBadges />
-
-
-            {/* Description */}
-            {product.description && (
-              <div style={{ borderTop: '1px solid #eee', paddingTop: '1rem' }}>
-                <h3 style={{ fontWeight: 700, marginBottom: '.5rem' }}>Product Details</h3>
-                <p style={{ color: '#555', fontSize: '.9rem', lineHeight: 1.7 }}>{product.description}</p>
-              </div>
-            )}
-
-            {/* Trust badges */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '.5rem', paddingTop: '.5rem', borderTop: '1px solid #eee' }}>
-              {[
-                { icon: '🚚', text: 'Fast Shipping' },
-                { icon: '🔄', text: '7-Day Return' },
-                { icon: '🔒', text: 'Secure Pay' },
-              ].map(b => (
-                <div key={b.text} style={{ textAlign: 'center', fontSize: '.75rem', color: '#777' }}>
-                  <div style={{ fontSize: '1.3rem' }}>{b.icon}</div>
-                  {b.text}
-                </div>
-              ))}
-            </div>
           </div>
         </div>
 
