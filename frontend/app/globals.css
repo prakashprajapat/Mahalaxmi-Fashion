@@ -271,7 +271,7 @@ button { cursor: pointer; font-family: inherit; }
 .acct-chev { color: var(--muted); flex: 0 0 auto; transition: transform .2s; }
 .acct-pill.open .acct-chev { transform: rotate(180deg); }
 
-.acct-menu {
+.hdr-acct-menu {
   position: absolute;
   top: calc(100% + 10px);
   right: 0;
@@ -283,7 +283,7 @@ button { cursor: pointer; font-family: inherit; }
   border-radius: 14px;
   box-shadow: 0 12px 32px rgba(0, 0, 0, .14);
 }
-.acct-menu-head {
+.hdr-acct-menu-head {
   display: flex;
   flex-direction: column;
   gap: .12rem;
@@ -291,9 +291,9 @@ button { cursor: pointer; font-family: inherit; }
   border-bottom: 1px solid #f1f1f1;
   margin-bottom: .3rem;
 }
-.acct-menu-head strong { font-size: .86rem; font-weight: 800; color: var(--text); text-transform: uppercase; }
-.acct-menu-head span { font-size: .77rem; color: var(--muted); }
-.acct-menu-item {
+.hdr-acct-menu-head strong { font-size: .86rem; font-weight: 800; color: var(--text); text-transform: uppercase; }
+.hdr-acct-menu-head span { font-size: .77rem; color: var(--muted); }
+.hdr-acct-menu-item {
   display: flex;
   align-items: center;
   gap: .65rem;
@@ -307,12 +307,12 @@ button { cursor: pointer; font-family: inherit; }
   color: var(--text);
   transition: background .15s;
 }
-.acct-menu-item:hover { background: var(--brand-light); }
-.acct-menu-item svg { flex: 0 0 auto; color: var(--brand); }
-.acct-menu-item b { display: block; font-size: .85rem; font-weight: 700; line-height: 1.25; }
-.acct-menu-item small { display: block; font-size: .71rem; color: var(--muted); line-height: 1.3; }
-.acct-menu-sep { height: 1px; background: #f1f1f1; margin: .3rem .25rem; }
-.acct-menu-danger b { color: var(--brand); }
+.hdr-acct-menu-item:hover { background: var(--brand-light); }
+.hdr-acct-menu-item svg { flex: 0 0 auto; color: var(--brand); }
+.hdr-acct-menu-item b { display: block; font-size: .85rem; font-weight: 700; line-height: 1.25; }
+.hdr-acct-menu-item small { display: block; font-size: .71rem; color: var(--muted); line-height: 1.3; }
+.hdr-acct-menu-sep { height: 1px; background: #f1f1f1; margin: .3rem .25rem; }
+.hdr-acct-menu-danger b { color: var(--brand); }
 
 /* ─── Primary Button ─── */
 .btn-primary {

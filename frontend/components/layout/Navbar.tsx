@@ -435,13 +435,13 @@ export default function Navbar() {
                 </button>
 
                 {acctMenu && (
-                  <div className="acct-menu" role="menu">
-                    <div className="acct-menu-head">
+                  <div className="hdr-acct-menu" role="menu">
+                    <div className="hdr-acct-menu-head">
                       <strong>{customerFull || customerName || 'My Account'}</strong>
                       {customerPhone && <span>{customerPhone}</span>}
                     </div>
 
-                    <Link className="acct-menu-item" role="menuitem" href="/account" onClick={() => setAcctMenu(false)}>
+                    <Link className="hdr-acct-menu-item" role="menuitem" href="/account" onClick={() => setAcctMenu(false)}>
                       <svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true">
                         <rect x="3.2" y="3.2" width="7.4" height="7.4" rx="1.8" fill="none" stroke="currentColor" strokeWidth="1.7" />
                         <rect x="13.4" y="3.2" width="7.4" height="7.4" rx="1.8" fill="none" stroke="currentColor" strokeWidth="1.7" />
@@ -451,7 +451,7 @@ export default function Navbar() {
                       <span><b>Dashboard</b><small>Wallet, Refer &amp; Earn, Wishlist &amp; more</small></span>
                     </Link>
 
-                    <Link className="acct-menu-item" role="menuitem" href="/orders" onClick={() => setAcctMenu(false)}>
+                    <Link className="hdr-acct-menu-item" role="menuitem" href="/orders" onClick={() => setAcctMenu(false)}>
                       <svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true">
                         <path fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"
                           d="M20.5 7.5 12 3 3.5 7.5v9L12 21l8.5-4.5v-9ZM3.7 7.6 12 12l8.3-4.4M12 12v9" />
@@ -459,7 +459,7 @@ export default function Navbar() {
                       <span><b>My Orders</b><small>View and track your orders</small></span>
                     </Link>
 
-                    <Link className="acct-menu-item" role="menuitem" href="/account/address" onClick={() => setAcctMenu(false)}>
+                    <Link className="hdr-acct-menu-item" role="menuitem" href="/account/address" onClick={() => setAcctMenu(false)}>
                       <svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true">
                         <path fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"
                           d="M12 21.5s7-5.6 7-11a7 7 0 1 0-14 0c0 5.4 7 11 7 11Z" />
@@ -468,7 +468,7 @@ export default function Navbar() {
                       <span><b>My Address</b><small>Manage delivery addresses</small></span>
                     </Link>
 
-                    <Link className="acct-menu-item" role="menuitem" href="/account/edit" onClick={() => setAcctMenu(false)}>
+                    <Link className="hdr-acct-menu-item" role="menuitem" href="/account/edit" onClick={() => setAcctMenu(false)}>
                       <svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true">
                         <circle cx="12" cy="8.2" r="3.7" fill="none" stroke="currentColor" strokeWidth="1.7" />
                         <path fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"
@@ -477,9 +477,9 @@ export default function Navbar() {
                       <span><b>Edit Profile</b><small>Update your details</small></span>
                     </Link>
 
-                    <div className="acct-menu-sep" />
+                    <div className="hdr-acct-menu-sep" />
 
-                    <button type="button" className="acct-menu-item acct-menu-danger" role="menuitem"
+                    <button type="button" className="hdr-acct-menu-item hdr-acct-menu-danger" role="menuitem"
                       onClick={() => { logout(); resetLoginForm(); setAcctMenu(false); window.dispatchEvent(new Event('auth-changed')); router.push('/account'); }}>
                       <svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true">
                         <path fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"
