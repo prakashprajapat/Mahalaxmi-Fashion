@@ -38,6 +38,8 @@ import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+import androidx.webkit.WebViewCompat
+import androidx.webkit.WebViewFeature
 import java.io.File
 import java.io.FileOutputStream
 
@@ -66,6 +68,7 @@ class MainActivity : AppCompatActivity() {
     private var lastBackPress = 0L
     private var loadFailed = false
     private var askedForNotifications = false
+    private var documentStartScriptInstalled = false
 
     private val fileChooser =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -236,6 +239,8 @@ class MainActivity : AppCompatActivity() {
             setAcceptThirdPartyCookies(web, true)
         }
 
+        installPopupSuppressor()
+
         WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG)
         web.setBackgroundColor(ContextCompat.getColor(this, R.color.page_bg))
         web.isVerticalScrollBarEnabled = true
@@ -251,6 +256,9 @@ class MainActivity : AppCompatActivity() {
             }
 
             override fun onPageFinished(view: WebView, url: String) {
+                if (!documentStartScriptInstalled && isSiteHost(Uri.parse(url).host)) {
+                    view.evaluateJavascript(SUPPRESS_POPUPS_JS, null)
+                }
                 progress.visibility = View.GONE
                 refresh.isRefreshing = false
                 CookieManager.getInstance().flush()
@@ -341,6 +349,36 @@ class MainActivity : AppCompatActivity() {
 
         web.setDownloadListener { url, userAgent, contentDisposition, mimeType, _ ->
             startDownload(url, userAgent, contentDisposition, mimeType)
+        }
+    }
+
+    /**
+     * The website's own cookie banner, "Join Our Family" popup, push prompt and
+     * "Get the App" nudge belong to a browser, not to this app.
+     *
+     * The site hides them when it sees our User-Agent tag, but that only works once
+     * the site has been deployed. Setting the same flags the site stores when a
+     * visitor dismisses those banners keeps them away on ANY version of the site,
+     * old or new, so the app never depends on a website deploy.
+     *
+     * The script runs before the page's own JavaScript, so nothing flashes on screen.
+     */
+    private fun installPopupSuppressor() {
+        if (!WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) return
+        documentStartScriptInstalled = try {
+            WebViewCompat.addDocumentStartJavaScript(
+                web,
+                SUPPRESS_POPUPS_JS,
+                setOf(
+                    "https://mahalaxmifashionhub.com",
+                    "https://www.mahalaxmifashionhub.com",
+                    "https://*.mahalaxmifashionhub.com"
+                )
+            )
+            true
+        } catch (e: Exception) {
+            // Older WebView, or a rule it will not take - onPageFinished covers it.
+            false
         }
     }
 
@@ -577,6 +615,24 @@ class MainActivity : AppCompatActivity() {
 
         /** Appended to the WebView User-Agent; the website checks for this. */
         private const val UA_TAG = "MahalaxmiApp/1.0"
+
+        /**
+         * Marks the browser-only banners as already dismissed. "declined" for the
+         * cookie choice keeps Google Consent Mode denied, exactly what the site does
+         * when it skips the banner itself - it does not quietly turn tracking on.
+         */
+        private val SUPPRESS_POPUPS_JS = """
+            (function () {
+              try {
+                var now = String(Date.now());
+                var ls = window.localStorage;
+                if (!ls.getItem('mfh_cookie_consent')) ls.setItem('mfh_cookie_consent', 'declined');
+                ls.setItem('mfh_popup_shown', now);
+                ls.setItem('mfh_push_dismissed_at', now);
+                ls.setItem('mfh_app_dismissed', '1');
+              } catch (e) {}
+            })();
+        """.trimIndent()
 
         /** Links that genuinely belong in another app, not in our shell. */
         private val EXTERNAL_HOSTS = listOf(

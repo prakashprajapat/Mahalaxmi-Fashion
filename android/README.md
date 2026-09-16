@@ -41,15 +41,17 @@ Connect the phone with USB debugging on, press ▶ **Run**. That installs the de
 
 ## 4. Build the release
 
-The signing details are read from `keystore.properties` (git-ignored). It already points at:
+The signing details are read from `keystore.properties` (git-ignored), which points at
+`android/signing.keystore` - a copy of the SAME key the old Play build used, with alias
+`my-key-alias`.
 
-```
-F:/Download/Mahalaxmi - Google Play package/signing.keystore
-alias: my-key-alias
-```
+Both files are git-ignored, so the key and its passwords never leave this machine. Keep a
+backup of `signing.keystore` somewhere safe: lose it and you can never update the Play
+listing again.
 
-**If you ever move that folder, fix the `storeFile` line in `keystore.properties`.**
-A sample is in `keystore.properties.example`.
+Do NOT point `storeFile` at the original in `F:\Download\Mahalaxmi - Google Play package\`.
+Gradle fails on that path (spaces plus a second drive letter) with
+`Keystore file ... not found`. A sample is in `keystore.properties.example`.
 
 ```
 # Play Store upload file (.aab)
