@@ -17,6 +17,7 @@ import android.provider.MediaStore
 import android.util.Base64
 import android.view.View
 import android.webkit.CookieManager
+import android.webkit.JsResult
 import android.webkit.PermissionRequest
 import android.webkit.URLUtil
 import android.webkit.ValueCallback
@@ -32,6 +33,7 @@ import android.widget.ProgressBar
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
@@ -225,6 +227,9 @@ class MainActivity : AppCompatActivity() {
             builtInZoomControls = false
             displayZoomControls = false
             mediaPlaybackRequiresUserGesture = false
+            // Keeps the page rastered while it is off screen, so scrolling back up
+            // does not show blank strips.
+            offscreenPreRaster = true
             cacheMode = WebSettings.LOAD_DEFAULT
             mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
             // The website looks for this tag and hides the cookie banner, the
@@ -326,6 +331,53 @@ class MainActivity : AppCompatActivity() {
                     filePathCallback = null
                     false
                 }
+            }
+
+            /**
+             * A page's alert() would otherwise show as 'The page at
+             * "https://www.mahalaxmifashionhub.com" says:', which reads like a
+             * browser, not like our app. Same message, our name on it.
+             */
+            override fun onJsAlert(
+                view: WebView,
+                url: String,
+                message: String,
+                result: JsResult
+            ): Boolean {
+                if (isFinishing || isDestroyed) {
+                    result.cancel()
+                    return true
+                }
+                AlertDialog.Builder(this@MainActivity)
+                    .setTitle(R.string.app_name)
+                    .setMessage(message)
+                    .setPositiveButton(android.R.string.ok, null)
+                    .setOnDismissListener { result.confirm() }
+                    .create()
+                    .show()
+                return true
+            }
+
+            override fun onJsConfirm(
+                view: WebView,
+                url: String,
+                message: String,
+                result: JsResult
+            ): Boolean {
+                if (isFinishing || isDestroyed) {
+                    result.cancel()
+                    return true
+                }
+                var confirmed = false
+                AlertDialog.Builder(this@MainActivity)
+                    .setTitle(R.string.app_name)
+                    .setMessage(message)
+                    .setPositiveButton(android.R.string.ok) { _, _ -> confirmed = true }
+                    .setNegativeButton(android.R.string.cancel, null)
+                    .setOnDismissListener { if (confirmed) result.confirm() else result.cancel() }
+                    .create()
+                    .show()
+                return true
             }
 
             /** Camera access for review photos / profile picture. */

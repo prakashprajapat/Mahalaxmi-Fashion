@@ -155,6 +155,19 @@ export default function CheckoutPage() {
   };
 
   useEffect(() => {
+    // The signed-in shopper is loaded on EVERY visit to this page, including the
+    // return from Cashfree. It used to happen only on a normal visit, below the
+    // cf_order branch, so a customer coming back from the gateway was shown
+    // "Login to auto-fill shipping details" while already logged in.
+    const cust = getCustomer();
+    if (cust) applyCustomer(cust);
+    const onAuth = () => {
+      const next = getCustomer();
+      if (next) applyCustomer(next);
+    };
+    window.addEventListener('auth-changed', onAuth);
+    const cleanup = () => window.removeEventListener('auth-changed', onAuth);
+
     // Cashfree full-page redirect return: verify payment, show success, skip the empty-cart bounce.
     const cfOrder = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('cf_order') : null;
     if (cfOrder) {
@@ -184,26 +197,19 @@ export default function CheckoutPage() {
         else { alert('Your payment was not completed, so your order has NOT been placed. If any amount was deducted it will be refunded automatically, or your order will be confirmed shortly — please do not pay again. For help, contact us on WhatsApp (payment reference: ' + cfOrder + ').'); router.push('/cart'); }
       }).catch(() => alert('We could not confirm your payment right now, so your order is NOT placed yet — please do not pay again. If any amount was deducted, contact us on WhatsApp (payment reference: ' + cfOrder + ').'))
       .finally(() => { setLoading(false); try { window.history.replaceState({}, '', '/checkout'); } catch {} });
-      return;
+      return cleanup;
     }
     const c = getCart();
-    if (c.length === 0) { router.push('/cart'); return; }
+    if (c.length === 0) { router.push('/cart'); return cleanup; }
     setCart(c);
     // GA4: user has reached checkout with items in the cart.
     trackEvent('begin_checkout', { currency: 'INR', value: cartTotal(c), items: cartToItems(c) });
-    const cust = getCustomer();
-    if (cust) applyCustomer(cust);
-    const onAuth = () => {
-      const next = getCustomer();
-      if (next) applyCustomer(next);
-    };
-    window.addEventListener('auth-changed', onAuth);
     // Pre-fill PAN from localStorage
     try {
       const saved = JSON.parse(localStorage.getItem('mfh-pan') ?? '{}');
       if (saved.panNumber) setPanData({ panNumber: saved.panNumber, panName: saved.panName ?? '' });
     } catch {}
-    return () => window.removeEventListener('auth-changed', onAuth);
+    return cleanup;
   }, [router]);
 
   // Load loyalty settings + the signed-in customer's wallet balance.
