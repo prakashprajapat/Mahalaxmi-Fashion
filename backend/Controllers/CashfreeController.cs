@@ -69,7 +69,10 @@ public class CashfreeController : ControllerBase
             return BadRequest(new { success = false, message = "A valid 10-digit phone number is required for online payment." });
 
         var amountPaise = (int)Math.Round(req.Amount * 100m, MidpointRounding.AwayFromZero);
-        var localOrderId = $"MFH{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}";
+        // MFH + unix-ms + 4 random digits. The random tail matters: two orders placed in
+        // the same millisecond would otherwise get the SAME order number. The storefront's
+        // own COD path builds ids the same way, so every order number looks alike.
+        var localOrderId = $"MFH{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}{Random.Shared.Next(1000, 10000)}";
 
         var body = JsonSerializer.Serialize(new
         {

@@ -37,7 +37,10 @@ public class PaymentsController : ControllerBase
             return StatusCode(500, new { success = false, setupRequired = true, message = "Razorpay not configured." });
 
         var amountPaise = (int)(req.Amount * 100);
-        var localOrderId = $"MFH{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}";
+        // MFH + unix-ms + 4 random digits. The random tail matters: two orders placed in
+        // the same millisecond would otherwise get the SAME order number. The storefront's
+        // own COD path builds ids the same way, so every order number looks alike.
+        var localOrderId = $"MFH{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}{Random.Shared.Next(1000, 10000)}";
 
         // BUG-7: Use per-request HttpRequestMessage to avoid DefaultRequestHeaders race condition
         var credentials = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{keyId}:{keySecret}"));
