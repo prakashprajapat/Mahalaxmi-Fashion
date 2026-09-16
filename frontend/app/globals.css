@@ -1957,3 +1957,111 @@ a.footer-app-btn.footer-app-live:hover{ background:rgba(255,255,255,.16); transf
 @media (max-width: 1024px) {
   body.has-cart-bar .help-fab-wrap { bottom: calc(126px + env(safe-area-inset-bottom, 0px)); }
 }
+
+/* ─── Admin on a phone: Flipkart-style bottom tab bar ─── */
+.admin-tabbar { display: none; }
+
+@media (max-width: 900px) {
+  .admin-tabbar {
+    display: flex;
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    z-index: 210;
+    background: #fff;
+    border-top: 1px solid #ececec;
+    box-shadow: 0 -2px 14px rgba(0, 0, 0, .09);
+    padding: 5px 2px calc(5px + env(safe-area-inset-bottom, 0px));
+  }
+  .admin-tab {
+    flex: 1 1 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    padding: 4px 0;
+    background: none;
+    border: none;
+    font-family: inherit;
+    font-size: .66rem;
+    font-weight: 700;
+    color: #8a8a8a;
+    text-decoration: none;
+    min-height: 48px;
+  }
+  .admin-tab.active { color: var(--brand); }
+  .admin-tab:active { opacity: .6; }
+
+  /* Room so the tab bar never covers the last row of a table or a Save button. */
+  .admin-content { padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px)) !important; }
+
+  /* "More" drawer: slides from the left, stops above the tab bar. */
+  .admin-drawer {
+    width: min(290px, 84vw);
+    height: 100%;
+    overflow-y: auto;
+    padding: 1.25rem 0 calc(80px + env(safe-area-inset-bottom, 0px));
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* ─── Admin tables become cards on a phone ───
+   Each row is one card and each cell prints its column name, so nothing has to
+   be scrolled sideways to be read. Buttons and menus inside the cells keep
+   working exactly as they do on desktop. */
+@media (max-width: 900px) {
+  .adm-table,
+  .adm-table tbody,
+  .adm-table tr,
+  .adm-table td { display: block; width: 100%; }
+
+  .adm-table thead { display: none; }
+
+  .adm-table tr {
+    border: 1px solid #ececec !important;
+    border-radius: 12px;
+    margin: 0 0 .7rem;
+    padding: .2rem .15rem;
+    background: #fff;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, .05);
+  }
+
+  .adm-table td {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: .9rem;
+    padding: .5rem .8rem !important;
+    border-bottom: 1px solid #f6f6f6;
+    text-align: right;
+    white-space: normal !important;
+  }
+  .adm-table td:last-child { border-bottom: none; }
+
+  .adm-table td::before {
+    content: attr(data-label);
+    flex: 0 0 38%;
+    text-align: left;
+    font-size: .68rem;
+    font-weight: 700;
+    color: #999;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+    padding-top: .1rem;
+  }
+  /* Cells with no column name (the select checkbox) keep the full width. */
+  .adm-table td[data-label='']::before { content: none; }
+  .adm-table td[data-label=''] { justify-content: flex-start; border-bottom: none; padding-bottom: 0 !important; }
+
+  /* The action cell reads better as a row of buttons under its label. */
+  .adm-table td[data-label='Action'] { flex-wrap: wrap; justify-content: flex-start; text-align: left; }
+  .adm-table td[data-label='Action'] > * { margin-right: .9rem; }
+
+  /* Item photos and colour swatches line up on the right like everything else. */
+  .adm-table td[data-label='Item(s)'] > div,
+  .adm-table td[data-label='Colour/Design'] > div,
+  .adm-table td[data-label='Size'] > div { align-items: flex-end; }
+
+  /* The wrapper no longer needs a sideways scrollbar. */
+  .adm-table-wrap { overflow-x: visible !important; }
+}

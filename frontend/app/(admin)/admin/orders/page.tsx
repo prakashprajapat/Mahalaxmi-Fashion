@@ -482,8 +482,8 @@ export default function AdminOrdersPage() {
 
       {/* Table */}
       <div style={{ background: '#fff', borderRadius: '12px', boxShadow: '0 1px 4px rgba(0,0,0,.07)', overflow: 'hidden' }}>
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '.85rem' }}>
+        <div className="adm-table-wrap" style={{ overflowX: 'auto' }}>
+          <table className="adm-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '.85rem' }}>
             <thead style={{ background: '#f9f9f9' }}>
               <tr>
                 <th style={{ padding: '.75rem 1rem', width: '36px' }}>
@@ -504,17 +504,17 @@ export default function AdminOrdersPage() {
               ) : filtered.map((o, i) => {
                 return (
                   <tr key={o.id} style={{ borderTop: i > 0 ? '1px solid #f5f5f5' : undefined, background: selectedIds.has(o.id) ? '#fdf0f3' : undefined }}>
-                    <td style={{ padding: '.65rem 1rem' }}>
+                    <td data-label="" style={{ padding: '.65rem 1rem' }}>
                       <input type="checkbox" checked={selectedIds.has(o.id)} onChange={() => toggleSelect(o.id)} />
                     </td>
-                    <td style={{ padding: '.65rem 1rem', fontWeight: 700, fontSize: '.82rem', color: '#a7354d', whiteSpace: 'nowrap' }}>{i + 1}</td>
-                    <td style={{ padding: '.65rem 1rem', fontFamily: 'monospace', fontSize: '.75rem', color: '#555', whiteSpace: 'nowrap' }}>{o.id}</td>
-                    <td style={{ padding: '.65rem 1rem', fontSize: '.75rem', color: '#888', whiteSpace: 'nowrap' }}>
+                    <td data-label="S.No" style={{ padding: '.65rem 1rem', fontWeight: 700, fontSize: '.82rem', color: '#a7354d', whiteSpace: 'nowrap' }}>{i + 1}</td>
+                    <td data-label="Order ID" style={{ padding: '.65rem 1rem', fontFamily: 'monospace', fontSize: '.75rem', color: '#555', whiteSpace: 'nowrap' }}>{o.id}</td>
+                    <td data-label="Date" style={{ padding: '.65rem 1rem', fontSize: '.75rem', color: '#888', whiteSpace: 'nowrap' }}>
                       {new Date(o.placedAt ?? o.createdAt).toLocaleDateString('en-IN')}
                     </td>
-                    <td style={{ padding: '.65rem 1rem', fontWeight: 500 }}>{o.customerName || '—'}</td>
-                    <td style={{ padding: '.65rem 1rem', fontFamily: 'monospace', fontWeight: 700, fontSize: '.82rem', color: o.shippingPincode ? '#1a1a1a' : '#ccc', whiteSpace: 'nowrap' }}>{o.shippingPincode || '—'}</td>
-                    <td style={{ padding: '.5rem 1rem', minWidth: '270px' }}>
+                    <td data-label="Customer" style={{ padding: '.65rem 1rem', fontWeight: 500 }}>{o.customerName || '—'}</td>
+                    <td data-label="Pincode" style={{ padding: '.65rem 1rem', fontFamily: 'monospace', fontWeight: 700, fontSize: '.82rem', color: o.shippingPincode ? '#1a1a1a' : '#ccc', whiteSpace: 'nowrap' }}>{o.shippingPincode || '—'}</td>
+                    <td data-label="Item(s)" style={{ padding: '.5rem 1rem', minWidth: '270px' }}>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '.45rem' }}>
                         {(o.cart ?? []).map((c, ci) => {
                           const thumb = productImageSrc(c.colorPhoto || c.image);
@@ -546,7 +546,7 @@ export default function AdminOrdersPage() {
                         })}
                       </div>
                     </td>
-                    <td style={{ padding: '.5rem 1rem', fontSize: '.75rem', color: '#444' }}>
+                    <td data-label="Size" style={{ padding: '.5rem 1rem', fontSize: '.75rem', color: '#444' }}>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '.45rem' }}>
                         {(o.cart ?? []).map((c, ci) => {
                           const sizeOnly = c.color ? (c.size || '').split(' / ').filter(p => p && p !== c.color).join(' / ') : (c.size || '');
@@ -554,7 +554,7 @@ export default function AdminOrdersPage() {
                         })}
                       </div>
                     </td>
-                    <td style={{ padding: '.5rem 1rem', fontSize: '.75rem', color: '#444' }}>
+                    <td data-label="Colour/Design" style={{ padding: '.5rem 1rem', fontSize: '.75rem', color: '#444' }}>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '.45rem' }}>
                         {(o.cart ?? []).map((c, ci) => (
                           <div key={ci} style={{ minHeight: 40, display: 'flex', alignItems: 'center', gap: '.3rem', flexWrap: 'wrap' }}>
@@ -564,9 +564,9 @@ export default function AdminOrdersPage() {
                         ))}
                       </div>
                     </td>
-                    <td style={{ padding: '.65rem 1rem', fontWeight: 600, whiteSpace: 'nowrap' }}>₹{o.total.toLocaleString('en-IN')}</td>
-                    <td style={{ padding: '.65rem 1rem', textTransform: 'capitalize', fontSize: '.78rem' }}>{o.method}</td>
-                    <td style={{ padding: '.65rem 1rem', fontSize: '.75rem', fontFamily: 'monospace', color: o.awb ? '#333' : '#ccc' }}>
+                    <td data-label="Amount" style={{ padding: '.65rem 1rem', fontWeight: 600, whiteSpace: 'nowrap' }}>₹{o.total.toLocaleString('en-IN')}</td>
+                    <td data-label="Method" style={{ padding: '.65rem 1rem', textTransform: 'capitalize', fontSize: '.78rem' }}>{o.method}</td>
+                    <td data-label="AWB" style={{ padding: '.65rem 1rem', fontSize: '.75rem', fontFamily: 'monospace', color: o.awb ? '#333' : '#ccc' }}>
                       {o.awb ? (
                         <button onClick={() => openLiveTrack(o.awb!)} title="Live Delhivery tracking"
                           style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'monospace', fontSize: '.75rem', color: '#1565c0', textDecoration: 'underline' }}>
@@ -574,7 +574,7 @@ export default function AdminOrdersPage() {
                         </button>
                       ) : '—'}
                     </td>
-                    <td style={{ padding: '.65rem 1rem', whiteSpace: 'nowrap' }}>
+                    <td data-label="Action" style={{ padding: '.65rem 1rem', whiteSpace: 'nowrap' }}>
                       <button onClick={() => downloadShippingLabel(o)}
                         style={{ color: '#1565c0', background: 'none', border: 'none', cursor: 'pointer', fontSize: '.82rem', fontWeight: 600 }}>
                         ⬇ Label

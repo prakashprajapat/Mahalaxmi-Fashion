@@ -32,6 +32,15 @@ const ALL_NAV: { href?: string; label?: string; exact?: boolean; heading?: strin
   { href: '/admin/settings',    label: '⚙️ Settings' },
 ];
 
+// The four sections the phone tab bar shows. Everything else lives behind "More",
+// which opens the same drawer the hamburger used to.
+const MOBILE_TABS: { href: string; label: string; icon: string; exact?: boolean }[] = [
+  { href: '/admin',          label: 'Dashboard', icon: 'M3 10.5 12 3l9 7.5V21h-6v-6H9v6H3z', exact: true },
+  { href: '/admin/orders',   label: 'Orders',    icon: 'M20.5 7.5 12 3 3.5 7.5v9L12 21l8.5-4.5v-9ZM3.7 7.6 12 12l8.3-4.4M12 12v9' },
+  { href: '/admin/products', label: 'Products',  icon: 'M4 4h7v7H4V4Zm9 0h7v7h-7V4ZM4 13h7v7H4v-7Zm9 0h7v7h-7v-7Z' },
+  { href: '/admin/stock',    label: 'Stock',     icon: 'M3 7.5 12 3l9 4.5v9L12 21l-9-4.5v-9Zm9 4.5v9m0-9L3 7.5M12 12l9-4.5' },
+];
+
 // The admin-section key for a nav href: '/admin/products/add' -> 'products', '/admin' -> '' (dashboard, always allowed)
 function sectionKey(href?: string): string {
   if (!href || href === '/admin') return '';
@@ -155,13 +164,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
       {/* Top bar */}
       <div className="admin-topbar">
-        <button
-          onClick={() => setMobileNavOpen(v => !v)}
-          style={{ display: 'none', background: 'none', border: 'none', fontSize: '1.3rem', cursor: 'pointer', color: '#333', marginRight: '.5rem' }}
-          className="admin-mobile-menu-btn"
-          aria-label="Toggle menu">
-          ☰
-        </button>
         <h1>{currentLabel}</h1>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', fontSize: '.85rem', color: '#666' }}>
           {adminName && <span style={{ fontWeight: 600, color: '#333' }}>👋 {adminName}</span>}
@@ -177,7 +179,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       {mobileNavOpen && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,.5)' }}
           onClick={() => setMobileNavOpen(false)}>
-          <div style={{ width: '240px', height: '100%', background: '#1a1a2e', padding: '1.5rem 0' }}
+          <div className="admin-drawer" style={{ background: '#1a1a2e' }}
             onClick={e => e.stopPropagation()}>
             <div style={{ padding: '0 1rem 1rem', borderBottom: '1px solid rgba(255,255,255,.1)', marginBottom: '1rem' }}>
               <strong style={{ color: '#fff', fontSize: '.95rem' }}>{storeName}</strong>
@@ -204,6 +206,28 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </div>
         </div>
       )}
+
+      {/* Phone tab bar — the four everyday sections, plus More for the rest. */}
+      <nav className="admin-tabbar" aria-label="Admin sections">
+        {MOBILE_TABS
+          .filter(t => role !== 'staff' || sectionKey(t.href) === '' || perms.includes(sectionKey(t.href)))
+          .map(t => (
+            <Link key={t.href} href={t.href}
+              className={`admin-tab${isActive(t) ? ' active' : ''}`}>
+              <svg viewBox="0 0 24 24" width="21" height="21" aria-hidden="true">
+                <path d={t.icon} fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              <span>{t.label}</span>
+            </Link>
+          ))}
+        <button type="button" className={`admin-tab${mobileNavOpen ? ' active' : ''}`}
+          onClick={() => setMobileNavOpen(v => !v)} aria-label="More sections">
+          <svg viewBox="0 0 24 24" width="21" height="21" aria-hidden="true">
+            <path d="M4 7h16M4 12h16M4 17h16" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+          </svg>
+          <span>More</span>
+        </button>
+      </nav>
 
       {/* Content */}
       <div className="admin-content">
