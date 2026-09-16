@@ -42,6 +42,8 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
+import org.json.JSONArray
+import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
 
@@ -72,6 +74,10 @@ class MainActivity : AppCompatActivity() {
     private var askedForNotifications = false
     private var documentStartScriptInstalled = false
 
+    /** Host of the page currently loaded, read by the Cashfree bridge off the UI thread. */
+    @Volatile
+    private var currentHost: String = ""
+
     private val fileChooser =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
             val cb = filePathCallback
@@ -98,6 +104,17 @@ class MainActivity : AppCompatActivity() {
 
     private val notificationPermission =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { /* best effort */ }
+
+    /**
+     * The customer has come back from their UPI app. Cashfree's checkout page waits
+     * for this call to show its "verifying payment" screen and start polling.
+     */
+    private val upiAppLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+            if (::web.isInitialized) {
+                web.evaluateJavascript("window.showVerifyUI && window.showVerifyUI()", null)
+            }
+        }
 
     // ---------------------------------------------------------------- lifecycle
 
@@ -226,6 +243,8 @@ class MainActivity : AppCompatActivity() {
             useWideViewPort = true
             builtInZoomControls = false
             displayZoomControls = false
+            allowFileAccess = false
+            allowContentAccess = false
             mediaPlaybackRequiresUserGesture = false
             // Keeps the page rastered while it is off screen, so scrolling back up
             // does not show blank strips.
@@ -250,12 +269,16 @@ class MainActivity : AppCompatActivity() {
         web.setBackgroundColor(ContextCompat.getColor(this, R.color.page_bg))
         web.isVerticalScrollBarEnabled = true
         web.addJavascriptInterface(Saver(), "MahalaxmiSaver")
+        // Cashfree's own name for this bridge - their checkout page looks for
+        // window.Android.getAppList / window.Android.openApp.
+        web.addJavascriptInterface(CashfreeBridge(), "Android")
 
         web.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean =
                 handleUrl(request.url.toString())
 
             override fun onPageStarted(view: WebView, url: String, favicon: android.graphics.Bitmap?) {
+                currentHost = (try { Uri.parse(url).host } catch (e: Exception) { null } ?: "").lowercase()
                 loadFailed = false
                 progress.visibility = View.VISIBLE
             }
@@ -432,6 +455,73 @@ class MainActivity : AppCompatActivity() {
             // Older WebView, or a rule it will not take - onPageFinished covers it.
             false
         }
+    }
+
+    /**
+     * Cashfree's code-based UPI solution.
+     *
+     * Their hosted checkout, when it runs inside a WebView, cannot see which UPI apps
+     * are installed and cannot launch one, so it hides the Google Pay / PhonePe / Paytm
+     * tiles and offers only UPI ID / QR. With this bridge in place the page asks us for
+     * the list and asks us to open the chosen app, so the tiles come back - without
+     * waiting on any flag being enabled on their side.
+     *
+     * Contract (theirs, not ours - the names must match exactly):
+     *   window.Android.getAppList(uri)            -> [{"appName":…, "appPackage":…}]
+     *   window.Android.openApp(packageName, uri)  -> true, then window.showVerifyUI()
+     *                                                once the customer comes back
+     */
+    inner class CashfreeBridge {
+
+        @android.webkit.JavascriptInterface
+        fun getAppList(name: String?): String {
+            if (!bridgeAllowed()) return "[]"
+            val uri = try { Uri.parse(name ?: "upi://pay") } catch (e: Exception) { return "[]" }
+            val out = JSONArray()
+            try {
+                val intent = Intent(Intent.ACTION_VIEW, uri)
+                val seen = HashSet<String>()
+                for (info in packageManager.queryIntentActivities(intent, 0)) {
+                    val pkg = info.activityInfo?.packageName ?: continue
+                    if (!seen.add(pkg)) continue
+                    out.put(
+                        JSONObject()
+                            .put("appName", info.loadLabel(packageManager)?.toString() ?: pkg)
+                            .put("appPackage", pkg)
+                    )
+                }
+            } catch (e: Exception) {
+                return "[]"
+            }
+            return out.toString()
+        }
+
+        @android.webkit.JavascriptInterface
+        fun openApp(upiClientPackage: String?, upiURL: String?): Boolean {
+            if (!bridgeAllowed()) return false
+            val uri = try { Uri.parse(upiURL ?: return false) } catch (e: Exception) { return false }
+            runOnUiThread {
+                val intent = Intent(Intent.ACTION_VIEW, uri)
+                if (!upiClientPackage.isNullOrBlank()) intent.setPackage(upiClientPackage)
+                try {
+                    upiAppLauncher.launch(intent)
+                } catch (e: ActivityNotFoundException) {
+                    toast(getString(R.string.no_upi_app))
+                    web.evaluateJavascript("window.showVerifyUI && window.showVerifyUI()", null)
+                }
+            }
+            return true
+        }
+    }
+
+    /**
+     * A JavaScript bridge is open to every page the WebView loads, so only our own
+     * storefront and Cashfree's checkout may use it - never some page a payment
+     * redirect happened to land on.
+     */
+    private fun bridgeAllowed(): Boolean {
+        val host = currentHost
+        return isSiteHost(host) || host == "cashfree.com" || host.endsWith(".cashfree.com")
     }
 
     // ---------------------------------------------------------------- routing

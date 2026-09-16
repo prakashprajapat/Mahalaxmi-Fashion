@@ -98,6 +98,14 @@ This is the part Cashfree asked for. `MainActivity.handleUrl()` routes every URL
 | `wa.me`, `play.google.com`, Instagram, Facebook, YouTube | opens the real app outside |
 | `tel:`, `mailto:`, `sms:`, `geo:`, `market:` | handed to the system |
 
+On top of that, `MainActivity.CashfreeBridge` implements Cashfree's **code-based**
+UPI solution: their checkout page calls `window.Android.getAppList(uri)` to learn which
+UPI apps are installed and `window.Android.openApp(packageName, uri)` to launch one, and
+the app calls `window.showVerifyUI()` when the customer comes back. Without it the page
+cannot see installed apps from inside a WebView, so it hides the Google Pay / PhonePe /
+Paytm tiles and offers only UPI ID / QR. The bridge answers only our own storefront and
+`*.cashfree.com`.
+
 Two supporting pieces make it actually work:
 
 * **`<queries>` in `AndroidManifest.xml`** — since Android 11, `startActivity()` for a
@@ -145,24 +153,27 @@ Used by `CookieConsent`, `WelcomePopup` ("Join Our Family"), `PushOptIn` and
 
 ## Reply for the Cashfree tech team
 
-> We have replaced our Trusted Web Activity with a native Android application that
-> hosts the checkout in an application-owned `WebView` (package
-> `com.mahalaxmifashionhub.www.twa`).
+We picked the **code-based solution**, so no feature flag is needed. Send them this:
+
+> We would like to proceed with the **code-based solution**. The UPI app redirection
+> and URL handling are implemented in our Android WebView
+> (package `com.mahalaxmifashionhub.www.twa`):
 >
-> UPI app redirection and URL handling are implemented:
+> 1. The JS bridge is registered as `Android`, exposing `getAppList(uri)` - which
+>    returns the installed handlers as `[{"appName":…,"appPackage":…}]` - and
+>    `openApp(packageName, uri)`, which launches the chosen app and calls
+>    `window.showVerifyUI()` when the customer returns.
+> 2. `WebViewClient.shouldOverrideUrlLoading` also dispatches every non-HTTP scheme
+>    (`upi://`, `tez://`, `phonepe://`, `paytmmp://`, `credpay://`, bank schemes) with
+>    `Intent.ACTION_VIEW`, and parses `intent://…#Intent;…;end` with
+>    `Intent.parseUri(url, Intent.URI_INTENT_SCHEME)`, falling back to
+>    `browser_fallback_url` or the Play Store listing when the app is absent.
+> 3. A `<queries>` element declares your full published scheme list, so intent
+>    resolution works under Android 11+ package visibility.
+> 4. `window.open` / `target="_blank"` is handled via `WebChromeClient.onCreateWindow`,
+>    and third-party cookies are enabled with `CookieManager.setAcceptThirdPartyCookies`,
+>    so the hosted checkout and bank 3-D Secure pages complete inside the app.
 >
-> 1. `WebViewClient.shouldOverrideUrlLoading` inspects every URL. Non-HTTP schemes
->    (`upi://`, `phonepe://`, `tez://`, `paytmmp://`, `credpay://`, bank schemes) are
->    dispatched with `Intent.ACTION_VIEW`; a generic `upi://pay` link is launched
->    through `Intent.createChooser` so the customer selects their UPI app.
-> 2. `intent://…#Intent;…;end` URLs are parsed with
->    `Intent.parseUri(url, Intent.URI_INTENT_SCHEME)`, with `browser_fallback_url`
->    and a Play Store fallback when the target app is not installed.
-> 3. A `<queries>` element declares the `upi` scheme and the major UPI/wallet
->    packages, so intent resolution works on Android 11+ package visibility.
-> 4. `window.open` / `target="_blank"` is handled via
->    `WebChromeClient.onCreateWindow`, and third-party cookies are enabled with
->    `CookieManager.setAcceptThirdPartyCookies`, so the hosted checkout and bank
->    3-D Secure pages complete inside the app.
->
-> Please enable the feature flag for our merchant account.
+> Please let us know if anything else is expected from our side.
+
+Reference: [UPI Intent JS SDK](https://www.cashfree.com/docs/payments/online/mobile/misc/upi_intent_support_js_sdk)
