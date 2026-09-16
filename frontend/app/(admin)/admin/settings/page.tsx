@@ -41,6 +41,14 @@ const SECTIONS = [
     ]
   },
   {
+    title: 'Cash on Delivery',
+    desc: 'Take part of a COD order online before it is accepted. An abandoned payment leaves no order behind, which is what stops fake orders. The courier is automatically told to collect only the remaining amount, so a customer is never charged twice. Set the advance to 0 to switch it off.',
+    fields: [
+      { key: 'codAdvanceAmount', label: 'Advance paid online for COD (\u20b9) — 0 = off', type: 'text' },
+      { key: 'codFeeAmount', label: 'COD handling fee added to the order (\u20b9)', type: 'text' },
+    ]
+  },
+  {
     title: 'Loyalty Wallet & Points',
     desc: 'Customers earn wallet credit on every delivered order and can use it on future orders. Points are added automatically when an order is marked "Delivered". Change the rates here anytime.',
     fields: [
