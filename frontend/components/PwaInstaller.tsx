@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
+import { isInApp } from '@/lib/inApp';
 
 // Their real app is an Android (Play Store) app. So:
 //  • Android phones  → nudge to install the Play Store app.
@@ -15,8 +16,7 @@ export default function PwaInstaller() {
 
     const ua = navigator.userAgent || '';
     const isAndroid = /android/i.test(ua);
-    const standalone = window.matchMedia('(display-mode: standalone)').matches
-      || (navigator as any).standalone === true;
+    const standalone = isInApp();
     let dismissed = false;
     try { dismissed = localStorage.getItem('mfh_app_dismissed') === '1'; } catch {}
 

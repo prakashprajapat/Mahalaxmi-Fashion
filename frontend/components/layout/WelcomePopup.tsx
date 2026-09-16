@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { trackEvent } from '@/lib/analytics';
+import { isInApp } from '@/lib/inApp';
 
 const POPUP_KEY = 'mfh_popup_shown';
 const POPUP_TTL = 7 * 24 * 60 * 60 * 1000; // 7 days
@@ -12,12 +13,8 @@ export default function WelcomePopup() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    // Don't show the "Join Our Family" popup inside the installed mobile app.
-    // A TWA/PWA app always runs in standalone display-mode, so we skip the popup there.
-    const inApp = window.matchMedia('(display-mode: standalone)').matches
-      || (navigator as any).standalone === true
-      || document.referrer.startsWith('android-app://');
-    if (inApp) return;
+    // Never inside our own app (native Android shell, installed PWA or TWA).
+    if (isInApp()) return;
 
     const stored = localStorage.getItem(POPUP_KEY);
     if (stored && Date.now() - Number(stored) < POPUP_TTL) return;

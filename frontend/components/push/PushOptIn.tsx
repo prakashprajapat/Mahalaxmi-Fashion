@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
+import { isNativeApp } from '@/lib/inApp';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? '/api';
 const DISMISS_KEY = 'mfh_push_dismissed_at';
@@ -79,6 +80,9 @@ export default function PushOptIn() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    // Inside the native Android app notifications are handled by the app itself,
+    // so the browser prompt must never appear.
+    if (isNativeApp()) return;
     if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) return;
 
     // Already allowed on this browser — keep the subscription fresh, no UI.

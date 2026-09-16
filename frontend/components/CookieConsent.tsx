@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { isInApp } from '@/lib/inApp';
 
 // Cookie-consent banner (privacy compliance).
 //   • Tracking (Google Analytics / Ads / Meta Pixel) starts DENIED by default via
@@ -14,11 +15,8 @@ export default function CookieConsent() {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    // Don't show inside the installed app — it runs in standalone display-mode.
-    const inApp = window.matchMedia('(display-mode: standalone)').matches
-      || (navigator as any).standalone === true
-      || document.referrer.startsWith('android-app://');
-    if (inApp) return;
+    // Never inside our own app (native Android shell, installed PWA or TWA).
+    if (isInApp()) return;
 
     let choice: string | null = null;
     try { choice = localStorage.getItem(STORAGE_KEY); } catch {}
