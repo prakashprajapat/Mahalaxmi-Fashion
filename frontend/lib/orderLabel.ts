@@ -55,7 +55,14 @@ export const buildLabelBody = (order: Order): string => {
     const totalTax = invoiceTotal - taxable;
     const cgst = totalTax / 2;
     const totalQty = order.cart.reduce((s, i) => s + i.quantity, 0);
-    const payment = (order.method || '').toLowerCase() === 'cod' ? 'COD' : 'Prepaid';
+    const isCod = (order.method || '').toLowerCase() === 'cod';
+    // Money already settled before delivery: paid online as a COD advance, or from
+    // the wallet. The delivery agent must collect only what is left.
+    const advancePaid = Number(order.advancePaid) || 0;
+    const walletUsed = Number(order.walletUsed) || 0;
+    const prepaidPart = advancePaid + walletUsed;
+    const codCollect = Math.max(0, invoiceTotal - prepaidPart);
+    const payment = isCod ? (prepaidPart > 0 ? 'COD (PART PAID)' : 'COD') : 'Prepaid';
     const placed = new Date(order.placedAt ?? order.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
     const shipTo = [order.shippingAddress, order.shippingCity, order.shippingState, order.shippingPincode].filter(Boolean).map(esc).join(', ');
     const productRows = order.cart.map((it, i) => `
@@ -89,7 +96,7 @@ export const buildLabelBody = (order: Order): string => {
       </div>
       <div class="cols">
         <div class="box"><div class="lbl">ORDER ID</div><div class="big">${esc(order.id)}</div></div>
-        <div class="box"><div class="lbl">PAYMENT</div><div class="big">${esc(payment)}</div></div>
+        <div class="box"><div class="lbl">PAYMENT</div><div class="big">${esc(payment)}</div>${isCod ? `<div style="font-weight:800;font-size:11px;margin-top:2px">COLLECT ${money(codCollect)}</div>${prepaidPart > 0 ? `<div class="txt" style="font-size:8px">${money(prepaidPart)} already paid online \u2014 do NOT collect</div>` : ''}` : ''}</div>
       </div>
       <div class="box">
         <div><span class="lbl">CUSTOMER ADDRESS:</span> <span class="to">${esc(order.shippingName || order.customerName || '')}</span></div>
@@ -115,6 +122,10 @@ export const buildLabelBody = (order: Order): string => {
           <div class="taxrow"><span>CGST</span><span>${money(cgst)}</span></div>
           <div class="taxrow"><span>SGST</span><span>${money(cgst)}</span></div>
           <div class="taxrow total"><span>Invoice Total</span><span>${money(invoiceTotal)}</span></div>
+          ${isCod && prepaidPart > 0 ? `
+          ${advancePaid > 0 ? `<div class="taxrow"><span>Advance paid online</span><span>- ${money(advancePaid)}</span></div>` : ''}
+          ${walletUsed > 0 ? `<div class="taxrow"><span>Paid from wallet</span><span>- ${money(walletUsed)}</span></div>` : ''}
+          <div class="taxrow total" style="color:#a7354d"><span>COLLECT ON DELIVERY</span><span>${money(codCollect)}</span></div>` : ''}
         </div>
       </div>
       <div class="cols">

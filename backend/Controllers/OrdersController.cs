@@ -937,6 +937,19 @@ public class OrdersController : ControllerBase
                 + "</td><td class='v'>-&#8377;" + o.DiscountAmount.ToString("0.00") + "</td></tr>");
         if (o.CodFee > 0)
             extraRows.Append("<tr><td class='k'>COD Charges</td><td class='v gold'>&#8377;" + o.CodFee.ToString("0.00") + "</td></tr>");
+        // A COD order may already be part paid (advance online / wallet). Spell out what
+        // is still to be collected so the customer is never asked for the full amount.
+        var settledBefore = o.AdvancePaid + o.WalletUsed;
+        if (settledBefore > 0m)
+        {
+            if (o.AdvancePaid > 0m)
+                extraRows.Append("<tr><td class='k'>Advance Paid Online</td><td class='v'>-&#8377;" + o.AdvancePaid.ToString("0.00") + "</td></tr>");
+            if (o.WalletUsed > 0m)
+                extraRows.Append("<tr><td class='k'>Paid from Wallet</td><td class='v'>-&#8377;" + o.WalletUsed.ToString("0.00") + "</td></tr>");
+            if (string.Equals(o.Method, "cod", StringComparison.OrdinalIgnoreCase))
+                extraRows.Append("<tr><td class='k'>To Collect on Delivery</td><td class='v gold'>&#8377;"
+                    + Math.Max(0m, o.Total - settledBefore).ToString("0.00") + "</td></tr>");
+        }
 
         var addrFull = System.Net.WebUtility.HtmlEncode(string.Join(", ",
             new[] { addr, city, state, pin }.Where(x => !string.IsNullOrWhiteSpace(x))));

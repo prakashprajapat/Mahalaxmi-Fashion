@@ -90,6 +90,10 @@ export interface Order {
   subtotal: number;
   shippingCost: number;
   codFee: number;
+  // Paid online before a COD order was accepted. The courier must collect
+  // (total - walletUsed - advancePaid), never the full total.
+  advancePaid?: number;
+  walletUsed?: number;
   total: number;
   awb?: string;
   customerId?: string;
