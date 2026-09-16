@@ -1,7 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  The foreground PNG is already a white tile with the logo on it, so a brand
+  colour behind it only showed up as a maroon ring around the edge.
+-->
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
-    <background android:drawable="@color/brand" />
+    <background android:drawable="@color/page_bg" />
     <foreground>
-        <inset android:drawable="@mipmap/ic_launcher_logo" android:inset="20%" />
+        <inset android:drawable="@mipmap/ic_launcher_logo" android:inset="16%" />
     </foreground>
 </adaptive-icon>

@@ -1,4 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  Android 12+ masks the splash icon to a circle. The logo is a wide wordmark,
+  so it is inset well inside that circle rather than being clipped at the sides.
+-->
 <inset xmlns:android="http://schemas.android.com/apk/res/android"
     android:drawable="@mipmap/ic_launcher_logo"
-    android:inset="22%" />
+    android:inset="30%" />

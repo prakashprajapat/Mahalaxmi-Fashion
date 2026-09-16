@@ -26,6 +26,29 @@
         android:progressTint="@color/brand"
         android:visibility="gone" />
 
+    <!--
+      The real opening screen. The system splash is masked to a circle on
+      Android 12+, which would cut a wide wordmark, so the logo is shown here
+      at full width instead and stays until the site paints.
+    -->
+    <FrameLayout
+        android:id="@+id/brand_splash"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@color/page_bg"
+        android:clickable="true"
+        android:focusable="true">
+
+        <ImageView
+            android:layout_width="240dp"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:adjustViewBounds="true"
+            android:scaleType="fitCenter"
+            android:src="@mipmap/ic_launcher_logo"
+            android:contentDescription="@string/app_name" />
+    </FrameLayout>
+
     <LinearLayout
         android:id="@+id/offline"
         android:layout_width="match_parent"

@@ -66,6 +66,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var refresh: SwipeRefreshLayout
     private lateinit var progress: ProgressBar
     private lateinit var offline: LinearLayout
+    private lateinit var brandSplash: View
 
     private var filePathCallback: ValueCallback<Array<Uri>>? = null
     private var pendingCameraRequest: PermissionRequest? = null
@@ -127,6 +128,10 @@ class MainActivity : AppCompatActivity() {
         refresh = findViewById(R.id.refresh)
         progress = findViewById(R.id.progress)
         offline = findViewById(R.id.offline)
+        brandSplash = findViewById(R.id.brand_splash)
+        // Never let the logo screen outstay its welcome if the site is slow or
+        // the phone is offline.
+        brandSplash.postDelayed({ hideBrandSplash() }, SPLASH_MAX_MS)
 
         applyInsets()
         configureWebView()
@@ -283,7 +288,13 @@ class MainActivity : AppCompatActivity() {
                 progress.visibility = View.VISIBLE
             }
 
+            /** The site has painted its first frame - the logo screen can go. */
+            override fun onPageCommitVisible(view: WebView, url: String) {
+                hideBrandSplash()
+            }
+
             override fun onPageFinished(view: WebView, url: String) {
+                hideBrandSplash()
                 if (!documentStartScriptInstalled && isSiteHost(Uri.parse(url).host)) {
                     view.evaluateJavascript(SUPPRESS_POPUPS_JS, null)
                 }
@@ -299,6 +310,7 @@ class MainActivity : AppCompatActivity() {
                 error: WebResourceError
             ) {
                 if (!request.isForMainFrame) return
+                hideBrandSplash()
                 loadFailed = true
                 progress.visibility = View.GONE
                 refresh.isRefreshing = false
@@ -747,11 +759,23 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun hideBrandSplash() {
+        if (!::brandSplash.isInitialized || brandSplash.visibility != View.VISIBLE) return
+        brandSplash.animate()
+            .alpha(0f)
+            .setDuration(220)
+            .withEndAction { brandSplash.visibility = View.GONE }
+            .start()
+    }
+
     private fun toast(text: String) {
         Toast.makeText(this, text, Toast.LENGTH_SHORT).show()
     }
 
     companion object {
+        /** Longest the opening logo screen may stay up. */
+        private const val SPLASH_MAX_MS = 3500L
+
         private const val SITE_DOMAIN = "mahalaxmifashionhub.com"
         private const val START_URL = "https://www.mahalaxmifashionhub.com/"
 
