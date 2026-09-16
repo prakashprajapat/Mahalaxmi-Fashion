@@ -811,10 +811,13 @@ button { cursor: pointer; font-family: inherit; }
 .tracking-page { max-width: 900px; margin: 0 auto; padding: 2rem 1.5rem; display: flex; flex-direction: column; gap: 1.5rem; }
 .tracking-card { background: #fff; border-radius: 12px; border: 1px solid var(--border); padding: 1.5rem 2rem; box-shadow: 0 1px 4px rgba(0,0,0,.04); }
 .tracking-card h2 { font-size: 1.15rem; font-weight: 700; color: var(--brand); margin: 0 0 1rem; }
-.tracking-form { display: flex; gap: .75rem; margin-bottom: 1rem; }
-.tracking-form input { flex: 1; border: 2px solid var(--border); border-radius: 8px; padding: .65rem 1rem; font-size: 1rem; outline: none; }
+/* A text input's default min-width is its content width, so `flex: 1` alone
+   does NOT let it shrink — the row grew wider than the phone and pushed the
+   Track button off the screen edge. min-width: 0 is what actually fixes it. */
+.tracking-form { display: flex; flex-wrap: wrap; gap: .75rem; margin-bottom: 1rem; }
+.tracking-form input { flex: 1 1 10rem; min-width: 0; border: 2px solid var(--border); border-radius: 8px; padding: .65rem 1rem; font-size: 1rem; outline: none; }
 .tracking-form input:focus { border-color: var(--brand); }
-.tracking-form button { background: var(--brand); color: #fff; border: none; border-radius: 8px; padding: .65rem 1.5rem; font-size: .95rem; font-weight: 700; cursor: pointer; transition: background .2s; }
+.tracking-form button { flex: 0 0 auto; white-space: nowrap; background: var(--brand); color: #fff; border: none; border-radius: 8px; padding: .65rem 1.5rem; font-size: .95rem; font-weight: 700; cursor: pointer; transition: background .2s; }
 .tracking-form button:hover { background: var(--brand-dark); }
 .safety-inline-box { background: #fdf0f3; border: 1px solid #f5c6cf; border-radius: 8px; padding: .85rem 1rem; font-size: .88rem; color: #555; }
 .safety-inline-box strong { color: var(--brand); display: block; margin-bottom: .3rem; }
@@ -991,6 +994,18 @@ button { cursor: pointer; font-family: inherit; }
 }
 
 @media (max-width: 768px) {
+  /* Nothing may be wider than the phone. The page is clipped, not scrollable
+     sideways, so anything that overflows is simply lost off the edge. */
+  input,
+  select,
+  textarea,
+  button {
+    max-width: 100%;
+  }
+
+  .tracking-page { padding: 1.25rem 1rem; }
+  .tracking-card { padding: 1.25rem 1rem; }
+
   html,
   body {
     max-width: 100%;
