@@ -194,8 +194,21 @@ export default function CheckoutPage() {
           }
           clearCart(); setOrderId(cfOrder); setStep('confirm');
         }
-        else { alert('Your payment was not completed, so your order has NOT been placed. If any amount was deducted it will be refunded automatically, or your order will be confirmed shortly — please do not pay again. For help, contact us on WhatsApp (payment reference: ' + cfOrder + ').'); router.push('/cart'); }
-      }).catch(() => alert('We could not confirm your payment right now, so your order is NOT placed yet — please do not pay again. If any amount was deducted, contact us on WhatsApp (payment reference: ' + cfOrder + ').'))
+        else {
+          // Cashfree's own status tells us whether money could possibly have moved.
+          // ACTIVE = the customer left the gateway without paying; EXPIRED /
+          // TERMINATED = the attempt was closed unpaid. In all of those nothing was
+          // charged and there is nothing for the shopper to chase — showing an
+          // MFH… reference there just looks like an order number and worries them.
+          const st = (v.orderStatus ?? '').toUpperCase();
+          const nothingCharged = st === 'ACTIVE' || st === 'EXPIRED'
+            || st === 'TERMINATED' || st === 'TERMINATION_REQUESTED';
+          alert(nothingCharged
+            ? 'Payment was not completed, so no order was placed and nothing was charged. Your cart is saved — you can try again.'
+            : 'Your payment could not be confirmed and no order has been created. If any amount was deducted it will be refunded automatically — please do not pay again. If you need help, contact us on WhatsApp and quote this payment reference: ' + cfOrder + '.');
+          router.push('/cart');
+        }
+      }).catch(() => alert('We could not reach the payment gateway to confirm your payment, so no order has been created — please do not pay again. If any amount was deducted, contact us on WhatsApp and quote this payment reference: ' + cfOrder + '.'))
       .finally(() => { setLoading(false); try { window.history.replaceState({}, '', '/checkout'); } catch {} });
       return cleanup;
     }
