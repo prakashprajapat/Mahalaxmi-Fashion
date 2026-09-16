@@ -21,7 +21,10 @@ backend/obj/
 .env
 .env.local
 .env.*.local
+.env.production
+.env.development
 frontend/.env.local
+frontend/.env.production
 backend/.env
 
 # Logs
