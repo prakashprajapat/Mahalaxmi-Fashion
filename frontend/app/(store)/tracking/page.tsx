@@ -25,6 +25,18 @@ function stageFrom(courierStatus?: string, siteStatus?: string): number {
   return 0;
 }
 
+// Which milestone a single courier scan belongs to, or -1 when it is just a
+// routine remark. Unlike stageFrom, this never falls back to 0 — otherwise an
+// unrecognised remark would overwrite the "Order Placed" time.
+function scanStage(text: string): number {
+  const s = text.toLowerCase();
+  if (s.includes('delivered') && !s.includes('undelivered')) return 4;
+  if (s.includes('out for delivery') || s.includes('dispatched')) return 3;
+  if (s.includes('transit') || s.includes('reached') || s.includes('bagged')) return 2;
+  if (s.includes('picked') || s.includes('pickup') || s.includes('manifest')) return 1;
+  return -1;
+}
+
 function fmtScanTime(raw: string): string {
   const d = new Date(raw);
   return isNaN(d.getTime()) ? raw : d.toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
@@ -69,6 +81,24 @@ export default function TrackingPage() {
   const stage = order ? stageFrom(live?.courierStatus, live?.siteStatus ?? order.status) : 0;
   const scans = (live?.scans ?? []).slice().reverse(); // latest first
 
+  // A green dot with no date tells the customer nothing. Take the earliest scan
+  // that matches each milestone, so every completed step carries a real time
+  // from the courier — never one we made up.
+  const stageTimes: Record<number, string> = {};
+  const placedAt = order?.placedAt ?? order?.createdAt;
+  if (placedAt) stageTimes[0] = placedAt;
+  for (const sc of live?.scans ?? []) {
+    const st = scanStage(`${sc.remark ?? ''} ${sc.location ?? ''}`);
+    if (st < 0) continue;
+    const t = new Date(sc.time).getTime();
+    if (Number.isNaN(t)) continue;
+    const seen = stageTimes[st] ? new Date(stageTimes[st]).getTime() : Infinity;
+    if (t < seen) stageTimes[st] = sc.time;
+  }
+  // An AWB with no live timeline means the courier API did not answer. Say so
+  // instead of showing a full green ladder as if we had confirmed every step.
+  const liveMissing = !!order?.awb && (live?.scans?.length ?? 0) === 0;
+
   return (
     <>
       <section className="page-hero">
@@ -106,7 +136,12 @@ export default function TrackingPage() {
               {!order.awb && <p style={{ margin: '.35rem 0', color: '#555' }}>Status: <strong>{order.status}</strong> · Placed: {new Date(order.placedAt ?? order.createdAt).toLocaleDateString('en-IN')}</p>}
 
               {/* ── Live milestone timeline ── */}
-              {order.awb && (
+              {liveMissing && (
+                <p style={{ margin: '.5rem 0 0', fontSize: '.82rem', color: '#8a6d3b', background: '#fdf6e3', border: '1px solid #f2e3c0', borderRadius: 8, padding: '.5rem .7rem' }}>
+                  Live courier updates are not coming through right now. The steps below are from our own records.
+                </p>
+              )}
+              {(
                 <div style={{ margin: '1.1rem 0 .4rem' }}>
                   {STEPS.map((label, i) => {
                     const done = i <= stage;
@@ -123,6 +158,9 @@ export default function TrackingPage() {
                         </div>
                         <div style={{ paddingBottom: isLast ? 0 : '.4rem' }}>
                           <p style={{ margin: 0, fontWeight: done ? 700 : 500, color: done ? '#1a1a1a' : '#999', fontSize: '.95rem' }}>{label}</p>
+                          {done && stageTimes[i] && (
+                            <p style={{ margin: '.1rem 0 0', color: '#777', fontSize: '.8rem' }}>{fmtScanTime(stageTimes[i])}</p>
+                          )}
                           {i === stage && live?.courierStatus && (
                             <p style={{ margin: '.15rem 0 0', color: '#2e7d32', fontSize: '.82rem', fontWeight: 600 }}>{live.courierStatus}</p>
                           )}
@@ -135,7 +173,7 @@ export default function TrackingPage() {
 
               {/* ── Latest courier updates (scan history) ── */}
               {scans.length > 0 && (
-                <details style={{ marginTop: '.6rem', borderTop: '1px solid #f0f0f0', paddingTop: '.6rem' }}>
+                <details open style={{ marginTop: '.6rem', borderTop: '1px solid #f0f0f0', paddingTop: '.6rem' }}>
                   <summary style={{ cursor: 'pointer', fontWeight: 600, color: '#a7354d', fontSize: '.9rem' }}>
                     All updates ({scans.length})
                   </summary>
