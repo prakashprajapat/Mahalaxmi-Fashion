@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nayi Dikhawat — Preview</title>
+<style>
+  :root{
+    --brand:#a7354d; --brand-dark:#8a2a3e; --brand-light:#fdf0f3;
+    --text:#1a1a1a; --muted:#666; --border:#e0e0e0;
+  }
+  *,*::before,*::after{box-sizing:border-box}
+  body{margin:0;padding:24px 16px 60px;background:#eef0f3;
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:var(--text)}
+  .wrap{max-width:1050px;margin:0 auto}
+  h1{font-size:1.15rem;margin:0 0 4px}
+  .sub{color:var(--muted);font-size:.86rem;margin:0 0 26px}
+  .row{display:flex;gap:26px;flex-wrap:wrap;align-items:flex-start}
+  .lbl{font-size:.74rem;font-weight:800;letter-spacing:.09em;text-transform:uppercase;
+    color:var(--muted);margin:0 0 10px}
+  .phone{width:330px;background:#fff;border-radius:18px;overflow:hidden;
+    box-shadow:0 10px 34px rgba(0,0,0,.16);position:relative}
+  .phone-body{padding:12px;min-height:430px}
+  .note{font-size:.8rem;color:var(--muted);margin-top:12px;line-height:1.65;max-width:330px}
+
+  /* ---- product grid ---- */
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .product-card{background:#fff;border:1px solid #ededed;border-radius:12px;overflow:hidden;
+    display:flex;flex-direction:column;cursor:pointer}
+  .product-card-img{position:relative;aspect-ratio:3/4;background:#f7f7f7;display:flex;
+    align-items:center;justify-content:center;font-size:2.6rem}
+  .product-card-top-left{position:absolute;top:7px;left:8px}
+  .product-card-top-left span{color:rgba(255,255,255,.96);font-weight:800;font-size:.8rem;
+    letter-spacing:.04em;text-shadow:0 0 8px rgba(122,10,34,.95),0 0 16px rgba(255,200,60,.7),0 1px 3px rgba(0,0,0,.55)}
+  .product-wishlist-btn{position:absolute;top:6px;right:6px;width:28px;height:28px;border-radius:50%;
+    border:none;background:rgba(255,255,255,.92);font-size:.85rem;cursor:pointer;
+    box-shadow:0 1px 4px rgba(0,0,0,.14)}
+  .product-card-body{padding:9px 10px 12px}
+  .product-card-cat{margin:0;font-size:.64rem;font-weight:700;letter-spacing:.07em;color:#999}
+  .product-card-name{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    font-weight:600;color:var(--text);font-size:.88rem;margin:.25rem 0;line-height:1.3;text-decoration:none}
+  .product-price-row{display:flex;align-items:baseline;gap:.4rem;flex-wrap:wrap}
+  .price-orig{color:#999;text-decoration:line-through;font-size:.82rem}
+  .price{font-size:1.02rem;font-weight:800;color:var(--text)}
+  .product-card-off{margin:.15rem 0 0;font-size:.82rem;font-weight:700;color:#2e7d32}
+
+  /* ---- product page buy bar (exact CSS from the site) ---- */
+  .pdp-preview{position:relative;height:430px;overflow:hidden}
+  .pdp-hero{aspect-ratio:1/1;background:#f7f7f7;display:flex;align-items:center;justify-content:center;font-size:4rem;border-radius:10px}
+  .pdp-title{font-size:1rem;font-weight:700;margin:.7rem 0 .2rem}
+  .pdp-price{font-size:1.2rem;font-weight:800;color:var(--brand)}
+  .pdp-sizes{display:flex;gap:.4rem;margin-top:.8rem}
+  .pdp-sizes span{border:1.5px solid #ddd;border-radius:7px;padding:.3rem .7rem;font-size:.82rem;font-weight:600}
+  .pdp-sizes span.on{border-color:var(--brand);background:var(--brand-light);color:var(--brand)}
+  .pdp-buybar{position:absolute;left:0;right:0;bottom:0;z-index:460;background:#fff;
+    border-top:1px solid #ececec;box-shadow:0 -4px 20px rgba(0,0,0,.10)}
+  .pdp-buybar-inner{max-width:960px;margin:0 auto;display:flex;gap:.5rem;padding:.55rem .7rem}
+  .pdp-buybar-btn{flex:1 1 0;min-width:0;border-radius:10px;padding:.72rem .5rem;
+    font-size:.85rem;font-weight:800;letter-spacing:.03em;cursor:pointer;font-family:inherit}
+  .pdp-buybar-cart{background:#fff;color:var(--brand);border:2px solid var(--brand)}
+  .pdp-buybar-buy{background:var(--brand);color:#fff;border:2px solid var(--brand)}
+
+  /* ---- checkout line ---- */
+  .ck-card{background:#fff;border:1px solid var(--border);border-radius:12px;padding:14px}
+  .ck-h{font-weight:700;margin:0 0 .6rem;font-size:.95rem}
+  .ck-line{display:flex;gap:.75rem;padding:.7rem 0;border-bottom:1px solid #f2f2f2}
+  .ck-line:last-child{border-bottom:none}
+  .ck-line-media{flex:0 0 auto;width:68px;display:flex;flex-direction:column;gap:.4rem}
+  .ck-line-img{width:68px;height:84px;display:flex;align-items:center;justify-content:center;
+    font-size:1.6rem;object-fit:cover;border-radius:8px;border:1px solid #eee;background:#fafafa}
+  .ck-line-qty{display:flex;align-items:center;height:30px;border:1px solid #ddd;border-radius:8px;
+    overflow:hidden;background:#fff}
+  .ck-line-qty button{flex:0 0 24px;height:100%;border:none;background:#fff;color:var(--brand);
+    font-size:1rem;font-weight:700;line-height:1;cursor:pointer}
+  .ck-line-qty span{flex:1 1 auto;text-align:center;font-size:.85rem;font-weight:700}
+  .ck-line-body{min-width:0;display:flex;flex-direction:column;gap:.12rem}
+  .ck-line-name{margin:0;font-size:.88rem;font-weight:600;line-height:1.35;
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .ck-line-variant{margin:0;font-size:.78rem;color:var(--muted)}
+  .ck-line-price{margin:.15rem 0 0;font-size:.95rem;font-weight:800}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Nayi dikhawat — teeno badlav</h1>
+  <p class="sub">Ye wahi CSS hai jo site par lagayi hai, to jaisa yahan dikh raha hai waisa hi live dikhega.</p>
+
+  <div class="row">
+
+    <div>
+      <p class="lbl">1 — Product cards</p>
+      <div class="phone"><div class="phone-body">
+        <div class="grid">
+          <div class="product-card">
+            <div class="product-card-img">🌙
+              <div class="product-card-top-left"><span>Best Seller</span></div>
+              <button class="product-wishlist-btn">🤍</button>
+            </div>
+            <div class="product-card-body">
+              <p class="product-card-cat">NIGHTY</p>
+              <a class="product-card-name">Premium Cotton Nighty Combo Pack of 2</a>
+              <div class="product-price-row"><span class="price-orig">₹1,499</span><span class="price">₹498</span></div>
+              <p class="product-card-off">67% off</p>
+            </div>
+          </div>
+          <div class="product-card">
+            <div class="product-card-img">🥻
+              <button class="product-wishlist-btn">❤️</button>
+            </div>
+            <div class="product-card-body">
+              <p class="product-card-cat">SAREE</p>
+              <a class="product-card-name">Georgette Printed Saree With Blouse</a>
+              <div class="product-price-row"><span class="price-orig">₹999</span><span class="price">₹415</span></div>
+              <p class="product-card-off">58% off</p>
+            </div>
+          </div>
+          <div class="product-card">
+            <div class="product-card-img">👗
+              <button class="product-wishlist-btn">🤍</button>
+            </div>
+            <div class="product-card-body">
+              <p class="product-card-cat">KURTI</p>
+              <a class="product-card-name">Rayon Straight Kurti</a>
+              <div class="product-price-row"><span class="price">₹549</span></div>
+            </div>
+          </div>
+          <div class="product-card">
+            <div class="product-card-img">👔
+              <button class="product-wishlist-btn">🤍</button>
+            </div>
+            <div class="product-card-body">
+              <p class="product-card-cat">MEN</p>
+              <a class="product-card-name">Cotton Casual Shirt Full Sleeve</a>
+              <div class="product-price-row"><span class="price-orig">₹899</span><span class="price">₹402</span></div>
+              <p class="product-card-off">55% off</p>
+            </div>
+          </div>
+        </div>
+      </div></div>
+      <p class="note">Card par ab sirf wahi hai jo kharidne ka faisla karwata hai. Jis product ka daam ghata nahi, uski hari line bhi nahi aati. "Best Seller" sirf asli best seller par.</p>
+    </div>
+
+    <div>
+      <p class="lbl">2 — Product page ki patti</p>
+      <div class="phone"><div class="phone-body pdp-preview">
+        <div class="pdp-hero">🌙</div>
+        <p class="pdp-title">Premium Cotton Nighty Combo Pack of 2</p>
+        <div><span class="price-orig">₹1,499</span> <span class="pdp-price">₹498</span></div>
+        <div class="pdp-sizes"><span>Free</span><span>M</span><span class="on">L</span><span>XL</span></div>
+        <div class="pdp-buybar"><div class="pdp-buybar-inner">
+          <button class="pdp-buybar-btn pdp-buybar-cart">ADD TO CART</button>
+          <button class="pdp-buybar-btn pdp-buybar-buy">BUY NOW</button>
+        </div></div>
+      </div></div>
+      <p class="note">Add to Cart dabate hi wahi button <strong>✓ ADDED</strong> dikhata hai, phir <strong>GO TO CART</strong> ban jata hai. Cart se hata do to wapas ADD TO CART. Page par Quantity aur doosre buttons hata diye — ab sirf yahi patti hai.</p>
+    </div>
+
+    <div>
+      <p class="lbl">3 — Checkout me quantity</p>
+      <div class="phone"><div class="phone-body">
+        <div class="ck-card">
+          <p class="ck-h">Order Summary</p>
+          <div class="ck-line">
+            <div class="ck-line-media">
+              <div class="ck-line-img">🌙</div>
+              <div class="ck-line-qty"><button>−</button><span>1</span><button>+</button></div>
+            </div>
+            <div class="ck-line-body">
+              <p class="ck-line-name">Premium Cotton Nighty Combo Pack of 2</p>
+              <p class="ck-line-variant">L · Maroon</p>
+              <p class="ck-line-price">₹498</p>
+            </div>
+          </div>
+          <div class="ck-line">
+            <div class="ck-line-media">
+              <div class="ck-line-img">🥻</div>
+              <div class="ck-line-qty"><button>−</button><span>2</span><button>+</button></div>
+            </div>
+            <div class="ck-line-body">
+              <p class="ck-line-name">Georgette Printed Saree With Blouse</p>
+              <p class="ck-line-variant">Free size</p>
+              <p class="ck-line-price">₹830</p>
+            </div>
+          </div>
+        </div>
+      </div></div>
+      <p class="note">Photo ke neeche hi − 1 + hai, to customer dekh kar badal sakta hai ki kis cheez ki ginti badha raha hai. 1 se 0 karne par wo line hat jayegi.</p>
+    </div>
+
+  </div>
+</div>
+</body>
+</html>
