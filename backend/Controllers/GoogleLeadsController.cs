@@ -149,10 +149,6 @@ public class GoogleLeadsController : ControllerBase
         var (token, tokenErr) = await AccessToken();
         if (token is null) return BadRequest(new { success = false, message = tokenErr });
 
-        var devToken = await Get("googleAdsDeveloperToken");
-        if (string.IsNullOrWhiteSpace(devToken))
-            return BadRequest(new { success = false, message = "Google Ads developer token is missing. Add it in Settings → Google Ads." });
-
         var version = await Get("googleAdsApiVersion");
         if (string.IsNullOrWhiteSpace(version)) version = "v21";
 
@@ -176,7 +172,6 @@ public class GoogleLeadsController : ControllerBase
             Content = new StringContent(JsonSerializer.Serialize(new { query = gaql }), Encoding.UTF8, "application/json"),
         };
         req.Headers.Add("Authorization", "Bearer " + token);
-        req.Headers.Add("developer-token", devToken.Trim());
         var loginId = Digits(await Get("googleAdsLoginCustomerId"));
         if (loginId.Length >= 10) req.Headers.Add("login-customer-id", loginId);
 
@@ -291,8 +286,6 @@ public class GoogleLeadsController : ControllerBase
             if (arr.TryGetProperty("error", out var e))
             {
                 var msg = e.TryGetProperty("message", out var m) ? m.GetString() ?? "" : "";
-                if (msg.Contains("developer token", StringComparison.OrdinalIgnoreCase))
-                    return "Google did not accept the developer token. Check it in Settings → Google Ads.";
                 if (msg.Contains("not found", StringComparison.OrdinalIgnoreCase) ||
                     msg.Contains("USER_PERMISSION_DENIED", StringComparison.OrdinalIgnoreCase))
                     return "That Google account cannot read this Customer ID. Check the ID, and the Manager (MCC) ID if the account sits under one.";

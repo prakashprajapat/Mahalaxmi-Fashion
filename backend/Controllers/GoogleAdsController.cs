@@ -199,7 +199,6 @@ public class GoogleAdsController : ControllerBase
         success = true,
         connected = !string.IsNullOrWhiteSpace(await Get("googleAdsRefreshToken")),
         customerId = Digits(await Get("googleAdsCustomerId")),
-        hasDeveloperToken = !string.IsNullOrWhiteSpace(await Get("googleAdsDeveloperToken")),
         hasOauthClient = !string.IsNullOrWhiteSpace(await Get("googleClientId"))
                       && !string.IsNullOrWhiteSpace(await Get("googleClientSecret")),
         redirectUri = await RedirectUri(),
@@ -326,12 +325,6 @@ public class GoogleAdsController : ControllerBase
         using var req = new HttpRequestMessage(HttpMethod.Post,
             $"https://googleads.googleapis.com/{version}/customers/{customerId}/{path}");
         req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-
-        // Every Google Ads API call needs this, not just the first. Without it
-        // Google answers with a developer-token complaint no matter how good
-        // the OAuth token is.
-        var devToken = (await Get("googleAdsDeveloperToken") ?? "").Trim();
-        if (devToken.Length > 0) req.Headers.Add("developer-token", devToken);
 
         // Only needed when the account sits under a manager (MCC) account.
         var loginCustomerId = Digits(await Get("googleAdsLoginCustomerId"));
@@ -621,8 +614,11 @@ public class GoogleAdsController : ControllerBase
         if (body.Contains("USER_PERMISSION_DENIED", StringComparison.OrdinalIgnoreCase)
             || body.Contains("NOT_ADS_USER", StringComparison.OrdinalIgnoreCase))
             return "The Google account you connected does not have access to that Google Ads account.";
+        // Developer tokens were sunset on 9 September 2026 and access now hangs
+        // off the Google Cloud project, so this error means the project's access
+        // level, not a token to go and find.
         if (body.Contains("DEVELOPER_TOKEN", StringComparison.OrdinalIgnoreCase))
-            return "Google rejected the developer token. Check the access level in Google Cloud.";
+            return "Google will not allow this Cloud project to use the Ads API yet. Check its access level in the Google Cloud console.";
         if (body.Contains("Requested entity was not found", StringComparison.OrdinalIgnoreCase))
             return "That Customer ID was not found. If the account sits under a manager account, fill the Manager (MCC) ID in Settings too.";
         if (status == 404)
