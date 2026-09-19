@@ -180,6 +180,27 @@ export default function ProductPage({ params }: { params: { id: string } }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [product?.dbId]);
 
+  // Every hook must run on every render, so these two live ABOVE the loading /
+  // not-found early returns below. Putting them further down made React see a
+  // different number of hooks once the product arrived, and the build refused it.
+  useEffect(() => {
+    if (!product) return;
+    const sync = () => setInCart(getCart().some(i =>
+      i.dbId === product.dbId
+      && (i.selectedSize ?? '') === (size ?? '')
+      && (i.selectedColor ?? '') === (color ?? '')));
+    sync();
+    window.addEventListener('cart-updated', sync);
+    return () => window.removeEventListener('cart-updated', sync);
+  }, [product, size, color]);
+
+  // has-cart-bar lifts the chat button; has-pdp-bar adds the page padding, and is
+  // its own class so other pages' floating cart bar is unaffected.
+  useEffect(() => {
+    document.body.classList.add('has-cart-bar', 'has-pdp-bar');
+    return () => { document.body.classList.remove('has-cart-bar', 'has-pdp-bar'); };
+  }, []);
+
   if (loading) return (
     <div style={{ minHeight: '50vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#aaa' }}>Loading…</div>
   );
@@ -257,24 +278,6 @@ export default function ProductPage({ params }: { params: { id: string } }) {
     window.dispatchEvent(new Event('cart-updated'));
     setTimeout(() => setAdded(false), 2000);
   };
-
-  useEffect(() => {
-    if (!product) return;
-    const sync = () => setInCart(getCart().some(i =>
-      i.dbId === product.dbId
-      && (i.selectedSize ?? '') === (size ?? '')
-      && (i.selectedColor ?? '') === (color ?? '')));
-    sync();
-    window.addEventListener('cart-updated', sync);
-    return () => window.removeEventListener('cart-updated', sync);
-  }, [product, size, color]);
-
-  // has-cart-bar lifts the chat button; has-pdp-bar adds the page padding, and is
-  // its own class so other pages' floating cart bar is unaffected.
-  useEffect(() => {
-    document.body.classList.add('has-cart-bar', 'has-pdp-bar');
-    return () => { document.body.classList.remove('has-cart-bar', 'has-pdp-bar'); };
-  }, []);
 
   // Share this product: native share sheet on mobile, copy-link everywhere else.
   const handleShare = async () => {
