@@ -2080,3 +2080,79 @@ a.footer-app-btn.footer-app-live:hover{ background:rgba(255,255,255,.16); transf
   /* The wrapper no longer needs a sideways scrollbar. */
   .adm-table-wrap { overflow-x: visible !important; }
 }
+
+
+/* ─── Product card: the saving, on its own line under the price ─── */
+.product-card-off {
+  margin: .15rem 0 0;
+  font-size: .82rem;
+  font-weight: 700;
+  color: #2e7d32;
+}
+
+/* ─── Product page: the one place to add or buy ───────────────────────────
+   Fixed to the bottom so the action is always reachable, however far down the
+   page the shopper has scrolled. Add to Cart is the quiet button and Buy Now
+   the loud one, so the eye lands on the decision we want to make easy. */
+.pdp-buybar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 460;
+  background: #fff;
+  border-top: 1px solid #ececec;
+  box-shadow: 0 -4px 20px rgba(0,0,0,.10);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.pdp-buybar-inner {
+  max-width: 960px; margin: 0 auto;
+  display: flex; gap: .6rem; padding: .6rem .9rem;
+}
+.pdp-buybar-btn {
+  flex: 1 1 0; min-width: 0;
+  border-radius: 10px; padding: .8rem .6rem;
+  font-size: .92rem; font-weight: 800; letter-spacing: .03em;
+  cursor: pointer; font-family: inherit;
+  transition: background .18s, color .18s, border-color .18s;
+}
+.pdp-buybar-btn:disabled { opacity: .5; cursor: not-allowed; }
+.pdp-buybar-cart { background: #fff; color: var(--brand); border: 2px solid var(--brand); }
+.pdp-buybar-cart:hover:not(:disabled) { background: var(--brand-light); }
+.pdp-buybar-buy { background: var(--brand); color: #fff; border: 2px solid var(--brand); }
+.pdp-buybar-buy:hover:not(:disabled) { background: var(--brand-dark); border-color: var(--brand-dark); }
+
+/* Room at the foot of the page so the bar never sits on top of the content. */
+body.has-pdp-bar { padding-bottom: 92px; }
+
+@media (max-width: 1024px) {
+  /* Sit above the fixed bottom nav rather than under it. */
+  .pdp-buybar { bottom: calc(60px + env(safe-area-inset-bottom, 0px)); padding-bottom: 0; }
+  .pdp-buybar-inner { padding: .55rem .7rem; gap: .5rem; }
+  .pdp-buybar-btn { padding: .72rem .5rem; font-size: .85rem; }
+  body.has-pdp-bar { padding-bottom: 145px; }
+}
+
+/* ─── Checkout summary: photo, with the quantity right under it ─── */
+.ck-line { display: flex; gap: .75rem; padding: .7rem 0; border-bottom: 1px solid #f2f2f2; }
+.ck-line:last-child { border-bottom: none; }
+.ck-line-media { flex: 0 0 auto; width: 68px; display: flex; flex-direction: column; gap: .4rem; }
+.ck-line-img {
+  width: 68px; height: 84px; display: block; object-fit: cover;
+  border-radius: 8px; border: 1px solid #eee; background: #fafafa;
+}
+.ck-line-img-ph { display: flex; align-items: center; justify-content: center; font-size: 1.6rem; }
+.ck-line-qty {
+  display: flex; align-items: center; height: 30px;
+  border: 1px solid #ddd; border-radius: 8px; overflow: hidden; background: #fff;
+}
+.ck-line-qty button {
+  flex: 0 0 24px; height: 100%; border: none; background: #fff;
+  color: var(--brand); font-size: 1rem; font-weight: 700; line-height: 1; cursor: pointer;
+}
+.ck-line-qty button:disabled { color: #bbb; cursor: not-allowed; }
+.ck-line-qty span { flex: 1 1 auto; text-align: center; font-size: .85rem; font-weight: 700; }
+.ck-line-body { min-width: 0; display: flex; flex-direction: column; gap: .12rem; }
+.ck-line-name {
+  margin: 0; font-size: .88rem; font-weight: 600; color: var(--text); line-height: 1.35;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.ck-line-variant { margin: 0; font-size: .78rem; color: var(--muted); }
+.ck-line-price { margin: .15rem 0 0; font-size: .95rem; font-weight: 800; color: var(--text); }
+.ck-line-cap { margin: .1rem 0 0; font-size: .74rem; color: #c0392b; font-weight: 600; }

@@ -1,7 +1,8 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { getCart, cartTotal, clearCart, cartShipping, finalUnitPrice, unitBase } from '@/lib/cart';
+import { getCart, cartTotal, clearCart, cartShipping, finalUnitPrice, unitBase, updateQuantity, removeFromCart } from '@/lib/cart';
+import { productImageSrc } from '@/lib/productImages';
 import PincodeChecker from '@/components/checkout/PincodeChecker';
 import { getCustomer, getToken } from '@/lib/auth';
 import { ordersApi, paymentsApi, cashfreeApi, couponsApi, settingsApi, walletApi, addressesApi } from '@/lib/api';
@@ -335,6 +336,17 @@ export default function CheckoutPage() {
       if (s.code && (!s.ts || Date.now() - s.ts <= 30 * 24 * 60 * 60 * 1000)) return s.code;
     } catch { /* ignore */ }
     return undefined;
+  };
+
+  // Change a quantity without leaving checkout. Dropping to zero removes the
+  // line, and an empty cart sends them back rather than leaving a dead page.
+  const changeQty = (item: CartItem, next: number) => {
+    if (next < 1) removeFromCart(item.dbId, item.selectedSize, item.selectedColor);
+    else updateQuantity(item.dbId, next, item.selectedSize, item.selectedColor);
+    const fresh = getCart();
+    setCart(fresh);
+    window.dispatchEvent(new Event('cart-updated'));
+    if (fresh.length === 0) router.push('/cart');
   };
 
   const buildCartLines = () => cart.map(i => {
@@ -894,13 +906,39 @@ export default function CheckoutPage() {
         {/* Order Summary */}
         <div className="card checkout-summary" style={{ padding: '1.25rem', position: 'sticky', top: '1rem' }}>
           <h2 style={{ fontWeight: 700, marginBottom: '1rem' }}>Order Summary</h2>
-          <div style={{ maxHeight: '200px', overflowY: 'auto', marginBottom: '1rem' }}>
-            {cart.map(i => (
-              <div key={`${i.dbId}-${i.selectedSize}-${i.selectedColor}`} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '.85rem', marginBottom: '.5rem' }}>
-                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginRight: '.5rem' }}>{i.name} × {i.quantity}{[i.selectedSize, i.selectedColor].filter(Boolean).length ? ` (${[i.selectedSize, i.selectedColor].filter(Boolean).join(' / ')})` : ''}</span>
-                <span style={{ flexShrink: 0 }}>₹{(chargedUnit(i) * i.quantity).toLocaleString('en-IN')}</span>
-              </div>
-            ))}
+          <div style={{ maxHeight: '340px', overflowY: 'auto', marginBottom: '1rem' }}>
+            {cart.map(i => {
+              const variant = [i.selectedSize, i.selectedColor].filter(Boolean).join(' · ');
+              const img = productImageSrc(i.image);
+              return (
+                <div className="ck-line" key={`${i.dbId}-${i.selectedSize}-${i.selectedColor}`}>
+                  {/* Photo, with the quantity right underneath it */}
+                  <div className="ck-line-media">
+                    {img
+                      ? <img className="ck-line-img" src={img} alt="" loading="lazy" />
+                      : <div className="ck-line-img ck-line-img-ph" aria-hidden="true">👗</div>}
+                    <div className="ck-line-qty">
+                      <button type="button" onClick={() => changeQty(i, i.quantity - 1)}
+                        aria-label={`Reduce quantity of ${i.name}`}>−</button>
+                      <span>{i.quantity}</span>
+                      <button type="button"
+                        disabled={i.maxStock !== undefined && i.quantity >= i.maxStock}
+                        onClick={() => changeQty(i, i.quantity + 1)}
+                        aria-label={`Increase quantity of ${i.name}`}>+</button>
+                    </div>
+                  </div>
+
+                  <div className="ck-line-body">
+                    <p className="ck-line-name">{i.name}</p>
+                    {variant && <p className="ck-line-variant">{variant}</p>}
+                    <p className="ck-line-price">₹{(chargedUnit(i) * i.quantity).toLocaleString('en-IN')}</p>
+                    {i.maxStock !== undefined && i.quantity >= i.maxStock && (
+                      <p className="ck-line-cap">Only {i.maxStock} in stock</p>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
           {/* Coupon Input */}
           <div style={{ borderTop: '1px solid #eee', paddingTop: '.75rem', marginBottom: '.5rem' }}>

@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { productsApi, reviewsApi, ordersApi } from '@/lib/api';
-import { addToCart } from '@/lib/cart';
+import { addToCart, getCart } from '@/lib/cart';
 import { finalUnitPrice } from '@/lib/price';
 import { addToWishlist, isInWishlist, removeFromWishlist } from '@/lib/wishlist';
 import { getCustomer, getToken } from '@/lib/auth';
@@ -62,6 +62,8 @@ export default function ProductPage({ params }: { params: { id: string } }) {
   const [color, setColor] = useState('');
   const [activeImg, setActiveImg] = useState('');
   const [added, setAdded] = useState(false);
+  // Is this exact size/colour already in the cart? Drives Add to Cart → Go to Cart.
+  const [inCart, setInCart] = useState(false);
   const [wishlisted, setWishlisted] = useState(false);
   const [loading, setLoading] = useState(true);
   const [imgHovered, setImgHovered] = useState(false);
@@ -255,6 +257,24 @@ export default function ProductPage({ params }: { params: { id: string } }) {
     window.dispatchEvent(new Event('cart-updated'));
     setTimeout(() => setAdded(false), 2000);
   };
+
+  useEffect(() => {
+    if (!product) return;
+    const sync = () => setInCart(getCart().some(i =>
+      i.dbId === product.dbId
+      && (i.selectedSize ?? '') === (size ?? '')
+      && (i.selectedColor ?? '') === (color ?? '')));
+    sync();
+    window.addEventListener('cart-updated', sync);
+    return () => window.removeEventListener('cart-updated', sync);
+  }, [product, size, color]);
+
+  // has-cart-bar lifts the chat button; has-pdp-bar adds the page padding, and is
+  // its own class so other pages' floating cart bar is unaffected.
+  useEffect(() => {
+    document.body.classList.add('has-cart-bar', 'has-pdp-bar');
+    return () => { document.body.classList.remove('has-cart-bar', 'has-pdp-bar'); };
+  }, []);
 
   // Share this product: native share sheet on mobile, copy-link everywhere else.
   const handleShare = async () => {
@@ -522,29 +542,31 @@ export default function ProductPage({ params }: { params: { id: string } }) {
               </div>
             )}
 
-            {/* Quantity + Add to Cart */}
-            <div>
-              <p className="pdp-label" style={{ marginBottom: '.5rem' }}>Quantity</p>
-              <div className="pdp-qty">
-                <button onClick={() => setQty(q => Math.max(1, q-1))} aria-label="Decrease quantity">−</button>
-                <span>{qty}</span>
+            {/* The only place to add or buy. It is fixed to the bottom of the
+                screen, so there is nothing to scroll back up for, and the page
+                carries no second copy of these buttons. Quantity is chosen in the
+                cart / at checkout instead — one decision per screen. */}
+            <div className="pdp-buybar">
+              <div className="pdp-buybar-inner">
                 <button
-                  onClick={() => setQty(q => (variantStock !== null && q >= variantStock) ? q : q + 1)}
-                  disabled={variantStock !== null && qty >= variantStock}
-                  aria-label="Increase quantity">+</button>
+                  type="button"
+                  className="pdp-buybar-btn pdp-buybar-cart"
+                  disabled={outOfStock}
+                  onClick={() => {
+                    if (outOfStock) return;
+                    if (inCart && !added) { router.push('/cart'); return; }
+                    handleAddToCart();
+                  }}>
+                  {outOfStock ? 'OUT OF STOCK' : added ? '✓ ADDED' : inCart ? 'GO TO CART' : 'ADD TO CART'}
+                </button>
+                <button
+                  type="button"
+                  className="pdp-buybar-btn pdp-buybar-buy"
+                  disabled={outOfStock}
+                  onClick={() => { if (!outOfStock) { handleAddToCart(); router.push('/checkout'); } }}>
+                  BUY NOW
+                </button>
               </div>
-              {variantStock !== null && variantStock > 0 && qty >= variantStock && (
-                <p style={{ fontSize: '.78rem', color: '#e74c3c', fontWeight: 600, marginTop: '.4rem' }}>Only {variantStock} in stock</p>
-              )}
-            </div>
-
-            <div className="pdp-cta-row">
-              <button onClick={handleAddToCart} disabled={outOfStock} className="button primary pdp-cta" style={{ opacity: outOfStock ? .5 : 1 }}>
-                {outOfStock ? 'OUT OF STOCK' : added ? '✓ ADDED' : 'ADD TO CART'}
-              </button>
-              <button onClick={() => { if (!outOfStock) { handleAddToCart(); router.push('/checkout'); } }} disabled={outOfStock} className="button secondary pdp-cta" style={{ opacity: outOfStock ? .5 : 1 }}>
-                BUY NOW
-              </button>
             </div>
 
             {/* Free delivery / returns / COD */}

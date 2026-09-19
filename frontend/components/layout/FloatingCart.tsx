@@ -35,8 +35,12 @@ export default function FloatingCart() {
     return () => window.removeEventListener('cart-updated', update);
   }, [prevCount]);
 
+  // A product page has its own Add to Cart / Buy Now bar in this spot, so this
+  // one stays away — two stacked bars is what used to cover the buttons.
+  const onProductPage = pathname.startsWith('/products/');
+
   // Don't show on cart/checkout pages, or when cart is empty, or dismissed
-  const hide = HIDE_PATHS.some(p => pathname.startsWith(p)) || count === 0 || dismissed;
+  const hide = HIDE_PATHS.some(p => pathname.startsWith(p)) || onProductPage || count === 0 || dismissed;
 
   // Tell the rest of the page this bar is on screen. The floating chat button
   // reads this and lifts itself above the bar instead of covering Checkout.
