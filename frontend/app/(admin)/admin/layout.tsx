@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { getAdminToken, adminLogout } from '@/lib/auth';
@@ -60,6 +60,30 @@ function sectionKey(href?: string): string {
   return href.replace('/admin/', '').split('/')[0];
 }
 
+type NavItem = { href?: string; label?: string; exact?: boolean; heading?: string };
+type NavGroup = { heading: string | null; items: NavItem[] };
+
+// Turn the flat list into groups so each heading can be folded away. Anything
+// before the first heading (the Dashboard link) becomes a headless group that
+// always shows.
+function groupNav(items: NavItem[]): NavGroup[] {
+  const out: NavGroup[] = [];
+  let current: NavGroup = { heading: null, items: [] };
+  for (const it of items) {
+    if (it.heading) {
+      if (current.items.length) out.push(current);
+      current = { heading: it.heading, items: [] };
+    } else current.items.push(it);
+  }
+  if (current.items.length) out.push(current);
+  return out;   // a heading with nothing under it is dropped on its own
+}
+
+function matches(item: NavItem, pathname: string): boolean {
+  if (!item.href) return false;
+  return item.exact ? pathname === item.href : pathname.startsWith(item.href);
+}
+
 // Decode JWT payload to get role (no library needed)
 function getTokenRole(token: string): string {
   try {
@@ -91,6 +115,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [storeName, setStoreName] = useState('Mahalaxmi Fashion Hub');
   const [adminName, setAdminName] = useState('');
+  // One group open at a time, so the sidebar stays short enough to read.
+  const [openGroup, setOpenGroup] = useState<string | null>(null);
 
   useEffect(() => {
     if (isPublicAdminRoute) { setAuthed(true); return; }
@@ -108,6 +134,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     const key = sectionKey(pathname);
     if (key && !perms.includes(key)) router.replace('/admin');
   }, [pathname, authed, role, perms, isPublicAdminRoute, router]);
+
+  // Whichever group the open page belongs to unfolds itself, so you always see
+  // where you are without hunting for it.
+  useEffect(() => {
+    const g = groupNav(ALL_NAV).find(gr => gr.heading && gr.items.some(it => matches(it, pathname)));
+    if (g?.heading) setOpenGroup(g.heading);
+  }, [pathname]);
 
   useEffect(() => {
     if (isPublicAdminRoute) return;
@@ -137,8 +170,22 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     return visible.filter((n, i) => !n.heading || Boolean(visible[i + 1] && !visible[i + 1].heading));
   })();
 
+  const navGroups = groupNav(navItems);
+
   const isActive = (item: { href?: string; exact?: boolean }) =>
     !!item.href && (item.exact ? pathname === item.href : pathname.startsWith(item.href));
+
+  const toggleGroup = (heading: string) =>
+    setOpenGroup(open => (open === heading ? null : heading));
+
+  const headingStyle = (light: boolean): React.CSSProperties => ({
+    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+    width: '100%', padding: '.8rem 1.25rem .45rem',
+    background: 'none', border: 'none', cursor: 'pointer',
+    font: 'inherit', fontSize: '.68rem', fontWeight: 700,
+    color: light ? 'rgba(255,255,255,.45)' : '#aaa',
+    textTransform: 'uppercase', letterSpacing: '.5px', textAlign: 'left',
+  });
 
   const currentLabel = ALL_NAV.find(n => isActive(n))?.label?.replace(/^[^\s]+\s/, '') || 'Admin Panel';
 
@@ -156,17 +203,25 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </span>
         </div>
         <nav className="admin-nav">
-          {navItems.map((item, i) => (
-            item.heading ? (
-              <div key={'h' + i} style={{ padding: '.9rem 1.25rem .3rem', fontSize: '.68rem', fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: '.5px' }}>
-                {item.heading}
-              </div>
-            ) : (
-              <Link key={item.href} href={item.href!}
-                className={isActive(item) ? 'active' : ''}>
-                {item.label}
-              </Link>
-            )
+          {navGroups.map((g, gi) => (
+            <Fragment key={g.heading ?? 'top' + gi}>
+              {g.heading && (
+                <button type="button" onClick={() => toggleGroup(g.heading!)}
+                  aria-expanded={openGroup === g.heading}
+                  style={headingStyle(false)}>
+                  <span>{g.heading}</span>
+                  <span aria-hidden="true" style={{ fontSize: '.6rem', opacity: .8 }}>
+                    {openGroup === g.heading ? '\u25BE' : '\u25B8'}
+                  </span>
+                </button>
+              )}
+              {(!g.heading || openGroup === g.heading) && g.items.map(item => (
+                <Link key={item.href} href={item.href!}
+                  className={isActive(item) ? 'active' : ''}>
+                  {item.label}
+                </Link>
+              ))}
+            </Fragment>
           ))}
         </nav>
         <div style={{ padding: '1rem', borderTop: '1px solid rgba(255,255,255,.1)', marginTop: 'auto' }}>
@@ -204,23 +259,31 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               <strong style={{ color: '#fff', fontSize: '.95rem' }}>{storeName}</strong>
               <span style={{ display: 'block', color: '#aaa', fontSize: '.75rem' }}>Admin Panel</span>
             </div>
-            {navItems.map((item, i) => (
-              item.heading ? (
-                <div key={'mh' + i} style={{ padding: '.8rem 1.25rem .3rem', fontSize: '.68rem', fontWeight: 700, color: 'rgba(255,255,255,.4)', textTransform: 'uppercase', letterSpacing: '.5px' }}>
-                  {item.heading}
-                </div>
-              ) : (
-                <Link key={item.href} href={item.href!}
-                  onClick={() => setMobileNavOpen(false)}
-                  style={{
-                    display: 'block', padding: '.7rem 1.25rem', fontSize: '.9rem',
-                    color: isActive(item) ? '#fff' : '#aaa',
-                    background: isActive(item) ? 'rgba(167,53,77,.4)' : 'transparent',
-                    textDecoration: 'none',
-                  }}>
-                  {item.label}
-                </Link>
-              )
+            {navGroups.map((g, gi) => (
+              <Fragment key={'m' + (g.heading ?? 'top' + gi)}>
+                {g.heading && (
+                  <button type="button" onClick={() => toggleGroup(g.heading!)}
+                    aria-expanded={openGroup === g.heading}
+                    style={headingStyle(true)}>
+                    <span>{g.heading}</span>
+                    <span aria-hidden="true" style={{ fontSize: '.6rem', opacity: .8 }}>
+                      {openGroup === g.heading ? '\u25BE' : '\u25B8'}
+                    </span>
+                  </button>
+                )}
+                {(!g.heading || openGroup === g.heading) && g.items.map(item => (
+                  <Link key={item.href} href={item.href!}
+                    onClick={() => setMobileNavOpen(false)}
+                    style={{
+                      display: 'block', padding: '.7rem 1.25rem', fontSize: '.9rem',
+                      color: isActive(item) ? '#fff' : '#aaa',
+                      background: isActive(item) ? 'rgba(167,53,77,.4)' : 'transparent',
+                      textDecoration: 'none',
+                    }}>
+                    {item.label}
+                  </Link>
+                ))}
+              </Fragment>
             ))}
           </div>
         </div>
