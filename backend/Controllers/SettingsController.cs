@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -17,6 +18,39 @@ public class SettingsController : ControllerBase
     private readonly IMemoryCache _cache;
     private readonly IWebHostEnvironment _env;
     private const string PublicSettingsCacheKey = "public_settings";
+
+    // GET /api/settings has no login on purpose: the navbar, footer, hero and
+    // offer banner all read it before anyone signs in. So whatever it returns is
+    // readable by anyone on the internet.
+    //
+    // It used to strip a hand-written list of key names, which meant every NEW
+    // secret was public until somebody remembered to add it to that list — the
+    // Google OAuth client secret and the Google Ads refresh token had already
+    // slipped through exactly that way. A name-shaped rule is safer: a key whose
+    // name reads like a credential is private by default, so a secret added next
+    // year is covered without anyone remembering anything.
+    private static readonly Regex CredentialShapedName = new(
+        "secret|token|password|passwd|apikey|api_key|authkey|auth_key|privatekey|private_key|credential|hash",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+    // Names that read like a credential but are meant to be seen by the browser.
+    private static readonly HashSet<string> PublicAnyway = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "vapidPublicKey",   // Web Push needs this in the browser; it is a public key
+        "razorpay_key_id",  // the checkout key id, printed in the payment form anyway
+        "cashfree_app_id",
+    };
+
+    // Not credential-shaped, but still nobody else's business.
+    private static readonly HashSet<string> NeverPublic = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "admin_email",
+        "adminRecoveryPhone",   // the owner's private mobile
+        "googleAdsOauthState",
+    };
+
+    private static bool IsPublic(string key) =>
+        !NeverPublic.Contains(key) && (PublicAnyway.Contains(key) || !CredentialShapedName.IsMatch(key));
 
     public SettingsController(AppDbContext db, IMemoryCache cache, IWebHostEnvironment env)
     {
@@ -86,23 +120,22 @@ public class SettingsController : ControllerBase
             return Ok(new { success = true, settings = cached });
 
         var settings = await _db.SiteSettings.ToListAsync();
-        var dict = settings.ToDictionary(s => s.Key, s => s.Value);
-        // SEC-6: Remove all sensitive keys from public response
-        dict.Remove("razorpay_key_secret");
-        dict.Remove("delhivery_token");
-        dict.Remove("whatsapp_api_key");
-        dict.Remove("admin_password_hash");
-        dict.Remove("admin_email");
-        dict.Remove("msg91AuthKey");        // secret — never expose publicly
-        dict.Remove("adminRecoveryPhone");  // owner's private mobile
-        dict.Remove("googlePlacesApiKey");  // secret — used server-side only (Google reviews)
-        dict.Remove("vapidPrivateKey");     // secret — Web Push signing key, server-side only
-        dict.Remove("ga4ApiSecret");        // secret — GA4 Measurement Protocol, server-side only
-        dict.Remove("facebookAppSecret");   // secret — Meta app secret (FB login + Lead Ads webhook)
-        dict.Remove("metaPageAccessToken"); // secret — Meta Lead Ads Graph API token, server-side only
+        var dict = settings.Where(x => IsPublic(x.Key)).ToDictionary(x => x.Key, x => x.Value);
 
         _cache.Set(PublicSettingsCacheKey, dict, TimeSpan.FromMinutes(5));
         return Ok(new { success = true, settings = dict });
+    }
+
+    // GET /api/settings/admin — every setting, secrets included, for the admin
+    // Settings screen. Separate from the public one above so that hiding a secret
+    // from the world does not also blank the box the owner types it into.
+    [HttpGet("admin")]
+    [Authorize]
+    [RequirePerm("settings")]
+    public async Task<IActionResult> GetAllForAdmin()
+    {
+        var settings = await _db.SiteSettings.ToListAsync();
+        return Ok(new { success = true, settings = settings.ToDictionary(x => x.Key, x => x.Value) });
     }
 
     // GET /api/settings/{key}

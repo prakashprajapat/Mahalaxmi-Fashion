@@ -312,6 +312,11 @@ export const settingsApi = {
       .finally(() => { _settingsInflight = null; });
     return _settingsInflight;
   },
+  // Everything, secrets included — admin only. The public getAll above hides
+  // anything credential-shaped, so the Settings screen uses this one instead or
+  // the owner would be typing into boxes that always look empty.
+  getAllAdmin: (token: string): Promise<SettingsResp> =>
+    request<SettingsResp>('/settings/admin', {}, token),
   upsert: (key: string, value: string, token: string) => {
     _settingsCache = null;                                  // invalidate so the change shows up
     return request(`/settings/${key}`, { method: 'PUT', body: JSON.stringify({ value }) }, token);

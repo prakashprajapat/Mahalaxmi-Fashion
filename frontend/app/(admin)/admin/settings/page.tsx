@@ -189,7 +189,7 @@ export default function AdminSettingsPage() {
   const importRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    settingsApi.getAll()
+    settingsApi.getAllAdmin(getAdminToken() ?? '')
       .then(r => setForm(r.settings ?? {}))
       .catch(() => setForm({}))
       .finally(() => setLoading(false));
