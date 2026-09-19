@@ -26,6 +26,7 @@ const ALL_NAV: { href?: string; label?: string; exact?: boolean; heading?: strin
 
   { heading: 'Marketing' },
   { href: '/admin/meta-leads',  label: '📥 Meta Ad Leads' },
+  { href: '/admin/google-leads', label: '📨 Google Ad Leads' },
   { href: '/admin/google-ads', label: '💸 Google Ads' },
   { href: '/admin/meta-ads',   label: '📱 Meta Ads' },
   { href: '/admin/audiences',  label: '🎯 Audiences (Target List)' },

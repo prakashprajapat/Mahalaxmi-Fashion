@@ -6,6 +6,7 @@ interface Sources {
   customers: number;
   consented: number;
   metaLeads: number;
+  googleLeads: number;
   popupLeads: number;
   metaReady: boolean;
   googleReady: boolean;
@@ -26,7 +27,7 @@ interface PushResult {
   google?: { userListId: string | null; added: number; error: string | null } | null;
 }
 
-type Source = 'customers' | 'metaleads' | 'popupleads' | 'csv';
+type Source = 'customers' | 'metaleads' | 'googleleads' | 'popupleads' | 'csv';
 type Filter = 'all' | 'consent' | 'buyers' | 'lapsed';
 
 const box: React.CSSProperties = {
@@ -155,6 +156,7 @@ export default function AudiencesPage() {
     if (!src) return '';
     if (s === 'customers') return `${filter === 'consent' ? src.consented : src.customers}`;
     if (s === 'metaleads') return `${src.metaLeads}`;
+    if (s === 'googleleads') return `${src.googleLeads}`;
     if (s === 'popupleads') return `${src.popupLeads}`;
     return csvName ? '1 file' : '';
   };
@@ -182,6 +184,9 @@ export default function AudiencesPage() {
           </Choice>
           <Choice on={source === 'metaleads'} onClick={() => { setSource('metaleads'); setPreview(null); setResult(null); }}>
             Meta Ad Leads {src && <span style={{ opacity: .75 }}>({count('metaleads')})</span>}
+          </Choice>
+          <Choice on={source === 'googleleads'} onClick={() => { setSource('googleleads'); setPreview(null); setResult(null); }}>
+            Google Ad Leads {src && <span style={{ opacity: .75 }}>({count('googleleads')})</span>}
           </Choice>
           <Choice on={source === 'popupleads'} onClick={() => { setSource('popupleads'); setPreview(null); setResult(null); }}>
             Popup Leads {src && <span style={{ opacity: .75 }}>({count('popupleads')})</span>}

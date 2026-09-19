@@ -199,6 +199,7 @@ public class GoogleAdsController : ControllerBase
         success = true,
         connected = !string.IsNullOrWhiteSpace(await Get("googleAdsRefreshToken")),
         customerId = Digits(await Get("googleAdsCustomerId")),
+        hasDeveloperToken = !string.IsNullOrWhiteSpace(await Get("googleAdsDeveloperToken")),
         hasOauthClient = !string.IsNullOrWhiteSpace(await Get("googleClientId"))
                       && !string.IsNullOrWhiteSpace(await Get("googleClientSecret")),
         redirectUri = await RedirectUri(),
@@ -325,6 +326,12 @@ public class GoogleAdsController : ControllerBase
         using var req = new HttpRequestMessage(HttpMethod.Post,
             $"https://googleads.googleapis.com/{version}/customers/{customerId}/{path}");
         req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        // Every Google Ads API call needs this, not just the first. Without it
+        // Google answers with a developer-token complaint no matter how good
+        // the OAuth token is.
+        var devToken = (await Get("googleAdsDeveloperToken") ?? "").Trim();
+        if (devToken.Length > 0) req.Headers.Add("developer-token", devToken);
 
         // Only needed when the account sits under a manager (MCC) account.
         var loginCustomerId = Digits(await Get("googleAdsLoginCustomerId"));

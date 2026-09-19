@@ -12,7 +12,8 @@ namespace MahalaxmiApi.Controllers;
 
 /// <summary>
 /// Audiences — take a list of people the shop already knows (its own customers,
-/// the Meta ad leads, the popup leads, or a CSV) and hand it to Meta and Google
+/// the Meta ad leads, the Google ad leads, the popup leads, or a CSV) and hand
+/// it to Meta and Google
 /// so the ads chase those people instead of strangers. The same list downloads
 /// as a CSV.
 ///
@@ -249,6 +250,22 @@ public class AudiencesController : ControllerBase
                 }).ToList();
             }
 
+            case "googleleads":
+            {
+                var rows = await _db.GoogleLeads.OrderByDescending(l => l.SubmittedAt).ToListAsync();
+                return rows.Select(l => new Person
+                {
+                    Id = l.Id.ToString(),
+                    Name = l.FullName ?? "",
+                    Phone = l.Phone ?? "",
+                    Email = l.Email ?? "",
+                    City = l.City ?? "",
+                    Campaign = l.CampaignName ?? l.AssetName ?? "",
+                    Status = l.IsRead ? "Read" : "New",
+                    Date = l.SubmittedAt.ToString("yyyy-MM-dd"),
+                }).ToList();
+            }
+
             case "popupleads":
             {
                 var rows = await _db.PopupLeads.OrderByDescending(l => l.CreatedAt).ToListAsync();
@@ -324,6 +341,7 @@ public class AudiencesController : ControllerBase
         var consented = await _db.Customers.CountAsync(c => c.MarketingConsent);
         var metaLeads = await _db.MetaLeads.CountAsync();
         var popupLeads = await _db.PopupLeads.CountAsync();
+        var googleLeads = await _db.GoogleLeads.CountAsync();
 
         return Ok(new
         {
@@ -331,6 +349,7 @@ public class AudiencesController : ControllerBase
             customers,
             consented,
             metaLeads,
+            googleLeads,
             popupLeads,
             metaReady = !string.IsNullOrWhiteSpace(await Get("metaAdsAccessToken"))
                      && !string.IsNullOrWhiteSpace(await Get("metaAdsAccountId")),

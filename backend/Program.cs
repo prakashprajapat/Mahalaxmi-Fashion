@@ -251,6 +251,27 @@ using (var scope = app.Services.CreateScope())
             created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
         CREATE INDEX IF NOT EXISTS idx_meta_leads_created ON meta_leads (created_at DESC);
+
+        -- Leads from Google Ads lead forms. Google has no webhook for us and
+        -- drops the data after about 60 days, so a sync copies each one here
+        -- and it stays. submission_id is Google's, and is what stops a repeat
+        -- sync from adding the same person twice.
+        CREATE TABLE IF NOT EXISTS google_leads (
+            id            SERIAL PRIMARY KEY,
+            submission_id VARCHAR(64) NOT NULL UNIQUE,
+            campaign_name VARCHAR(255),
+            asset_name    VARCHAR(255),
+            full_name     VARCHAR(255),
+            phone         VARCHAR(32),
+            email         VARCHAR(255),
+            city          VARCHAR(128),
+            postal_code   VARCHAR(16),
+            raw_json      TEXT,
+            is_read       BOOLEAN NOT NULL DEFAULT FALSE,
+            submitted_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS idx_google_leads_submitted ON google_leads (submitted_at DESC);
         ALTER TABLE customers ADD COLUMN IF NOT EXISTS wallet_balance NUMERIC(12,2) NOT NULL DEFAULT 0;
         CREATE TABLE IF NOT EXISTS wallet_transactions (
             id            SERIAL PRIMARY KEY,
