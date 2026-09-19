@@ -149,8 +149,13 @@ public class GoogleLeadsController : ControllerBase
         var (token, tokenErr) = await AccessToken();
         if (token is null) return BadRequest(new { success = false, message = tokenErr });
 
-        var version = await Get("googleAdsApiVersion");
-        if (string.IsNullOrWhiteSpace(version)) version = "v21";
+        // Must match GoogleAdsController's default. Google retires a version
+        // about a year after release - v21 and v22 are already gone - and an
+        // old one answers 404, which reads like a broken URL rather than an
+        // expired version.
+        var version = (await Get("googleAdsApiVersion") ?? "").Trim();
+        if (version.Length == 0) version = "v25";
+        if (!version.StartsWith("v", StringComparison.OrdinalIgnoreCase)) version = "v" + version;
 
         // No date filter: Google only keeps this data for about 60 days and
         // returns what it has. Asking for a wider window just gets a complaint.
@@ -167,7 +172,7 @@ public class GoogleLeadsController : ControllerBase
             """;
 
         using var req = new HttpRequestMessage(HttpMethod.Post,
-            $"https://googleads.googleapis.com/{version.Trim()}/customers/{customerId}/googleAds:searchStream")
+            $"https://googleads.googleapis.com/{version}/customers/{customerId}/googleAds:searchStream")
         {
             Content = new StringContent(JsonSerializer.Serialize(new { query = gaql }), Encoding.UTF8, "application/json"),
         };
@@ -295,6 +300,8 @@ public class GoogleLeadsController : ControllerBase
             }
         }
         catch { /* fall through */ }
+        if (status == 404)
+            return "Google does not know that API version. Clear the API version box in Settings → Google Ads, or set a current one such as v25.";
         return $"Google refused the request (HTTP {status}). The exact reason is in the server log.";
     }
 }
