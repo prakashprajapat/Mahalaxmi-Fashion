@@ -33,7 +33,12 @@ public class GoogleAdsController : ControllerBase
         _log = log;
     }
 
-    private const string Scope = "https://www.googleapis.com/auth/adwords";
+    // adwords = read the figures and run the campaigns. datamanager = push a
+    // Customer Match list (Audiences). Asking for both in one consent screen
+    // saves the owner a second round trip; an account that never uses
+    // Audiences is not harmed by the extra scope sitting unused.
+    private const string Scope =
+        "https://www.googleapis.com/auth/adwords https://www.googleapis.com/auth/datamanager";
     private const string DefaultSite = "https://www.mahalaxmifashionhub.com";
 
     // Google sunsets an API version roughly a year after release, so this is a
