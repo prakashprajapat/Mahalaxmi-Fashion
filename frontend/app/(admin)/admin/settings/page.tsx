@@ -137,6 +137,15 @@ const SECTIONS = [
     ]
   },
   {
+    title: 'Google Ads',
+    desc: 'Shows ad spend and the sales it produced under Marketing → Google Ads. It reuses the Google OAuth Client ID and Secret above, so there is no second secret to keep — only the Customer ID is new.',
+    fields: [
+      { key: 'googleAdsCustomerId',      label: 'Google Ads Customer ID (10 digits, top-right in Google Ads)', type: 'text' },
+      { key: 'googleAdsLoginCustomerId', label: 'Manager (MCC) ID — only if your account sits under one', type: 'text' },
+      { key: 'googleAdsApiVersion',      label: 'API version (leave blank unless Google retires the current one)', type: 'text' },
+    ]
+  },
+  {
     title: 'MSG91 Configuration (SMS & WhatsApp OTP)',
     desc: 'Required for SMS OTP and WhatsApp OTP during registration. Get credentials from msg91.com.',
     fields: [
