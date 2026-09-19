@@ -328,7 +328,7 @@ export default function AudiencesPage() {
               <b>Google:</b>{' '}
               {result.google.error
                 ? <span style={{ color: '#8a1c13' }}>{result.google.error}</span>
-                : <>{result.google.added.toLocaleString('en-IN')} people sent to list <code>{result.google.userListId}</code>. Google needs at least 1,000 matched people before a list can be targeted.</>}
+                : <>{result.google.added.toLocaleString('en-IN')} people sent to list <code>{result.google.userListId}</code>. Google needs at least 100 matched people before a list can be targeted.</>}
             </p>
           )}
         </div>
