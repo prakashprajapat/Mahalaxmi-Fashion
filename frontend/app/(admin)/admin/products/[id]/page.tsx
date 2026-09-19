@@ -467,6 +467,21 @@ export default function EditProductPage() {
   const [bestSeller, setBestSeller] = useState(false);
   const [availColours, setAvailColours] = useState('');
   const [desc, setDesc]           = useState('');
+  // The optional Product Details rows, in the order they appear on the site.
+  // Anything left blank is simply not shown there.
+  const SPEC_FIELDS = [
+    { key: 'color',       label: 'Colour',       placeholder: 'blank = colours chosen above' },
+    { key: 'fabric',      label: 'Fabric',       placeholder: 'blank = read from the name' },
+    { key: 'pattern',     label: 'Pattern',      placeholder: 'e.g. Floral Print' },
+    { key: 'type',        label: 'Type',         placeholder: 'blank = subcategory' },
+    { key: 'suitableFor', label: 'Suitable For', placeholder: 'e.g. Women' },
+    { key: 'design',      label: 'Design',       placeholder: 'e.g. Embroidered' },
+    { key: 'idealFor',    label: 'Ideal For',    placeholder: 'e.g. Daily Wear' },
+    { key: 'occasion',    label: 'Occasion',     placeholder: 'e.g. Casual, Festive' },
+    { key: 'size',        label: 'Size',         placeholder: 'blank = sizes chosen above' },
+  ];
+  const [specs, setSpecs] = useState<Record<string, string>>({});
+
   const [saving, setSaving]       = useState(false);
   const [qcIssues, setQcIssues]   = useState<QcIssue[]>([]);
   const [qcOpen, setQcOpen]       = useState(false);
@@ -592,6 +607,8 @@ export default function EditProductPage() {
             (ex.addOns ?? []).map((a: any) => ({ name: String(a.name ?? ''), price: String(a.price ?? '') }))
           );
 
+          setSpecs(ex.specs && typeof ex.specs === 'object' ? ex.specs : {});
+
           // Variants
           setVariants(
             (ex.variants ?? []).map((v: any) => ({ name: String(v.name ?? ''), price: String(v.price ?? ''), stock: String(v.stock ?? '') }))
@@ -713,7 +730,10 @@ export default function EditProductPage() {
         label: col.letter, letter: col.letter,
         url: col.front, front: col.front, side: col.side, back: col.back, zoomed: col.zoomed,
       }));
+      // Only the rows the merchant actually filled in reach the site.
+      const cleanSpecs = Object.fromEntries(Object.entries(specs).filter(([, v]) => v.trim()));
       const extraJson = JSON.stringify({
+        specs: Object.keys(cleanSpecs).length ? cleanSpecs : undefined,
         // Only the currently-SELECTED sizes — using the union with customSizes re-added sizes
         // the admin had de-selected, advertising a size with no matching stock entry.
         sizes:            [...new Set(selSizes)],
@@ -1293,6 +1313,26 @@ export default function EditProductPage() {
             placeholder="Product details, fabric, use case, styling notes"
             rows={4}
             style={{ ...inp, resize:'vertical', fontFamily:'inherit' }} />
+        </div>
+
+        {/* ── Product Details (every row optional) ── */}
+        <div style={{ marginTop:'1.25rem' }}>
+          <label style={lbl}>
+            Product Details{' '}
+            <span style={{ fontWeight:400, color:'#888' }}>— optional. A blank box is not shown on the site.</span>
+          </label>
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(190px, 1fr))', gap:'.65rem' }}>
+            {SPEC_FIELDS.map(f => (
+              <div key={f.key}>
+                <span style={{ display:'block', fontSize:'.76rem', color:'#666', marginBottom:'.22rem' }}>{f.label}</span>
+                <input
+                  value={specs[f.key] ?? ''}
+                  onChange={e => setSpecs(prev => ({ ...prev, [f.key]: e.target.value }))}
+                  placeholder={f.placeholder}
+                  style={inp} />
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* ── Product Photos ── */}

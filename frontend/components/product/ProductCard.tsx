@@ -117,13 +117,12 @@ export default function ProductCard({ product, priority = false }: { product: Pr
             </div>
           )}
 
-          {/* Struck MRP first, then what they actually pay, then the saving in
-              green on its own line — the order shoppers already read elsewhere. */}
+          {/* What they pay comes first; the MRP and the saving follow it. */}
           <div className="product-price-row">
-            {saving > 0 && <span className="price-orig">₹{product.price.toLocaleString('en-IN')}</span>}
             <span className="price">₹{price.toLocaleString('en-IN')}</span>
+            {saving > 0 && <span className="price-orig">₹{product.price.toLocaleString('en-IN')}</span>}
+            {saving > 0 && <span className="product-card-off">{saving}% off</span>}
           </div>
-          {saving > 0 && <p className="product-card-off">{saving}% off</p>}
         </div>
       </div>
 

@@ -2082,13 +2082,6 @@ a.footer-app-btn.footer-app-live:hover{ background:rgba(255,255,255,.16); transf
 }
 
 
-/* ─── Product card: the saving, on its own line under the price ─── */
-.product-card-off {
-  margin: .15rem 0 0;
-  font-size: .82rem;
-  font-weight: 700;
-  color: #2e7d32;
-}
 
 /* ─── Product page: the one place to add or buy ───────────────────────────
    Fixed to the bottom so the action is always reachable, however far down the
@@ -2156,3 +2149,17 @@ body.has-pdp-bar { padding-bottom: 92px; }
 .ck-line-variant { margin: 0; font-size: .78rem; color: var(--muted); }
 .ck-line-price { margin: .15rem 0 0; font-size: .95rem; font-weight: 800; color: var(--text); }
 .ck-line-cap { margin: .1rem 0 0; font-size: .74rem; color: #c0392b; font-weight: 600; }
+
+
+/* ─── Product page: the optional detail rows under the photo ─── */
+.pdp-specs-list { margin: .6rem 0 1rem; }
+.pdp-specs-list > div {
+  display: grid; grid-template-columns: 38% 1fr; gap: .6rem;
+  padding: .55rem 0; border-bottom: 1px solid #f2f2f2;
+}
+.pdp-specs-list > div:last-child { border-bottom: none; }
+.pdp-specs-list dt { margin: 0; font-size: .85rem; color: var(--muted); }
+.pdp-specs-list dd { margin: 0; font-size: .88rem; font-weight: 600; color: var(--text); }
+
+/* The saving now sits inline after the MRP on a product card. */
+.product-card-off { font-size: .8rem; font-weight: 700; color: #2e7d32; white-space: nowrap; }

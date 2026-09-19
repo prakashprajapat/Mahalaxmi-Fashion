@@ -29,6 +29,8 @@ interface ExtraJson {
   packColumnPhotos?: Array<Record<string, string>>;
   variantColumns?: Array<Record<string, string>>;
   customColors?: Array<{ name?: string; code?: string; photo?: string; columnLetter?: string }>;
+  /** Free-text spec rows the merchant fills in admin. Every one is optional. */
+  specs?: Record<string, string>;
 }
 
 // Products have no dedicated fabric column yet, so read it out of the text the
@@ -214,6 +216,26 @@ export default function ProductPage({ params }: { params: { id: string } }) {
   const price = finalUnitPrice(product);
   const saving = product.price > price ? Math.round(((product.price - price) / product.price) * 100) : 0;
   const fabric = detectFabric(product);
+
+  // Product Details rows. What the merchant typed in admin wins; where they left
+  // a field blank we fall back to something the product already knows, and a row
+  // with nothing behind it is never rendered — no empty labels on the page.
+  const specs = extra.specs ?? {};
+  const colourNames = [
+    ...(extra.colors ?? []),
+    ...((extra.customColors ?? []).map(c => c.name ?? '')),
+  ].filter(Boolean);
+  const detailRows: Array<[string, string]> = ([
+    ['Colour',       specs.color       || colourNames.join(', ')],
+    ['Fabric',       specs.fabric      || fabric],
+    ['Pattern',      specs.pattern     || ''],
+    ['Type',         specs.type        || (product.subcategory ?? '')],
+    ['Suitable For', specs.suitableFor || ''],
+    ['Design',       specs.design      || ''],
+    ['Ideal For',    specs.idealFor    || ''],
+    ['Occasion',     specs.occasion    || ''],
+    ['Size',         specs.size        || (extra.sizes ?? []).join(', ')],
+  ] as Array<[string, string]>).filter(([, v]) => v.trim().length > 0);
   const isPackProduct = Boolean(product.packOf && product.packOf > 1);
 
   const gallery: string[] = [];
@@ -415,11 +437,21 @@ export default function ProductPage({ params }: { params: { id: string } }) {
               </div>
             )}
 
-            {/* Description sits under the photo (like the reference layout) */}
-            {product.description && (
+            {/* Details sit under the photo, description last. */}
+            {(detailRows.length > 0 || product.description) && (
               <div className="pdp-desc">
                 <h2>Product Details</h2>
-                <p>{product.description}</p>
+                {detailRows.length > 0 && (
+                  <dl className="pdp-specs-list">
+                    {detailRows.map(([label, value]) => (
+                      <div key={label}>
+                        <dt>{label}</dt>
+                        <dd>{value}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                )}
+                {product.description && <p>{product.description}</p>}
               </div>
             )}
           </div>
@@ -473,17 +505,6 @@ export default function ProductPage({ params }: { params: { id: string } }) {
                 )}
               </div>
               <p className="pdp-tax">Inclusive of all taxes</p>
-            </div>
-
-            {/* Fabric + Availability */}
-            <div className="pdp-specs">
-              {fabric && (
-                <div className="pdp-spec"><span>Fabric</span><b>{fabric}</b></div>
-              )}
-              <div className="pdp-spec">
-                <span>Availability</span>
-                <b className={outOfStock ? 'no' : 'ok'}>{outOfStock ? 'Out of Stock' : product.stock}</b>
-              </div>
             </div>
 
             {/* Colour / Design — every colour is its own swatch, no name label */}
