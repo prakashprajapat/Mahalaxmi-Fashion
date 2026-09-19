@@ -147,6 +147,16 @@ const SECTIONS = [
     ]
   },
   {
+    title: 'Meta Ads (Facebook & Instagram)',
+    desc: 'Shows Facebook/Instagram ad spend and the sales it produced under Marketing \u2192 Meta Ads, and lets you pause, restart and re-budget campaigns from there. Make a System User token in business.facebook.com \u2192 Settings \u2192 Users \u2192 System users, with ads_read and ads_management, and give it access to the ad account. That token does not expire.',
+    fields: [
+      { key: 'metaAdsAccessToken',   label: 'Meta System User access token', type: 'password' },
+      { key: 'metaAdsAccountId',     label: 'Ad Account ID (only the digits after act_ in Ads Manager)', type: 'text' },
+      { key: 'metaAdsMaxDailyBudget', label: 'Highest daily budget admin may set (\u20b9, default 5000)', type: 'text' },
+      { key: 'metaAdsApiVersion',    label: 'Graph API version (leave blank for v25.0)', type: 'text' },
+    ]
+  },
+  {
     title: 'MSG91 Configuration (SMS & WhatsApp OTP)',
     desc: 'Required for SMS OTP and WhatsApp OTP during registration. Get credentials from msg91.com.',
     fields: [

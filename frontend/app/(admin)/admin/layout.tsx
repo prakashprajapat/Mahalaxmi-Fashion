@@ -27,6 +27,7 @@ const ALL_NAV: { href?: string; label?: string; exact?: boolean; heading?: strin
   { heading: 'Marketing' },
   { href: '/admin/meta-leads',  label: '📥 Meta Ad Leads' },
   { href: '/admin/google-ads', label: '💸 Google Ads' },
+  { href: '/admin/meta-ads',   label: '📱 Meta Ads' },
   { href: '/admin/popup-leads', label: '📋 Popup Leads' },
   { href: '/admin/campaigns',   label: '📣 Bulk Campaigns (SMS / WhatsApp)' },
   { href: '/admin/notifications', label: '🔔 Push Notifications' },
