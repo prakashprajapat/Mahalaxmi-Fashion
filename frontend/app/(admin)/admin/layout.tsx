@@ -9,26 +9,37 @@ import { settingsApi } from '@/lib/api';
 // non-clickable group label.
 const ALL_NAV: { href?: string; label?: string; exact?: boolean; heading?: string }[] = [
   { href: '/admin',             label: '📊 Dashboard',       exact: true },
+
+  { heading: 'Sales' },
   { href: '/admin/orders',      label: '📦 Orders' },
   { href: '/admin/risk',        label: '🛡️ Fraud & Risk' },
-  { heading: 'Inventory' },
+
+  { heading: 'Catalogue' },
   { href: '/admin/products',    label: '👗 Products' },
   { href: '/admin/products/add',label: '➕ Add / Edit Product' },
   { href: '/admin/stock',       label: '🔄 Stock Manager' },
+
+  { heading: 'Customers' },
   { href: '/admin/customers',   label: '👥 Customers' },
+  { href: '/admin/reviews',     label: '⭐ Reviews' },
+  { href: '/admin/suppliers',   label: '🏪 Seller Applications' },
+
+  { heading: 'Marketing' },
+  { href: '/admin/meta-leads',  label: '📥 Meta Ad Leads' },
+  { href: '/admin/popup-leads', label: '📋 Popup Leads' },
+  { href: '/admin/campaigns',   label: '📣 Bulk Campaigns (SMS / WhatsApp)' },
+  { href: '/admin/notifications', label: '🔔 Push Notifications' },
+  { href: '/admin/influencers', label: '🌟 Influencer Marketing' },
+  { href: '/admin/coupons',     label: '🎟️ Coupons & Discounts' },
+  { href: '/admin/birthday',    label: '🎂 Birthday & Anniversary Offers' },
+  { href: '/admin/seo',         label: '🔍 SEO Analysis' },
+
+  { heading: 'Accounts' },
   { href: '/admin/reports',     label: '📈 Reports & GSTR-1' },
   { href: '/admin/reconcile',   label: '💰 Payment Reconcile' },
-  { href: '/admin/reviews',     label: '⭐ Reviews' },
+
+  { heading: 'Settings' },
   { href: '/admin/staff',       label: '👤 Staff Management' },
-  { href: '/admin/birthday',    label: '🎂 Birthday & Anniversary Offers' },
-  { href: '/admin/coupons',     label: '🎟️ Coupons & Discounts' },
-  { href: '/admin/influencers', label: '🌟 Influencer Marketing' },
-  { href: '/admin/campaigns',   label: '📣 Bulk Campaigns' },
-  { href: '/admin/notifications', label: '🔔 Push Notifications' },
-  { href: '/admin/popup-leads', label: '📋 Popup Leads' },
-  { href: '/admin/meta-leads',  label: '📥 Meta Ad Leads' },
-  { href: '/admin/suppliers',   label: '🏪 Seller Applications' },
-  { href: '/admin/seo',         label: '🔍 SEO Analysis' },
   { href: '/admin/settings',    label: '⚙️ Settings' },
 ];
 
@@ -113,10 +124,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     </div>
   );
 
-  // Filter nav: admin sees everything; staff sees Dashboard + only their granted sections.
-  const navItems = role === 'staff'
-    ? ALL_NAV.filter(n => n.href && (sectionKey(n.href) === '' || perms.includes(sectionKey(n.href))))
-    : ALL_NAV;
+  // Filter nav: admin sees everything; staff sees Dashboard + only their granted
+  // sections. A group heading is dropped when nothing under it survived, so a
+  // staff member never sees "Accounts" with nothing beneath it.
+  const navItems = (() => {
+    if (role !== 'staff') return ALL_NAV;
+    const visible = ALL_NAV.filter(n =>
+      n.heading || (n.href && (sectionKey(n.href) === '' || perms.includes(sectionKey(n.href)))));
+    // A heading earns its place only when a link follows it.
+    return visible.filter((n, i) => !n.heading || Boolean(visible[i + 1] && !visible[i + 1].heading));
+  })();
 
   const isActive = (item: { href?: string; exact?: boolean }) =>
     !!item.href && (item.exact ? pathname === item.href : pathname.startsWith(item.href));
