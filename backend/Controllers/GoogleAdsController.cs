@@ -238,33 +238,8 @@ public class GoogleAdsController : ControllerBase
             $"WHERE segments.date BETWEEN '{from:yyyy-MM-dd}' AND '{to:yyyy-MM-dd}' " +
             "ORDER BY segments.date";
 
-        using var req = new HttpRequestMessage(HttpMethod.Post,
-            $"https://googleads.googleapis.com/{version}/customers/{customerId}/googleAds:searchStream");
-        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-
-        // Only needed when the account sits under a manager (MCC) account.
-        var loginCustomerId = Digits(await Get("googleAdsLoginCustomerId"));
-        if (loginCustomerId.Length >= 10) req.Headers.Add("login-customer-id", loginCustomerId);
-
-        req.Content = new StringContent(JsonSerializer.Serialize(new { query = gaql }),
-            System.Text.Encoding.UTF8, "application/json");
-
-        string body;
-        try
-        {
-            using var res = await Http.SendAsync(req);
-            body = await res.Content.ReadAsStringAsync();
-            if (!res.IsSuccessStatusCode)
-            {
-                _log.LogError("Google Ads report failed ({Status}): {Body}", (int)res.StatusCode, body);
-                return BadRequest(new { success = false, message = FriendlyApiError(body, (int)res.StatusCode) });
-            }
-        }
-        catch (Exception ex)
-        {
-            _log.LogError(ex, "Google Ads report request failed");
-            return StatusCode(502, new { success = false, message = "Could not reach Google Ads just now." });
-        }
+        var (ok, body, apiErr) = await CallAds(token, version, customerId, "googleAds:searchStream", new { query = gaql });
+        if (!ok) return BadRequest(new { success = false, message = apiErr });
 
         var rows = new List<object>();
         long impressions = 0, clicks = 0, costMicros = 0;
@@ -334,6 +309,279 @@ public class GoogleAdsController : ControllerBase
                 costPerConversion = conversions > 0 ? Math.Round(spend / (decimal)conversions, 2) : (decimal?)null,
             },
         });
+    }
+
+
+    // ── shared: one authenticated POST to the Google Ads REST API ────────────
+
+    private async Task<(bool ok, string body, string? error)> CallAds(
+        string token, string version, string customerId, string path, object payload)
+    {
+        using var req = new HttpRequestMessage(HttpMethod.Post,
+            $"https://googleads.googleapis.com/{version}/customers/{customerId}/{path}");
+        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        // Only needed when the account sits under a manager (MCC) account.
+        var loginCustomerId = Digits(await Get("googleAdsLoginCustomerId"));
+        if (loginCustomerId.Length >= 10) req.Headers.Add("login-customer-id", loginCustomerId);
+
+        req.Content = new StringContent(JsonSerializer.Serialize(payload),
+            System.Text.Encoding.UTF8, "application/json");
+
+        try
+        {
+            using var res = await Http.SendAsync(req);
+            var body = await res.Content.ReadAsStringAsync();
+            if (!res.IsSuccessStatusCode)
+            {
+                _log.LogError("Google Ads {Path} failed ({Status}): {Body}", path, (int)res.StatusCode, body);
+                return (false, body, FriendlyApiError(body, (int)res.StatusCode));
+            }
+            return (true, body, null);
+        }
+        catch (Exception ex)
+        {
+            _log.LogError(ex, "Google Ads {Path} request failed", path);
+            return (false, "", "Could not reach Google Ads just now.");
+        }
+    }
+
+    /// Walks every result row of a searchStream answer.
+    private static IEnumerable<JsonElement> StreamRows(string body)
+    {
+        JsonElement chunks;
+        try { chunks = JsonSerializer.Deserialize<JsonElement>(body); }
+        catch { yield break; }
+        if (chunks.ValueKind != JsonValueKind.Array) yield break;
+        foreach (var chunk in chunks.EnumerateArray())
+        {
+            if (!chunk.TryGetProperty("results", out var results) || results.ValueKind != JsonValueKind.Array) continue;
+            foreach (var r in results.EnumerateArray()) yield return r;
+        }
+    }
+
+    private static string Str(JsonElement parent, string child)
+    {
+        if (parent.ValueKind != JsonValueKind.Object || !parent.TryGetProperty(child, out var v)) return "";
+        return v.ValueKind == JsonValueKind.String ? (v.GetString() ?? "") : v.ToString();
+    }
+
+    private sealed class CampaignRow
+    {
+        public string Id = "";
+        public string Name = "";
+        public string Status = "";
+        public string Channel = "";
+        public string BudgetResource = "";
+        public decimal DailyBudget;
+        public long Impressions;
+        public long Clicks;
+        public decimal Spend;
+        public double Conversions;
+        public double ConversionValue;
+    }
+
+    // ── 6. one line per campaign, with its budget ────────────────────────────
+
+    [HttpGet("campaigns")]
+    [Authorize]
+    [RequirePerm("settings")]
+    public async Task<IActionResult> Campaigns([FromQuery] int days = 30)
+    {
+        days = Math.Clamp(days, 1, 180);
+
+        var customerId = Digits(await Get("googleAdsCustomerId"));
+        if (customerId.Length < 10)
+            return BadRequest(new { success = false, message = "Google Ads Customer ID is missing." });
+
+        var (token, err) = await AccessToken();
+        if (token is null) return BadRequest(new { success = false, message = err });
+
+        var version = await Get("googleAdsApiVersion");
+        if (string.IsNullOrWhiteSpace(version)) version = DefaultApiVersion;
+
+        // Two queries on purpose. The metrics query only returns campaigns that
+        // had activity in the window, and a paused campaign with no spend is
+        // exactly the one the shop owner came here to switch back on.
+        var listQuery =
+            "SELECT campaign.id, campaign.name, campaign.status, campaign.advertising_channel_type, " +
+            "campaign_budget.resource_name, campaign_budget.amount_micros " +
+            "FROM campaign WHERE campaign.status != 'REMOVED' ORDER BY campaign.name";
+
+        var (ok1, listBody, e1) = await CallAds(token, version, customerId, "googleAds:searchStream", new { query = listQuery });
+        if (!ok1) return BadRequest(new { success = false, message = e1 });
+
+        var byId = new Dictionary<string, CampaignRow>();
+        foreach (var r in StreamRows(listBody))
+        {
+            r.TryGetProperty("campaign", out var c);
+            r.TryGetProperty("campaignBudget", out var b);
+            var id = Str(c, "id");
+            if (string.IsNullOrEmpty(id)) continue;
+            byId[id] = new CampaignRow
+            {
+                Id = id,
+                Name = Str(c, "name"),
+                Status = Str(c, "status"),
+                Channel = Str(c, "advertisingChannelType"),
+                BudgetResource = Str(b, "resourceName"),
+                DailyBudget = Math.Round(ReadLong(b, "amountMicros") / 1_000_000m, 2),
+            };
+        }
+
+        var to = DateTime.UtcNow.Date;
+        var from = to.AddDays(-(days - 1));
+        var metricsQuery =
+            "SELECT campaign.id, metrics.impressions, metrics.clicks, metrics.cost_micros, " +
+            "metrics.conversions, metrics.conversions_value FROM campaign " +
+            $"WHERE segments.date BETWEEN '{from:yyyy-MM-dd}' AND '{to:yyyy-MM-dd}'";
+
+        var (ok2, metricsBody, e2) = await CallAds(token, version, customerId, "googleAds:searchStream", new { query = metricsQuery });
+        if (!ok2) return BadRequest(new { success = false, message = e2 });
+
+        foreach (var r in StreamRows(metricsBody))
+        {
+            r.TryGetProperty("campaign", out var c);
+            var id = Str(c, "id");
+            if (!byId.TryGetValue(id, out var row)) continue;
+            r.TryGetProperty("metrics", out var m);
+            row.Impressions += ReadLong(m, "impressions");
+            row.Clicks += ReadLong(m, "clicks");
+            row.Spend += Math.Round(ReadLong(m, "costMicros") / 1_000_000m, 2);
+            row.Conversions += ReadDouble(m, "conversions");
+            row.ConversionValue += ReadDouble(m, "conversionsValue");
+        }
+
+        return Ok(new
+        {
+            success = true,
+            maxDailyBudget = await MaxDailyBudget(),
+            campaigns = byId.Values
+                .OrderByDescending(c => c.Spend).ThenBy(c => c.Name)
+                .Select(c => new
+                {
+                    id = c.Id,
+                    name = c.Name,
+                    status = c.Status,
+                    channel = c.Channel,
+                    budgetResource = c.BudgetResource,
+                    dailyBudget = c.DailyBudget,
+                    impressions = c.Impressions,
+                    clicks = c.Clicks,
+                    spend = c.Spend,
+                    conversions = Math.Round(c.Conversions, 2),
+                    conversionValue = Math.Round(c.ConversionValue, 2),
+                }),
+        });
+    }
+
+    /// The ceiling a daily budget may be set to from admin. A typo here spends
+    /// real money, so the limit lives on the server, not in the browser.
+    private async Task<decimal> MaxDailyBudget()
+    {
+        var raw = await Get("googleAdsMaxDailyBudget");
+        return decimal.TryParse(raw, out var v) && v > 0 ? v : 5000m;
+    }
+
+    public record CampaignStatusRequest(string? Status);
+
+    // ── 7. pause / resume ────────────────────────────────────────────────────
+
+    [HttpPost("campaigns/{id}/status")]
+    [Authorize]
+    [RequirePerm("settings")]
+    public async Task<IActionResult> SetCampaignStatus(string id, [FromBody] CampaignStatusRequest req)
+    {
+        var campaignId = Digits(id);
+        if (string.IsNullOrEmpty(campaignId))
+            return BadRequest(new { success = false, message = "Bad campaign id." });
+
+        var status = (req.Status ?? "").Trim().ToUpperInvariant();
+        // Deliberately no REMOVED: deleting a campaign is permanent, and this
+        // screen is for day-to-day control, not for destroying history.
+        if (status != "ENABLED" && status != "PAUSED")
+            return BadRequest(new { success = false, message = "Status must be ENABLED or PAUSED." });
+
+        var customerId = Digits(await Get("googleAdsCustomerId"));
+        var (token, err) = await AccessToken();
+        if (token is null) return BadRequest(new { success = false, message = err });
+
+        var version = await Get("googleAdsApiVersion");
+        if (string.IsNullOrWhiteSpace(version)) version = DefaultApiVersion;
+
+        var payload = new
+        {
+            operations = new[]
+            {
+                new
+                {
+                    update = new { resourceName = $"customers/{customerId}/campaigns/{campaignId}", status },
+                    updateMask = "status",
+                },
+            },
+        };
+
+        var (ok, _, apiErr) = await CallAds(token, version, customerId, "campaigns:mutate", payload);
+        if (!ok) return BadRequest(new { success = false, message = apiErr });
+
+        _log.LogWarning("Google Ads campaign {Campaign} set to {Status} from admin", campaignId, status);
+        return Ok(new { success = true, status });
+    }
+
+    public record BudgetRequest(string? BudgetResource, decimal Amount);
+
+    // ── 8. change a daily budget ─────────────────────────────────────────────
+
+    [HttpPost("budget")]
+    [Authorize]
+    [RequirePerm("settings")]
+    public async Task<IActionResult> SetBudget([FromBody] BudgetRequest req)
+    {
+        var resource = (req.BudgetResource ?? "").Trim();
+        // Must look exactly like a budget belonging to THIS account, so a crafted
+        // request cannot reach into another customer's budgets.
+        var customerId = Digits(await Get("googleAdsCustomerId"));
+        var expectedPrefix = $"customers/{customerId}/campaignBudgets/";
+        if (!resource.StartsWith(expectedPrefix, StringComparison.Ordinal)
+            || !resource[expectedPrefix.Length..].All(char.IsDigit)
+            || resource.Length == expectedPrefix.Length)
+            return BadRequest(new { success = false, message = "That budget does not belong to this account." });
+
+        var amount = Math.Round(req.Amount, 0, MidpointRounding.AwayFromZero);
+        if (amount <= 0)
+            return BadRequest(new { success = false, message = "Daily budget must be more than ₹0." });
+
+        var cap = await MaxDailyBudget();
+        if (amount > cap)
+            return BadRequest(new { success = false, message = $"₹{amount:0} is above the ₹{cap:0} daily limit. Raise the limit in Settings → Google Ads if you really mean it." });
+
+        var (token, err) = await AccessToken();
+        if (token is null) return BadRequest(new { success = false, message = err });
+
+        var version = await Get("googleAdsApiVersion");
+        if (string.IsNullOrWhiteSpace(version)) version = DefaultApiVersion;
+
+        // Google counts money in micros: ₹1 = 1,000,000. Getting this wrong by one
+        // zero is the difference between ₹500 and ₹5,000 a day.
+        var micros = (long)amount * 1_000_000L;
+
+        var payload = new
+        {
+            operations = new[]
+            {
+                new
+                {
+                    update = new { resourceName = resource, amountMicros = micros.ToString() },
+                    updateMask = "amount_micros",
+                },
+            },
+        };
+
+        var (ok, _, apiErr) = await CallAds(token, version, customerId, "campaignBudgets:mutate", payload);
+        if (!ok) return BadRequest(new { success = false, message = apiErr });
+
+        _log.LogWarning("Google Ads budget {Budget} set to ₹{Amount}/day from admin", resource, amount);
+        return Ok(new { success = true, dailyBudget = amount });
     }
 
     // REST hands int64 back as strings, and omits a metric that is zero.

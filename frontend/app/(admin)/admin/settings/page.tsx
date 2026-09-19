@@ -142,6 +142,7 @@ const SECTIONS = [
     fields: [
       { key: 'googleAdsCustomerId',      label: 'Google Ads Customer ID (10 digits, top-right in Google Ads)', type: 'text' },
       { key: 'googleAdsLoginCustomerId', label: 'Manager (MCC) ID — only if your account sits under one', type: 'text' },
+      { key: 'googleAdsMaxDailyBudget',  label: 'Highest daily budget admin may set (₹, default 5000)', type: 'text' },
       { key: 'googleAdsApiVersion',      label: 'API version (leave blank unless Google retires the current one)', type: 'text' },
     ]
   },
