@@ -69,6 +69,7 @@ async function buildJsonLd(idParam: string): Promise<string | null> {
       ? (/^https?:/i.test(imgSrc) ? imgSrc : `${BASE}${imgSrc}`)
       : `${BASE}/og-image.jpg`;
     const canonical = `${BASE}/products/${productSlug(product.name, product.dbId)}`;
+    const today = new Date().toISOString().split('T')[0];
 
     let reviewCount = 0;
     let ratingValue = 0;
@@ -94,6 +95,12 @@ async function buildJsonLd(idParam: string): Promise<string | null> {
         url: canonical,
         priceCurrency: 'INR',
         price,
+        // Google's Merchant listings check wants the price window's start as well
+        // as its end. The shop has no record of when a price last changed, and
+        // inventing a past date would be a claim we cannot stand behind, so the
+        // window is simply "from today, for the next 30 days" — which is what
+        // priceValidUntil below has always said in the other direction.
+        validFrom: today,
         priceValidUntil: new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0],
         availability: outOfStock ? 'https://schema.org/OutOfStock' : 'https://schema.org/InStock',
         itemCondition: 'https://schema.org/NewCondition',
