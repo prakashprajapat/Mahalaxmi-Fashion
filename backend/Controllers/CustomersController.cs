@@ -253,13 +253,35 @@ public class CustomersController : ControllerBase
         var phone = req.Phone.TrimStart('+').Replace(" ", "");
         if (!phone.StartsWith("91")) phone = "91" + phone;
 
+        // Everything the message might need to say, so the template never has to
+        // state a figure the shop could later change in Settings. The discount
+        // used to be typed into the template by hand — change the percent in
+        // Settings and the SMS would go on promising the old one, which is a
+        // promise to a customer we would not be keeping.
+        // DLT caps a variable at 30 characters, so the name is trimmed to fit.
+        var firstName = (customer?.FirstName ?? "").Trim();
+        if (firstName.Length == 0) firstName = "Customer";
+        if (firstName.Length > 30) firstName = firstName[..30];
+
+        var percentText = coupon.Value.ToString("0.##");
+        var expiryText = (coupon.ExpiresAt ?? DateTimeOffset.UtcNow.AddDays(40))
+            .ToOffset(TimeSpan.FromHours(5.5))       // show it in IST, not UTC
+            .ToString("dd MMM yyyy");
+
         using var http = new System.Net.Http.HttpClient();
-        // The coupon code is passed as template variables — add ##coupon## (or ##code##) to your
-        // MSG91 template so the customer receives their personal code.
+        // MSG91 fills whichever of these the template actually uses and ignores
+        // the rest, so an older template with only ##coupon## keeps working.
         var payload = new {
             template_id = templateId,
             short_url   = "1",
-            recipients  = new[] { new { mobiles = phone, coupon = coupon.Code, code = coupon.Code } }
+            recipients  = new[] { new {
+                mobiles = phone,
+                coupon  = coupon.Code,
+                code    = coupon.Code,
+                name    = firstName,
+                percent = percentText,
+                expiry  = expiryText,
+            } }
         };
         var body = System.Text.Json.JsonSerializer.Serialize(payload);
         var httpReq = new System.Net.Http.HttpRequestMessage(System.Net.Http.HttpMethod.Post, "https://api.msg91.com/api/v5/flow/")
