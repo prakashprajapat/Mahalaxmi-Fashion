@@ -60,7 +60,7 @@ function stockStatusFromQty(qty: number): 'In Stock' | 'Limited Stock' | 'Out of
 }
 
 // ─── AVIF → JPEG Converter ───────────────────────────────────────────────────
-interface ConvResult { dataUrl: string; fmt: string; origKB: number; outKB: number; w: number; h: number; }
+interface ConvResult { dataUrl: string; fmt: string; origKB: number; outKB: number; w: number; h: number; padded: boolean; }
 
 function base64Bytes(dataUrl: string): number {
   const b64 = dataUrl.split(',')[1] ?? '';
@@ -76,6 +76,56 @@ function blobToDataUrl(blob: Blob): Promise<string> {
   });
 }
 
+
+// ─── Every product photo comes out the same shape ────────────────────────────
+// The shop shows photos in a 3:4 portrait frame. A photo of any other shape
+// used to go in as it was and then sat small inside that frame, which is how a
+// few products ended up looking different from their neighbours. So the shape
+// is fixed here, once, at upload — not left to whoever made the photo.
+//
+// Nothing is cropped: a wide photo keeps every pixel and the space around it is
+// filled with a blurred, over-scaled copy of the photo itself, so it reads as
+// part of the picture rather than a grey band. Because this is baked into the
+// saved file, it holds everywhere the photo goes — the shop, the app, and any
+// feed sent to Meta or Google.
+const CARD_RATIO = 3 / 4;
+
+function fitToCardShape(img: HTMLImageElement, maxPx: number): { canvas: HTMLCanvasElement; padded: boolean } {
+  const natW = img.naturalWidth || img.width;
+  const natH = img.naturalHeight || img.height;
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d')!;
+
+  // Already the right shape — resize only, and leave the pixels alone.
+  if (Math.abs(natW / natH - CARD_RATIO) < 0.02) {
+    let w = natW, h = natH;
+    if (w > maxPx || h > maxPx) {
+      const k = maxPx / Math.max(w, h);
+      w = Math.round(w * k); h = Math.round(h * k);
+    }
+    canvas.width = w; canvas.height = h;
+    ctx.drawImage(img, 0, 0, w, h);
+    return { canvas, padded: false };
+  }
+
+  const H = Math.min(maxPx, Math.max(natH, Math.round(natW / CARD_RATIO)));
+  const W = Math.round(H * CARD_RATIO);
+  canvas.width = W; canvas.height = H;
+
+  // Blurred copy behind, scaled past the edges so no seam shows.
+  const cover = Math.max(W / natW, H / natH) * 1.2;
+  const cw = natW * cover, ch = natH * cover;
+  ctx.filter = 'blur(28px)';
+  ctx.drawImage(img, (W - cw) / 2, (H - ch) / 2, cw, ch);
+  ctx.filter = 'none';
+
+  // The real photo on top, whole.
+  const fit = Math.min(W / natW, H / natH);
+  const fw = natW * fit, fh = natH * fit;
+  ctx.drawImage(img, (W - fw) / 2, (H - fh) / 2, fw, fh);
+  return { canvas, padded: true };
+}
+
 async function convertToAvif(file: File, maxPx = 1200, quality = 0.82): Promise<ConvResult> {
   const origKB = Math.round(file.size / 1024);
 
@@ -88,15 +138,8 @@ async function convertToAvif(file: File, maxPx = 1200, quality = 0.82): Promise<
     const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = srcUrl;
   });
 
-  // Resize if needed
-  let { width, height } = img;
-  if (width > maxPx || height > maxPx) {
-    if (width > height) { height = Math.round(height * maxPx / width); width = maxPx; }
-    else                { width  = Math.round(width  * maxPx / height); height = maxPx; }
-  }
-  const canvas = document.createElement('canvas');
-  canvas.width = width; canvas.height = height;
-  canvas.getContext('2d')!.drawImage(img, 0, 0, width, height);
+  const { canvas, padded } = fitToCardShape(img, maxPx);
+  const width = canvas.width, height = canvas.height;
 
   // Collect candidates: try AVIF, WebP, JPEG
   const candidates: { blob: Blob; fmt: string }[] = [];
@@ -116,18 +159,24 @@ async function convertToAvif(file: File, maxPx = 1200, quality = 0.82): Promise<
     if (b && b.type === 'image/jpeg') candidates.push({ blob: b, fmt: 'JPEG' });
   } catch {}
 
-  // Pick smallest candidate that is actually smaller than original
-  const best = candidates
-    .filter(c => c.blob.size < file.size)
-    .sort((a, b) => a.blob.size - b.blob.size)[0];
+  // Smallest candidate. Normally it also has to beat the original file, but a
+  // reshaped photo must be kept whatever it weighs — handing back the original
+  // would quietly undo the reshaping this function just did.
+  const sorted = candidates.sort((a, b) => a.blob.size - b.blob.size);
+  const best = padded ? sorted[0] : sorted.filter(c => c.blob.size < file.size)[0];
 
   if (best) {
     const dataUrl = await blobToDataUrl(best.blob);
-    return { dataUrl, fmt: best.fmt, origKB, outKB: Math.round(best.blob.size / 1024), w: width, h: height };
+    return { dataUrl, fmt: best.fmt, origKB, outKB: Math.round(best.blob.size / 1024), w: width, h: height, padded };
   }
 
-  // Nothing smaller — return original untouched
-  return { dataUrl: srcUrl, fmt: file.type.split('/')[1]?.toUpperCase() || 'ORIG', origKB, outKB: origKB, w: width, h: height };
+  // No encoder gave us anything usable. Keep the reshaped canvas if there is
+  // one; otherwise the original is the honest answer.
+  if (padded) {
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+    return { dataUrl, fmt: 'JPEG', origKB, outKB: base64Bytes(dataUrl), w: width, h: height, padded };
+  }
+  return { dataUrl: srcUrl, fmt: file.type.split('/')[1]?.toUpperCase() || 'ORIG', origKB, outKB: origKB, w: width, h: height, padded };
 }
 
 // ─── Photo Slot ───────────────────────────────────────────────────────────────
@@ -181,14 +230,10 @@ function PhotoSlot({
           onChange={e => { if (e.target.files?.[0]) handleFile(e.target.files[0]); }} />
       </div>
       {/* Conversion Report Badge */}
-      {/* Product tiles are 3:4 portrait. A wider photo still shows in full, but
-          it sits small inside the tile, so say so while the photo can still be
-          swapped - not after it is live on the shop. */}
-      {report && report.w / report.h > 0.8 && (
-        <div style={{ padding: '.35rem .5rem', background: '#fff8e1', borderTop: '1px solid #ffe082', fontSize: '.65rem', lineHeight: 1.5, color: '#8a6d3b', fontWeight: 600 }}>
-          ⚠ This photo is {report.w}×{report.h} — wider than the 3:4 shape the product
-          cards use, so it will look smaller than the others. A portrait photo
-          (like 900×1200) fills the card.
+      {report?.padded && (
+        <div style={{ padding: '.35rem .5rem', background: '#e3f2fd', borderTop: '1px solid #bbdefb', fontSize: '.65rem', lineHeight: 1.5, color: '#1565c0', fontWeight: 600 }}>
+          ↔ Reshaped to {report.w}×{report.h} so it matches the other product cards.
+          Nothing was cut — the gap is filled with a blurred copy of the photo.
         </div>
       )}
       {report && (

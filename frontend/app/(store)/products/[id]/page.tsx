@@ -398,11 +398,19 @@ export default function ProductPage({ params }: { params: { id: string } }) {
             >
               {/* Inner: overflow:hidden clips the image only */}
               <div style={{ position: 'absolute', inset: 0, borderRadius: '12px', overflow: 'hidden', background: '#f5f5f5' }}>
+                {activeImg && (
+                  /* Photos uploaded before the shop started reshaping them are
+                     not all 3:4, and a wide one leaves grey bands here just as
+                     it did on the cards. Same answer: a blurred copy of the
+                     photo fills the gap, and the photo itself stays whole. */
+                  <div className="product-card-blurfill" aria-hidden="true"
+                    style={{ backgroundImage: `url("${activeImg.replace(/"/g, '%22')}")` }} />
+                )}
                 {activeImg
-                  ? <img src={activeImg} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                  ? <img src={activeImg} alt={product.name} style={{ position: 'relative', zIndex: 1, width: '100%', height: '100%', objectFit: 'contain' }} />
                   : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '5rem', color: '#ddd' }}>👗</div>}
-                {product.bestSeller && <span className="badge badge-yellow" style={{ position: 'absolute', top: 12, left: 12 }}>Best Seller</span>}
-                {saving > 0 && <span className="badge badge-red" style={{ position: 'absolute', top: product.bestSeller ? 44 : 12, left: 12 }}>{saving}% off</span>}
+                {product.bestSeller && <span className="badge badge-yellow" style={{ position: 'absolute', zIndex: 2, top: 12, left: 12 }}>Best Seller</span>}
+                {saving > 0 && <span className="badge badge-red" style={{ position: 'absolute', zIndex: 2, top: product.bestSeller ? 44 : 12, left: 12 }}>{saving}% off</span>}
               </div>
               {/* Circular magnifier — position:fixed so no overflow can clip it */}
               {canHover && imgHovered && activeImg && (
