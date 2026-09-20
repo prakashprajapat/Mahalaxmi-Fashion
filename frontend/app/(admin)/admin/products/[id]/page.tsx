@@ -60,7 +60,7 @@ function stockStatusFromQty(qty: number): 'In Stock' | 'Limited Stock' | 'Out of
 }
 
 // ─── AVIF → JPEG Converter ───────────────────────────────────────────────────
-interface ConvResult { dataUrl: string; fmt: string; origKB: number; outKB: number; }
+interface ConvResult { dataUrl: string; fmt: string; origKB: number; outKB: number; w: number; h: number; }
 
 function base64Bytes(dataUrl: string): number {
   const b64 = dataUrl.split(',')[1] ?? '';
@@ -123,11 +123,11 @@ async function convertToAvif(file: File, maxPx = 1200, quality = 0.82): Promise<
 
   if (best) {
     const dataUrl = await blobToDataUrl(best.blob);
-    return { dataUrl, fmt: best.fmt, origKB, outKB: Math.round(best.blob.size / 1024) };
+    return { dataUrl, fmt: best.fmt, origKB, outKB: Math.round(best.blob.size / 1024), w: width, h: height };
   }
 
   // Nothing smaller — return original untouched
-  return { dataUrl: srcUrl, fmt: file.type.split('/')[1]?.toUpperCase() || 'ORIG', origKB, outKB: origKB };
+  return { dataUrl: srcUrl, fmt: file.type.split('/')[1]?.toUpperCase() || 'ORIG', origKB, outKB: origKB, w: width, h: height };
 }
 
 // ─── Photo Slot ───────────────────────────────────────────────────────────────
@@ -181,6 +181,16 @@ function PhotoSlot({
           onChange={e => { if (e.target.files?.[0]) handleFile(e.target.files[0]); }} />
       </div>
       {/* Conversion Report Badge */}
+      {/* Product tiles are 3:4 portrait. A wider photo still shows in full, but
+          it sits small inside the tile, so say so while the photo can still be
+          swapped - not after it is live on the shop. */}
+      {report && report.w / report.h > 0.8 && (
+        <div style={{ padding: '.35rem .5rem', background: '#fff8e1', borderTop: '1px solid #ffe082', fontSize: '.65rem', lineHeight: 1.5, color: '#8a6d3b', fontWeight: 600 }}>
+          ⚠ This photo is {report.w}×{report.h} — wider than the 3:4 shape the product
+          cards use, so it will look smaller than the others. A portrait photo
+          (like 900×1200) fills the card.
+        </div>
+      )}
       {report && (
         <div style={{ padding: '.3rem .5rem', background: report.fmt === 'AVIF' ? '#e8f5e9' : report.fmt === 'WebP' ? '#e3f2fd' : '#fff8e1', borderTop: '1px solid #eee', fontSize: '.65rem', fontWeight: 700, display: 'flex', gap: '.4rem', flexWrap: 'wrap', alignItems: 'center' }}>
           <span style={{ color: report.fmt === 'AVIF' ? '#2e7d32' : report.fmt === 'WebP' ? '#1565c0' : '#e65100', background: report.fmt === 'AVIF' ? '#c8e6c9' : report.fmt === 'WebP' ? '#bbdefb' : '#ffe0b2', padding: '.1rem .35rem', borderRadius: '4px' }}>

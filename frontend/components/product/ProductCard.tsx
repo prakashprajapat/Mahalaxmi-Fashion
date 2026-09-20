@@ -13,6 +13,11 @@ export default function ProductCard({ product, priority = false }: { product: Pr
   const router = useRouter();
   const [wishlisted, setWishlisted] = useState(isInWishlist(product.dbId));
   const [imgError, setImgError] = useState(false);
+  // A photo that is not roughly portrait leaves grey bands inside the 3:4 tile.
+  // Rather than crop it — a two-model combo photo loses both models that way —
+  // a blurred copy of the same photo fills the gap. Only the odd-shaped ones
+  // pay for the blur, which is why this waits for the real dimensions.
+  const [blurFill, setBlurFill] = useState(false);
   // Clicking a card goes straight to the full product page (no quick-view popup).
   const href = `/products/${productSlug(product.name, product.dbId)}`;
 
@@ -29,6 +34,13 @@ export default function ProductCard({ product, priority = false }: { product: Pr
   const price = finalUnitPrice(product);
   const saving = product.price > price ? Math.round(((product.price - price) / product.price) * 100) : 0;
   const image = productImageSrc(product.image);
+
+  const measure = (el: HTMLImageElement) => {
+    if (!el.naturalWidth || !el.naturalHeight) return;
+    // The tile is 3:4 (0.75). Anything appreciably wider than that is the case
+    // worth filling behind; a slightly narrower photo already covers the tile.
+    setBlurFill(el.naturalWidth / el.naturalHeight > 0.8);
+  };
 
   const handleWishlist = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -52,6 +64,10 @@ export default function ProductCard({ product, priority = false }: { product: Pr
       <div className="product-card" style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', height: '100%' }} onClick={openProduct}>
         {/* Image */}
         <div className="product-card-img">
+          {blurFill && image && !imgError && (
+            <div className="product-card-blurfill" aria-hidden="true"
+              style={{ backgroundImage: `url("${image.replace(/"/g, '%22')}")` }} />
+          )}
           <div onClick={openProduct}>
             {image && !imgError ? (
               /^https?:/i.test(image) ? (
@@ -61,6 +77,7 @@ export default function ProductCard({ product, priority = false }: { product: Pr
                   priority={priority}
                   sizes="(max-width: 640px) 46vw, (max-width: 1024px) 30vw, 240px"
                   style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                  onLoad={e => measure(e.currentTarget)}
                   onError={() => setImgError(true)}
                 />
               ) : (
@@ -68,6 +85,7 @@ export default function ProductCard({ product, priority = false }: { product: Pr
                   loading={priority ? 'eager' : 'lazy'}
                   decoding="async"
                   style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                  onLoad={e => measure(e.currentTarget)}
                   onError={() => setImgError(true)}
                 />
               )

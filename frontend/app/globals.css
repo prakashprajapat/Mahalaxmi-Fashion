@@ -761,7 +761,17 @@ button { cursor: pointer; font-family: inherit; }
    Next <Image> onLoad firing to reveal the photo; when it didn't fire the image stayed
    invisible and cards showed blank. A plain light background covers the brief load gap. */
 .product-card-img a { display: block; width: 100%; height: 100%; }
-.product-card-img img { width: 100%; height: 100%; object-fit: contain; transition: transform .45s ease; }
+.product-card-img img { position: relative; z-index: 1; width: 100%; height: 100%; object-fit: contain; transition: transform .45s ease; }
+/* A landscape photo cannot fill a 3:4 tile without losing its sides, and a
+   two-model combo shot loses both models that way. So the tile is filled with
+   a blurred, over-scaled copy of the same photo and the real one sits on top,
+   whole. Only cards whose photo is actually the wrong shape render this. */
+.product-card-blurfill {
+  position: absolute; inset: 0; z-index: 0;
+  background-size: cover; background-position: center;
+  filter: blur(18px) saturate(1.15); transform: scale(1.18);
+  opacity: .6; pointer-events: none;
+}
 .product-card-img:hover img { transform: scale(1.12); }
 .product-card-img > div { display: block; width: 100%; height: 100%; }
 /* Quick view hover hint — color overlay removed */
