@@ -156,7 +156,10 @@ async function buildJsonLd(idParam: string): Promise<string | null> {
       ],
     };
 
-    return JSON.stringify([productLd, breadcrumbLd]);
+    // JSON.stringify leaves "<" alone, so a product name holding "</script>"
+    // would close this tag early and whatever followed would run as script.
+    // Escaping it keeps the JSON valid and the tag unbreakable.
+    return JSON.stringify([productLd, breadcrumbLd]).replace(/</g, '\\u003c');
   } catch {
     return null;
   }

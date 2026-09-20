@@ -33,7 +33,8 @@ public class AuthController : ControllerBase
 
     // POST /api/auth/admin-login
     [HttpPost("admin-login")]
-    [EnableRateLimiting("auth")]  // SEC-8: brute-force protection
+    // The keys to the whole shop: six tries in five minutes, per caller.
+    [EnableRateLimiting("login")]
     public async Task<IActionResult> AdminLogin([FromBody] AdminLoginRequest req)
     {
         var loginId = (req.Email ?? "").Trim();

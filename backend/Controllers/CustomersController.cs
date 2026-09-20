@@ -303,6 +303,7 @@ public class CustomersController : ControllerBase
 
     // POST /api/customers/register
     [HttpPost("register")]
+    [EnableRateLimiting("auth")]
     public async Task<IActionResult> Register([FromBody] RegisterRequest req)
     {
         var email = req.Email.ToLower().Trim();
@@ -368,6 +369,7 @@ public class CustomersController : ControllerBase
 
     // POST /api/customers/login
     [HttpPost("login")]
+    [EnableRateLimiting("login")]
     public async Task<IActionResult> Login([FromBody] LoginRequest req)
     {
         var customer = await _db.Customers
@@ -440,6 +442,7 @@ public class CustomersController : ControllerBase
 
     // POST /api/customers/verify-otp
     [HttpPost("verify-otp")]
+    [EnableRateLimiting("auth")]
     public async Task<IActionResult> VerifyOtp([FromBody] OtpLoginRequest req)
     {
         var phone = req.Phone.Trim();
@@ -561,6 +564,7 @@ public class CustomersController : ControllerBase
 
     // POST /api/customers/reset-password
     [HttpPost("reset-password")]
+    [EnableRateLimiting("login")]
     public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest req)
     {
         // req.Email carries the identifier the customer entered — email OR mobile.
@@ -778,6 +782,7 @@ public class CustomersController : ControllerBase
 
     // POST /api/customers/social-login
     [HttpPost("social-login")]
+    [EnableRateLimiting("auth")]
     public async Task<IActionResult> SocialLogin([FromBody] SocialLoginRequest req)
     {
         if (string.IsNullOrWhiteSpace(req.Provider) || string.IsNullOrWhiteSpace(req.Code) || string.IsNullOrWhiteSpace(req.RedirectUri))

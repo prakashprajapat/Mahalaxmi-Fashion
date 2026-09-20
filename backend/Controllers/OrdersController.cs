@@ -306,6 +306,20 @@ public class OrdersController : ControllerBase
             if (!string.IsNullOrWhiteSpace(productSku))
                 bySku[productSku] = p;   // last-wins (defensive vs any dup SKU)
         }
+
+        // A cart line is allowed to arrive without a SKU — a product may simply
+        // not have one — so those are priced by product id instead. Either way
+        // the price comes from our own catalogue.
+        var idsNeeded = cartLines
+            .Where(c => string.IsNullOrWhiteSpace(c.Sku))
+            .Select(c => int.TryParse((c.Id ?? "").Trim(), out var n) ? n : 0)
+            .Where(n => n > 0)
+            .Distinct()
+            .ToList();
+        var byProductId = idsNeeded.Count == 0
+            ? new Dictionary<int, Product>()
+            : (await _db.Products.Where(p => idsNeeded.Contains(p.Id)).ToListAsync())
+                .ToDictionary(p => p.Id);
         foreach (var line in cartLines)
         {
             var qty = Math.Max(1, line.Quantity);
@@ -329,7 +343,22 @@ public class OrdersController : ControllerBase
             }
             else
             {
-                serverSubtotal += line.LineTotal;   // no SKU at all — legacy/edge line, can't verify
+                // SEC: no SKU — price it by product id. Taking the browser's
+                // LineTotal here was the same underpay hole the bogus-SKU branch
+                // above closes, reachable through a different door: leave the SKU
+                // out and name your own price. A line we cannot price from our own
+                // catalogue is refused rather than believed.
+                if (!int.TryParse((line.Id ?? "").Trim(), out var pid)
+                    || !byProductId.TryGetValue(pid, out var prodById))
+                    return BadRequest(new { success = false, message = "An item in your cart is no longer available. Please refresh your cart and try again." });
+
+                if (string.Equals(prodById.StockStatus, "Out of Stock", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(prodById.StockStatus, "Inactive", StringComparison.OrdinalIgnoreCase))
+                    return BadRequest(new { success = false, message = $"'{prodById.Name}' is out of stock. Please remove it and try again." });
+
+                var baseUnitById = prodById.DiscountPrice.HasValue && prodById.DiscountPrice.Value > 0
+                    ? prodById.DiscountPrice.Value : prodById.Price;
+                serverSubtotal += (baseUnitById + (isBalotra ? 0m : Math.Max(0m, prodById.ShippingCharge))) * qty;
             }
         }
 

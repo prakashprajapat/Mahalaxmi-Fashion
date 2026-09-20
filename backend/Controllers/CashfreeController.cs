@@ -223,7 +223,11 @@ public class CashfreeController : ControllerBase
         using (var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(secret)))
         {
             var expected = Convert.ToBase64String(hmac.ComputeHash(Encoding.UTF8.GetBytes(timestamp + body)));
-            if (!string.Equals(expected, signature, StringComparison.Ordinal))
+            // Compared byte-for-byte in constant time. A plain string compare
+            // returns early on the first wrong character, and that timing is
+            // enough to walk a signature out one character at a time.
+            if (!CryptographicOperations.FixedTimeEquals(
+                    Encoding.UTF8.GetBytes(expected), Encoding.UTF8.GetBytes(signature)))
                 return Unauthorized(new { success = false, message = "Invalid webhook signature." });
         }
 

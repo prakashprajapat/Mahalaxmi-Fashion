@@ -41,16 +41,54 @@ builder.WebHost.ConfigureKestrel(o => o.Limits.MaxRequestBodySize = 85L * 1024 *
 
 // ── Rate Limiting ─────────────────────────────────────────────────────────────
 // SEC-8: Protect auth & OTP endpoints from brute-force (10 req/min)
+// The caller's real address. The site sits behind Cloudflare and nginx, so
+// RemoteIpAddress is the proxy, not the shopper — without this every customer
+// in India would count as one caller and share one budget.
+static string CallerIp(HttpContext http)
+{
+    var cf = http.Request.Headers["CF-Connecting-IP"].ToString();
+    if (!string.IsNullOrWhiteSpace(cf)) return cf.Trim();
+
+    var fwd = http.Request.Headers["X-Forwarded-For"].ToString();
+    if (!string.IsNullOrWhiteSpace(fwd))
+    {
+        var first = fwd.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).FirstOrDefault();
+        if (!string.IsNullOrWhiteSpace(first)) return first;
+    }
+    return http.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+}
+
 builder.Services.AddRateLimiter(opts =>
 {
-    opts.AddSlidingWindowLimiter("auth", o =>
-    {
-        o.PermitLimit = 10;
-        o.Window = TimeSpan.FromMinutes(1);
-        o.SegmentsPerWindow = 2;
-        o.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
-        o.QueueLimit = 0;
-    });
+    // Counted per caller, not for the shop as a whole. It used to be a single
+    // shared window: ten sign-in attempts a minute was the budget for EVERY
+    // customer together, so one person hammering the login page handed a 429 to
+    // every real shopper trying to sign in at the same moment — and a brute
+    // force was slowed no more than an honest customer was.
+    opts.AddPolicy("auth", http => RateLimitPartition.GetSlidingWindowLimiter(
+        CallerIp(http),
+        _ => new SlidingWindowRateLimiterOptions
+        {
+            PermitLimit = 10,
+            Window = TimeSpan.FromMinutes(1),
+            SegmentsPerWindow = 2,
+            QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+            QueueLimit = 0,
+        }));
+
+    // Password guessing deserves a tighter leash than an OTP resend: a wrong
+    // password is cheap to try and there is no SMS bill to notice it.
+    opts.AddPolicy("login", http => RateLimitPartition.GetSlidingWindowLimiter(
+        CallerIp(http),
+        _ => new SlidingWindowRateLimiterOptions
+        {
+            PermitLimit = 6,
+            Window = TimeSpan.FromMinutes(5),
+            SegmentsPerWindow = 5,
+            QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+            QueueLimit = 0,
+        }));
+
     opts.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
 });
 

@@ -129,8 +129,15 @@ public class PaymentsController : ControllerBase
 
         // Verify the webhook signature (HMAC-SHA256 of the raw body).
         var sigHeader = Request.Headers["X-Razorpay-Signature"].ToString();
+        // Constant-time compare: a plain string compare stops at the first wrong
+        // character, and that timing can be used to guess a signature.
+        static bool SameSignature(string a, string b) =>
+            CryptographicOperations.FixedTimeEquals(
+                Encoding.UTF8.GetBytes(a.ToLowerInvariant()),
+                Encoding.UTF8.GetBytes(b.ToLowerInvariant()));
+
         if (string.IsNullOrEmpty(secret) || string.IsNullOrEmpty(sigHeader)
-            || !string.Equals(HMACSHA256Hex(body, secret), sigHeader, StringComparison.OrdinalIgnoreCase))
+            || !SameSignature(HMACSHA256Hex(body, secret), sigHeader))
             return Unauthorized(new { success = false, message = "Invalid webhook signature." });
 
         try

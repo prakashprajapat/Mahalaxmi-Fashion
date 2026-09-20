@@ -6,6 +6,12 @@ import { COLLECTIONS, COLLECTION_SLUGS, matchesCollection } from '@/lib/collecti
 import CategoryPageContent from '@/components/product/CategoryPageContent';
 import { productSlug } from '@/lib/productSlug';
 
+// JSON.stringify leaves "<" alone, so a name holding "</script>" would close
+// this tag early and run as script. Escaped, the JSON stays valid either way.
+function safeJsonLd(value: unknown): string {
+  return JSON.stringify(value).replace(/</g, '\\u003c');
+}
+
 // Koskii-style SEO landing pages: /collections/cotton-nighty, /collections/nighty-under-500 ...
 // Har page ka apna title/description/H1/intro/FAQ hai (lib/collections.ts me define),
 // products apne aap filter hote hain — naya product sahi collection me khud aa jata hai.
@@ -124,10 +130,10 @@ export default async function CollectionPage({ params }: { params: { slug: strin
         </div>
       </section>
 
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(faqJsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(breadcrumbJsonLd) }} />
       {itemListJsonLd && (
-        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(itemListJsonLd) }} />
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(itemListJsonLd) }} />
       )}
     </>
   );
