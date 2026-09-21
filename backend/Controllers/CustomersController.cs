@@ -203,15 +203,8 @@ public class CustomersController : ControllerBase
         var occasion = (req.Occasion ?? "birthday").Trim().ToLowerInvariant();
         occasion = occasion == "anniversary" ? "anniversary" : "birthday";
 
-        // Pick the occasion-specific OFFER template; fall back to the shared celebration template
-        // so existing setups keep working even if the specific templates aren't set yet.
-        var specificKey = occasion == "anniversary" ? "msg91AnniversaryTemplateId" : "msg91BirthdayTemplateId";
-        var templateId = await _db.SiteSettings.Where(s => s.Key == specificKey).Select(s => s.Value).FirstOrDefaultAsync();
-        if (string.IsNullOrWhiteSpace(templateId))
-            templateId = await _db.SiteSettings.Where(s => s.Key == "msg91CelebrationTemplateId").Select(s => s.Value).FirstOrDefaultAsync();
-
-        if (string.IsNullOrWhiteSpace(authKey) || string.IsNullOrWhiteSpace(templateId))
-            return BadRequest(new { success = false, message = "Offer SMS not configured. Set 'msg91AuthKey' and the Birthday/Anniversary OFFER template (with a ##coupon## variable) in Settings → MSG91 Configuration." });
+        if (string.IsNullOrWhiteSpace(authKey))
+            return BadRequest(new { success = false, message = "Offer SMS not configured. Set 'msg91AuthKey' in Settings → MSG91 Configuration." });
 
         if (string.IsNullOrWhiteSpace(req.Phone))
             return BadRequest(new { success = false, message = "Phone number is required." });
@@ -253,6 +246,35 @@ public class CustomersController : ControllerBase
         var phone = req.Phone.TrimStart('+').Replace(" ", "");
         if (!phone.StartsWith("91")) phone = "91" + phone;
 
+        // How many days until the day itself. A greeting sent a month early must
+        // not read "Happy Birthday" — that is a different message, so it is a
+        // different template. Counted here from the customer's own date rather
+        // than taken from the browser, so the wording cannot be off by a slab.
+        var todayIst = DateOnly.FromDateTime(DateTime.UtcNow.AddHours(5.5));
+        var daysAway = occasion == "anniversary"
+            ? DaysUntil(todayIst, customer?.MarriageDate)
+            : DaysUntil(todayIst, customer?.DateOfBirth);
+        var isTheDay = daysAway is 0;
+
+        // Today has its own template; everything earlier shares the "upcoming"
+        // one and says how many days are left. Each step falls back to the next
+        // so a shop that has registered only one template still sends something.
+        string SettingName(string suffix) =>
+            (occasion == "anniversary" ? "msg91Anniversary" : "msg91Birthday") + suffix;
+
+        var candidates = isTheDay
+            ? new[] { SettingName("TodayTemplateId"), SettingName("TemplateId"), "msg91CelebrationTemplateId" }
+            : new[] { SettingName("TemplateId"), SettingName("TodayTemplateId"), "msg91CelebrationTemplateId" };
+
+        string? templateId = null;
+        foreach (var key in candidates)
+        {
+            templateId = await _db.SiteSettings.Where(x => x.Key == key).Select(x => x.Value).FirstOrDefaultAsync();
+            if (!string.IsNullOrWhiteSpace(templateId)) break;
+        }
+        if (string.IsNullOrWhiteSpace(templateId))
+            return BadRequest(new { success = false, message = $"No {(isTheDay ? "on-the-day" : "upcoming")} {occasion} template is set. Add it in Settings → MSG91 Configuration." });
+
         // Everything the message might need to say, so the template never has to
         // state a figure the shop could later change in Settings. The discount
         // used to be typed into the template by hand — change the percent in
@@ -281,6 +303,7 @@ public class CustomersController : ControllerBase
                 name    = firstName,
                 percent = percentText,
                 expiry  = expiryText,
+                days    = (daysAway ?? 0).ToString(),
             } }
         };
         var body = System.Text.Json.JsonSerializer.Serialize(payload);
