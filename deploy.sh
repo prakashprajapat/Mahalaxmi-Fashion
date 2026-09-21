@@ -47,18 +47,34 @@ rollback() {
 echo "4. Building backend..."
 (cd backend && dotnet publish -c Release -o /var/www/mahalaxmi-backend) || rollback "Backend build failed."
 
-echo "5. Building frontend..."
+echo "5. Checking frontend dependencies..."
+# next/image resizes every product photo on the server, and it cannot do that
+# without sharp. This script has never run npm install, so a newly added
+# dependency would otherwise be missing here and every photo would 500.
+# Installed once, then skipped on later deploys.
+if ! (cd frontend && node -e "require('sharp')" >/dev/null 2>&1); then
+  echo "   Installing sharp (one-time, needed for image resizing)..."
+  (cd frontend && npm install --no-audit --no-fund sharp@^0.33.5) \
+    || rollback "sharp install failed — photos would not render."
+  (cd frontend && node -e "require('sharp')" >/dev/null 2>&1) \
+    || rollback "sharp installed but will not load on this machine."
+  echo "   sharp OK"
+else
+  echo "   sharp already present"
+fi
+
+echo "6. Building frontend..."
 (cd frontend && npm run build) || rollback "Frontend build failed."
 
 # Both builds succeeded — now it's safe to restart the live processes.
-echo "6. Restarting API..."
+echo "7. Restarting API..."
 fuser -k 5000/tcp 2>/dev/null; sleep 2
 pm2 restart mahalaxmi-api
 
-echo "7. Restarting frontend..."
+echo "8. Restarting frontend..."
 pm2 restart mahalaxmi-frontend
 
-echo "8. Warming up..."
+echo "9. Warming up..."
 sleep 8
 curl -s http://localhost:5000/api/products?pageSize=1 > /dev/null && echo "API OK ✅" || echo "⚠ API not responding — check: pm2 logs mahalaxmi-api"
 pm2 status

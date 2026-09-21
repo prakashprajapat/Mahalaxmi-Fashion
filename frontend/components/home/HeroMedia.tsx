@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
+import Image from 'next/image';
 import { settingsApi } from '@/lib/api';
 
 // Right-side hero media — auto-sliding carousel.
@@ -82,9 +83,10 @@ export default function HeroMedia() {
         <div style={{ flex: '0 0 100%', height: '100%' }}>{firstSlide}</div>
         {imgs.map((src, i) => (
           <div key={i} style={{ flex: '0 0 100%', height: '100%' }}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={src} alt={`Mahalaxmi Fashion Hub collection ${i + 1}`} loading={i === 0 ? 'eager' : 'lazy'}
-              width={1200} height={520} decoding="async"
+            <Image src={src} alt={`Mahalaxmi Fashion Hub collection ${i + 1}`}
+              width={1200} height={520}
+              priority={i === 0} fetchPriority={i === 0 ? 'high' : undefined}
+              sizes="100vw"
               style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
           </div>
         ))}

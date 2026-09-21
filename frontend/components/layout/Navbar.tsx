@@ -1,5 +1,6 @@
 'use client';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useState, useEffect, useRef } from 'react';
 import type { FormEvent } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
@@ -300,7 +301,8 @@ export default function Navbar() {
         <div className="brand-row">
           <Link href="/" className="brand" aria-label="Mahalaxmi Fashion Hub home">
             <span className="brand-mark">
-              <img src="/logo.webp?v=5" alt="Mahalaxmi Fashion Hub logo" loading="eager" />
+              <Image src="/logo.webp" alt="Mahalaxmi Fashion Hub logo"
+                width={547} height={300} priority sizes="(max-width: 900px) 110px, 160px" />
             </span>
           </Link>
 
@@ -366,7 +368,7 @@ export default function Navbar() {
                     <Link key={p.dbId} href={`/products/${productSlug(p.name, p.dbId)}`}
                       onClick={() => { setShowSuggest(false); setSearch(''); }}
                       style={{ display: 'flex', alignItems: 'center', gap: '.6rem', padding: '.5rem .7rem', textDecoration: 'none', color: '#1a1a1a', borderBottom: '1px solid #f5f5f5' }}>
-                      {img && <img src={img} alt="" width={38} height={38} style={{ width: 38, height: 38, objectFit: 'cover', borderRadius: 6, flexShrink: 0, background: '#f6f6f6' }} />}
+                      {img && <Image src={img} alt="" width={38} height={38} sizes="38px" style={{ width: 38, height: 38, objectFit: 'cover', borderRadius: 6, flexShrink: 0, background: '#f6f6f6' }} />}
                       <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
                         <span style={{ fontSize: '.85rem', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</span>
                         <span style={{ fontSize: '.78rem', color: '#a7354d', fontWeight: 700 }}>₹{finalUnitPrice(p).toLocaleString('en-IN')}</span>
@@ -794,7 +796,7 @@ export default function Navbar() {
               ×
             </button>
             <div className="mfh-login-logo">
-              <img src="/logo.webp?v=5" alt="Mahalaxmi Fashion Hub" />
+              <Image src="/logo.webp" alt="Mahalaxmi Fashion Hub" width={547} height={300} sizes="200px" />
             </div>
             <form onSubmit={handleLogin} className="mfh-login-form" style={{ display: 'flex', flexDirection: 'column', gap: '.9rem' }}>
               <h2 style={{ margin: 0, fontSize: '1.6rem', fontWeight: 800, color: '#1a1a1a' }}>Welcome Back</h2>

@@ -6,7 +6,7 @@ import Image from 'next/image';
 import type { Product } from '@/types';
 import { finalUnitPrice } from '@/lib/cart';
 import { addToWishlist, removeFromWishlist, isInWishlist } from '@/lib/wishlist';
-import { productImageSrc } from '@/lib/productImages';
+import { productImageSrc, productImageThumb } from '@/lib/productImages';
 import { productSlug } from '@/lib/productSlug';
 
 export default function ProductCard({ product, priority = false }: { product: Product; priority?: boolean }) {
@@ -34,6 +34,11 @@ export default function ProductCard({ product, priority = false }: { product: Pr
   const price = finalUnitPrice(product);
   const saving = product.price > price ? Math.round(((product.price - price) / product.price) * 100) : 0;
   const image = productImageSrc(product.image);
+  // data:/blob: sources cannot go through the image optimiser; everything else can,
+  // and until now nothing did — the branch below only accepted absolute URLs, while
+  // every real product photo is stored as a relative /product-images/... path. So a
+  // phone showing a 170px-wide card was downloading the full-size file, 89 times over.
+  const inlineSrc = /^(data:|blob:)/i.test(image);
 
   const measure = (el: HTMLImageElement) => {
     if (!el.naturalWidth || !el.naturalHeight) return;
@@ -66,15 +71,16 @@ export default function ProductCard({ product, priority = false }: { product: Pr
         <div className="product-card-img">
           {blurFill && image && !imgError && (
             <div className="product-card-blurfill" aria-hidden="true"
-              style={{ backgroundImage: `url("${image.replace(/"/g, '%22')}")` }} />
+              style={{ backgroundImage: `url("${productImageThumb(image).replace(/"/g, '%22')}")` }} />
           )}
           <div onClick={openProduct}>
             {image && !imgError ? (
-              /^https?:/i.test(image) ? (
+              !inlineSrc ? (
                 <Image src={image} alt={product.name}
-                  width={400}
-                  height={400}
+                  width={600}
+                  height={800}
                   priority={priority}
+                  fetchPriority={priority ? 'high' : undefined}
                   sizes="(max-width: 640px) 46vw, (max-width: 1024px) 30vw, 240px"
                   style={{ width: '100%', height: '100%', objectFit: 'contain' }}
                   onLoad={e => measure(e.currentTarget)}

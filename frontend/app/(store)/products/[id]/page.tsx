@@ -2,12 +2,13 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import { productsApi, reviewsApi, ordersApi } from '@/lib/api';
 import { addToCart, getCart } from '@/lib/cart';
 import { finalUnitPrice } from '@/lib/price';
 import { addToWishlist, isInWishlist, removeFromWishlist } from '@/lib/wishlist';
 import { getCustomer, getToken } from '@/lib/auth';
-import { productImageSrc } from '@/lib/productImages';
+import { productImageSrc, productImageThumb } from '@/lib/productImages';
 import { parseProductId } from '@/lib/productSlug';
 import { presetColourCode } from '@/lib/presetColours';
 import RelatedProducts from '@/components/product/RelatedProducts';
@@ -404,10 +405,13 @@ export default function ProductPage({ params }: { params: { id: string } }) {
                      it did on the cards. Same answer: a blurred copy of the
                      photo fills the gap, and the photo itself stays whole. */
                   <div className="product-card-blurfill" aria-hidden="true"
-                    style={{ backgroundImage: `url("${activeImg.replace(/"/g, '%22')}")` }} />
+                    style={{ backgroundImage: `url("${productImageThumb(activeImg).replace(/"/g, '%22')}")` }} />
                 )}
                 {activeImg
-                  ? <img src={activeImg} alt={product.name} style={{ position: 'relative', zIndex: 1, width: '100%', height: '100%', objectFit: 'contain' }} />
+                  ? <Image src={activeImg} alt={product.name}
+                      width={900} height={1200} priority fetchPriority="high"
+                      sizes="(max-width: 768px) 100vw, 520px"
+                      style={{ position: 'relative', zIndex: 1, width: '100%', height: '100%', objectFit: 'contain' }} />
                   : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '5rem', color: '#ddd' }}>👗</div>}
                 {product.bestSeller && <span className="badge badge-yellow" style={{ position: 'absolute', zIndex: 2, top: 12, left: 12 }}>Best Seller</span>}
                 {saving > 0 && <span className="badge badge-red" style={{ position: 'absolute', zIndex: 2, top: product.bestSeller ? 44 : 12, left: 12 }}>{saving}% off</span>}
@@ -439,7 +443,8 @@ export default function ProductPage({ params }: { params: { id: string } }) {
                     border: activeImg === img ? '2px solid #a7354d' : '2px solid #eee',
                     padding: 0, cursor: 'pointer', background: '#f5f5f5', flexShrink: 0,
                   }}>
-                    <img src={img} alt={`View ${i+1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <Image src={img} alt={`View ${i+1}`} width={64} height={64} sizes="64px"
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   </button>
                 ))}
               </div>
@@ -533,7 +538,8 @@ export default function ProductPage({ params }: { params: { id: string } }) {
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                       }}>
                       {s.photo
-                        ? <img src={productImageSrc(s.photo) || s.photo} alt={s.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        ? <Image src={productImageSrc(s.photo) || s.photo} alt={s.name} width={48} height={48} sizes="48px"
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         : <span style={{ width: 16, height: 16, borderRadius: '50%', background: s.code, border: '1px solid #bbb', display: 'inline-block' }} />}
                     </button>
                   ))}
