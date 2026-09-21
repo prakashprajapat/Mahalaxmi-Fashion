@@ -39,7 +39,7 @@ export default async function CollectionPage({ params }: { params: { slug: strin
   if (!def) notFound();
 
   const { products } = await productsApi
-    .getAll({ category: def.category, pageSize: 500 })
+    .getAll({ subcategory: def.subcategory, pageSize: 500 })
     .catch(() => ({ products: [] as any[] }));
   const matched = (products as any[]).filter(p => matchesCollection(p, def));
 
@@ -78,7 +78,7 @@ export default async function CollectionPage({ params }: { params: { slug: strin
   // Cross-links (Koskii-style internal linking) — same category first, phir baaki
   const others = COLLECTION_SLUGS
     .filter(s => s !== slug)
-    .sort((a, b) => (COLLECTIONS[b].category === def.category ? 1 : 0) - (COLLECTIONS[a].category === def.category ? 1 : 0));
+    .sort((a, b) => (COLLECTIONS[b].subcategory === def.subcategory ? 1 : 0) - (COLLECTIONS[a].subcategory === def.subcategory ? 1 : 0));
 
   return (
     <>
@@ -89,12 +89,12 @@ export default async function CollectionPage({ params }: { params: { slug: strin
       </section>
 
       {matched.length > 0 ? (
-        <CategoryPageContent products={matched as any} category={def.label} icon="🛍️" desc={def.sub} allHref={`/products?category=${def.category}`} />
+        <CategoryPageContent products={matched as any} category={def.label} icon="🛍️" desc={def.sub} allHref="/products" />
       ) : (
         <section style={{ textAlign: 'center', padding: '3rem 1.5rem' }}>
           <p style={{ color: '#777' }}>New products are being added to this collection soon.</p>
-          <Link href={`/products?category=${def.category}`} className="button primary" style={{ display: 'inline-block', marginTop: '1rem' }}>
-            Browse all {def.category} products →
+          <Link href="/products" className="button primary" style={{ display: 'inline-block', marginTop: '1rem' }}>
+            Browse all products →
           </Link>
         </section>
       )}

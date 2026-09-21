@@ -20,8 +20,10 @@ export interface CollectionDef {
   /** on-page SEO copy (2 paragraphs) */
   intro: string[];
   faqs: { q: string; a: string }[];
-  /** product filter */
-  category: string;
+  /** product filter — matched against the product's SUBCATEGORY
+   *  ('nighty', 'petticoat', 'saree'), not its category. The real
+   *  categories are only Women / Men / Kids / Beauty / Fabrics / More. */
+  subcategory: string;
   /** match if product name/description contains ANY of these (case-insensitive). Empty = all */
   terms?: string[];
   /** selling price (discountPrice ?? price) must be <= this */
@@ -63,7 +65,7 @@ export const COLLECTIONS: Record<string, CollectionDef> = {
       { q: 'How should I wash a cotton nighty?', a: 'Machine or hand wash in cold water with mild detergent, and dry in shade. This keeps the colour and softness intact for longer.' },
       { q: 'Do you offer Cash on Delivery?', a: 'Yes, COD is available across India along with UPI, cards and net banking. Free shipping applies on orders above ₹999.' },
     ],
-    category: 'nighty',
+    subcategory: 'nighty',
     terms: ['cotton'],
   },
   'printed-nighty': {
@@ -84,7 +86,7 @@ export const COLLECTIONS: Record<string, CollectionDef> = {
       { q: 'Are printed nighties full length?', a: 'Most are full-length (ankle) with a relaxed fit. The exact length is mentioned on each product page.' },
       { q: 'Can I return if I don\'t like the print?', a: 'Eligible items can be returned or exchanged within 7 days. Please keep the parcel-opening video for any claim.' },
     ],
-    category: 'nighty',
+    subcategory: 'nighty',
     terms: ['print'],
   },
   'nighty-combo-pack': {
@@ -105,7 +107,7 @@ export const COLLECTIONS: Record<string, CollectionDef> = {
       { q: 'Why are combo packs cheaper?', a: 'Packing and shipping two pieces together costs us less, and we pass that saving to you — so the per-piece price drops.' },
       { q: 'Can I exchange one piece from a combo?', a: 'Returns and exchanges apply to the full pack. WhatsApp us within 7 days of delivery and we\'ll help you.' },
     ],
-    category: 'nighty',
+    subcategory: 'nighty',
     terms: ['combo', 'pack of'],
   },
   'nighty-under-500': {
@@ -126,7 +128,7 @@ export const COLLECTIONS: Record<string, CollectionDef> = {
       { q: 'How can I get free shipping?', a: 'Shipping is free on orders above ₹999 — most customers order 2-3 nighties together to qualify.' },
       { q: 'Is COD available?', a: 'Yes, Cash on Delivery is available across India, along with UPI and card payments.' },
     ],
-    category: 'nighty',
+    subcategory: 'nighty',
     maxPrice: 500,
   },
   'night-gown': {
@@ -147,7 +149,7 @@ export const COLLECTIONS: Record<string, CollectionDef> = {
       { q: 'Are these gowns suitable for summer?', a: 'Yes — most are cotton or breathable blends that stay comfortable in warm weather.' },
       { q: 'Do you have plus sizes?', a: 'Many gowns have a relaxed free-size fit that suits larger sizes too. Check the product page or WhatsApp us for exact measurements.' },
     ],
-    category: 'nighty',
+    subcategory: 'nighty',
     terms: ['gown'],
   },
   'cotton-petticoat': {
@@ -168,7 +170,7 @@ export const COLLECTIONS: Record<string, CollectionDef> = {
       { q: 'What length petticoat do I need?', a: 'Your petticoat should be about 1 inch shorter than your saree-wearing height. Standard lengths fit most; check the product page for details.' },
       { q: 'Is cotton better than satin for petticoats?', a: 'Cotton is more breathable and grips the saree better, making it ideal for daily and long wear. Satin gives more flow for special occasions.' },
     ],
-    category: 'petticoat',
+    subcategory: 'petticoat',
     terms: ['cotton'],
   },
   'saree-petticoat': {
@@ -189,7 +191,7 @@ export const COLLECTIONS: Record<string, CollectionDef> = {
       { q: 'Can I buy petticoats in bulk?', a: 'Yes — for bulk or wholesale enquiries, message us on WhatsApp and we\'ll share special pricing.' },
       { q: 'What is the return policy?', a: 'Eligible items can be returned or exchanged within 7 days of delivery. Keep the parcel-opening video for claims.' },
     ],
-    category: 'petticoat',
+    subcategory: 'petticoat',
   },
   'saree-under-1000': {
     slug: 'saree-under-1000',
@@ -209,7 +211,7 @@ export const COLLECTIONS: Record<string, CollectionDef> = {
       { q: 'Does the saree come with a blouse piece?', a: 'It varies by saree — the product page clearly mentions if a blouse piece is included.' },
       { q: 'What fabrics are available under ₹1000?', a: 'Mostly georgette, chiffon, cotton blends and art silk — light, easy-to-drape fabrics ideal for daily and light festive wear.' },
     ],
-    category: 'saree',
+    subcategory: 'saree',
     maxPrice: 1000,
   },
   'cotton-saree': {
@@ -230,7 +232,7 @@ export const COLLECTIONS: Record<string, CollectionDef> = {
       { q: 'Do cotton sarees come with a blouse piece?', a: 'It depends on the saree — the product page clearly mentions whether a blouse piece is included.' },
       { q: 'How do I care for a cotton saree?', a: 'Hand or machine wash in cold water with mild detergent and dry in shade. Light starching keeps the crispness and fall.' },
     ],
-    category: 'saree',
+    subcategory: 'saree',
     terms: ['cotton'],
   },
   'printed-saree': {
@@ -251,7 +253,7 @@ export const COLLECTIONS: Record<string, CollectionDef> = {
       { q: 'Will the print colours fade after washing?', a: 'Our sarees are quality-checked for colour-fastness. Wash in cold water with mild detergent and dry in shade to keep the print vivid for longer.' },
       { q: 'Can I get a matching blouse or petticoat?', a: 'Many sarees include a blouse piece (mentioned on the product page), and you can add a matching cotton petticoat to the same order.' },
     ],
-    category: 'saree',
+    subcategory: 'saree',
     terms: ['print'],
   },
   'party-wear-saree': {
@@ -272,7 +274,7 @@ export const COLLECTIONS: Record<string, CollectionDef> = {
       { q: 'Do party wear sarees include a blouse piece?', a: 'Most do — the product page mentions whether a blouse piece is included and its fabric.' },
       { q: 'Can you deliver before a specific festival or function?', a: 'In most pincodes, yes. WhatsApp us your delivery pincode and date and we\'ll confirm before you order.' },
     ],
-    category: 'saree',
+    subcategory: 'saree',
     terms: ['georgette', 'silk', 'party', 'festive', 'net', 'designer', 'embroider'],
   },
   'saree-under-500': {
@@ -293,7 +295,7 @@ export const COLLECTIONS: Record<string, CollectionDef> = {
       { q: 'Is Cash on Delivery available on budget sarees?', a: 'Yes, COD is available across India, along with UPI, cards and net banking.' },
       { q: 'Can I combine several sarees for free shipping?', a: 'Yes — add multiple sarees to one order; shipping is free above ₹999.' },
     ],
-    category: 'saree',
+    subcategory: 'saree',
     maxPrice: 500,
   },
   'daily-wear-nighty': {
@@ -314,7 +316,7 @@ export const COLLECTIONS: Record<string, CollectionDef> = {
       { q: 'What sizes are available?', a: 'Most daily-wear nighties come in a relaxed free-size or L–XXL fit. Check the product page, or WhatsApp us your size and we\'ll guide you.' },
       { q: 'Do you offer combo packs for daily wear?', a: 'Yes — we have nighty combo packs that are great value for daily rotation. Check our Nighty Combo Pack collection.' },
     ],
-    category: 'nighty',
+    subcategory: 'nighty',
     terms: ['cotton', 'printed', 'regular', 'daily', 'hosiery'],
   },
 };
