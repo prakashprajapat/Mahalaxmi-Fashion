@@ -1,52 +1,50 @@
 'use client';
 import type { Customer } from '@/types';
+import { storage } from '@/lib/safeStorage';
 
 const TOKEN_KEY    = 'mfh_token';
 const CUSTOMER_KEY = 'mfh_customer';
 const ADMIN_KEY    = 'mfh_admin_token';
 
+// Every read and write goes through safeStorage. getToken() in particular is
+// called while components render, and a bare localStorage.getItem there throws
+// in Safari when the visitor has blocked cookies — which stopped React
+// hydrating and left the whole site painted but dead to every click.
+
 // ── Customer Auth ─────────────────────────────────────────────────────────────
 export function getToken(): string | null {
-  if (typeof window === 'undefined') return null;
-  return localStorage.getItem(TOKEN_KEY);
+  return storage.get(TOKEN_KEY);
 }
 
 export function setToken(token: string): void {
-  localStorage.setItem(TOKEN_KEY, token);
+  storage.set(TOKEN_KEY, token);
 }
 
 export function getCustomer(): Customer | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    const raw = localStorage.getItem(CUSTOMER_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
+  return storage.json<Customer | null>(CUSTOMER_KEY, null);
 }
 
 export function setCustomer(customer: Customer): void {
-  localStorage.setItem(CUSTOMER_KEY, JSON.stringify(customer));
+  storage.set(CUSTOMER_KEY, JSON.stringify(customer));
 }
 
 export function logout(): void {
-  localStorage.removeItem(TOKEN_KEY);
-  localStorage.removeItem(CUSTOMER_KEY);
+  storage.remove(TOKEN_KEY);
+  storage.remove(CUSTOMER_KEY);
   window.dispatchEvent(new Event('auth-changed'));
 }
 
 // ── Admin Auth ────────────────────────────────────────────────────────────────
 export function getAdminToken(): string | null {
-  if (typeof window === 'undefined') return null;
-  return localStorage.getItem(ADMIN_KEY);
+  return storage.get(ADMIN_KEY);
 }
 
 export function setAdminToken(token: string): void {
-  localStorage.setItem(ADMIN_KEY, token);
+  storage.set(ADMIN_KEY, token);
 }
 
 export function adminLogout(): void {
-  localStorage.removeItem(ADMIN_KEY);
+  storage.remove(ADMIN_KEY);
 }
 
 // CQ-4: Properly validate JWT — check role claim AND expiry, not just token existence
@@ -62,7 +60,7 @@ export function isAdmin(): boolean {
     const exp: number | undefined = payload['exp'];
     if (exp && Date.now() / 1000 > exp) {
       // Token expired — clear it
-      localStorage.removeItem('mfh_admin_token');
+      storage.remove(ADMIN_KEY);
       return false;
     }
     return role === 'admin' || role === 'staff';
