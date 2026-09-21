@@ -77,8 +77,31 @@ pm2 restart mahalaxmi-api
 echo "8. Restarting frontend..."
 pm2 restart mahalaxmi-frontend
 
+
 echo "9. Warming up..."
 sleep 8
 curl -s http://localhost:5000/api/products?pageSize=1 > /dev/null && echo "API OK ✅" || echo "⚠ API not responding — check: pm2 logs mahalaxmi-api"
+
+# The image optimiser resizes each photo the first time someone asks for it,
+# which costs a few hundred milliseconds. Left alone, the first real visitor
+# after a deploy pays that for every photo on the page and watches the cards
+# fill in one by one. Asking for them here means the cache is already warm.
+echo "   Warming the image cache..."
+(
+  ACCEPT='image/avif,image/webp,*/*'
+  curl -s "http://localhost:5000/api/products?pageSize=500" \
+    | grep -o '"image":"[^"]*"' | cut -d'"' -f4 | sort -u | head -200 \
+    | while read -r img; do
+        case "$img" in /*) ;; *) img="/$img" ;; esac
+        for w in 384 640; do
+          curl -s -o /dev/null -H "Accept: $ACCEPT" \
+            "http://localhost:3000/_next/image?url=$(printf %s "$img" | sed 's|/|%2F|g')&w=$w&q=75"
+        done
+      done
+  echo "   Image cache warmed."
+) &
+WARM_PID=$!
+# Never let warming hold up or fail a deploy.
+( sleep 180 && kill $WARM_PID 2>/dev/null ) >/dev/null 2>&1 &
 pm2 status
 echo "=== Deploy complete ==="

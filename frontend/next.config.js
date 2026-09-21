@@ -13,7 +13,11 @@ const nextConfig = {
   // CQ-2: Specific allowed image domains instead of wildcard **
   images: {
     formats: ['image/avif', 'image/webp'],
-    minimumCacheTTL: 86400,
+    // Every product photo filename ends in the millisecond it was uploaded, so
+    // a given URL can never point at different bytes. A one-day TTL meant the
+    // optimiser went STALE daily and re-resized all 84 photos to produce the
+    // same output; 30 days stops that.
+    minimumCacheTTL: 2592000,
     remotePatterns: [
       { protocol: 'https', hostname: '*.cloudinary.com' },
       { protocol: 'https', hostname: '*.amazonaws.com' },
