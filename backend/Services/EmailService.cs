@@ -22,8 +22,22 @@ public class EmailService
         !string.IsNullOrWhiteSpace(_config["Email:User"]) &&
         !string.IsNullOrWhiteSpace(_config["Email:Password"]);
 
+    /// <summary>A file to hang off an email: its name, its bytes, and what it is.</summary>
+    public readonly record struct Attachment(string FileName, byte[] Content, string MediaType);
+
     // Returns true if the email was accepted by the SMTP server, false otherwise.
-    public async Task<bool> SendAsync(string toEmail, string subject, string htmlBody)
+    public Task<bool> SendAsync(string toEmail, string subject, string htmlBody) =>
+        SendAsync(new[] { toEmail }, subject, htmlBody, null);
+
+    /// <summary>
+    /// Send to one or more people, optionally carrying files. Used by the nightly
+    /// backup, which needs the database dump and the day's new photos attached.
+    /// </summary>
+    public async Task<bool> SendAsync(
+        IEnumerable<string> recipients,
+        string subject,
+        string htmlBody,
+        IEnumerable<Attachment>? attachments)
     {
         if (!IsConfigured)
         {
@@ -31,6 +45,21 @@ public class EmailService
             return false;
         }
 
+        var to = recipients
+            .Where(r => !string.IsNullOrWhiteSpace(r))
+            .Select(r => r.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (to.Count == 0)
+        {
+            _logger.LogWarning("Email not sent — no recipient.");
+            return false;
+        }
+
+        // Every attachment stream has to stay open until the message is sent,
+        // so they are disposed together after the send, not as they are made.
+        var streams = new List<MemoryStream>();
         try
         {
             var host     = _config["Email:Host"]!;
@@ -47,7 +76,14 @@ public class EmailService
                 Body       = htmlBody,
                 IsBodyHtml = true,
             };
-            msg.To.Add(toEmail);
+            foreach (var addr in to) msg.To.Add(addr);
+
+            foreach (var a in attachments ?? Enumerable.Empty<Attachment>())
+            {
+                var stream = new MemoryStream(a.Content);
+                streams.Add(stream);
+                msg.Attachments.Add(new System.Net.Mail.Attachment(stream, a.FileName, a.MediaType));
+            }
 
             using var client = new SmtpClient(host, port)
             {
@@ -57,13 +93,17 @@ public class EmailService
             };
 
             await client.SendMailAsync(msg);
-            _logger.LogInformation("Email sent to {Email} (subject: {Subject}).", toEmail, subject);
+            _logger.LogInformation("Email sent to {Email} (subject: {Subject}).", string.Join(", ", to), subject);
             return true;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to send email to {Email}.", toEmail);
+            _logger.LogError(ex, "Failed to send email to {Email}.", string.Join(", ", to));
             return false;
+        }
+        finally
+        {
+            foreach (var st in streams) st.Dispose();
         }
     }
 

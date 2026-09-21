@@ -32,6 +32,12 @@ builder.Services.AddMemoryCache(); // PERF-2: for settings caching
 builder.Services.AddHostedService<ReturnMediaCleanupService>();
 builder.Services.AddHostedService<DelhiveryTrackingSyncService>();
 
+// Emails the database and the day's new photos every night at 11:59 PM IST.
+// Registered as a singleton as well as a hosted service so the admin
+// "Run backup now" button can call exactly the same code path.
+builder.Services.AddSingleton<BackupService>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<BackupService>());
+
 // Return-media uploads: allow videos up to ~80 MB per file (Kestrel + multipart limits)
 builder.Services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(o =>
 {
