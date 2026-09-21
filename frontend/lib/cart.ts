@@ -3,6 +3,7 @@ import type { CartItem, Product } from '@/types';
 import { productImageSrc } from '@/lib/productImages';
 import { unitBase, finalUnitPrice } from '@/lib/price';
 import { trackEvent } from '@/lib/analytics';
+import { storage } from '@/lib/safeStorage';
 
 export { unitBase, finalUnitPrice };
 
@@ -10,15 +11,13 @@ const CART_KEY = 'mfh_cart';
 
 export function getCart(): CartItem[] {
   if (typeof window === 'undefined') return [];
-  try {
-    return JSON.parse(localStorage.getItem(CART_KEY) ?? '[]');
-  } catch {
-    return [];
-  }
+  return storage.json<CartItem[]>(CART_KEY, []);
 }
 
 export function saveCart(cart: CartItem[]): void {
-  localStorage.setItem(CART_KEY, JSON.stringify(cart));
+  // This was a bare setItem. In Safari with cookies blocked it threw, which
+  // meant pressing Add to Cart raised instead of adding.
+  storage.set(CART_KEY, JSON.stringify(cart));
   window.dispatchEvent(new Event('cart-updated'));
 }
 

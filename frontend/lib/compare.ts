@@ -1,6 +1,7 @@
 'use client';
 import type { Product } from '@/types';
 import { finalUnitPrice, unitBase } from '@/lib/price';
+import { storage } from '@/lib/safeStorage';
 
 // localStorage-backed "compare products" store. Emits COMPARE_EVENT so any mounted
 // component (compare bar, product cards) re-renders when the list changes.
@@ -16,10 +17,11 @@ export const COMPARE_EVENT = 'mfh-compare-changed';
 
 function read(): CompareItem[] {
   if (typeof window === 'undefined') return [];
-  try { const v = JSON.parse(localStorage.getItem(KEY) || '[]'); return Array.isArray(v) ? v : []; } catch { return []; }
+  const v = storage.json<any[]>(KEY, []);
+  return Array.isArray(v) ? v : [];
 }
 function write(list: CompareItem[]) {
-  try { localStorage.setItem(KEY, JSON.stringify(list)); } catch { /* storage full/blocked */ }
+  storage.set(KEY, JSON.stringify(list));
   if (typeof window !== 'undefined') window.dispatchEvent(new Event(COMPARE_EVENT));
 }
 

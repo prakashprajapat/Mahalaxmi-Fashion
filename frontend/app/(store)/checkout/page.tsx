@@ -5,6 +5,7 @@ import { getCart, cartTotal, clearCart, cartShipping, finalUnitPrice, unitBase, 
 import { productImageSrc } from '@/lib/productImages';
 import PincodeChecker from '@/components/checkout/PincodeChecker';
 import { getCustomer, getToken } from '@/lib/auth';
+import { storage } from '@/lib/safeStorage';
 import { ordersApi, paymentsApi, cashfreeApi, couponsApi, settingsApi, walletApi, addressesApi } from '@/lib/api';
 import type { SavedAddress } from '@/lib/api';
 import Link from 'next/link';
@@ -220,7 +221,7 @@ export default function CheckoutPage() {
     trackEvent('begin_checkout', { currency: 'INR', value: cartTotal(c), items: cartToItems(c) });
     // Pre-fill PAN from localStorage
     try {
-      const saved = JSON.parse(localStorage.getItem('mfh-pan') ?? '{}');
+      const saved = storage.json<any>('mfh-pan', {});
       if (saved.panNumber) setPanData({ panNumber: saved.panNumber, panName: saved.panName ?? '' });
     } catch {}
     return cleanup;
@@ -332,7 +333,7 @@ export default function CheckoutPage() {
   const attributionCode = (): string | undefined => {
     if (couponApplied?.code) return couponApplied.code;
     try {
-      const s = JSON.parse(localStorage.getItem('mfh_ref') ?? '{}');
+      const s = storage.json<any>('mfh_ref', {});
       if (s.code && (!s.ts || Date.now() - s.ts <= 30 * 24 * 60 * 60 * 1000)) return s.code;
     } catch { /* ignore */ }
     return undefined;

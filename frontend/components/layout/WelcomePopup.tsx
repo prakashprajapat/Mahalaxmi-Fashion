@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { trackEvent } from '@/lib/analytics';
 import { isInApp } from '@/lib/inApp';
+import { storage } from '@/lib/safeStorage';
 
 const POPUP_KEY = 'mfh_popup_shown';
 const POPUP_TTL = 7 * 24 * 60 * 60 * 1000; // 7 days
@@ -16,14 +17,14 @@ export default function WelcomePopup() {
     // Never inside our own app (native Android shell, installed PWA or TWA).
     if (isInApp()) return;
 
-    const stored = localStorage.getItem(POPUP_KEY);
+    const stored = storage.get(POPUP_KEY);
     if (stored && Date.now() - Number(stored) < POPUP_TTL) return;
     const t = setTimeout(() => setVisible(true), 3500);
     return () => clearTimeout(t);
   }, []);
 
   const close = () => {
-    localStorage.setItem(POPUP_KEY, String(Date.now()));
+    storage.set(POPUP_KEY, String(Date.now()));
     setVisible(false);
   };
 

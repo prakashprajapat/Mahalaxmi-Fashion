@@ -3,6 +3,7 @@ import type { Product } from '@/types';
 import { productImageSrc } from '@/lib/productImages';
 import { wishlistApi } from '@/lib/api';
 import { getToken, getCustomer } from '@/lib/auth';
+import { storage } from '@/lib/safeStorage';
 
 // Wishlist storage. Guests use localStorage; logged-in customers additionally sync to the
 // server (WishlistController) so saved items follow them across devices. The synchronous
@@ -17,15 +18,13 @@ function activeToken(): string | null {
 
 export function getWishlist(): Product[] {
   if (typeof window === 'undefined') return [];
-  try {
-    const list = JSON.parse(localStorage.getItem(KEY) || '[]');
-    return Array.isArray(list) ? list : [];
-  } catch { return []; }
+  const list = storage.json<Product[]>(KEY, []);
+  return Array.isArray(list) ? list : [];
 }
 
 function saveLocal(list: Product[]): void {
   if (typeof window === 'undefined') return;
-  localStorage.setItem(KEY, JSON.stringify(list));
+  storage.set(KEY, JSON.stringify(list));
   window.dispatchEvent(new Event('wishlist-updated'));
 }
 

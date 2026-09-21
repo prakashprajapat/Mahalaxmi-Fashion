@@ -1,5 +1,6 @@
 'use client';
 import { useEffect } from 'react';
+import { storage } from '@/lib/safeStorage';
 
 // Captures a creator/affiliate referral code from the URL (?ref=CODE) and stores
 // it in localStorage. It is auto-applied at checkout so orders coming through a
@@ -9,7 +10,7 @@ export default function RefCapture() {
     try {
       const code = new URLSearchParams(window.location.search).get('ref');
       if (code && code.trim()) {
-        localStorage.setItem(
+        storage.set(
           'mfh_ref',
           JSON.stringify({ code: code.trim().toUpperCase(), ts: Date.now() })
         );
