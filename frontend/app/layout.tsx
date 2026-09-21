@@ -2,7 +2,6 @@ import type { Metadata, Viewport } from 'next';
 import Script from 'next/script';
 import { settingsApi } from '@/lib/api';
 import PWARegister from '@/components/pwa/PWARegister';
-import CookieConsent from '@/components/CookieConsent';
 import LogoPreload from '@/components/LogoPreload';
 import './globals.css';
 
@@ -128,19 +127,21 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <Script id="pf-font-swap" strategy="afterInteractive">{`var _l=document.getElementById('pf-font');if(_l){_l.media='all';}`}</Script>
 
         {/* Consent Mode (privacy compliance) — runs FIRST, before GA/GTM/Pixel.
-            Tracking storage starts DENIED for everyone; only flips to granted if the
-            visitor previously clicked "Accept" (stored in localStorage). The cookie
-            banner updates this to granted on Accept. */}
+            Tracking storage is granted by default. There is no consent banner:
+            the shop chose to drop it, and since the banner was the only thing
+            that could ever flip consent to granted, leaving the default at
+            denied would have silently killed Google Ads conversion tracking and
+            the Meta Pixel. The Privacy Policy, linked in the footer, is the
+            notice. Anyone reinstating a banner must set this back to denied. */}
         <Script id="consent-default" strategy="beforeInteractive">
           {`
             window.dataLayer = window.dataLayer || [];
             function gtag(){dataLayer.push(arguments);}
-            var _mfhC='denied';
-            try{ if(localStorage.getItem('mfh_cookie_consent')==='accepted') _mfhC='granted'; }catch(e){}
+            // wait_for_update held the tags back 500ms for a consent update
+            // that used to come from the banner. Nothing sends one now.
             gtag('consent','default',{
-              ad_storage:_mfhC, analytics_storage:_mfhC,
-              ad_user_data:_mfhC, ad_personalization:_mfhC,
-              wait_for_update:500
+              ad_storage:'granted', analytics_storage:'granted',
+              ad_user_data:'granted', ad_personalization:'granted'
             });
           `}
         </Script>
@@ -175,7 +176,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         {/* Facebook Pixel — admin-configurable (Settings → SEO). Lazy-loaded. */}
         {fbPixelId && (
           <Script id="fb-pixel" strategy="lazyOnload">
-            {`!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');fbq('init','${fbPixelId}');try{if(localStorage.getItem('mfh_cookie_consent')!=='accepted'){fbq('consent','revoke');}}catch(e){}fbq('track','PageView');`}
+            {`!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');fbq('init','${fbPixelId}');fbq('track','PageView');`}
           </Script>
         )}
 
@@ -266,7 +267,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <body>
         {children}
         <PWARegister />
-        <CookieConsent />
       </body>
     </html>
   );
