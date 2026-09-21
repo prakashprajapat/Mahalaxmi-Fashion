@@ -256,6 +256,14 @@ public class CustomersController : ControllerBase
             : DaysUntil(todayIst, customer?.DateOfBirth);
         var isTheDay = daysAway is 0;
 
+        // The day itself, spelled out. "in 25 days" makes the reader do the
+        // arithmetic and goes stale the moment the message sits unread; a date
+        // still means the same thing tomorrow.
+        var occasionOn = occasion == "anniversary"
+            ? NextOccurrence(todayIst, customer?.MarriageDate)
+            : NextOccurrence(todayIst, customer?.DateOfBirth);
+        var dateText = occasionOn?.ToString("dd MMM yyyy") ?? "";
+
         // Today has its own template; everything earlier shares the "upcoming"
         // one and says how many days are left. Each step falls back to the next
         // so a shop that has registered only one template still sends something.
@@ -303,6 +311,7 @@ public class CustomersController : ControllerBase
                 name    = firstName,
                 percent = percentText,
                 expiry  = expiryText,
+                date    = dateText,
                 days    = (daysAway ?? 0).ToString(),
             } }
         };
@@ -325,6 +334,17 @@ public class CustomersController : ControllerBase
         const string chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
         var rng = Random.Shared;
         return new string(Enumerable.Range(0, n).Select(_ => chars[rng.Next(chars.Length)]).ToArray());
+    }
+
+    /// The next time this day comes round — this year if it is still ahead,
+    /// otherwise next year. The same rule DaysUntil counts against, so the
+    /// date in the message and the slab on the screen can never disagree.
+    private static DateOnly? NextOccurrence(DateOnly today, DateOnly? date)
+    {
+        if (!date.HasValue) return null;
+        var d = date.Value;
+        var thisYear = new DateOnly(today.Year, d.Month, d.Day);
+        return thisYear < today ? thisYear.AddYears(1) : thisYear;
     }
 
     private static int? DaysUntil(DateOnly today, DateOnly? date)

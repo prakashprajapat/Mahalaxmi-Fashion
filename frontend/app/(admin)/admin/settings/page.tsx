@@ -163,7 +163,7 @@ const SECTIONS = [
       { key: 'msg91AuthKey',              label: 'MSG91 Auth Key', type: 'password' },
       { key: 'msg91WhatsappTemplateId',   label: 'WhatsApp OTP Template ID', type: 'text' },
       { key: 'msg91SmsTemplateId',        label: 'SMS OTP Template ID', type: 'text' },
-      { key: 'msg91BirthdayTemplateId',         label: '🎂 Birthday UPCOMING SMS Template ID (30 / 15 / 7 days before — says ##days## left)', type: 'text' },
+      { key: 'msg91BirthdayTemplateId',         label: '🎂 Birthday UPCOMING SMS Template ID (30 / 15 / 7 days before — uses ##date##)', type: 'text' },
       { key: 'msg91BirthdayTodayTemplateId',    label: '🎂 Birthday TODAY SMS Template ID (sent on the day itself)', type: 'text' },
       { key: 'msg91AnniversaryTemplateId',      label: '💍 Anniversary UPCOMING SMS Template ID (30 / 15 / 7 days before)', type: 'text' },
       { key: 'msg91AnniversaryTodayTemplateId', label: '💍 Anniversary TODAY SMS Template ID (sent on the day itself)', type: 'text' },
