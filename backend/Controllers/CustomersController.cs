@@ -303,7 +303,13 @@ public class CustomersController : ControllerBase
         // the rest, so an older template with only ##coupon## keeps working.
         var payload = new {
             template_id = templateId,
-            short_url   = "1",
+            // Left OFF on purpose. MSG91 would rewrite the link to its own
+            // short domain, and TRAI now requires every address in an SMS to be
+            // whitelisted on DLT against this sender. A rewritten link is not
+            // the one that was registered, so the message can be scrubbed on
+            // the operator's side — the SMS goes out looking fine to us and
+            // never reaches the customer.
+            short_url   = "0",
             recipients  = new[] { new {
                 mobiles = phone,
                 coupon  = coupon.Code,
