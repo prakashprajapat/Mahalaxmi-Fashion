@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Safety Center | Mahalaxmi Fashion Hub',
+  title: 'Safety Center',
   description: 'Customer safety center — account, payment, delivery, return and complaint guidance.',
 };
 

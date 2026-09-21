@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 
 export const metadata: Metadata = {
-  title: 'Cancellation Policy | Mahalaxmi Fashion Hub',
+  title: 'Cancellation Policy',
   description: 'Orders can be cancelled before dispatch. Once dispatched, cancellation is not accepted.',
   alternates: { canonical: '/cancellation-policy' },
 };

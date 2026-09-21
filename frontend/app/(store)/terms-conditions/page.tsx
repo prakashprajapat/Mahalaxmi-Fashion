@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 
 export const metadata: Metadata = {
-  title: 'Terms & Conditions | Mahalaxmi Fashion Hub',
+  title: 'Terms & Conditions',
   description: 'By using our website or placing an order, you agree to these terms.',
   alternates: { canonical: '/terms-conditions' },
 };

@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'About Us | Mahalaxmi Fashion Hub',
+  title: 'About Us',
   description: 'A boutique saree and ethnic wear store in Balotra, Rajasthan, serving customers across India.',
   alternates: { canonical: '/about-us' },
 };

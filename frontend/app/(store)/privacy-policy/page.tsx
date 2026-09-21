@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Privacy Policy | Mahalaxmi Fashion Hub',
+  title: 'Privacy Policy',
   description: 'Customer data is used only for order processing and consented updates.',
   alternates: { canonical: '/privacy-policy' },
 };

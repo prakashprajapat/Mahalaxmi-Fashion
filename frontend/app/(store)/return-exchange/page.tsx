@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Refund & Exchange Policy | Mahalaxmi Fashion Hub',
+  title: 'Refund & Exchange Policy',
   description: '7-day return window for damaged or defective products. Parcel opening video is mandatory for all claims.',
   alternates: { canonical: '/return-exchange' },
 };

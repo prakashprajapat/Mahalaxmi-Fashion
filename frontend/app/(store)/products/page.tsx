@@ -27,8 +27,8 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
 
   return {
     title: searchParams.q
-      ? `Search: ${searchParams.q} | Mahalaxmi Fashion Hub`
-      : `${label} | Mahalaxmi Fashion Hub`,
+      ? `Search: ${searchParams.q}`
+      : `${label}`,
     alternates: { canonical },
     ...(isSearch ? { robots: { index: false, follow: true } } : {}),
   };

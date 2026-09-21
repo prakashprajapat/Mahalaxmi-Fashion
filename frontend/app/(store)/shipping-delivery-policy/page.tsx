@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 
 export const metadata: Metadata = {
-  title: 'Shipping & Delivery Policy | Mahalaxmi Fashion Hub',
+  title: 'Shipping & Delivery Policy',
   description: 'Orders dispatched via Delhivery. Delivery in 3–7 business days across India.',
   alternates: { canonical: '/shipping-delivery-policy' },
 };

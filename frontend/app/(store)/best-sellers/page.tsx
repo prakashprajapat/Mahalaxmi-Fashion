@@ -5,7 +5,7 @@ import CategoryPageContent from '@/components/product/CategoryPageContent';
 export const revalidate = 60;
 
 export const metadata: Metadata = {
-  title: 'Best Sellers | Mahalaxmi Fashion Hub',
+  title: 'Best Sellers',
   description: 'Shop best-selling sarees, nightwear, petticoats and fabrics from Mahalaxmi Fashion Hub.',
   alternates: { canonical: '/best-sellers' },
 };

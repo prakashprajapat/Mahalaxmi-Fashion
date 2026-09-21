@@ -5,7 +5,7 @@ import CategoryPageContent from '@/components/product/CategoryPageContent';
 export const revalidate = 60;
 
 export const metadata: Metadata = {
-  title: 'More Products | Mahalaxmi Fashion Hub',
+  title: 'More Products',
   description: 'Explore all our products & collections',
   alternates: { canonical: '/more' },
 };
