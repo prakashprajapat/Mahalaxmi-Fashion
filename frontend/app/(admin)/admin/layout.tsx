@@ -40,6 +40,7 @@ const ALL_NAV: { href?: string; label?: string; exact?: boolean; heading?: strin
   { href: '/admin/seo/blog',         label: '✍️ Blog Articles' },
   { href: '/admin/seo/collections',  label: '🏷️ Collection Pages' },
   { href: '/admin/seo/categories',   label: '📄 Category Copy' },
+  { href: '/admin/seo/product-quality', label: '✅ Product Quality' },
 
   { heading: 'Accounts' },
   { href: '/admin/reports',     label: '📈 Reports & GSTR-1' },

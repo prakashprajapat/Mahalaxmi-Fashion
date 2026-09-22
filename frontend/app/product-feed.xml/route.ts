@@ -8,6 +8,9 @@
 import { productsApi } from '@/lib/api';
 import { productSlug } from '@/lib/productSlug';
 import { productImageSrc } from '@/lib/productImages';
+import {
+  isFeedable, variantsOf, googleCategoryOf, productTypeOf, genderOf, ageGroupOf,
+} from '@/lib/merchantFeed';
 
 export const dynamic = 'force-dynamic';
 
@@ -40,8 +43,11 @@ export async function GET() {
   }
 
   const items = products
-    .filter((p: any) => (Number(p.price) || 0) > 0)   // Google requires a positive price
-    .map((p: any) => {
+    // Inactive and draft products were being sent to Google from this feed —
+    // only the other one filtered them. A draft is a product held back because
+    // Google would refuse it, so sending it anyway is asking for a disapproval.
+    .filter((p: any) => isFeedable(p))
+    .flatMap((p: any) => {
       const link = `${BASE}/products/${productSlug(p.name, p.dbId)}`;
       const img = productImageSrc(p.image);
       const imageLink = img ? (/^https?:/i.test(img) ? img : `${BASE}${img}`) : '';
@@ -50,25 +56,36 @@ export async function GET() {
       const sale = (p.discountPrice != null && Number(p.discountPrice) > 0 && Number(p.discountPrice) < regular)
         ? Number(p.discountPrice) : null;
       const desc = (p.description && String(p.description).trim()) ? String(p.description) : p.name;
-      const gender = genderFor(p.category);
+      const variants = variantsOf(p);
 
-      let s = '<item>';
-      s += `<g:id>${esc(String(p.sku || p.dbId))}</g:id>`;
-      s += `<g:title>${esc(p.name)}</g:title>`;
-      s += `<g:description>${esc(desc)}</g:description>`;
-      s += `<g:link>${esc(link)}</g:link>`;
-      if (imageLink) s += `<g:image_link>${esc(imageLink)}</g:image_link>`;
-      s += `<g:availability>${avail}</g:availability>`;
-      s += `<g:price>${regular.toFixed(2)} INR</g:price>`;
-      if (sale != null) s += `<g:sale_price>${sale.toFixed(2)} INR</g:sale_price>`;
-      s += `<g:brand>${esc(BRAND)}</g:brand>`;
-      s += '<g:condition>new</g:condition>';
-      s += '<g:identifier_exists>no</g:identifier_exists>';
-      s += '<g:google_product_category>Apparel &amp; Accessories</g:google_product_category>';
-      if (gender) s += `<g:gender>${gender}</g:gender>`;
-      s += '<g:age_group>adult</g:age_group>';
-      s += '</item>';
-      return s;
+      // One row per size and colour, sharing an item_group_id. Google's size
+      // and colour attributes take a single value each, so this is the only
+      // shape in which a four-size nighty can be offered as four sizes.
+      return variants.map(v => {
+        let s = '<item>';
+        s += `<g:id>${esc(v.id)}</g:id>`;
+        if (variants.length > 1) s += `<g:item_group_id>${esc(v.itemGroupId)}</g:item_group_id>`;
+        s += `<g:title>${esc(String(p.name).slice(0, 150))}</g:title>`;
+        s += `<g:description>${esc(desc)}</g:description>`;
+        s += `<g:link>${esc(link)}</g:link>`;
+        if (imageLink) s += `<g:image_link>${esc(imageLink)}</g:image_link>`;
+        s += `<g:availability>${avail}</g:availability>`;
+        s += `<g:price>${regular.toFixed(2)} INR</g:price>`;
+        if (sale != null) s += `<g:sale_price>${sale.toFixed(2)} INR</g:sale_price>`;
+        s += `<g:brand>${esc(BRAND)}</g:brand>`;
+        s += '<g:condition>new</g:condition>';
+        s += '<g:identifier_exists>no</g:identifier_exists>';
+        s += `<g:google_product_category>${esc(googleCategoryOf(p))}</g:google_product_category>`;
+        const ptype = productTypeOf(p);
+        if (ptype) s += `<g:product_type>${esc(ptype)}</g:product_type>`;
+        // Required by Google for anything in Apparel & Accessories.
+        if (v.size) s += `<g:size>${esc(v.size)}</g:size>`;
+        if (v.colour) s += `<g:color>${esc(v.colour)}</g:color>`;
+        s += `<g:gender>${genderOf(p)}</g:gender>`;
+        s += `<g:age_group>${ageGroupOf(p)}</g:age_group>`;
+        s += '</item>';
+        return s;
+      });
     })
     .join('');
 

@@ -9,6 +9,7 @@ using MahalaxmiApi.DTOs;
 using MahalaxmiApi.Models;
 
 using MahalaxmiApi.Authorization;
+using MahalaxmiApi.Services;
 
 namespace MahalaxmiApi.Controllers;
 
@@ -54,8 +55,12 @@ public class ProductsController : ControllerBase
             if (_cache.TryGetValue(cacheKey, out object? cached) && cached is not null)
                 return Ok(cached);
 
+            // Drafts are products that did not pass the quality gate. They are
+            // hidden for the same reason Inactive ones are: they are not ready
+            // to be seen, and a draft that leaks into the feed is a Merchant
+            // Center disapproval waiting to happen.
             var query = _db.Products.AsQueryable()
-                .Where(p => p.StockStatus != "Inactive");
+                .Where(p => p.StockStatus != "Inactive" && p.StockStatus != "Draft");
 
             if (!string.IsNullOrWhiteSpace(category))
                 {
@@ -183,7 +188,7 @@ public class ProductsController : ControllerBase
             return Ok(cached);
 
         var items = await _db.Products
-            .Where(p => p.StockStatus != "Inactive")
+            .Where(p => p.StockStatus != "Inactive" && p.StockStatus != "Draft")
             .ToListAsync();
 
         var qNorm   = NormalizeText(query);
@@ -340,6 +345,10 @@ public class ProductsController : ControllerBase
                 return Conflict(new { success = false, message = $"Duplicate SKU '{s}' found in the submitted batch. Each product must have a unique SKU." });
         }
 
+        // Products that failed the gate, so the caller can be told which and why
+        // rather than wondering where they went.
+        var held = new List<object>();
+
         if (req.ReplaceAll)
         {
             _db.Products.RemoveRange(_db.Products);
@@ -382,11 +391,32 @@ public class ProductsController : ControllerBase
             }
 
             ApplyProduct(product, dto, currentI);
+
+            var g = ProductQualityGate.Check(product);
+            if (!g.Passed)
+            {
+                product.StockStatus = ProductQualityGate.DraftStatus;
+                held.Add(new
+                {
+                    name = product.Name,
+                    sku = product.Sku,
+                    errors = g.Blocking.Select(i => i.Message).ToList(),
+                });
+            }
         }
 
         await _db.SaveChangesAsync();
         BustCache();
-        return Ok(new { success = true, saved = created + updated, created, updated, replaced = req.ReplaceAll });
+        return Ok(new
+        {
+            success = true,
+            saved = created + updated,
+            created,
+            updated,
+            replaced = req.ReplaceAll,
+            heldAsDraft = held.Count,
+            held,
+        });
     }
 
     // PUT /api/products/{id}  (Admin only)
@@ -411,9 +441,27 @@ public class ProductsController : ControllerBase
 
         ApplyProduct(p, req);
 
+        // The gate runs on what is about to be saved, not on what was asked
+        // for. A product that fails is still saved — nothing the owner typed is
+        // thrown away — but it is held back as a draft until the problems are
+        // fixed, because a product Google will reject costs money to show.
+        var gate = ProductQualityGate.Check(p);
+        if (!gate.Passed) p.StockStatus = ProductQualityGate.DraftStatus;
+
         await _db.SaveChangesAsync();
         BustCache();
-        return Ok(new { success = true, product = ToDto(p) });
+        return Ok(new
+        {
+            success = true,
+            product = ToDto(p),
+            gate = new
+            {
+                passed = gate.Passed,
+                heldAsDraft = !gate.Passed,
+                errors = gate.Blocking.Select(i => new { field = i.Field, message = i.Message }),
+                warnings = gate.Warnings.Select(i => new { field = i.Field, message = i.Message }),
+            },
+        });
     }
 
     // PATCH /api/products/{id}/stock  (Admin/Staff) — update ONLY the stock status.
@@ -427,9 +475,27 @@ public class ProductsController : ControllerBase
         if (p is null) return NotFound(new { success = false, message = "Product not found." });
 
         var status = (req.Stock ?? "").Trim();
-        var allowed = new[] { "In Stock", "Out of Stock", "Limited Stock", "Inactive" };
+        var allowed = new[] { "In Stock", "Out of Stock", "Limited Stock", "Inactive", ProductQualityGate.DraftStatus };
         if (!allowed.Contains(status))
             return BadRequest(new { success = false, message = "Invalid stock status." });
+
+        // Without this the gate would be a suggestion: a product held back as a
+        // draft could be flipped straight to In Stock from the Stock Manager,
+        // which is one click away and does not show the reasons. Putting a
+        // product on the website is the thing being gated, so it is gated here
+        // too, and the reasons come back with the refusal.
+        var goingLive = status is "In Stock" or "Out of Stock" or "Limited Stock";
+        if (goingLive)
+        {
+            var gate = ProductQualityGate.Check(p);
+            if (!gate.Passed)
+                return BadRequest(new
+                {
+                    success = false,
+                    message = "This product is not ready for the website yet — fix the points below and save it again.",
+                    errors = gate.Blocking.Select(i => new { field = i.Field, message = i.Message }),
+                });
+        }
 
         p.StockStatus = status;
         await _db.SaveChangesAsync();

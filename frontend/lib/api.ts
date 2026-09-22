@@ -299,6 +299,46 @@ let _settingsCache: { at: number; data: SettingsResp } | null = null;
 let _settingsInflight: Promise<SettingsResp> | null = null;
 const SETTINGS_TTL = 30_000;
 
+// The quality gate seen from the admin: which products are fit for the website
+// and which are not, and the one-time sweep that applies that to everything.
+export interface QualityIssue { field: string; message: string }
+export interface QualityRow {
+  id: number;
+  name: string;
+  sku?: string;
+  category: string;
+  subcategory: string;
+  status: string;
+  live: boolean;
+  passed: boolean;
+  wouldGoToDraft: boolean;
+  errors: QualityIssue[];
+  warnings: QualityIssue[];
+}
+export interface QualityReport {
+  success: boolean;
+  total: number;
+  live: number;
+  passing: number;
+  failing: number;
+  wouldGoToDraft: number;
+  byReason: { field: string; count: number }[];
+  products: QualityRow[];
+}
+
+export const productQualityApi = {
+  report: (token: string): Promise<QualityReport> =>
+    request<QualityReport>('/product-quality', {}, token),
+
+  /** expectedCount is the number the report just showed — the server refuses if it no longer matches. */
+  enforce: (expectedCount: number, token: string) =>
+    request<{ success: boolean; movedToDraft: number; stillLive: number }>(
+      '/product-quality/enforce',
+      { method: 'POST', body: JSON.stringify({ expectedCount }) },
+      token,
+    ),
+};
+
 // The SEO writing the owner edits from the admin panel: blog articles, keyword
 // collection pages and the category copy. Reading is public — it is what the
 // website shows. Writing needs the Settings permission, checked by the backend.

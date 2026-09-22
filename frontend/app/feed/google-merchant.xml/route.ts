@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server';
 import { productSlug } from '@/lib/productSlug';
+import {
+  isFeedable, variantsOf, googleCategoryOf, productTypeOf, genderOf, ageGroupOf,
+} from '@/lib/merchantFeed';
 
 /**
  * Google Merchant Center product feed (RSS 2.0)
@@ -61,13 +64,22 @@ export async function GET() {
   } catch { /* API down — empty feed, next revalidate retries */ }
 
   const items = products
-    .filter(p => p.dbId && p.name && p.price > 0 && p.stock !== 'Inactive')
-    .map(p => {
+    // Drafts are products the quality gate held back because Google would
+    // refuse them; sending them anyway just collects disapprovals.
+    .filter(p => isFeedable(p))
+    .flatMap(p => {
       const selling = p.discountPrice && p.discountPrice < p.price ? p.discountPrice : null;
       const outOfStock = p.stock === 'Out of Stock';
       const desc = (p.description ?? p.name).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 4900);
-      return `  <item>
-    <g:id>${esc(p.sku ?? `MFH-${p.dbId}`)}</g:id>
+      const variants = variantsOf(p);
+      const ptype = productTypeOf(p);
+
+      // One row per size and colour, sharing an item_group_id — Google's size
+      // and colour attributes hold one value each, and it requires both for
+      // apparel. Their absence is what leaves products at "Limited".
+      return variants.map(v => `  <item>
+    <g:id>${esc(v.id)}</g:id>${variants.length > 1 ? `
+    <g:item_group_id>${esc(v.itemGroupId)}</g:item_group_id>` : ''}
     <g:title>${esc(p.name.slice(0, 150))}</g:title>
     <g:description>${esc(desc)}</g:description>
     <g:link>${BASE}/products/${productSlug(p.name, p.dbId)}</g:link>
@@ -78,9 +90,13 @@ export async function GET() {
     <g:condition>new</g:condition>
     <g:brand>Mahalaxmi Fashion Hub</g:brand>
     <g:identifier_exists>no</g:identifier_exists>
-    <g:google_product_category>${esc(googleCategory(p.category, p.subcategory))}</g:google_product_category>${p.category ? `
-    <g:product_type>${esc([p.category, p.subcategory].filter(Boolean).join(' > '))}</g:product_type>` : ''}
-  </item>`;
+    <g:google_product_category>${esc(googleCategoryOf(p))}</g:google_product_category>${ptype ? `
+    <g:product_type>${esc(ptype)}</g:product_type>` : ''}${v.size ? `
+    <g:size>${esc(v.size)}</g:size>` : ''}${v.colour ? `
+    <g:color>${esc(v.colour)}</g:color>` : ''}
+    <g:gender>${genderOf(p)}</g:gender>
+    <g:age_group>${ageGroupOf(p)}</g:age_group>
+  </item>`);
     })
     .join('\n');
 

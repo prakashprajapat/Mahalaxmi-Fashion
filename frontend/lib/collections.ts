@@ -36,7 +36,9 @@ const sellingPrice = (p: Product) =>
   p.discountPrice && p.discountPrice > 0 && p.discountPrice < p.price ? p.discountPrice : p.price;
 
 export function matchesCollection(p: Product, def: CollectionDef): boolean {
-  if (p.stock === 'Inactive') return false;
+  // Draft products failed the quality gate and are not on the website;
+  // a collection page listing one would 404 the moment anyone clicked it.
+  if (p.stock === 'Inactive' || p.stock === 'Draft') return false;
   if (def.maxPrice !== undefined && sellingPrice(p) > def.maxPrice) return false;
   if (def.terms && def.terms.length > 0) {
     const hay = `${p.name} ${p.subcategory ?? ''} ${p.description ?? ''}`.toLowerCase();

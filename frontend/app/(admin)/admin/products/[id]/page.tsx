@@ -807,7 +807,7 @@ export default function EditProductPage() {
         variantMatrix:    stockKeys.length  ? stockMatrix : undefined,
         stockMode:        stockKeys.length  ? (selectedColours.length ? 'size_colour' : 'size') : undefined,
       });
-      await productsApi.update(productId, {
+      const saved = await productsApi.update(productId, {
         name: name.trim(),
         category,
         subcategory:   sub.trim() || undefined,
@@ -824,7 +824,23 @@ export default function EditProductPage() {
         qty:           saveQty,
         packOf:        packValue >= 2 ? packValue : undefined,
         extraJson,
-      }, getAdminToken() ?? '');
+      }, getAdminToken() ?? '') as { gate?: { heldAsDraft?: boolean; errors?: { message: string }[] } };
+
+      // The server decides whether this product is fit to be on the website.
+      // When it is not, the work is still saved — but the product is held back
+      // as a draft, and staying on this screen with the reasons in front of you
+      // is more use than a tick and a redirect to a list it is no longer on.
+      const held = saved?.gate?.heldAsDraft;
+      if (held) {
+        const reasons = (saved?.gate?.errors ?? []).map(e => '• ' + e.message).join('\n\n');
+        alert(
+          '💾 Saved — but this product is NOT on the website yet.\n\n'
+          + 'It is a draft until these are fixed:\n\n' + reasons
+          + '\n\nFix them here and save again.'
+        );
+        return;
+      }
+
       alert('✅ Product updated successfully!');
       router.push('/admin/products');
     } catch (e) { alert('❌ ' + (e as Error).message); }

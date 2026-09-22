@@ -8,6 +8,7 @@ using System.Text.Json.Nodes;
 using MahalaxmiApi.Data;
 using MahalaxmiApi.DTOs;
 using MahalaxmiApi.Models;
+using MahalaxmiApi.Services;
 
 using MahalaxmiApi.Authorization;
 
@@ -327,7 +328,7 @@ public class OrdersController : ControllerBase
             if (!string.IsNullOrWhiteSpace(lineSku) && bySku.TryGetValue(lineSku, out var prod))
             {
                 if (string.Equals(prod.StockStatus, "Out of Stock", StringComparison.OrdinalIgnoreCase)
-                    || string.Equals(prod.StockStatus, "Inactive", StringComparison.OrdinalIgnoreCase))
+                    || ProductQualityGate.HiddenStatuses.Contains(prod.StockStatus, StringComparer.OrdinalIgnoreCase))
                     return BadRequest(new { success = false, message = $"'{prod.Name}' is out of stock. Please remove it and try again." });
                 var baseUnit = prod.DiscountPrice.HasValue && prod.DiscountPrice.Value > 0 ? prod.DiscountPrice.Value : prod.Price;
                 // Fold in the manual per-product shipping — unless this is a free-shipping Balotra order.
@@ -353,7 +354,7 @@ public class OrdersController : ControllerBase
                     return BadRequest(new { success = false, message = "An item in your cart is no longer available. Please refresh your cart and try again." });
 
                 if (string.Equals(prodById.StockStatus, "Out of Stock", StringComparison.OrdinalIgnoreCase)
-                    || string.Equals(prodById.StockStatus, "Inactive", StringComparison.OrdinalIgnoreCase))
+                    || ProductQualityGate.HiddenStatuses.Contains(prodById.StockStatus, StringComparer.OrdinalIgnoreCase))
                     return BadRequest(new { success = false, message = $"'{prodById.Name}' is out of stock. Please remove it and try again." });
 
                 var baseUnitById = prodById.DiscountPrice.HasValue && prodById.DiscountPrice.Value > 0

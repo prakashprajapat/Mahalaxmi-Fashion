@@ -23,7 +23,7 @@ async function getCatalog(): Promise<string> {
     if (!r.ok) return '';
     const data = (await r.json()) as { products?: ApiProduct[] };
     const items = (data.products ?? [])
-      .filter(p => (p.stock ?? 'In Stock') !== 'Inactive')
+      .filter(p => !['Inactive', 'Draft'].includes(p.stock ?? 'In Stock'))
       .slice(0, 80)
       .map(p => {
         const price = p.discountPrice && p.discountPrice > 0 ? p.discountPrice : p.price;

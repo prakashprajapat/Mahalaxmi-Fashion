@@ -661,7 +661,12 @@ export default function AdminProductsPage() {
               ) : filtered.length === 0 ? (
                 <tr><td colSpan={9} style={{ textAlign: 'center', padding: '3rem', color: '#aaa' }}>No products found.</td></tr>
               ) : filtered.map((p, i) => {
-                const isInactive = p.stock === 'Inactive';
+                // A draft is a product the quality gate held back, not one the
+                // owner switched off. Both are off the website, so both are
+                // dimmed — but they are said differently, because one is a
+                // decision and the other is a list of things to fix.
+                const isDraft = p.stock === 'Draft';
+                const isInactive = p.stock === 'Inactive' || isDraft;
                 return (
                 <tr key={p.dbId} style={{ borderTop: i > 0 ? '1px solid #f5f5f5' : undefined, opacity: isInactive ? 0.45 : 1 }}>
                   <td style={{ padding: '.65rem 1rem' }}>
@@ -673,7 +678,9 @@ export default function AdminProductsPage() {
                   <td style={{ padding: '.65rem 1rem', fontWeight: 500, maxWidth: '200px' }}>
                     <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
                     {p.subcategory && <div style={{ fontSize: '.72rem', color: '#aaa' }}>{p.subcategory}</div>}
-                    {isInactive && <div style={{ fontSize: '.68rem', color: '#e65100', fontWeight: 700 }}>🚫 INACTIVE — Won&apos;t show on the website</div>}
+                    {isDraft
+                      ? <div style={{ fontSize: '.68rem', color: '#c26a12', fontWeight: 700 }}>📝 DRAFT — not ready for the website. Open it to see what is missing.</div>
+                      : isInactive && <div style={{ fontSize: '.68rem', color: '#e65100', fontWeight: 700 }}>🚫 INACTIVE — Won&apos;t show on the website</div>}
                   </td>
                   <td style={{ padding: '.65rem 1rem', fontSize: '.8rem' }}>{p.category}</td>
                   <td style={{ padding: '.65rem 1rem', fontWeight: 600 }}>₹{p.price.toLocaleString('en-IN')}</td>
