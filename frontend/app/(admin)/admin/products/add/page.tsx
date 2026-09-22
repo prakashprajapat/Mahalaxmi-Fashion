@@ -4,6 +4,8 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { productsApi, settingsApi } from '@/lib/api';
 import { getAdminToken } from '@/lib/auth';
+import { checkProduct } from '@/lib/productGate';
+import PublishPanel from '@/components/admin/PublishPanel';
 import { getTaxonomy } from '@/lib/womenTaxonomy';
 import { runProductQC, deepImageDuplicateCheck, type QcIssue } from '@/lib/productQC';
 import QcPanel from '@/components/admin/QcPanel';
@@ -589,6 +591,7 @@ export default function AddProductPage() {
     { key: 'size',        label: 'Size',         placeholder: 'blank = sizes chosen above' },
   ];
   const [specs, setSpecs] = useState<Record<string, string>>({});
+  const [serverGate, setServerGate] = useState<{ heldAsDraft: boolean; errors: { field: string; message: string }[] } | null>(null);
 
   const [saving, setSaving]     = useState(false);
   const [qcIssues, setQcIssues] = useState<QcIssue[]>([]);
@@ -803,7 +806,7 @@ export default function AddProductPage() {
         variant: getTaxonomy(category).length > 0 && taxVariant ? taxVariant : undefined,
       });
       const finalHsn = hsnCode.trim();
-      await productsApi.bulkSave([{
+      const res = await productsApi.bulkSave([{
         name: name.trim(),
         category,
         subcategory: sub.trim() || '',
@@ -826,7 +829,18 @@ export default function AddProductPage() {
       localStorage.setItem('mfh_lastCategory', category);
       localStorage.setItem('mfh_lastSub', sub);
       localStorage.setItem('mfh_lastVariant', taxVariant);
-      alert('✅ Product added successfully!');
+      const held = (res as { held?: { name: string; errors: string[] }[] })?.held ?? [];
+      if (held.length > 0) {
+        // Saved, but not on the website. The panel above says why; a popup
+        // would vanish the moment it was dismissed.
+        setServerGate({
+          heldAsDraft: true,
+          errors: (held[0].errors ?? []).map(m => ({ field: '', message: m })),
+        });
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        return;
+      }
+      setServerGate(null);
       router.push('/admin/products');
     } catch (e) { alert('❌ ' + (e as Error).message); }
     finally { setSaving(false); }
@@ -848,6 +862,23 @@ export default function AddProductPage() {
   const selectedColours = packValue >= 2
     ? []
     : [...new Set([...selColors, ...customColours.map(c => c.name), ...splitList(availColours)])];
+
+  // The rules the server applies on save, run here while the form is being
+  // filled. A combo pack keeps its colours per photo column, so the free-text
+  // "Colour" and "Size" boxes under Product Details count too.
+  const gate = checkProduct({
+    name,
+    description: desc,
+    price: Number(price) || 0,
+    discountPrice: discPrice ? Number(discPrice) : undefined,
+    image: mainPhotos.front || normalizePackColumns(packCols, getPackOfNumber(packOf)).filter(hasPackPhoto)[0]?.front || '',
+    category,
+    subcategory: sub,
+    sizes: selectedSizes.length ? selectedSizes : splitList(specs['Size'] ?? ''),
+    colours: selectedColours.length ? selectedColours : splitList(specs['Colour'] ?? ''),
+    sku,
+    hsnCode,
+  });
 
   // Options + toggle for the colour multi-select filter (presets + saved custom colours).
   const colourFilterOptions = [
@@ -909,6 +940,9 @@ export default function AddProductPage() {
           onClose={() => setQcOpen(false)}
         />
       )}
+
+      {/* Why this product will or will not go on the website — shown before saving, not after. */}
+      <PublishPanel gate={gate} serverSaid={serverGate} />
 
       {/* ── Page Header ── */}
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'1.5rem', flexWrap:'wrap', gap:'1rem' }}>
@@ -1437,9 +1471,11 @@ export default function AddProductPage() {
 
         {/* ── Action Buttons ── */}
         <div style={{ display:'flex', gap:'.75rem', marginTop:'1.5rem' }}>
+          {/* Deliberately still clickable when the checks fail — a half-finished
+              product has to be saveable, and that is what a draft is. */}
           <button onClick={() => handleSave()} disabled={saving}
-            style={{ background:'#a7354d', color:'#fff', border:'none', borderRadius:'8px', padding:'.7rem 2rem', fontSize:'.95rem', fontWeight:700, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? .7 : 1 }}>
-            {saving ? 'Adding…' : 'Add Product'}
+            style={{ background: saving ? '#bbb' : gate.passed ? '#2e7d32' : '#c26a12', color:'#fff', border:'none', borderRadius:'8px', padding:'.7rem 2rem', fontSize:'.95rem', fontWeight:700, cursor: saving ? 'not-allowed' : 'pointer' }}>
+            {saving ? 'Adding…' : gate.passed ? '✅ Add & publish' : `💾 Add as draft (${gate.blocking.length} to fix)`}
           </button>
           <button onClick={clearAll}
             style={{ background:'#f5f5f5', color:'#555', border:'none', borderRadius:'8px', padding:'.7rem 2rem', fontSize:'.95rem', fontWeight:700, cursor:'pointer' }}>

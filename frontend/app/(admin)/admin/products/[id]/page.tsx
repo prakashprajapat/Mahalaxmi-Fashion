@@ -6,6 +6,8 @@ import { productsApi, settingsApi } from '@/lib/api';
 import { runProductQC, type QcIssue } from '@/lib/productQC';
 import QcPanel from '@/components/admin/QcPanel';
 import { getAdminToken } from '@/lib/auth';
+import { checkProduct } from '@/lib/productGate';
+import PublishPanel from '@/components/admin/PublishPanel';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const CATEGORIES = ['Women','Men','Kids','Beauty','Fabrics','More'];
@@ -536,6 +538,9 @@ export default function EditProductPage() {
     { key: 'size',        label: 'Size',         placeholder: 'blank = sizes chosen above' },
   ];
   const [specs, setSpecs] = useState<Record<string, string>>({});
+  // What the server replied on the last save. The live check below is only a
+  // mirror of its rules; when the two disagree, the server is right.
+  const [serverGate, setServerGate] = useState<{ heldAsDraft: boolean; errors: { field: string; message: string }[] } | null>(null);
 
   const [saving, setSaving]       = useState(false);
   const [qcIssues, setQcIssues]   = useState<QcIssue[]>([]);
@@ -824,24 +829,22 @@ export default function EditProductPage() {
         qty:           saveQty,
         packOf:        packValue >= 2 ? packValue : undefined,
         extraJson,
-      }, getAdminToken() ?? '') as { gate?: { heldAsDraft?: boolean; errors?: { message: string }[] } };
+      }, getAdminToken() ?? '') as { gate?: { heldAsDraft?: boolean; errors?: { field: string; message: string }[] } };
 
       // The server decides whether this product is fit to be on the website.
       // When it is not, the work is still saved — but the product is held back
       // as a draft, and staying on this screen with the reasons in front of you
       // is more use than a tick and a redirect to a list it is no longer on.
-      const held = saved?.gate?.heldAsDraft;
-      if (held) {
-        const reasons = (saved?.gate?.errors ?? []).map(e => '• ' + e.message).join('\n\n');
-        alert(
-          '💾 Saved — but this product is NOT on the website yet.\n\n'
-          + 'It is a draft until these are fixed:\n\n' + reasons
-          + '\n\nFix them here and save again.'
-        );
+      // No popup. A browser alert arrives after the work is done and vanishes
+      // when dismissed — exactly when the list of things to fix is needed. The
+      // panel at the top of this form holds it instead, and stays.
+      if (saved?.gate?.heldAsDraft) {
+        setServerGate({ heldAsDraft: true, errors: saved.gate.errors ?? [] });
+        window.scrollTo({ top: 0, behavior: 'smooth' });
         return;
       }
 
-      alert('✅ Product updated successfully!');
+      setServerGate(null);
       router.push('/admin/products');
     } catch (e) { alert('❌ ' + (e as Error).message); }
     finally { setSaving(false); }
@@ -871,6 +874,29 @@ export default function EditProductPage() {
   };
 
   const uniqueSizes = [...new Set(selSizes)];   // guard against any duplicate size rows
+
+  // The same rules the server will apply on save, run here as the form is
+  // filled in. A pack product has its colours per column rather than in the
+  // colour picker, so the free-text "Colour" and "Size" boxes under Product
+  // Details count too — otherwise a combo pack could never satisfy the rule
+  // from this screen at all.
+  const gate = checkProduct({
+    name,
+    description: desc,
+    price: Number(price) || 0,
+    discountPrice: discPrice ? Number(discPrice) : undefined,
+    // A pack product's main photo comes from its first filled column, the
+    // same fallback the save uses.
+    image: mainPhotos.front
+      || normalizePackColumns(packCols, packValue).filter(hasPackPhoto)[0]?.front
+      || '',
+    category,
+    subcategory: sub,
+    sizes: uniqueSizes.length ? uniqueSizes : splitList(specs['Size'] ?? ''),
+    colours: selectedColours.length ? selectedColours : splitList(specs['Colour'] ?? ''),
+    sku,
+    hsnCode,
+  });
   const stockKeys = uniqueSizes.length > 0
     ? (selectedColours.length > 0
         ? uniqueSizes.flatMap(size => selectedColours.map(colour => `${size}|${colour}`))
@@ -929,6 +955,9 @@ export default function EditProductPage() {
           onClose={() => setQcOpen(false)}
         />
       )}
+
+      {/* Why this product is or is not on the website — always on screen, never a popup. */}
+      <PublishPanel gate={gate} serverSaid={serverGate} />
 
       {/* ── Page Header ── */}
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'1.5rem', flexWrap:'wrap', gap:'1rem' }}>
@@ -1427,9 +1456,12 @@ export default function EditProductPage() {
 
         {/* ── Action Buttons ── */}
         <div style={{ display:'flex', gap:'.75rem', marginTop:'1.5rem' }}>
+          {/* Not disabled when the checks fail: the work still has to be saveable,
+              and half-finished products are exactly what drafts are for. The
+              label says which of the two is about to happen. */}
           <button onClick={() => handleSave()} disabled={saving}
-            style={{ background:'#a7354d', color:'#fff', border:'none', borderRadius:'8px', padding:'.7rem 2rem', fontSize:'.95rem', fontWeight:700, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? .7 : 1 }}>
-            {saving ? 'Saving…' : '✅ Update Product'}
+            style={{ background: saving ? '#bbb' : gate.passed ? '#2e7d32' : '#c26a12', color:'#fff', border:'none', borderRadius:'8px', padding:'.7rem 2rem', fontSize:'.95rem', fontWeight:700, cursor: saving ? 'not-allowed' : 'pointer' }}>
+            {saving ? 'Saving…' : gate.passed ? '✅ Save & publish' : `💾 Save as draft (${gate.blocking.length} to fix)`}
           </button>
           <Link href="/admin/products"
             style={{ background:'#f5f5f5', color:'#555', border:'none', borderRadius:'8px', padding:'.7rem 2rem', fontSize:'.95rem', fontWeight:700, cursor:'pointer', textDecoration:'none', display:'inline-block' }}>

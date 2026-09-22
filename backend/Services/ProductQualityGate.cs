@@ -94,6 +94,13 @@ public static class ProductQualityGate
         return list;
     }
 
+    /// <summary>"Red, Navy Blue" → ["Red", "Navy Blue"].</summary>
+    private static List<string> SplitList(string? csv) =>
+        (csv ?? "").Split(new[] { ',', '/', '|' }, StringSplitOptions.RemoveEmptyEntries)
+            .Select(x => x.Trim())
+            .Where(x => x.Length > 0)
+            .ToList();
+
     private static string? StringValue(JsonElement root, string prop)
     {
         if (root.ValueKind != JsonValueKind.Object) return null;
@@ -224,6 +231,19 @@ public static class ProductQualityGate
         var sizes = extraOk ? StringList(extra, "sizes") : new List<string>();
         var colours = extraOk ? StringList(extra, "colors") : new List<string>();
         if (colours.Count == 0 && extraOk) colours = StringList(extra, "colours");
+
+        // A combo pack keeps its colours per photo column rather than in the
+        // colour picker, so for those the only place a colour can be stated is
+        // the free-text "Colour" box under Product Details. Without this
+        // fallback a pack product could never satisfy the rule from the admin
+        // screen at all — the gate would be asking for something the form
+        // cannot give it. The same applies to Size.
+        if (extraOk && extra.TryGetProperty("specs", out var specs) && specs.ValueKind == JsonValueKind.Object)
+        {
+            if (sizes.Count == 0) sizes = SplitList(StringValue(specs, "Size"));
+            if (colours.Count == 0) colours = SplitList(StringValue(specs, "Colour"));
+            if (colours.Count == 0) colours = SplitList(StringValue(specs, "Color"));
+        }
 
         // Google requires size and colour for clothing and footwear, and asks for
         // neither on a bottle of perfume. Demanding them everywhere would hold
