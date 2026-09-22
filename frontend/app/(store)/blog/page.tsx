@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { POSTS } from '@/lib/blog';
+import { getPosts } from '@/lib/seoContent';
 
 export const metadata: Metadata = {
   title: { absolute: 'Fashion Blog — Saree, Nighty & Petticoat Guides | Mahalaxmi Fashion Hub' },
@@ -9,8 +9,12 @@ export const metadata: Metadata = {
   alternates: { canonical: '/blog' },
 };
 
-export default function BlogIndexPage() {
-  const posts = [...POSTS].sort((a, b) => b.date.localeCompare(a.date));
+// Articles come from getPosts(): the ones in lib/blog.ts plus everything
+// written since in Admin → Blog Articles, newest first.
+export const revalidate = 300;
+
+export default async function BlogIndexPage() {
+  const posts = await getPosts();
   return (
     <>
       <section className="page-hero">

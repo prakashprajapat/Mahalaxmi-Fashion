@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { productsApi } from '@/lib/api';
 import CategoryPageContent from '@/components/product/CategoryPageContent';
 import CategorySeoBlock from '@/components/product/CategorySeoBlock';
-import { CATEGORY_SEO } from '@/lib/categorySeo';
+import { getCategorySeo } from '@/lib/seoContent';
 
 export const revalidate = 60;
 
@@ -16,9 +16,11 @@ export async function generateMetadata(): Promise<Metadata> {
     .getAll({ category: 'kids', pageSize: 1 })
     .catch(() => ({ products: [] as any[] }));
 
+  const seo = (await getCategorySeo()).kids;
+
   return {
-    title: { absolute: CATEGORY_SEO.kids.title },
-    description: CATEGORY_SEO.kids.description,
+    title: { absolute: seo.title },
+    description: seo.description,
     alternates: { canonical: '/kids' },
     ...((products as any[]).length === 0 ? { robots: { index: false, follow: true } } : {}),
   };

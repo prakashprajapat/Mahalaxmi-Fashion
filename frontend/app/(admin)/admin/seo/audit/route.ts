@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { productsApi } from '@/lib/api';
-import { COLLECTIONS, matchesCollection } from '@/lib/collections';
-import { CATEGORY_SEO } from '@/lib/categorySeo';
-import { POSTS } from '@/lib/blog';
+import { matchesCollection } from '@/lib/collections';
+import { getCollections, getCategorySeo, getPosts } from '@/lib/seoContent';
 import type { Product } from '@/types';
 
 // The SEO check, run on the server so it can see things the browser cannot:
@@ -138,6 +137,15 @@ export async function POST(req: NextRequest) {
   } catch (e) {
     productsError = e instanceof Error ? e.message : 'The product API did not answer.';
   }
+
+  // The live definitions: the code files plus whatever has been edited in the
+  // admin. Checking the code defaults would mean reporting on a version of the
+  // site that no longer exists.
+  const [COLLECTIONS, CATEGORY_SEO, POSTS] = await Promise.all([
+    getCollections(),
+    getCategorySeo(),
+    getPosts(),
+  ]);
 
   const findings: Finding[] = [];
   let checksRun = 0;

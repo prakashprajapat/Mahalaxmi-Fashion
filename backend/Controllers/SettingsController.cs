@@ -47,6 +47,14 @@ public class SettingsController : ControllerBase
         "admin_email",
         "adminRecoveryPhone",   // the owner's private mobile
         "googleAdsOauthState",
+
+        // Public writing, but far too big for this bundle — the navbar and
+        // footer read it on every page load. Served by /api/seo-content
+        // instead, which is cached separately and fetched only by the pages
+        // that actually render it.
+        "seoBlog",
+        "seoCollections",
+        "seoCategories",
     };
 
     private static bool IsPublic(string key) =>

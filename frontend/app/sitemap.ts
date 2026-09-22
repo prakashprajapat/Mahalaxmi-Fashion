@@ -1,9 +1,8 @@
 import { MetadataRoute } from 'next';
 import { productsApi } from '@/lib/api';
-import { POSTS } from '@/lib/blog';
+import { getPosts, getCollectionSlugs } from '@/lib/seoContent';
 import { productSlug } from '@/lib/productSlug';
 import { productImageSrc } from '@/lib/productImages';
-import { COLLECTION_SLUGS } from '@/lib/collections';
 
 const BASE = 'https://www.mahalaxmifashionhub.com';
 
@@ -13,6 +12,11 @@ const BASE = 'https://www.mahalaxmifashionhub.com';
 export const dynamic = 'force-dynamic';
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  // Collections and articles the owner adds from the admin panel belong in here
+  // the same day, not after the next deploy — a page Google has not been told
+  // about is a page that does not exist yet.
+  const [collectionSlugs, posts] = await Promise.all([getCollectionSlugs(), getPosts()]);
+
   const staticEntries: MetadataRoute.Sitemap = [
     // ── Core pages ────────────────────────────────────────────────────────────
     { url: BASE,                                   lastModified: new Date(), changeFrequency: 'daily',   priority: 1.0 },
@@ -31,7 +35,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${BASE}/become-supplier`,                    lastModified: new Date(), changeFrequency: 'monthly', priority: 0.5 },
 
     // ── SEO collection landing pages (Koskii-style keyword pages) ─────────────
-    ...COLLECTION_SLUGS.map(slug => ({
+    ...collectionSlugs.map(slug => ({
       url: `${BASE}/collections/${slug}`,
       lastModified: new Date(),
       changeFrequency: 'weekly' as const,
@@ -44,7 +48,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${BASE}/blog`,                         lastModified: new Date(), changeFrequency: 'weekly',  priority: 0.6 },
 
     // ── Blog articles ─────────────────────────────────────────────────────────
-    ...POSTS.map(p => ({
+    ...posts.map(p => ({
       url: `${BASE}/blog/${p.slug}`,
       lastModified: new Date(p.date),
       changeFrequency: 'monthly' as const,

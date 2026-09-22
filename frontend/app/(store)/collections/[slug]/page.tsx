@@ -2,7 +2,8 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { productsApi } from '@/lib/api';
-import { COLLECTIONS, COLLECTION_SLUGS, matchesCollection } from '@/lib/collections';
+import { COLLECTION_SLUGS, matchesCollection } from '@/lib/collections';
+import { getCollections } from '@/lib/seoContent';
 import CategoryPageContent from '@/components/product/CategoryPageContent';
 import { productSlug } from '@/lib/productSlug';
 
@@ -12,18 +13,25 @@ function safeJsonLd(value: unknown): string {
   return JSON.stringify(value).replace(/</g, '\\u003c');
 }
 
-// Koskii-style SEO landing pages: /collections/cotton-nighty, /collections/nighty-under-500 ...
-// Har page ka apna title/description/H1/intro/FAQ hai (lib/collections.ts me define),
-// products apne aap filter hote hain — naya product sahi collection me khud aa jata hai.
+// SEO landing pages: /collections/cotton-nighty, /collections/nighty-under-500 …
+// Each has its own title/description/H1/intro/FAQ, and the products filter
+// themselves — a new product joins the right collections on its own.
+//
+// The definitions come from getCollections(), which is the code file plus
+// whatever the owner has since edited in Admin → Collection Pages.
 
 export const revalidate = 300;
 
+// Only the built-in slugs are pre-rendered. A collection the owner creates in
+// the admin renders on first visit instead — which is right, because the list
+// of them is not known at build time, and the API may not even be reachable
+// while the build runs.
 export function generateStaticParams() {
   return COLLECTION_SLUGS.map(slug => ({ slug }));
 }
 
 export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
-  const def = COLLECTIONS[params.slug];
+  const def = (await getCollections())[params.slug];
   if (!def) return {};
 
     // An empty page is not worth indexing, and a shop that ships empty pages
@@ -47,7 +55,8 @@ export async function generateMetadata({ params }: { params: { slug: string } })
 
 export default async function CollectionPage({ params }: { params: { slug: string } }) {
   const slug = params.slug;
-  const def = COLLECTIONS[slug];
+  const all = await getCollections();
+  const def = all[slug];
   if (!def) notFound();
 
   const { products } = await productsApi
@@ -88,9 +97,9 @@ export default async function CollectionPage({ params }: { params: { slug: strin
   } : null;
 
   // Cross-links (Koskii-style internal linking) — same category first, phir baaki
-  const others = COLLECTION_SLUGS
+  const others = Object.keys(all)
     .filter(s => s !== slug)
-    .sort((a, b) => (COLLECTIONS[b].subcategory === def.subcategory ? 1 : 0) - (COLLECTIONS[a].subcategory === def.subcategory ? 1 : 0));
+    .sort((a, b) => (all[b].subcategory === def.subcategory ? 1 : 0) - (all[a].subcategory === def.subcategory ? 1 : 0));
 
   return (
     <>
@@ -135,7 +144,7 @@ export default async function CollectionPage({ params }: { params: { slug: strin
             {others.map(s => (
               <Link key={s} href={`/collections/${s}`}
                 style={{ background: '#fff', border: '1px solid #e5d5d5', borderRadius: '999px', padding: '.4rem .95rem', fontSize: '.85rem', fontWeight: 600, color: '#7a0a22', textDecoration: 'none' }}>
-                {COLLECTIONS[s].label}
+                {all[s].label}
               </Link>
             ))}
           </div>

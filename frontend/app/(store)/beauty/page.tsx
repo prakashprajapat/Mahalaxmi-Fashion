@@ -2,15 +2,21 @@ import type { Metadata } from 'next';
 import { productsApi } from '@/lib/api';
 import CategoryPageContent from '@/components/product/CategoryPageContent';
 import CategorySeoBlock from '@/components/product/CategorySeoBlock';
-import { CATEGORY_SEO } from '@/lib/categorySeo';
+import { getCategorySeo } from '@/lib/seoContent';
 
 export const revalidate = 60;
 
-export const metadata: Metadata = {
-  title: { absolute: CATEGORY_SEO.beauty.title },
-  description: CATEGORY_SEO.beauty.description,
-  alternates: { canonical: '/beauty' },
-};
+// Read at request time, not baked in at build: the title and description are
+// editable from Admin → Category Page Copy, and an edit that only appears
+// after the next deploy is not really editable.
+export async function generateMetadata(): Promise<Metadata> {
+  const seo = (await getCategorySeo()).beauty;
+  return {
+    title: { absolute: seo.title },
+    description: seo.description,
+    alternates: { canonical: '/beauty' },
+  };
+}
 
 export default async function BeautyPage() {
   const { products } = await productsApi.getAll({ category: 'beauty', pageSize: 200 }).catch(() => ({ products: [] }));

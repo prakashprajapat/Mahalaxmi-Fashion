@@ -1,9 +1,20 @@
 // Server component — renders keyword-relevant intro copy + an FAQ accordion for a category,
 // plus FAQPage JSON-LD so Google can show FAQ rich results. No client JS needed (uses <details>).
-import { CATEGORY_SEO } from '@/lib/categorySeo';
+//
+// The copy comes from getCategorySeo(): lib/categorySeo.ts, with whatever the
+// owner has edited in Admin → Category Page Copy on top.
+import { getCategorySeo } from '@/lib/seoContent';
 
-export default function CategorySeoBlock({ slug }: { slug: string }) {
-  const seo = CATEGORY_SEO[slug];
+// JSON.stringify leaves "<" alone, so an answer containing "</script>" would
+// close this tag early and the rest would run as script. That was harmless
+// while the FAQs lived in a source file; now that they are typed into the
+// admin panel it is not, so the escape is no longer optional.
+function safeJsonLd(value: unknown): string {
+  return JSON.stringify(value).replace(/</g, '\\u003c');
+}
+
+export default async function CategorySeoBlock({ slug }: { slug: string }) {
+  const seo = (await getCategorySeo())[slug];
   if (!seo) return null;
 
   const faqJsonLd = {
@@ -35,7 +46,7 @@ export default function CategorySeoBlock({ slug }: { slug: string }) {
         </div>
       </div>
 
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(faqJsonLd) }} />
     </section>
   );
 }

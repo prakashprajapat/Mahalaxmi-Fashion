@@ -299,6 +299,39 @@ let _settingsCache: { at: number; data: SettingsResp } | null = null;
 let _settingsInflight: Promise<SettingsResp> | null = null;
 const SETTINGS_TTL = 30_000;
 
+// The SEO writing the owner edits from the admin panel: blog articles, keyword
+// collection pages and the category copy. Reading is public — it is what the
+// website shows. Writing needs the Settings permission, checked by the backend.
+export const seoContentApi = {
+  get: (): Promise<{
+    success: boolean;
+    blog: any[];
+    collections: any[];
+    categories: Record<string, any>;
+  }> => request('/seo-content'),
+
+  saveBlog: (posts: unknown[], token: string) =>
+    request('/seo-content/blog', { method: 'PUT', body: JSON.stringify(posts) }, token),
+
+  saveCollections: (items: unknown[], token: string) =>
+    request('/seo-content/collections', { method: 'PUT', body: JSON.stringify(items) }, token),
+
+  saveCategories: (cats: Record<string, unknown>, token: string) =>
+    request('/seo-content/categories', { method: 'PUT', body: JSON.stringify(cats) }, token),
+
+  /** Clear the page caches so an edit is live immediately instead of within the minute. */
+  publish: async (token: string) => {
+    try {
+      await fetch('/admin/seo/revalidate', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+    } catch {
+      // The save already succeeded; the pages will catch up on their own.
+    }
+  },
+};
+
 export const settingsApi = {
   getAll: (): Promise<SettingsResp> => {
     if (typeof window === 'undefined')

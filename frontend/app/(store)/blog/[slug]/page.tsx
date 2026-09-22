@@ -1,16 +1,28 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { POSTS, getPost } from '@/lib/blog';
+import { POSTS } from '@/lib/blog';
+import { getPost } from '@/lib/seoContent';
 
 const BASE = 'https://www.mahalaxmifashionhub.com';
+
+// Only the built-in articles are pre-rendered; anything written in the admin
+// renders on first visit, because the build cannot know those slugs.
+// JSON.stringify leaves "<" alone, so a title holding "</script>" would close
+// this tag early and the rest would run as script. Harmless while articles
+// lived in a source file; not harmless now that they are typed into the admin.
+function safeJsonLd(value: unknown): string {
+  return JSON.stringify(value).replace(/</g, '\\u003c');
+}
+
+export const revalidate = 300;
 
 export function generateStaticParams() {
   return POSTS.map(p => ({ slug: p.slug }));
 }
 
 export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
-  const post = getPost(params.slug);
+  const post = await getPost(params.slug);
   if (!post) return {};
   const url = `${BASE}/blog/${post.slug}`;
   return {
@@ -27,8 +39,8 @@ export async function generateMetadata({ params }: { params: { slug: string } })
   };
 }
 
-export default function BlogPostPage({ params }: { params: { slug: string } }) {
-  const post = getPost(params.slug);
+export default async function BlogPostPage({ params }: { params: { slug: string } }) {
+  const post = await getPost(params.slug);
   if (!post) notFound();
 
   const articleJsonLd = {
@@ -85,8 +97,8 @@ export default function BlogPostPage({ params }: { params: { slug: string } }) {
         .blog-article li { margin: 0 0 .35rem; }
       `}</style>
 
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(articleJsonLd) }} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(articleJsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(breadcrumbJsonLd) }} />
     </>
   );
 }
