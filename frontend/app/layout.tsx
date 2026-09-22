@@ -26,13 +26,28 @@ export async function generateMetadata(): Promise<Metadata> {
   const s = await getSeoSettings();
 
   const defaultTitle = s.seoHomeTitle?.trim()
-    // Sarees led this title while the shop had none in stock. Nighties (34)
-    // and petticoats (6) lead now, and Balotra is in it: the brand name is
-    // crowded — Mahalaxmi Hosiery, Sri Mahalaxmi Hosiery, Mahalaxmi Textile,
-    // Mahalaxmi Mills all rank for it — and the town is what separates them.
-    || 'Cotton Nighty & Petticoat Online, Balotra – Mahalaxmi Fashion Hub';
+    // Owner's wording, chosen deliberately: a marketplace-style title in the
+    // shape Amazon and Flipkart use, so the shop reads as a general store
+    // rather than a nighty specialist. Balotra has come out of it — the town
+    // still carries the local signal through the Google Business Profile, the
+    // footer address and the Balotra landing page, but the shop sells
+    // pan-India and the title should not read as regional.
+    //
+    // Two caveats worth remembering before anyone edits this again:
+    //  - Saree and Kurti are in the list ahead of the stock. Until those
+    //    products exist, shoppers arriving on those terms find nothing and
+    //    bounce, which Google reads as a poor result for the whole site.
+    //    Remove them, or fill the shelves — do not leave it half-done.
+    //  - Google shows roughly the first 60 characters, so everything after
+    //    "Women Clothing" is for nobody's eyes but a crawler's. That is fine
+    //    as a deliberate choice; it is not a reason to keep extending it.
+    || 'Online Shopping for Fashion, Footwear, Perfume, Women Clothing, Ladies Dress, Cotton Nighty, Saree Online, Cotton Saree, Kurti for Women, Women Kurti Set';
   const defaultDesc  = s.seoHomeDescription?.trim()
-    || 'Shop cotton nighties, sarees, petticoats, innerwear & fabrics online at Mahalaxmi Fashion Hub, Balotra (Rajasthan). Quality-checked, COD available, free shipping over ₹999, pan-India delivery.';
+    // Kept in step with the title above: it leads with what is actually on
+    // the shelves — nighties (34), formal shoes (23), perfume (8),
+    // innerwear (7), petticoats (6) — and stops short of 160 characters,
+    // past which Google cuts the snippet off mid-sentence.
+    || 'Shop cotton nighties, petticoats, formal shoes, perfumes & innerwear online at Mahalaxmi Fashion Hub. COD available, free shipping over ₹999, pan-India delivery.';
   const keywords     = s.seoKeywords?.trim()
     || 'cotton nighty online, nighty for women, saree online, petticoat online, nighty combo pack, mahalaxmi fashion hub, fashion store balotra, online fashion rajasthan, innerwear online, ethnic wear women';
   const ogImage      = s.seoOgImage?.trim() || '/og-image.jpg';
