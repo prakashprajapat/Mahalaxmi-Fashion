@@ -57,7 +57,13 @@ echo "5. Checking frontend dependencies..."
 # Installed once, then skipped on later deploys.
 if ! (cd frontend && node -e "require('sharp')" >/dev/null 2>&1); then
   echo "   Installing sharp (one-time, needed for image resizing)..."
-  (cd frontend && npm install --no-audit --no-fund sharp@^0.33.5) \
+  # --no-package-lock: this project has never had a lockfile, and the one npm
+  # writes here lists no platform SWC binaries, so every later build prints
+  # "Found lockfile missing swc dependencies, patching..." and then fails to
+  # patch it because pnpm is not installed. Harmless, but it looks like a
+  # broken build in the log. If a stray one is already on the server, delete
+  # it once: rm frontend/package-lock.json
+  (cd frontend && npm install --no-audit --no-fund --no-package-lock sharp@^0.33.5) \
     || rollback "sharp install failed — photos would not render."
   (cd frontend && node -e "require('sharp')" >/dev/null 2>&1) \
     || rollback "sharp installed but will not load on this machine."

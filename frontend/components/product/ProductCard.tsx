@@ -1,7 +1,6 @@
 'use client';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import type { Product } from '@/types';
 import { finalUnitPrice } from '@/lib/cart';
@@ -10,7 +9,6 @@ import { productImageSrc, productImageThumb } from '@/lib/productImages';
 import { productSlug } from '@/lib/productSlug';
 
 export default function ProductCard({ product, priority = false }: { product: Product; priority?: boolean }) {
-  const router = useRouter();
   const [wishlisted, setWishlisted] = useState(isInWishlist(product.dbId));
   const [imgError, setImgError] = useState(false);
   // A photo that is not roughly portrait leaves grey bands inside the 3:4 tile.
@@ -59,21 +57,18 @@ export default function ProductCard({ product, priority = false }: { product: Pr
     }
   };
 
-  const openProduct = (e: React.MouseEvent) => {
-    e.preventDefault();
-    router.push(href);
-  };
-
   return (
     <>
-      <div className="product-card" style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', height: '100%' }} onClick={openProduct}>
+      <Link href={href} className="product-card" aria-label={product.name}
+        style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', height: '100%',
+                 textDecoration: 'none', color: 'inherit' }}>
         {/* Image */}
         <div className="product-card-img">
           {blurFill && image && !imgError && (
             <div className="product-card-blurfill" aria-hidden="true"
               style={{ backgroundImage: `url("${productImageThumb(image).replace(/"/g, '%22')}")` }} />
           )}
-          <div onClick={openProduct}>
+          <div>
             {image && !imgError ? (
               !inlineSrc ? (
                 <Image src={image} alt={product.name}
@@ -127,11 +122,10 @@ export default function ProductCard({ product, priority = false }: { product: Pr
             </p>
           )}
 
-          <Link href={href} onClick={e => e.stopPropagation()}
-            className="product-card-name" title={product.name}
-            style={{ display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: 600, color: '#1a1a1a', fontSize: '.9rem', margin: '.25rem 0', lineHeight: 1.3, textDecoration: 'none' }}>
+          <span className="product-card-name" title={product.name}
+            style={{ display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: 600, color: '#1a1a1a', fontSize: '.9rem', margin: '.25rem 0', lineHeight: 1.3 }}>
             {product.name}
-          </Link>
+          </span>
 
           {/* Rating — real reviews only ("New" tag now sits next to the stock badge) */}
           {(product.reviewCount ?? 0) > 0 && (
@@ -148,7 +142,7 @@ export default function ProductCard({ product, priority = false }: { product: Pr
             {saving > 0 && <span className="product-card-off">{saving}% off</span>}
           </div>
         </div>
-      </div>
+      </Link>
 
     </>
   );
