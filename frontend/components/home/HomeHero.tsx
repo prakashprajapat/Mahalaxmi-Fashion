@@ -23,10 +23,10 @@ export default function HomeHero() {
         }}>
           <div>
             <h1 className="hero-copy" style={{ fontFamily: HERO_FONT, fontSize: 'clamp(1.05rem, 2.7vw, 1.9rem)', fontWeight: 800, lineHeight: 1.25, color: '#5c1a28', margin: '0 0 .3rem' }}>
-              Nighty, Petticoat &amp; Sarees from Balotra
+              Every Look, A New Experience
             </h1>
             <p className="hero-copy" style={{ fontFamily: HERO_FONT, fontSize: 'clamp(1.05rem, 2.7vw, 1.9rem)', fontWeight: 600, lineHeight: 1.25, color: 'rgba(92,26,40,.8)', margin: '0 0 1rem' }}>
-              Premium quality you can trust, thoughtfully crafted for every need.
+              Discover quality fashion designed to make every moment special.
             </p>
 
             <div className="hero-badge-row" style={{ display: 'flex', gap: 'clamp(.8rem, 2.5vw, 1.6rem)', flexWrap: 'wrap', marginTop: '1.1rem' }}>
