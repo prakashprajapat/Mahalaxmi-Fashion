@@ -319,6 +319,35 @@ export const COLLECTIONS: Record<string, CollectionDef> = {
     subcategory: 'nighty',
     terms: ['cotton', 'printed', 'regular', 'daily', 'hosiery'],
   },
+  // The shop's second line by count and its most valuable by far: 23 pairs at a
+  // typical ₹2,594, against a ₹502 nighty. It had no landing page at all — only
+  // the individual product pages — so there was nowhere for an ad to send
+  // someone and nothing linking the range together.
+  //
+  // This page will not outrank Amazon, Myntra or Flipkart, and it is not meant
+  // to. It exists so paid traffic lands somewhere that shows the whole range.
+  'formal-shoes-for-men': {
+    slug: 'formal-shoes-for-men',
+    label: 'Formal Shoes for Men',
+    title: 'Formal Shoes for Men Online — Black, Brown & Tan',
+    description:
+      'Men\'s formal shoes online at Mahalaxmi Fashion Hub — black, brown and tan office and occasion wear. COD across India, free shipping over ₹999.',
+    eyebrow: 'Men\'s Footwear',
+    h1: 'Formal Shoes for Men',
+    sub: 'Office and occasion shoes in black, brown and tan',
+    intro: [
+      'A formal shoe is judged on three things: how it looks under trousers, how it holds up after a month of daily wear, and whether you can stand in it all day. This range is picked on all three — lace-ups and slip-ons in black, brown and tan, with uppers and linings chosen so the shoe breathes rather than turning into an oven by afternoon.',
+      'Every pair is quality-checked before it leaves our Balotra, Rajasthan store and ships pan-India with tracking. Cash on Delivery is available, and delivery is free above ₹999 — which every pair here clears. Not sure of the size? WhatsApp us the length of your foot in centimetres and we will tell you which size to order.',
+    ],
+    faqs: [
+      { q: 'Which colour formal shoe should I buy first?', a: 'Black, if you only buy one — it works with charcoal, navy and black trousers and with every formal occasion. Brown and tan are the second pair: they suit beige, khaki and lighter suits, and look less severe at a daytime event.' },
+      { q: 'How do I pick the right size?', a: 'WhatsApp us the length of your foot in centimetres, measured heel to longest toe while standing. We will tell you which size to order. Measure in the evening — feet are slightly larger by then, and a shoe that fits in the evening fits all day.' },
+      { q: 'Can I return a pair that does not fit?', a: 'Yes, within 7 days, as long as the shoes are unworn outdoors and the box is intact. Try them on indoors, on a clean floor. Please keep the parcel-opening video for any claim.' },
+      { q: 'Is Cash on Delivery available on shoes?', a: 'Yes, COD is available across India, along with UPI, cards and net banking. Shipping is free on every pair in this range.' },
+      { q: 'How should I care for formal shoes?', a: 'Wipe them down after each wear, polish once a week, and give each pair a day off between wears so the lining dries. Shoe trees or even rolled newspaper hold the shape. Done regularly, this roughly doubles how long a pair lasts.' },
+    ],
+    subcategory: 'FORMAL SHOES',
+  },
 };
 
 export const COLLECTION_SLUGS = Object.keys(COLLECTIONS);

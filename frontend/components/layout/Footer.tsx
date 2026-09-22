@@ -117,6 +117,9 @@ export default function Footer() {
           <Link href="/collections/night-gown">Night Gowns</Link>
           <Link href="/collections/cotton-petticoat">Cotton Petticoat</Link>
           <Link href="/collections/saree-under-1000">Sarees Under ₹1000</Link>
+          {/* The shoes are 23 of the 84 products and the most valuable ones;
+              until now nothing on the site linked them together. */}
+          <Link href="/collections/formal-shoes-for-men">Formal Shoes for Men</Link>
           <Link href="/reviews">Customer Reviews</Link>
         </nav>
 
