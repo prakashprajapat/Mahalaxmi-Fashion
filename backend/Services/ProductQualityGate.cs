@@ -94,6 +94,13 @@ public static class ProductQualityGate
         return list;
     }
 
+    private static string? StringValue(JsonElement root, string prop)
+    {
+        if (root.ValueKind != JsonValueKind.Object) return null;
+        if (!root.TryGetProperty(prop, out var el)) return null;
+        return el.ValueKind == JsonValueKind.String ? el.GetString() : null;
+    }
+
     public static Result Check(Product p)
     {
         var blocking = new List<Issue>();
@@ -201,7 +208,10 @@ public static class ProductQualityGate
         if (string.IsNullOrWhiteSpace(p.Sku))
             Warn("sku", "No SKU. Google uses it as the product's permanent id, and changing ids later resets what Google has learned about the product.");
 
-        if (string.IsNullOrWhiteSpace(p.HsnCode))
+        // The HSN code is not a column on Product — it lives inside ExtraJson,
+        // alongside the sizes and colours read above.
+        var hsn = extraOk ? StringValue(extra, "hsnCode") : null;
+        if (string.IsNullOrWhiteSpace(hsn))
             Warn("hsn", "No HSN code, which the GST invoice needs.");
 
         return new Result(blocking, warnings);
