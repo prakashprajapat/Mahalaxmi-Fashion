@@ -22,8 +22,9 @@ public class CustomersController : ControllerBase
     private readonly EmailService _email;
     private readonly SmsService _sms;
     private readonly AdminNotifier _notify;
+    private readonly ILogger<CustomersController> _log;
 
-    public CustomersController(AppDbContext db, AuthService auth, IWebHostEnvironment env, EmailService email, SmsService sms, AdminNotifier notify)
+    public CustomersController(AppDbContext db, AuthService auth, IWebHostEnvironment env, EmailService email, SmsService sms, AdminNotifier notify, ILogger<CustomersController> log)
     {
         _db = db;
         _auth = auth;
@@ -31,6 +32,7 @@ public class CustomersController : ControllerBase
         _email = email;
         _sms = sms;
         _notify = notify;
+        _log = log;
     }
 
     // Generates the next sequential customer code: MFHCUS1005, MFHCUS1006, ...
@@ -262,7 +264,20 @@ public class CustomersController : ControllerBase
         var occasionOn = occasion == "anniversary"
             ? NextOccurrence(todayIst, customer?.MarriageDate)
             : NextOccurrence(todayIst, customer?.DateOfBirth);
-        var dateText = occasionOn?.ToString("dd MMM yyyy") ?? "";
+
+        // The upcoming templates print the date. With no date on file the
+        // variable is empty and the customer receives "Your birthday is on ."
+        // Better to say so here than to send that.
+        if (occasionOn is null && !isTheDay)
+            return BadRequest(new { success = false, message =
+                $"No {(occasion == "anniversary" ? "marriage date" : "date of birth")} on file for this customer, "
+                + "so the message would have a blank date in it. Add the date first." });
+
+        // Combirthday reads "Your birthday is on{#alp#}." with no space after
+        // "on" — that is how it is registered on DLT, so the space has to come
+        // from the value. ComAnni has the space already.
+        var dateText = occasionOn is null ? ""
+            : (occasion == "anniversary" ? "" : " ") + occasionOn.Value.ToString("dd MMM yyyy");
 
         // Today has its own template; everything earlier shares the "upcoming"
         // one and says how many days are left. Each step falls back to the next
@@ -283,24 +298,27 @@ public class CustomersController : ControllerBase
         if (string.IsNullOrWhiteSpace(templateId))
             return BadRequest(new { success = false, message = $"No {(isTheDay ? "on-the-day" : "upcoming")} {occasion} template is set. Add it in Settings → MSG91 Configuration." });
 
-        // Everything the message might need to say, so the template never has to
-        // state a figure the shop could later change in Settings. The discount
-        // used to be typed into the template by hand — change the percent in
-        // Settings and the SMS would go on promising the old one, which is a
-        // promise to a customer we would not be keeping.
-        // DLT caps a variable at 30 characters, so the name is trimmed to fit.
-        var firstName = (customer?.FirstName ?? "").Trim();
-        if (firstName.Length == 0) firstName = "Customer";
-        if (firstName.Length > 30) firstName = firstName[..30];
-
+        // The discount comes from the coupon, never typed into the template by
+        // hand — change the percent in Settings and a hardcoded template would
+        // go on promising the old one, which is a promise we would not keep.
         var percentText = coupon.Value.ToString("0.##");
-        var expiryText = (coupon.ExpiresAt ?? DateTimeOffset.UtcNow.AddDays(40))
-            .ToOffset(TimeSpan.FromHours(5.5))       // show it in IST, not UTC
-            .ToString("dd MMM yyyy");
 
         using var http = new System.Net.Http.HttpClient();
-        // MSG91 fills whichever of these the template actually uses and ignores
-        // the rest, so an older template with only ##coupon## keeps working.
+
+        // The four templates registered on DLT against header 523611, and the
+        // variables each one takes, in order:
+        //
+        //   Combirthday       1077395740079927133   date, percent, code
+        //     "Your birthday is on{#alp#}. Get {#num#}% off at Mahalaxmi
+        //      Fashion Hub with code {#alp#}, valid till your birdhday.
+        //      Shop now www.mahalaxmifashionhub.com"
+        //   ComAnni           1077432270080599648   date, percent, code
+        //   HappyBirthday     1077454970079944897   percent, code
+        //   HappyAnniversary  1077490780079969170   percent, code
+        //
+        // Name these three variables date / percent / code in MSG91 and they
+        // fill themselves. Anything else sent here is ignored, so the two
+        // on-the-day templates simply do not use date.
         var payload = new {
             template_id = templateId,
             // Left OFF on purpose. MSG91 would rewrite the link to its own
@@ -312,13 +330,9 @@ public class CustomersController : ControllerBase
             short_url   = "0",
             recipients  = new[] { new {
                 mobiles = phone,
-                coupon  = coupon.Code,
-                code    = coupon.Code,
-                name    = firstName,
-                percent = percentText,
-                expiry  = expiryText,
                 date    = dateText,
-                days    = (daysAway ?? 0).ToString(),
+                percent = percentText,
+                code    = coupon.Code,
             } }
         };
         var body = System.Text.Json.JsonSerializer.Serialize(payload);
@@ -328,11 +342,41 @@ public class CustomersController : ControllerBase
         };
         httpReq.Headers.Add("authkey", authKey);
 
-        var res = await http.SendAsync(httpReq);
-        var resBody = await res.Content.ReadAsStringAsync();
+        string resBody;
+        try
+        {
+            var res = await http.SendAsync(httpReq);
+            resBody = await res.Content.ReadAsStringAsync();
+
+            // MSG91 answers 200 with {"type":"error"} for a rejected template,
+            // a bad variable or a number on DND. Reporting "SMS sent" off the
+            // HTTP status alone told the shop the offer went out when it had
+            // not, and the button then hid itself for that slab.
+            var ok = res.IsSuccessStatusCode
+                     && !resBody.Contains("\"type\":\"error\"", StringComparison.OrdinalIgnoreCase);
+            if (!ok)
+            {
+                _log.LogError("Celebration SMS rejected by MSG91 ({Status}): {Body}", (int)res.StatusCode, resBody);
+                return BadRequest(new { success = false, couponCode = coupon.Code, response = resBody,
+                    message = "MSG91 did not accept the message. The coupon " + coupon.Code
+                        + " is created and still valid, so this can be retried. MSG91 said: " + Trim200(resBody) });
+            }
+        }
+        catch (Exception ex)
+        {
+            _log.LogError(ex, "Celebration SMS could not be sent");
+            return BadRequest(new { success = false, couponCode = coupon.Code,
+                message = "Could not reach MSG91 just now. Coupon " + coupon.Code + " is created; try again." });
+        }
 
         return Ok(new { success = true, message = $"SMS sent to {req.Phone}.", couponCode = coupon.Code, response = resBody });
     }
+
+    /// Enough of a gateway's reply to act on, without pasting a wall of JSON
+    /// into an admin toast.
+    private static string Trim200(string s) =>
+        string.IsNullOrWhiteSpace(s) ? "(no reply)"
+        : s.Length <= 200 ? s.Trim() : s.Trim()[..200] + "\u2026";
 
     // Short, unambiguous random code (no easily-confused chars like 0/O/1/I).
     private static string RandCode(int n)
