@@ -63,7 +63,7 @@ export default function BulkCampaignsPage() {
 
   return (
     <div style={{ maxWidth: 820, padding: '1.2rem' }}>
-      <h1 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#1a1a1a', margin: '0 0 .3rem' }}>📣 Bulk Campaigns (SMS / WhatsApp)</h1>
+      <h1 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#1a1a1a', margin: '0 0 .3rem' }}>📣 Bulk Campaigns</h1>
       <p style={{ color: '#777', fontSize: '.9rem', margin: '0 0 1.4rem' }}>
         Send promotional messages to your customers in bulk through MSG91. It works in 2 simple steps.
       </p>
