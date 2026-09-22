@@ -17,6 +17,7 @@ const ALL_NAV: { href?: string; label?: string; exact?: boolean; heading?: strin
   { heading: 'Catalogue' },
   { href: '/admin/products',    label: '👗 Products' },
   { href: '/admin/products/add',label: '➕ Add / Edit Product' },
+  { href: '/admin/products/drafts', label: '📝 Drafts (not on the website)' },
   { href: '/admin/stock',       label: '🔄 Stock Manager' },
 
   { heading: 'Customers' },
@@ -36,11 +37,17 @@ const ALL_NAV: { href?: string; label?: string; exact?: boolean; heading?: strin
   { href: '/admin/influencers', label: '🌟 Influencer Marketing' },
   { href: '/admin/coupons',     label: '🎟️ Coupons & Discounts' },
   { href: '/admin/birthday',    label: '🎂 Birthday & Anniversary Offers' },
-  { href: '/admin/seo',              label: '🔍 SEO Check' },
-  { href: '/admin/seo/blog',         label: '✍️ Blog Articles' },
-  { href: '/admin/seo/collections',  label: '🏷️ Collection Pages' },
-  { href: '/admin/seo/categories',   label: '📄 Category Copy' },
+
+  // SEO used to sit at the bottom of Marketing, where five entries were lost
+  // among a dozen advertising ones. They are a different job — advertising is
+  // what you pay for, SEO is what you earn — and they are used together, so
+  // they get their own section.
+  { heading: 'SEO' },
+  { href: '/admin/seo',                 label: '🔍 SEO Check' },
   { href: '/admin/seo/product-quality', label: '✅ Product Quality' },
+  { href: '/admin/seo/blog',            label: '✍️ Blog Articles' },
+  { href: '/admin/seo/collections',     label: '🏷️ Collection Pages' },
+  { href: '/admin/seo/categories',      label: '📄 Category Copy' },
 
   { heading: 'Accounts' },
   { href: '/admin/reports',     label: '📈 Reports & GSTR-1' },
