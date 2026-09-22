@@ -36,7 +36,7 @@ const ALL_NAV: { href?: string; label?: string; exact?: boolean; heading?: strin
   { href: '/admin/influencers', label: '🌟 Influencer Marketing' },
   { href: '/admin/coupons',     label: '🎟️ Coupons & Discounts' },
   { href: '/admin/birthday',    label: '🎂 Birthday & Anniversary Offers' },
-  { href: '/admin/seo',         label: '🔍 SEO Analysis' },
+  { href: '/admin/seo',         label: '🔍 SEO Check' },
 
   { heading: 'Accounts' },
   { href: '/admin/reports',     label: '📈 Reports & GSTR-1' },
