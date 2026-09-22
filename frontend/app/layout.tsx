@@ -26,7 +26,11 @@ export async function generateMetadata(): Promise<Metadata> {
   const s = await getSeoSettings();
 
   const defaultTitle = s.seoHomeTitle?.trim()
-    || 'Mahalaxmi Fashion Hub – Sarees, Nighty & Petticoat Online';
+    // Sarees led this title while the shop had none in stock. Nighties (34)
+    // and petticoats (6) lead now, and Balotra is in it: the brand name is
+    // crowded — Mahalaxmi Hosiery, Sri Mahalaxmi Hosiery, Mahalaxmi Textile,
+    // Mahalaxmi Mills all rank for it — and the town is what separates them.
+    || 'Cotton Nighty & Petticoat Online, Balotra – Mahalaxmi Fashion Hub';
   const defaultDesc  = s.seoHomeDescription?.trim()
     || 'Shop cotton nighties, sarees, petticoats, innerwear & fabrics online at Mahalaxmi Fashion Hub, Balotra (Rajasthan). Quality-checked, COD available, free shipping over ₹999, pan-India delivery.';
   const keywords     = s.seoKeywords?.trim()
@@ -202,6 +206,13 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 addressCountry: 'IN',
               },
               geo: { '@type': 'GeoCoordinates', latitude: 25.8333, longitude: 72.2333 },
+              // Google looks for hasMap on a local business. Pointed at the
+              // postal address rather than a Place ID, because the shop has no
+              // Google Business Profile yet; swap in the real Maps link the day
+              // it does, and correct the coordinates above at the same time —
+              // 25.8333, 72.2333 is the centre of Balotra, not the shop.
+              hasMap: 'https://www.google.com/maps/search/?api=1&query='
+                + encodeURIComponent('Ward No. 45, Near Mahadev Temple, Balotra, Rajasthan 344022'),
               openingHoursSpecification: [
                 {
                   '@type': 'OpeningHoursSpecification',

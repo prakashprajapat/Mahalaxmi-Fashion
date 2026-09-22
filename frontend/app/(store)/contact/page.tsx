@@ -80,6 +80,22 @@ export default function ContactPage() {
             <p>{address ? address : (<>{DEFAULT_ADDRESS_LINE1}<br />{DEFAULT_ADDRESS_LINE2}</>)}</p>
             <p>Store hours: Monday to Saturday, 10:00 AM – 8:00 PM.</p>
 
+            {/* A local business page with an address and no map is the one thing
+                Google looks for and does not find here. Loaded lazily so it
+                costs nothing until someone scrolls to it, and pointed at the
+                address rather than a Place ID because there is no Google
+                Business Profile yet — replace the src with the real place embed
+                once there is one. */}
+            <div style={{ marginTop: '1rem', borderRadius: 10, overflow: 'hidden', border: '1px solid #eee' }}>
+              <iframe
+                title="Mahalaxmi Fashion Hub on the map — Balotra, Rajasthan"
+                src="https://www.google.com/maps?q=Ward%20No.%2045%2C%20Near%20Mahadev%20Temple%2C%20Balotra%2C%20Rajasthan%20344022&output=embed"
+                width="100%" height="240" style={{ border: 0, display: 'block' }}
+                loading="lazy" referrerPolicy="no-referrer-when-downgrade"
+                allowFullScreen
+              />
+            </div>
+
             <h2 style={{ marginTop: '1.5rem' }}>Social Media</h2>
             <ol>
               <li><a href="https://www.instagram.com/mahalaxmifashionhub.blt/" target="_blank" rel="noopener noreferrer">Instagram — @mahalaxmifashionhub.blt</a></li>

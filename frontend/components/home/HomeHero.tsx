@@ -23,7 +23,7 @@ export default function HomeHero() {
         }}>
           <div>
             <h1 className="hero-copy" style={{ fontFamily: HERO_FONT, fontSize: 'clamp(1.05rem, 2.7vw, 1.9rem)', fontWeight: 800, lineHeight: 1.25, color: '#5c1a28', margin: '0 0 .3rem' }}>
-              Sarees, Nighty &amp; Ethnic Wear
+              Nighty, Petticoat &amp; Sarees from Balotra
             </h1>
             <p className="hero-copy" style={{ fontFamily: HERO_FONT, fontSize: 'clamp(1.05rem, 2.7vw, 1.9rem)', fontWeight: 600, lineHeight: 1.25, color: 'rgba(92,26,40,.8)', margin: '0 0 1rem' }}>
               Premium quality you can trust, thoughtfully crafted for every need.
