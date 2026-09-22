@@ -63,6 +63,10 @@ export async function GET() {
     }
   } catch { /* API down — empty feed, next revalidate retries */ }
 
+  // Shared across every product so a SKU used twice cannot produce two rows
+  // with the same id, which Google rejects.
+  const usedIds = new Set<string>();
+
   const items = products
     // Drafts are products the quality gate held back because Google would
     // refuse them; sending them anyway just collects disapprovals.
@@ -71,7 +75,7 @@ export async function GET() {
       const selling = p.discountPrice && p.discountPrice < p.price ? p.discountPrice : null;
       const outOfStock = p.stock === 'Out of Stock';
       const desc = (p.description ?? p.name).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 4900);
-      const variants = variantsOf(p);
+      const variants = variantsOf(p, usedIds);
       const ptype = productTypeOf(p);
 
       // One row per size and colour, sharing an item_group_id — Google's size

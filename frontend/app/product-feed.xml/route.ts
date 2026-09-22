@@ -42,6 +42,10 @@ export async function GET() {
     products = [];
   }
 
+  // Shared across every product so a SKU used twice cannot produce two rows
+  // with the same id, which Google rejects.
+  const usedIds = new Set<string>();
+
   const items = products
     // Inactive and draft products were being sent to Google from this feed —
     // only the other one filtered them. A draft is a product held back because
@@ -56,7 +60,7 @@ export async function GET() {
       const sale = (p.discountPrice != null && Number(p.discountPrice) > 0 && Number(p.discountPrice) < regular)
         ? Number(p.discountPrice) : null;
       const desc = (p.description && String(p.description).trim()) ? String(p.description) : p.name;
-      const variants = variantsOf(p);
+      const variants = variantsOf(p, usedIds);
 
       // One row per size and colour, sharing an item_group_id. Google's size
       // and colour attributes take a single value each, so this is the only

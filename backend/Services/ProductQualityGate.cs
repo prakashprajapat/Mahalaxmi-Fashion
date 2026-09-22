@@ -101,6 +101,33 @@ public static class ProductQualityGate
         return el.ValueKind == JsonValueKind.String ? el.GetString() : null;
     }
 
+    /// <summary>
+    /// Is this something Google files under Apparel &amp; Accessories? Those are
+    /// the products it will not approve without a size and a colour. A perfume
+    /// or a bottle of anything else is judged on its own terms.
+    /// </summary>
+    private static bool IsApparel(Product p)
+    {
+        var s = $"{p.Subcategory} {p.Category}".ToLowerInvariant();
+
+        // Checked first: a perfume in a "Women" category would otherwise match
+        // on the category alone.
+        if (s.Contains("perfume") || s.Contains("fragrance") || s.Contains("deo")
+            || s.Contains("beauty") || s.Contains("cosmetic"))
+            return false;
+
+        foreach (var w in new[]
+        {
+            "nighty", "night gown", "nightwear", "gown", "petticoat", "saree", "sari",
+            "kurti", "dress", "shorts", "top", "legging", "blouse", "innerwear",
+            "undergarment", "bra", "panty", "shoe", "footwear", "sandal", "slipper",
+            "apparel", "clothing", "women", "men", "kids",
+        })
+            if (s.Contains(w)) return true;
+
+        return false;
+    }
+
     public static Result Check(Product p)
     {
         var blocking = new List<Issue>();
@@ -198,11 +225,27 @@ public static class ProductQualityGate
         var colours = extraOk ? StringList(extra, "colors") : new List<string>();
         if (colours.Count == 0 && extraOk) colours = StringList(extra, "colours");
 
+        // Google requires size and colour for clothing and footwear, and asks for
+        // neither on a bottle of perfume. Demanding them everywhere would hold
+        // back products that have nothing wrong with them, so outside apparel
+        // they drop to a warning.
+        var apparel = IsApparel(p);
+
         if (sizes.Count == 0)
-            Block("sizes", "No sizes are set. Google will not approve clothing or footwear without a size, and a shopper will not risk the order either.");
+        {
+            if (apparel)
+                Block("sizes", "No sizes are set. Google will not approve clothing or footwear without a size, and a shopper will not risk the order either.");
+            else
+                Warn("sizes", "No sizes are set. Not required for this kind of product, but useful if it comes in more than one.");
+        }
 
         if (colours.Count == 0)
-            Block("colours", "No colour is set. Google requires a colour for every clothing and footwear product.");
+        {
+            if (apparel)
+                Block("colours", "No colour is set. Google requires a colour for every clothing and footwear product.");
+            else
+                Warn("colours", "No colour is set. Not required for this kind of product.");
+        }
 
         // ── Worth fixing, but not worth blocking a sale over ─────────────────
         if (string.IsNullOrWhiteSpace(p.Sku))

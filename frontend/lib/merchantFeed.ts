@@ -80,25 +80,57 @@ export interface Variant {
  * Capped at 40 rows per product so an unusual size grid cannot inflate the
  * whole feed.
  */
-export function variantsOf(p: FeedInput): Variant[] {
+export function variantsOf(p: FeedInput, seen?: Set<string>): Variant[] {
   const base = (p.sku ?? '').trim() || `MFH-${p.dbId}`;
-  const sizes = sizesOf(p);
-  const colours = coloursOf(p);
+
+  // Two things produce duplicate ids, and Google rejects a feed row whose id it
+  // has already seen — 41 rows collided on the first version of this.
+  //  - the same size or colour listed twice on one product, and
+  //  - two different products sharing a SKU, which makes every one of their
+  //    rows collide.
+  // The first is fixed by de-duplicating here; the second cannot be seen from
+  // inside one product, so the caller passes a set of ids already used in this
+  // feed and collisions fall back to the database id, which is unique by
+  // definition.
+  const uniq = (xs: string[]) => {
+    const out: string[] = [];
+    const lower = new Set<string>();
+    for (const x of xs) {
+      const k = x.trim().toLowerCase();
+      if (!k || lower.has(k)) continue;
+      lower.add(k);
+      out.push(x.trim());
+    }
+    return out;
+  };
+
+  const sizes = uniq(sizesOf(p));
+  const colours = uniq(coloursOf(p));
 
   const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
+  const claim = (id: string) => {
+    if (!seen) return id;
+    let candidate = id;
+    if (seen.has(candidate)) candidate = `${id}-${p.dbId}`;
+    let n = 2;
+    while (seen.has(candidate)) candidate = `${id}-${p.dbId}-${n++}`;
+    seen.add(candidate);
+    return candidate;
+  };
+
   if (sizes.length === 0 && colours.length === 0)
-    return [{ id: base, itemGroupId: base }];
+    return [{ id: claim(base), itemGroupId: base }];
 
   const rows: Variant[] = [];
-  const sizeList = sizes.length > 0 ? sizes : [undefined];
-  const colourList = colours.length > 0 ? colours : [undefined];
+  const sizeList: (string | undefined)[] = sizes.length > 0 ? sizes : [undefined];
+  const colourList: (string | undefined)[] = colours.length > 0 ? colours : [undefined];
 
   for (const size of sizeList) {
     for (const colour of colourList) {
       if (rows.length >= 40) return rows;
       rows.push({
-        id: [base, size && slug(size), colour && slug(colour)].filter(Boolean).join('-'),
+        id: claim([base, size && slug(size), colour && slug(colour)].filter(Boolean).join('-')),
         itemGroupId: base,
         size,
         colour,
