@@ -80,8 +80,11 @@ export default function ProductDetail({ params, initialProduct = null }: { param
   // Is this exact size/colour already in the cart? Drives Add to Cart → Go to Cart.
   const [inCart, setInCart] = useState(false);
   const [wishlisted, setWishlisted] = useState(false);
-  // Nothing to wait for when the server already sent the product.
-  const [loading, setLoading] = useState(!initialProduct);
+  // Nothing to wait for when the server already sent the product. Read as a
+  // boolean so the effect below can depend on it without taking the whole
+  // object and re-running whenever its identity changes.
+  const startedWithProduct = Boolean(initialProduct);
+  const [loading, setLoading] = useState(!startedWithProduct);
   const [imgHovered, setImgHovered] = useState(false);
   // True only for a real mouse. Phones fire a synthetic mouseenter on tap but never
   // a mouseleave, which left the magnifier stuck over the page.
@@ -111,7 +114,7 @@ export default function ProductDetail({ params, initialProduct = null }: { param
       // Only blank the page when there is nothing to show yet. Setting this
       // unconditionally would flash "Loading…" over a product that is already
       // on screen.
-      if (!initialProduct) setLoading(true);
+      if (!startedWithProduct) setLoading(true);
       try {
         let loaded: Product | null = null;
 
@@ -180,7 +183,7 @@ export default function ProductDetail({ params, initialProduct = null }: { param
 
     loadProduct();
     return () => { cancelled = true; };
-  }, [params.id]);
+  }, [params.id, startedWithProduct]);
 
   // GA4 / GTM ecommerce — fire view_item when a product detail page is viewed.
   useEffect(() => {

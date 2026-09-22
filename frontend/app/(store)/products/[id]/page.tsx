@@ -30,5 +30,8 @@ export default async function ProductPage({ params }: { params: { id: string } }
     // The API is having a moment. Render the shell and let the browser retry.
   }
 
-  return <ProductDetail params={params} initialProduct={product} />;
+  // Keyed by the product so that moving from one product to another remounts
+  // rather than re-rendering: without it the component keeps the first
+  // product's state and shows it while the next one loads.
+  return <ProductDetail key={params.id} params={params} initialProduct={product} />;
 }
