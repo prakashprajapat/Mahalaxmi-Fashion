@@ -25,11 +25,23 @@ export function generateStaticParams() {
 export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
   const def = COLLECTIONS[params.slug];
   if (!def) return {};
+
+    // An empty page is not worth indexing, and a shop that ships empty pages
+    // to Google teaches it to trust the rest of the domain less. This is
+    // decided per request from the live catalogue, so the page comes back
+    // into the index by itself the day it has stock — nothing to remember,
+    // nothing to undo.
+  const { products } = await productsApi
+    .getAll({ subcategory: def.subcategory, pageSize: 500 })
+    .catch(() => ({ products: [] as any[] }));
+  const isEmpty = (products as any[]).filter(p => matchesCollection(p, def)).length === 0;
+
   return {
     title: { absolute: def.title },
     description: def.description,
     alternates: { canonical: `/collections/${def.slug}` },
     openGraph: { title: def.title, description: def.description },
+    ...(isEmpty ? { robots: { index: false, follow: true } } : {}),
   };
 }
 

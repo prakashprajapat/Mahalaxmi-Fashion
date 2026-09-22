@@ -6,11 +6,23 @@ import { CATEGORY_SEO } from '@/lib/categorySeo';
 
 export const revalidate = 60;
 
-export const metadata: Metadata = {
-  title: { absolute: CATEGORY_SEO.kids.title },
-  description: CATEGORY_SEO.kids.description,
-  alternates: { canonical: '/kids' },
-};
+export async function generateMetadata(): Promise<Metadata> {
+    // An empty page is not worth indexing, and a shop that ships empty pages
+    // to Google teaches it to trust the rest of the domain less. This is
+    // decided per request from the live catalogue, so the page comes back
+    // into the index by itself the day it has stock — nothing to remember,
+    // nothing to undo.
+  const { products } = await productsApi
+    .getAll({ category: 'kids', pageSize: 1 })
+    .catch(() => ({ products: [] as any[] }));
+
+  return {
+    title: { absolute: CATEGORY_SEO.kids.title },
+    description: CATEGORY_SEO.kids.description,
+    alternates: { canonical: '/kids' },
+    ...((products as any[]).length === 0 ? { robots: { index: false, follow: true } } : {}),
+  };
+}
 
 export default async function KidsPage() {
   const { products } = await productsApi.getAll({ category: 'kids', pageSize: 200 }).catch(() => ({ products: [] }));

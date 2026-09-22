@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { notFound } from 'next/navigation';
 import { productsApi, reviewsApi } from '@/lib/api';
 import { productImageSrc } from '@/lib/productImages';
 import { productSlug, parseProductId } from '@/lib/productSlug';
@@ -168,6 +169,22 @@ async function buildJsonLd(idParam: string): Promise<string | null> {
 export default async function ProductLayout({
   children, params,
 }: { children: React.ReactNode; params: { id: string } }) {
+  // A URL for a product that does not exist used to answer 200 with the
+  // homepage's title and a line of body text reading "Product not found." To
+  // Google that is a real page, so every mistyped or retired product URL was
+  // another thin duplicate in the index. Answer 404 and it goes away.
+  const id = parseProductId(params.id);
+  if (!id) notFound();
+  try {
+    const { product } = await productsApi.getById(id);
+    if (!product) notFound();
+  } catch (e) {
+    // notFound() works by throwing — let it through rather than swallowing it.
+    if ((e as { digest?: string })?.digest === 'NEXT_NOT_FOUND') throw e;
+    // A backend hiccup is not a missing product; show the page and let the
+    // client retry rather than telling Google the product is gone.
+  }
+
   const jsonLd = await buildJsonLd(params.id);
   return (
     <>
