@@ -54,7 +54,28 @@ export function trackAdsConversion(p: { value?: number; currency?: string; trans
   const label = process.env.NEXT_PUBLIC_GADS_PURCHASE_LABEL ?? '6VznCIS7sdUcEPmN0JFE';
   if (!id || !label) return;                       // not configured yet → no-op
   try {
-    const w = window as unknown as { gtag?: (...args: unknown[]) => void };
+    const w = window as unknown as {
+      gtag?: (...args: unknown[]) => void;
+      dataLayer?: unknown[];
+    };
+
+    // Always announce it on the dataLayer, so a Google Ads conversion tag in
+    // Tag Manager has something to fire on. Without this the conversion would
+    // exist only in the gtag call below, and the moment the direct tags are
+    // switched off (Settings → tagsViaGtm) Ads would stop recording sales
+    // entirely — the one failure in this changeover that costs real money and
+    // shows no error anywhere.
+    w.dataLayer = w.dataLayer || [];
+    w.dataLayer.push({
+      event: 'ads_conversion',
+      value: p.value ?? 0,
+      currency: p.currency ?? 'INR',
+      transaction_id: p.transactionId ?? '',
+    });
+
+    // And directly, while the direct Ads tag is still the one doing the work.
+    // When Tag Manager takes over, gtag is no longer defined here and this is
+    // simply skipped — which is why both paths have to exist during the switch.
     if (typeof w.gtag === 'function') {
       w.gtag('event', 'conversion', {
         send_to: `${id}/${label}`,

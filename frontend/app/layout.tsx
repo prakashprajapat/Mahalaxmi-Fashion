@@ -118,6 +118,23 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const gtmId = s.gtmId?.trim();
   const fbPixelId = s.facebookPixelId?.trim();
 
+  // The switch that moves tracking into Tag Manager.
+  //
+  // GA4, the Meta Pixel and the Google Ads conversion are all loaded directly
+  // below. Recreating any of them inside Tag Manager while they also load here
+  // would count everything twice — double revenue in GA4, double conversions in
+  // Ads, and bidding trained on numbers that never happened. So the container
+  // is built and tested first, and then this is switched on, which stops the
+  // direct tags in the same moment.
+  //
+  // It is a setting rather than a deploy on purpose: the changeover is one
+  // toggle, and if something is wrong in the container it is one toggle back,
+  // in seconds, without a build. Off by default — nothing changes until the
+  // owner turns it on.
+  const tagsViaGtm = Boolean(gtmId) && ['1', 'true', 'yes', 'on'].includes((s.tagsViaGtm ?? '').trim().toLowerCase());
+  const directGa4 = GA4_ID && !tagsViaGtm;
+  const directPixel = fbPixelId && !tagsViaGtm;
+
   return (
     <html lang="en">
       <head>
@@ -168,7 +185,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         {/* Google Analytics 4 — load right after the page becomes interactive so
             page_view fires reliably on every visit (lazyOnload was too late and
             missed quick bounces / fast navigations). */}
-        {GA4_ID && (
+        {directGa4 && (
           <>
             <Script
               src={`https://www.googletagmanager.com/gtag/js?id=${GA4_ID}`}
@@ -192,8 +209,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           </Script>
         )}
 
-        {/* Facebook Pixel — admin-configurable (Settings → SEO). Lazy-loaded. */}
-        {fbPixelId && (
+        {/* Facebook Pixel — admin-configurable (Settings → SEO). Lazy-loaded.
+            Silent while tagsViaGtm is on: the container fires it instead. */}
+        {directPixel && (
           <Script id="fb-pixel" strategy="lazyOnload">
             {`!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');fbq('init','${fbPixelId}');fbq('track','PageView');`}
           </Script>
