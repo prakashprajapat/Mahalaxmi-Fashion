@@ -76,14 +76,18 @@ export default async function HomePage() {
         hrefLabel="See all"
       />
 
-      {/* Real customer reviews. Shows itself only once there are four of them —
-          on a phone as well as on a desktop, which is where most of them are read. */}
-      <CustomerReviews />
-
-      {/* Desktop-only trust + SEO sections below the listing */}
+      {/* Desktop-only trust section below the listing */}
       <div className="home-desktop" style={{ marginTop: 'clamp(2.5rem, 5vw, 4.5rem)' }}>
         {/* Live Google rating + reviews (renders only once configured in admin Settings) */}
         <GoogleReviews />
+      </div>
+
+      {/* Our own customers, directly above the FAQ — the last thing read before
+          the questions, and on a phone as well, which is where most of them are
+          read. It shows itself only once there are enough of them. */}
+      <CustomerReviews />
+
+      <div className="home-desktop">
         {/* SEO: FAQ rich results + AI Overviews (visible accordion + FAQPage schema) */}
         <FaqSection />
       </div>
