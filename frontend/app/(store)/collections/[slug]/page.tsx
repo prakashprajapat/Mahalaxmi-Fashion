@@ -6,6 +6,7 @@ import { COLLECTION_SLUGS, matchesCollection } from '@/lib/collections';
 import { getCollections } from '@/lib/seoContent';
 import CategoryPageContent from '@/components/product/CategoryPageContent';
 import { productSlug } from '@/lib/productSlug';
+import { toListingProducts } from '@/lib/listingProduct';
 
 // JSON.stringify leaves "<" alone, so a name holding "</script>" would close
 // this tag early and run as script. Escaped, the JSON stays valid either way.
@@ -110,7 +111,7 @@ export default async function CollectionPage({ params }: { params: { slug: strin
       </section>
 
       {matched.length > 0 ? (
-        <CategoryPageContent products={matched as any} category={def.label} icon="🛍️" desc={def.sub} allHref="/products" />
+        <CategoryPageContent products={toListingProducts(matched as any[]) as any} category={def.label} icon="🛍️" desc={def.sub} allHref="/products" />
       ) : (
         <section style={{ textAlign: 'center', padding: '3rem 1.5rem' }}>
           <p style={{ color: '#777' }}>New products are being added to this collection soon.</p>

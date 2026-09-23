@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { productsApi } from '@/lib/api';
 import CategoryPageContent from '@/components/product/CategoryPageContent';
+import { toListingProducts } from '@/lib/listingProduct';
 
 export const revalidate = 60;
 
@@ -19,7 +20,7 @@ export default async function BestSellersPage() {
         <h1>Best Sellers</h1>
         <p>Most loved products — handpicked bestsellers</p>
       </section>
-      <CategoryPageContent products={products as any} category="Best Sellers" icon="⭐" desc="Most loved products" allHref="/products?bestSeller=true" />
+      <CategoryPageContent products={toListingProducts(products as any[]) as any} category="Best Sellers" icon="⭐" desc="Most loved products" allHref="/products?bestSeller=true" />
     </>
   );
 }

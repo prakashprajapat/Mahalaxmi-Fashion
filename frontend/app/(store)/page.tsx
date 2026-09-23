@@ -5,6 +5,7 @@ import HomeHero from '@/components/home/HomeHero';
 import OfferBanner from '@/components/home/OfferBanner';
 import GoogleReviews from '@/components/reviews/GoogleReviews';
 import FaqSection from '@/components/home/FaqSection';
+import { toListingProducts } from '@/lib/listingProduct';
 
 // No searchParams = page is fully ISR-cached; 60s so new products appear quickly.
 export const revalidate = 60;
@@ -45,7 +46,7 @@ export default async function HomePage() {
       {/* FULL, filterable product listing — ALL products, on desktop / tablet / mobile / app.
           (Previously the desktop home page showed only curated Best Sellers + New Arrivals;
           now the whole catalogue appears everywhere, like the category pages.) */}
-      <ProductsClient products={products as any[]} title="" />
+      <ProductsClient products={toListingProducts(products as any[])} title="" />
 
       {/* Desktop-only trust + SEO sections below the listing */}
       <div className="home-desktop">

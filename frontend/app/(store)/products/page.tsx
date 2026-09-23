@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { productsApi } from '@/lib/api';
 import ProductsClient from '@/components/products/ProductsClient';
+import { toListingProducts } from '@/lib/listingProduct';
 
 export const revalidate = 300;
 
@@ -53,7 +54,7 @@ export default async function ProductsPage({ searchParams }: Props) {
   // Client component will then allow changing it without page reload
   return (
     <ProductsClient
-      products={products}
+      products={toListingProducts(products as any[])}
       title={title}
       initialQ={searchParams.q ?? ''}
     />

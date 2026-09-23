@@ -3,6 +3,7 @@ import { productsApi } from '@/lib/api';
 import CategoryPageContent from '@/components/product/CategoryPageContent';
 import CategorySeoBlock from '@/components/product/CategorySeoBlock';
 import { getCategorySeo } from '@/lib/seoContent';
+import { toListingProducts } from '@/lib/listingProduct';
 
 export const revalidate = 60;
 
@@ -27,7 +28,7 @@ export default async function WomenPage() {
         <h1>Women</h1>
         <p>Women&apos;s ethnic wear and fashion essentials</p>
       </section>
-      <CategoryPageContent products={products as any} category="Women" icon="👩" desc="Women's ethnic wear and fashion essentials" allHref="/products?category=women" />
+      <CategoryPageContent products={toListingProducts(products as any[]) as any} category="Women" icon="👩" desc="Women's ethnic wear and fashion essentials" allHref="/products?category=women" />
       <CategorySeoBlock slug="women" />
     </>
   );
