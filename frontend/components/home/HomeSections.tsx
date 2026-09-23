@@ -43,7 +43,7 @@ export function BestSellersSection({ products }: { products: Product[] }) {
                 <option value="discount">Discount ↓</option>
               </select>
             </div>
-            <Link href="/best-sellers" style={{ color: '#a7354d', fontWeight: 600, fontSize: '.9rem' }}>View All →</Link>
+            <Link href="/best-sellers" style={{ color: '#722f37', fontWeight: 600, fontSize: '.9rem' }}>View All →</Link>
           </div>
         </div>
 
@@ -65,7 +65,7 @@ export function NewArrivalsSection({ products }: { products: Product[] }) {
     <section className="section-wrap">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
         <h2 className="section-heading" style={{ margin: 0 }}>New Arrivals</h2>
-        <Link href="/products" style={{ color: '#a7354d', fontWeight: 600, fontSize: '.9rem' }}>View All →</Link>
+        <Link href="/products" style={{ color: '#722f37', fontWeight: 600, fontSize: '.9rem' }}>View All →</Link>
       </div>
       <div className="products-grid">
         {newest.map((p) => <ProductCard key={p.dbId} product={p} />)}

@@ -56,7 +56,7 @@ function SocialCallbackInner() {
     <div style={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: '1rem', padding: '2rem' }}>
       {status === 'loading' ? (
         <>
-          <div style={{ width: 48, height: 48, border: '4px solid #eee', borderTopColor: '#a7354d', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+          <div style={{ width: 48, height: 48, border: '4px solid #eee', borderTopColor: '#722f37', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
           <p style={{ color: '#555', fontSize: '1rem', fontWeight: 600 }}>Completing login…</p>
           <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         </>
@@ -67,7 +67,7 @@ function SocialCallbackInner() {
           <div style={{ display: 'flex', gap: '.75rem', flexWrap: 'wrap', justifyContent: 'center' }}>
             <button
               onClick={() => router.replace('/account')}
-              style={{ background: '#a7354d', color: '#fff', border: 'none', borderRadius: '8px', padding: '.65rem 1.5rem', fontWeight: 600, cursor: 'pointer', fontSize: '.95rem' }}>
+              style={{ background: '#722f37', color: '#fff', border: 'none', borderRadius: '8px', padding: '.65rem 1.5rem', fontWeight: 600, cursor: 'pointer', fontSize: '.95rem' }}>
               Try Email Login
             </button>
             <button
@@ -86,7 +86,7 @@ export default function SocialCallbackPage() {
   return (
     <Suspense fallback={
       <div style={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ width: 48, height: 48, border: '4px solid #eee', borderTopColor: '#a7354d', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+        <div style={{ width: 48, height: 48, border: '4px solid #eee', borderTopColor: '#722f37', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
     }>

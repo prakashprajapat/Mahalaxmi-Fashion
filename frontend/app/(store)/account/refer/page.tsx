@@ -30,7 +30,7 @@ export default function ReferPage() {
   return (
     <div style={{ maxWidth: 640, margin: '0 auto', padding: '1.25rem 1rem 3rem' }}>
       <div style={{ marginBottom: '1rem' }}>
-        <Link href="/account" style={{ color: '#a7354d', textDecoration: 'none', fontSize: '.9rem', fontWeight: 600 }}>← Back to Account</Link>
+        <Link href="/account" style={{ color: '#722f37', textDecoration: 'none', fontSize: '.9rem', fontWeight: 600 }}>← Back to Account</Link>
       </div>
 
       <h1 style={{ fontSize: '1.35rem', fontWeight: 800, color: '#1a1a1a', margin: '0 0 1rem' }}>Refer &amp; Earn 🤝</h1>
@@ -44,7 +44,7 @@ export default function ReferPage() {
       ) : (
         <>
           {/* Hero */}
-          <div style={{ background: 'linear-gradient(135deg,#7a0a22 0%,#a7354d 100%)', color: '#fff', borderRadius: 16, padding: '1.5rem', marginBottom: '1.25rem', boxShadow: '0 8px 24px rgba(122,10,34,.28)' }}>
+          <div style={{ background: 'linear-gradient(135deg,#722f37 0%,#722f37 100%)', color: '#fff', borderRadius: 16, padding: '1.5rem', marginBottom: '1.25rem', boxShadow: '0 8px 24px rgba(122,10,34,.28)' }}>
             <div style={{ fontSize: '1.05rem', fontWeight: 800, marginBottom: '.35rem' }}>Give ₹{data.discount}, Get ₹{data.reward}</div>
             <div style={{ fontSize: '.88rem', opacity: .92, lineHeight: 1.5 }}>
               Invite friends — they get ₹{data.discount} off their first order (min ₹{data.minOrder}), and you get ₹{data.reward} in your wallet when their order is delivered.
@@ -52,13 +52,13 @@ export default function ReferPage() {
           </div>
 
           {/* Code */}
-          <div style={{ background: '#fff', border: '1.5px dashed #a7354d', borderRadius: 12, padding: '1rem 1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '.75rem' }}>
+          <div style={{ background: '#fff', border: '1.5px dashed #722f37', borderRadius: 12, padding: '1rem 1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '.75rem' }}>
             <div>
               <div style={{ fontSize: '.72rem', color: '#999', textTransform: 'uppercase', letterSpacing: '.05em' }}>Your code</div>
-              <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#a7354d', letterSpacing: '.05em' }}>{data.code}</div>
+              <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#722f37', letterSpacing: '.05em' }}>{data.code}</div>
             </div>
             <button onClick={() => copy(data.code, 'code')}
-              style={{ background: '#fdf0f3', color: '#a7354d', border: '1px solid #f0c8d2', borderRadius: 8, padding: '.5rem .9rem', fontWeight: 700, fontSize: '.85rem', cursor: 'pointer' }}>
+              style={{ background: '#f7eff0', color: '#722f37', border: '1px solid #f0c8d2', borderRadius: 8, padding: '.5rem .9rem', fontWeight: 700, fontSize: '.85rem', cursor: 'pointer' }}>
               {copied === 'code' ? '✓ Copied' : 'Copy'}
             </button>
           </div>
@@ -73,7 +73,7 @@ export default function ReferPage() {
               Share on WhatsApp
             </a>
             <button onClick={() => copy(link, 'link')}
-              style={{ flex: 1, minWidth: 160, background: '#fff', color: '#a7354d', border: '1.5px solid #a7354d', borderRadius: 10, padding: '.75rem', fontWeight: 800, fontSize: '.9rem', cursor: 'pointer' }}>
+              style={{ flex: 1, minWidth: 160, background: '#fff', color: '#722f37', border: '1.5px solid #722f37', borderRadius: 10, padding: '.75rem', fontWeight: 800, fontSize: '.9rem', cursor: 'pointer' }}>
               {copied === 'link' ? '✓ Link copied' : '🔗 Copy link'}
             </button>
           </div>
@@ -81,7 +81,7 @@ export default function ReferPage() {
           {/* Stats */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
             <div style={{ background: '#fff', border: '1px solid #eee', borderRadius: 12, padding: '1.1rem', textAlign: 'center' }}>
-              <div style={{ fontSize: '1.6rem', fontWeight: 800, color: '#a7354d' }}>{data.friendsJoined}</div>
+              <div style={{ fontSize: '1.6rem', fontWeight: 800, color: '#722f37' }}>{data.friendsJoined}</div>
               <div style={{ fontSize: '.78rem', color: '#888', marginTop: '.2rem' }}>Friends ordered</div>
             </div>
             <div style={{ background: '#fff', border: '1px solid #eee', borderRadius: 12, padding: '1.1rem', textAlign: 'center' }}>
@@ -99,7 +99,7 @@ export default function ReferPage() {
               ['3', `Once their order is delivered, ₹${data.reward} is added to your wallet — use it on your next order.`],
             ].map(([n, t]) => (
               <div key={n} style={{ display: 'flex', gap: '.85rem', alignItems: 'flex-start', padding: '.5rem 0' }}>
-                <div style={{ width: 26, height: 26, borderRadius: '50%', background: '#a7354d', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '.85rem', flex: '0 0 auto' }}>{n}</div>
+                <div style={{ width: 26, height: 26, borderRadius: '50%', background: '#722f37', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '.85rem', flex: '0 0 auto' }}>{n}</div>
                 <div style={{ fontSize: '.9rem', color: '#444', lineHeight: 1.5 }}>{t}</div>
               </div>
             ))}

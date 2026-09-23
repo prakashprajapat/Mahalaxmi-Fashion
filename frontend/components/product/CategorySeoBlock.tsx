@@ -30,7 +30,7 @@ export default async function CategorySeoBlock({ slug }: { slug: string }) {
   return (
     <section style={{ background: '#fafafa', borderTop: '1px solid #eee', padding: '2rem 1.5rem' }}>
       <div style={{ maxWidth: '900px', margin: '0 auto' }}>
-        <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#5c1a28', margin: '0 0 .9rem' }}>{seo.heading}</h2>
+        <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#4a1f27', margin: '0 0 .9rem' }}>{seo.heading}</h2>
         {seo.intro.map((p, i) => (
           <p key={i} style={{ color: '#555', fontSize: '.92rem', lineHeight: 1.65, margin: '0 0 .8rem' }}>{p}</p>
         ))}

@@ -57,7 +57,7 @@ export default function ContactPage() {
       <style>{`
         .contact-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; }
         @media (max-width: 700px) { .contact-grid { grid-template-columns: 1fr !important; } }
-        .contact-input:focus { border-color: #a7354d !important; }
+        .contact-input:focus { border-color: #722f37 !important; }
       `}</style>
 
       <section className="page-hero">
@@ -74,7 +74,7 @@ export default function ContactPage() {
             <h2>WhatsApp &amp; Phone</h2>
             <p>For the fastest support, message or call us directly on WhatsApp:</p>
             <p><strong>{waDisplay}</strong></p>
-            <p><a href={`https://wa.me/${wa}`} target="_blank" rel="noopener noreferrer" style={{ color: '#a7354d', fontWeight: 600 }}>Chat on WhatsApp →</a></p>
+            <p><a href={`https://wa.me/${wa}`} target="_blank" rel="noopener noreferrer" style={{ color: '#722f37', fontWeight: 600 }}>Chat on WhatsApp →</a></p>
 
             <h2 style={{ marginTop: '1.5rem' }}>Store Address</h2>
             <p>{address ? address : (<>{DEFAULT_ADDRESS_LINE1}<br />{DEFAULT_ADDRESS_LINE2}</>)}</p>

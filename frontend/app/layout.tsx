@@ -6,7 +6,7 @@ import LogoPreload from '@/components/LogoPreload';
 import './globals.css';
 
 export const viewport: Viewport = {
-  themeColor: '#a7354d',
+  themeColor: '#722f37',
 };
 
 const SITE_URL = 'https://www.mahalaxmifashionhub.com';

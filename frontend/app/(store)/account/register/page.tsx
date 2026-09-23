@@ -312,7 +312,7 @@ export default function RegisterPage() {
               <p style={{ fontSize: '.82rem', color: '#888', marginTop: '1rem' }}>
                 Didn&apos;t get the code?{' '}
                 <button type="button" onClick={handleResendOtp}
-                  style={{ background: 'none', border: 'none', color: '#a7354d', fontWeight: 600, cursor: 'pointer', textDecoration: 'underline', padding: 0 }}>
+                  style={{ background: 'none', border: 'none', color: '#722f37', fontWeight: 600, cursor: 'pointer', textDecoration: 'underline', padding: 0 }}>
                   Resend OTP
                 </button>
               </p>
@@ -335,7 +335,7 @@ export default function RegisterPage() {
               {/* Birthday/Anniversary Card */}
               <div className="form-card" style={{ textAlign: 'center' }}>
                 <div style={{ fontSize: '3rem', marginBottom: '.5rem' }}>🎁</div>
-                <h2 style={{ color: '#a7354d', marginBottom: '.4rem' }}>Get Special Offers!</h2>
+                <h2 style={{ color: '#722f37', marginBottom: '.4rem' }}>Get Special Offers!</h2>
                 <p style={{ color: '#666', fontSize: '.88rem', marginBottom: '1.5rem', lineHeight: 1.5 }}>
                   Share your special dates to receive exclusive Birthday &amp; Anniversary discounts and surprises. This is completely optional!
                 </p>

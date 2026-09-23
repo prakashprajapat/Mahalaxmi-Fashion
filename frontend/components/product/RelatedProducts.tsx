@@ -24,7 +24,7 @@ export default function RelatedProducts({ category, currentId }: { category?: st
   return (
     <section style={{ background: '#fafafa', borderTop: '1px solid #eee', padding: '2rem 1.5rem' }}>
       <div style={{ maxWidth: '1080px', margin: '0 auto' }}>
-        <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#5c1a28', margin: '0 0 1rem' }}>You May Also Like</h2>
+        <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#4a1f27', margin: '0 0 1rem' }}>You May Also Like</h2>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))', gap: '1rem' }}>
           {items.map(p => (
             <ProductCard key={p.dbId} product={p} />

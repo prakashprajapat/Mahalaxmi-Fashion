@@ -21,14 +21,14 @@ export default function CompareView() {
   if (items.length === 0) return (
     <div style={{ textAlign: 'center', padding: '4rem 1rem', color: '#666' }}>
       <div style={{ fontSize: '3rem', marginBottom: '.5rem' }}>⚖️</div>
-      <h1 style={{ fontSize: '1.4rem', color: '#a7354d', marginBottom: '.5rem' }}>Nothing to compare yet</h1>
+      <h1 style={{ fontSize: '1.4rem', color: '#722f37', marginBottom: '.5rem' }}>Nothing to compare yet</h1>
       <p style={{ marginBottom: '1.5rem' }}>Add products to compare using the “Compare” button on any product card.</p>
       <Link href="/products" className="button primary">Browse Products</Link>
     </div>
   );
 
   const rows: { label: string; render: (it: CompareItem) => ReactNode }[] = [
-    { label: 'Price', render: it => <strong style={{ color: '#a7354d' }}>{inr(it.price)}{it.mrp ? <span style={{ color: '#999', fontWeight: 400, textDecoration: 'line-through', marginLeft: 6, fontSize: '.85em' }}>{inr(it.mrp)}</span> : null}</strong> },
+    { label: 'Price', render: it => <strong style={{ color: '#722f37' }}>{inr(it.price)}{it.mrp ? <span style={{ color: '#999', fontWeight: 400, textDecoration: 'line-through', marginLeft: 6, fontSize: '.85em' }}>{inr(it.mrp)}</span> : null}</strong> },
     { label: 'Category', render: it => <>{it.category || '—'}{it.subcategory ? ` · ${it.subcategory}` : ''}</> },
     { label: 'SKU', render: it => it.sku || '—' },
     { label: 'Rating', render: it => it.rating ? `★ ${it.rating.toFixed(1)}${it.reviewCount ? ` (${it.reviewCount})` : ''}` : 'No reviews yet' },
@@ -38,7 +38,7 @@ export default function CompareView() {
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '.5rem' }}>
-        <h1 style={{ fontSize: '1.6rem', fontWeight: 700, color: '#a7354d' }}>Compare Products ({items.length})</h1>
+        <h1 style={{ fontSize: '1.6rem', fontWeight: 700, color: '#722f37' }}>Compare Products ({items.length})</h1>
         <button onClick={clearCompare} style={{ background: '#f5f5f5', border: 'none', borderRadius: 8, padding: '.5rem .9rem', cursor: 'pointer', fontSize: '.85rem', fontWeight: 600 }}>Clear all</button>
       </div>
       <div style={{ overflowX: 'auto' }}>

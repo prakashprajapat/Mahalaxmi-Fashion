@@ -18,12 +18,12 @@ export default function CompareBar() {
   if (items.length === 0) return null;
   return (
     <div style={{ position: 'fixed', left: '50%', transform: 'translateX(-50%)', bottom: '1rem', zIndex: 1200, background: '#fff', border: '1.5px solid #eadfe2', boxShadow: '0 10px 30px rgba(92,26,40,.18)', borderRadius: 14, padding: '.6rem .8rem', display: 'flex', alignItems: 'center', gap: '.6rem', maxWidth: 'calc(100vw - 1.5rem)' }}>
-      <span style={{ fontWeight: 800, fontSize: '.8rem', color: '#5c1a28', whiteSpace: 'nowrap' }}>Compare</span>
+      <span style={{ fontWeight: 800, fontSize: '.8rem', color: '#4a1f27', whiteSpace: 'nowrap' }}>Compare</span>
       <div style={{ display: 'flex', gap: '.35rem' }}>
         {items.map(it => (
           <div key={it.dbId} style={{ position: 'relative', width: 40, height: 40, borderRadius: 8, overflow: 'hidden', border: '1px solid #eee', background: '#faf3e6' }}>
             <img src={productImageSrc(it.image)} alt={it.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-            <button onClick={() => removeCompare(it.dbId)} aria-label="Remove" style={{ position: 'absolute', top: -6, right: -6, background: '#7a0a22', color: '#fff', border: 'none', borderRadius: '50%', width: 16, height: 16, fontSize: 10, lineHeight: '16px', cursor: 'pointer', padding: 0 }}>×</button>
+            <button onClick={() => removeCompare(it.dbId)} aria-label="Remove" style={{ position: 'absolute', top: -6, right: -6, background: '#722f37', color: '#fff', border: 'none', borderRadius: '50%', width: 16, height: 16, fontSize: 10, lineHeight: '16px', cursor: 'pointer', padding: 0 }}>×</button>
           </div>
         ))}
       </div>

@@ -174,7 +174,7 @@ export default function TrackingPage() {
               {/* ── Latest courier updates (scan history) ── */}
               {scans.length > 0 && (
                 <details open style={{ marginTop: '.6rem', borderTop: '1px solid #f0f0f0', paddingTop: '.6rem' }}>
-                  <summary style={{ cursor: 'pointer', fontWeight: 600, color: '#a7354d', fontSize: '.9rem' }}>
+                  <summary style={{ cursor: 'pointer', fontWeight: 600, color: '#722f37', fontSize: '.9rem' }}>
                     All updates ({scans.length})
                   </summary>
                   <div style={{ marginTop: '.6rem', display: 'flex', flexDirection: 'column', gap: '.55rem' }}>
@@ -245,7 +245,7 @@ export default function TrackingPage() {
             <li>For address change requests, contact us before dispatch only.</li>
           </ul>
           <p style={{ marginTop: '1rem' }}>
-            <a href="https://wa.me/919429429880" target="_blank" rel="noopener noreferrer" style={{ color: '#a7354d', fontWeight: 600 }}>
+            <a href="https://wa.me/919429429880" target="_blank" rel="noopener noreferrer" style={{ color: '#722f37', fontWeight: 600 }}>
               WhatsApp: +91 9429429880 →
             </a>
           </p>

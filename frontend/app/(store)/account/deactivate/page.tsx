@@ -63,9 +63,9 @@ export default function DeactivatePage() {
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '.6rem', marginBottom: '1.5rem' }}>
                 {REASONS.map(r => (
-                  <label key={r} style={{ display: 'flex', alignItems: 'center', gap: '.75rem', padding: '.75rem 1rem', border: `1.5px solid ${reason === r ? '#a7354d' : '#eee'}`, borderRadius: '8px', cursor: 'pointer', background: reason === r ? '#fdf0f3' : '#fff' }}>
+                  <label key={r} style={{ display: 'flex', alignItems: 'center', gap: '.75rem', padding: '.75rem 1rem', border: `1.5px solid ${reason === r ? '#722f37' : '#eee'}`, borderRadius: '8px', cursor: 'pointer', background: reason === r ? '#f7eff0' : '#fff' }}>
                     <input type="radio" name="reason" value={r} checked={reason === r} onChange={() => { setReason(r); setError(''); }}
-                      style={{ accentColor: '#a7354d' }} />
+                      style={{ accentColor: '#722f37' }} />
                     <span style={{ fontSize: '.9rem' }}>{r}</span>
                   </label>
                 ))}

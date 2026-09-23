@@ -58,7 +58,7 @@ function FilterContent({
         <div>
           <div style={{ position: 'relative', height: 34, display: 'flex', alignItems: 'center', marginBottom: '.75rem' }}>
             <div style={{ position: 'absolute', width: '100%', height: 4, background: '#e0e0e0', borderRadius: 2 }}>
-              <div style={{ position: 'absolute', left: `${minPct}%`, right: `${maxPct}%`, height: '100%', background: '#a7354d', borderRadius: 2 }} />
+              <div style={{ position: 'absolute', left: `${minPct}%`, right: `${maxPct}%`, height: '100%', background: '#722f37', borderRadius: 2 }} />
             </div>
             <input type="range" className="pf-range" min={globalMin} max={globalMax} value={priceMin}
               onChange={e => { const v = +e.target.value; if (v < priceMax) setPriceMin(v); }}
@@ -101,7 +101,7 @@ function FilterContent({
               borderRadius: '8px',
               border: '1.5px solid #ddd',
               fontSize: '.82rem',
-              color: selectedSubcat ? '#a7354d' : '#555',
+              color: selectedSubcat ? '#722f37' : '#555',
               fontWeight: selectedSubcat ? 700 : 400,
               background: '#fff',
               cursor: 'pointer',
@@ -133,7 +133,7 @@ function FilterContent({
               borderRadius: '8px',
               border: '1.5px solid #ddd',
               fontSize: '.82rem',
-              color: selectedVariant ? '#a7354d' : '#555',
+              color: selectedVariant ? '#722f37' : '#555',
               fontWeight: selectedVariant ? 700 : 400,
               background: '#fff',
               cursor: 'pointer',
@@ -159,7 +159,7 @@ function FilterContent({
               return (
                 <button key={s}
                   onClick={() => setSelectedSizes((prev: string[]) => active ? prev.filter((x: string) => x !== s) : [...prev, s])}
-                  style={{ padding: '.25rem .6rem', borderRadius: 6, border: `1.5px solid ${active ? '#a7354d' : '#ddd'}`, background: active ? '#fdf0f3' : '#fff', color: active ? '#a7354d' : '#555', fontSize: '.78rem', fontWeight: active ? 700 : 400, cursor: 'pointer', minWidth: 32, textAlign: 'center' }}>
+                  style={{ padding: '.25rem .6rem', borderRadius: 6, border: `1.5px solid ${active ? '#722f37' : '#ddd'}`, background: active ? '#f7eff0' : '#fff', color: active ? '#722f37' : '#555', fontSize: '.78rem', fontWeight: active ? 700 : 400, cursor: 'pointer', minWidth: 32, textAlign: 'center' }}>
                   {s}
                 </button>
               );
@@ -177,7 +177,7 @@ function FilterContent({
               return (
                 <button key={c}
                   onClick={() => setSelectedColors((prev: string[]) => active ? prev.filter((x: string) => x !== c) : [...prev, c])}
-                  style={{ padding: '.25rem .65rem', borderRadius: 20, border: `1.5px solid ${active ? '#a7354d' : '#ddd'}`, background: active ? '#fdf0f3' : '#fff', color: active ? '#a7354d' : '#444', fontSize: '.78rem', fontWeight: active ? 700 : 400, cursor: 'pointer' }}>
+                  style={{ padding: '.25rem .65rem', borderRadius: 20, border: `1.5px solid ${active ? '#722f37' : '#ddd'}`, background: active ? '#f7eff0' : '#fff', color: active ? '#722f37' : '#444', fontSize: '.78rem', fontWeight: active ? 700 : 400, cursor: 'pointer' }}>
                   {c}
                 </button>
               );
@@ -331,8 +331,8 @@ export default function ProductsClient({ products, title, initialQ = '', banner 
         .pf-range { -webkit-appearance: none; appearance: none; background: transparent; width: 100%; height: 20px; outline: none; pointer-events: none; }
         .pf-range::-webkit-slider-runnable-track { background: transparent; height: 4px; }
         .pf-range::-moz-range-track { background: transparent; height: 4px; border: none; }
-        .pf-range::-webkit-slider-thumb { -webkit-appearance: none; width: 20px; height: 20px; border-radius: 50%; background: #a7354d; border: 2.5px solid #fff; box-shadow: 0 1px 6px rgba(0,0,0,.25); cursor: pointer; pointer-events: all; margin-top: -8px; }
-        .pf-range::-moz-range-thumb { width: 20px; height: 20px; border-radius: 50%; background: #a7354d; border: 2.5px solid #fff; box-shadow: 0 1px 6px rgba(0,0,0,.25); cursor: pointer; pointer-events: all; }
+        .pf-range::-webkit-slider-thumb { -webkit-appearance: none; width: 20px; height: 20px; border-radius: 50%; background: #722f37; border: 2.5px solid #fff; box-shadow: 0 1px 6px rgba(0,0,0,.25); cursor: pointer; pointer-events: all; margin-top: -8px; }
+        .pf-range::-moz-range-thumb { width: 20px; height: 20px; border-radius: 50%; background: #722f37; border: 2.5px solid #fff; box-shadow: 0 1px 6px rgba(0,0,0,.25); cursor: pointer; pointer-events: all; }
 
         /* ── Desktop layout ── */
         @media (min-width: 900px) {
@@ -360,7 +360,7 @@ export default function ProductsClient({ products, title, initialQ = '', banner 
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '.75rem', paddingBottom: '.75rem', borderBottom: '1px solid #eee' }}>
             <span style={{ fontWeight: 800, fontSize: '1rem', color: '#1a1a1a' }}>Filters</span>
             {activeFilterCount > 0 && (
-              <button onClick={clearAll} style={{ fontSize: '.75rem', color: '#a7354d', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}>
+              <button onClick={clearAll} style={{ fontSize: '.75rem', color: '#722f37', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}>
                 Clear all ({activeFilterCount})
               </button>
             )}
@@ -409,7 +409,7 @@ export default function ProductsClient({ products, title, initialQ = '', banner 
             <button onClick={() => setFilterOpen(true)}
               style={{ flex: 1, padding: '.6rem .3rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '.3rem', background: 'none', border: 'none', cursor: 'pointer', fontSize: '.82rem', fontWeight: 600, color: '#333' }}>
               <svg width="14" height="11" viewBox="0 0 18 14" fill="none"><path d="M1 1h16M4 7h10M7 13h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>
-              Filters{activeFilterCount > 0 && <span style={{ background: '#a7354d', color: '#fff', borderRadius: '50%', width: 16, height: 16, fontSize: '.6rem', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, marginLeft: 2 }}>{activeFilterCount}</span>}
+              Filters{activeFilterCount > 0 && <span style={{ background: '#722f37', color: '#fff', borderRadius: '50%', width: 16, height: 16, fontSize: '.6rem', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, marginLeft: 2 }}>{activeFilterCount}</span>}
             </button>
           </div>
 
@@ -420,7 +420,7 @@ export default function ProductsClient({ products, title, initialQ = '', banner 
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '.5rem 0', flexWrap: 'wrap', gap: '.5rem' }}>
             <span style={{ fontSize: '.82rem', color: '#888' }}>
               {filtered.length} product{filtered.length !== 1 ? 's' : ''}
-              {activeFilterCount > 0 && <button onClick={clearAll} className="pf-mobile-bar" style={{ fontSize: '.78rem', color: '#a7354d', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600, marginLeft: '.5rem' }}>Clear all ✕</button>}
+              {activeFilterCount > 0 && <button onClick={clearAll} className="pf-mobile-bar" style={{ fontSize: '.78rem', color: '#722f37', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600, marginLeft: '.5rem' }}>Clear all ✕</button>}
             </span>
 
             {/* Desktop sort dropdown */}
@@ -438,7 +438,7 @@ export default function ProductsClient({ products, title, initialQ = '', banner 
             <div style={{ textAlign: 'center', padding: '3rem 1rem', color: '#888' }}>
               <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🔍</div>
               <p style={{ marginBottom: '1rem' }}>No products found.</p>
-              <button onClick={clearAll} style={{ padding: '.6rem 1.5rem', background: '#a7354d', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 700 }}>Clear Filters</button>
+              <button onClick={clearAll} style={{ padding: '.6rem 1.5rem', background: '#722f37', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 700 }}>Clear Filters</button>
             </div>
           ) : (
             <div className="products-grid">
@@ -466,7 +466,7 @@ export default function ProductsClient({ products, title, initialQ = '', banner 
               {activeFilterCount > 0 && (
                 <button onClick={clearAll} style={{ padding: '.75rem 1rem', border: '1.5px solid #ddd', borderRadius: 10, background: '#fff', fontWeight: 600, fontSize: '.85rem', cursor: 'pointer', color: '#555' }}>Clear</button>
               )}
-              <button onClick={() => setFilterOpen(false)} style={{ flex: 1, padding: '.75rem', background: '#a7354d', color: '#fff', border: 'none', borderRadius: 10, fontWeight: 700, fontSize: '.9rem', cursor: 'pointer', letterSpacing: '.04em' }}>
+              <button onClick={() => setFilterOpen(false)} style={{ flex: 1, padding: '.75rem', background: '#722f37', color: '#fff', border: 'none', borderRadius: 10, fontWeight: 700, fontSize: '.9rem', cursor: 'pointer', letterSpacing: '.04em' }}>
                 VIEW RESULTS ({filtered.length})
               </button>
             </div>
@@ -485,9 +485,9 @@ export default function ProductsClient({ products, title, initialQ = '', banner 
             </div>
             {sortOptions.map(({ value, label }) => (
               <button key={value} onClick={() => { setSort(value); setSortOpen(false); }}
-                style={{ width: '100%', padding: '.9rem 1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: sort === value ? '#fdf0f3' : 'none', border: 'none', borderBottom: '1px solid #f5f5f5', cursor: 'pointer', fontSize: '.9rem', color: sort === value ? '#a7354d' : '#333', fontWeight: sort === value ? 700 : 400, textAlign: 'left' }}>
+                style={{ width: '100%', padding: '.9rem 1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: sort === value ? '#f7eff0' : 'none', border: 'none', borderBottom: '1px solid #f5f5f5', cursor: 'pointer', fontSize: '.9rem', color: sort === value ? '#722f37' : '#333', fontWeight: sort === value ? 700 : 400, textAlign: 'left' }}>
                 {label}
-                {sort === value && <span style={{ color: '#a7354d' }}>✓</span>}
+                {sort === value && <span style={{ color: '#722f37' }}>✓</span>}
               </button>
             ))}
           </div>
@@ -525,16 +525,16 @@ export default function ProductsClient({ products, title, initialQ = '', banner 
               <>
                 <p style={{ fontSize: '.72rem', fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: '.05em', margin: 0, padding: '1rem 1.25rem .25rem' }}>Subcategories</p>
                 <button onClick={() => { setSelectedSubcat(''); setCatSheetOpen(false); }}
-                  style={{ width: '100%', textAlign: 'left', padding: '.7rem 1.25rem', background: !selectedSubcat ? '#fdf0f3' : 'none', border: 'none', borderBottom: '1px solid #f5f5f5', cursor: 'pointer', fontSize: '.9rem', color: !selectedSubcat ? '#a7354d' : '#333', fontWeight: !selectedSubcat ? 700 : 400 }}>
+                  style={{ width: '100%', textAlign: 'left', padding: '.7rem 1.25rem', background: !selectedSubcat ? '#f7eff0' : 'none', border: 'none', borderBottom: '1px solid #f5f5f5', cursor: 'pointer', fontSize: '.9rem', color: !selectedSubcat ? '#722f37' : '#333', fontWeight: !selectedSubcat ? 700 : 400 }}>
                   All
                 </button>
                 {subcategories.map(({ key, label }: any) => {
                   const active = normalizeSub(selectedSubcat) === key;
                   return (
                     <button key={key} onClick={() => { setSelectedSubcat(label); setCatSheetOpen(false); }}
-                      style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', textAlign: 'left', padding: '.7rem 1.25rem', background: active ? '#fdf0f3' : 'none', border: 'none', borderBottom: '1px solid #f5f5f5', cursor: 'pointer', fontSize: '.9rem', color: active ? '#a7354d' : '#333', fontWeight: active ? 700 : 400 }}>
+                      style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', textAlign: 'left', padding: '.7rem 1.25rem', background: active ? '#f7eff0' : 'none', border: 'none', borderBottom: '1px solid #f5f5f5', cursor: 'pointer', fontSize: '.9rem', color: active ? '#722f37' : '#333', fontWeight: active ? 700 : 400 }}>
                       {label}
-                      {active && <span style={{ color: '#a7354d' }}>✓</span>}
+                      {active && <span style={{ color: '#722f37' }}>✓</span>}
                     </button>
                   );
                 })}

@@ -48,7 +48,7 @@ export default function FaqSection() {
         style={{
           fontFamily: 'var(--font-playfair), Georgia, serif',
           textAlign: 'center',
-          color: '#7a0a22',
+          color: '#722f37',
           fontSize: 'clamp(1.3rem,3.5vw,1.9rem)',
           fontWeight: 800,
           margin: '0 0 1.2rem',

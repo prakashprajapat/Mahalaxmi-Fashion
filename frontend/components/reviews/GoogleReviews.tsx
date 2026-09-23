@@ -8,7 +8,7 @@ import { useEffect, useState } from 'react';
 // yet (no key/place id) or there are no reviews, the whole section renders nothing — so it's
 // safe to ship before setup is done.
 
-const MAROON = '#7a0a22';
+const MAROON = '#722f37';
 const GOLD = '#f5a623';
 
 type Review = {

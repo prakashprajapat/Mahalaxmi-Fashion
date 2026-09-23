@@ -54,7 +54,7 @@ export default function NewsletterPage() {
             <div style={{ background: consent ? '#e8f5e9' : '#f9f9f9', borderRadius: '12px', padding: '1.25rem', border: `1.5px solid ${consent ? '#c8e6c9' : '#eee'}`, marginBottom: '1.5rem' }}>
               <label style={{ display: 'flex', alignItems: 'flex-start', gap: '.75rem', cursor: 'pointer' }}>
                 <input type="checkbox" checked={consent} onChange={e => setConsent(e.target.checked)}
-                  style={{ width: '18px', height: '18px', marginTop: '2px', flexShrink: 0, accentColor: '#a7354d' }} />
+                  style={{ width: '18px', height: '18px', marginTop: '2px', flexShrink: 0, accentColor: '#722f37' }} />
                 <div>
                   <p style={{ fontWeight: 700, marginBottom: '.25rem' }}>Subscribe to Newsletter & Offers</p>
                   <p style={{ fontSize: '.85rem', color: '#666' }}>
@@ -64,8 +64,8 @@ export default function NewsletterPage() {
               </label>
             </div>
 
-            <div style={{ background: '#fdf0f3', borderRadius: '10px', padding: '1rem', marginBottom: '1.5rem', fontSize: '.85rem', color: '#555' }}>
-              <strong style={{ color: '#a7354d' }}>Privacy Note:</strong> We never sell your data to third parties. Your email is used only for order updates and offers from Mahalaxmi Fashion Hub. You can unsubscribe anytime.
+            <div style={{ background: '#f7eff0', borderRadius: '10px', padding: '1rem', marginBottom: '1.5rem', fontSize: '.85rem', color: '#555' }}>
+              <strong style={{ color: '#722f37' }}>Privacy Note:</strong> We never sell your data to third parties. Your email is used only for order updates and offers from Mahalaxmi Fashion Hub. You can unsubscribe anytime.
             </div>
 
             {msg && (

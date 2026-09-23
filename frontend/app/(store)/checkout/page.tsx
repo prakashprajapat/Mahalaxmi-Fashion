@@ -718,7 +718,7 @@ export default function CheckoutPage() {
           .checkout-summary { position: static !important; }
         }
       `}</style>
-      <h1 style={{ fontSize: '1.75rem', fontWeight: 700, marginBottom: '1.5rem', color: '#a7354d' }}>Checkout</h1>
+      <h1 style={{ fontSize: '1.75rem', fontWeight: 700, marginBottom: '1.5rem', color: '#722f37' }}>Checkout</h1>
 
       <div className="checkout-outer-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 320px', gap: '2rem', alignItems: 'start' }}>
         {/* Left: Shipping + Payment */}
@@ -726,7 +726,7 @@ export default function CheckoutPage() {
           {!customer && (
             <div className="card" style={{ padding: '1rem 1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap', border: '1.5px solid #f3d5dc', background: '#fff8f9' }}>
               <div>
-                <strong style={{ color: '#a7354d' }}>Login to auto-fill shipping details</strong>
+                <strong style={{ color: '#722f37' }}>Login to auto-fill shipping details</strong>
                 <p style={{ margin: '.2rem 0 0', fontSize: '.85rem', color: '#666' }}>After login, your saved name, phone, email and address will fill automatically.</p>
               </div>
               <button type="button" onClick={() => router.push('/account?return=/checkout')} className="button primary" style={{ whiteSpace: 'nowrap' }}>
@@ -827,7 +827,7 @@ export default function CheckoutPage() {
           {/* PAN section (if required) */}
           {requiresPan && (
             <div className="card" style={{ padding: '1.5rem', border: '1.5px solid #f5c6cb', background: '#fff8f9' }}>
-              <h2 style={{ fontWeight: 700, fontSize: '1.1rem', marginBottom: '.5rem', color: '#a7354d' }}>PAN Card Details Required</h2>
+              <h2 style={{ fontWeight: 700, fontSize: '1.1rem', marginBottom: '.5rem', color: '#722f37' }}>PAN Card Details Required</h2>
               <p style={{ fontSize: '.85rem', color: '#666', marginBottom: '1rem' }}>
                 As per government regulations, PAN details are mandatory for orders above ₹2,000.
               </p>
@@ -854,14 +854,14 @@ export default function CheckoutPage() {
 
             {/* Choose Pay Online vs Cash on Delivery */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '.6rem', marginBottom: '1rem' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '.6rem', border: `1.5px solid ${payMethod === 'online' ? '#a7354d' : '#ddd'}`, background: payMethod === 'online' ? '#fff8f9' : '#fff', borderRadius: '10px', padding: '.75rem .9rem', cursor: 'pointer' }}>
-                <input type="radio" name="payMethod" checked={payMethod === 'online'} onChange={() => setPayMethod('online')} style={{ accentColor: '#a7354d' }} />
+              <label style={{ display: 'flex', alignItems: 'center', gap: '.6rem', border: `1.5px solid ${payMethod === 'online' ? '#722f37' : '#ddd'}`, background: payMethod === 'online' ? '#fff8f9' : '#fff', borderRadius: '10px', padding: '.75rem .9rem', cursor: 'pointer' }}>
+                <input type="radio" name="payMethod" checked={payMethod === 'online'} onChange={() => setPayMethod('online')} style={{ accentColor: '#722f37' }} />
                 <span style={{ fontWeight: 600, fontSize: '.92rem' }}>💳 Pay Online</span>
                 <span style={{ fontSize: '.8rem', color: '#666' }}>UPI / Card / Net Banking</span>
               </label>
               {codAvailable ? (
-                <label style={{ display: 'flex', alignItems: 'center', gap: '.6rem', border: `1.5px solid ${payMethod === 'cod' ? '#a7354d' : '#ddd'}`, background: payMethod === 'cod' ? '#fff8f9' : '#fff', borderRadius: '10px', padding: '.75rem .9rem', cursor: 'pointer' }}>
-                  <input type="radio" name="payMethod" checked={payMethod === 'cod'} onChange={() => setPayMethod('cod')} style={{ accentColor: '#a7354d' }} />
+                <label style={{ display: 'flex', alignItems: 'center', gap: '.6rem', border: `1.5px solid ${payMethod === 'cod' ? '#722f37' : '#ddd'}`, background: payMethod === 'cod' ? '#fff8f9' : '#fff', borderRadius: '10px', padding: '.75rem .9rem', cursor: 'pointer' }}>
+                  <input type="radio" name="payMethod" checked={payMethod === 'cod'} onChange={() => setPayMethod('cod')} style={{ accentColor: '#722f37' }} />
                   <span style={{ fontWeight: 600, fontSize: '.92rem' }}>🚚 Cash on Delivery</span>
                   {codAdvanceAmt > 0
                     ? <span style={{ fontSize: '.8rem', color: '#c0392b', fontWeight: 600 }}>₹{codAdvanceAmt} advance online</span>
@@ -957,7 +957,7 @@ export default function CheckoutPage() {
                   onKeyDown={e => e.key === 'Enter' && handleApplyCoupon()}
                 />
                 <button onClick={handleApplyCoupon} disabled={couponLoading || !couponCode.trim()}
-                  style={{ background: '#a7354d', color: '#fff', border: 'none', borderRadius: '8px', padding: '0 1rem', fontWeight: 700, fontSize: '.88rem', cursor: 'pointer', whiteSpace: 'nowrap', opacity: couponLoading ? .7 : 1 }}>
+                  style={{ background: '#722f37', color: '#fff', border: 'none', borderRadius: '8px', padding: '0 1rem', fontWeight: 700, fontSize: '.88rem', cursor: 'pointer', whiteSpace: 'nowrap', opacity: couponLoading ? .7 : 1 }}>
                   {couponLoading ? '...' : 'Apply'}
                 </button>
               </div>
@@ -969,7 +969,7 @@ export default function CheckoutPage() {
           {walletShown && (
             <div style={{ borderTop: '1px solid #eee', paddingTop: '.75rem', marginBottom: '.25rem' }}>
               <label style={{ display: 'flex', alignItems: 'center', gap: '.6rem', cursor: 'pointer' }}>
-                <input type="checkbox" checked={useWallet} onChange={e => setUseWallet(e.target.checked)} style={{ accentColor: '#a7354d' }} />
+                <input type="checkbox" checked={useWallet} onChange={e => setUseWallet(e.target.checked)} style={{ accentColor: '#722f37' }} />
                 <span style={{ fontSize: '.88rem', fontWeight: 600, color: '#1a1a1a' }}>👛 Use wallet balance</span>
                 <span style={{ marginLeft: 'auto', fontSize: '.82rem', color: '#666' }}>₹{walletBalance.toLocaleString('en-IN')} available</span>
               </label>
@@ -1000,7 +1000,7 @@ export default function CheckoutPage() {
             )}
             <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, fontSize: '1.1rem', paddingTop: '.5rem', borderTop: '1px solid #eee' }}>
               <span>Total</span>
-              <span style={{ color: '#a7354d' }}>₹{total.toLocaleString('en-IN')}</span>
+              <span style={{ color: '#722f37' }}>₹{total.toLocaleString('en-IN')}</span>
             </div>
             {walletApplied > 0 && (
               <>
@@ -1008,7 +1008,7 @@ export default function CheckoutPage() {
                   <span>👛 Paid from wallet</span><span>−₹{walletApplied.toLocaleString('en-IN')}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 800, fontSize: '1.1rem', marginTop: '.3rem' }}>
-                  <span>To Pay</span><span style={{ color: '#a7354d' }}>₹{amountToPay.toLocaleString('en-IN')}</span>
+                  <span>To Pay</span><span style={{ color: '#722f37' }}>₹{amountToPay.toLocaleString('en-IN')}</span>
                 </div>
               </>
             )}
@@ -1016,7 +1016,7 @@ export default function CheckoutPage() {
               <div style={{ marginTop: '.7rem', paddingTop: '.7rem', borderTop: '1px dashed #e6d9dd' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '.92rem', fontWeight: 800 }}>
                   <span>Pay now (advance)</span>
-                  <span style={{ color: '#a7354d' }}>₹{codAdvanceDue.toLocaleString('en-IN')}</span>
+                  <span style={{ color: '#722f37' }}>₹{codAdvanceDue.toLocaleString('en-IN')}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '.92rem', marginTop: '.25rem' }}>
                   <span>Pay on delivery</span>
@@ -1042,14 +1042,14 @@ export default function CheckoutPage() {
               <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800, color: '#1a1a1a' }}>Confirm Cash on Delivery Order</h3>
               <div style={{ display: 'flex', alignItems: 'center', gap: '.85rem', margin: '.9rem 0 .3rem' }}>
                 <div style={{ fontSize: '2rem', lineHeight: 1 }}>🚚</div>
-                <p style={{ margin: 0, color: '#7a0a22', fontWeight: 600, fontSize: '.95rem' }}>
+                <p style={{ margin: 0, color: '#722f37', fontWeight: 600, fontSize: '.95rem' }}>
                   Pay via UPI or Cash when you receive your order
                 </p>
               </div>
               <div style={{ background: '#fbf3f5', border: '1px solid #f0dfe4', borderRadius: 10, padding: '.7rem .85rem', margin: '.9rem 0 1.1rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '.86rem', color: '#555' }}>
                   <span>Order total{codFee > 0 ? ` (incl. ₹${codFee} COD fee)` : ''}</span>
-                  <strong style={{ color: '#a7354d' }}>₹{total.toLocaleString('en-IN')}</strong>
+                  <strong style={{ color: '#722f37' }}>₹{total.toLocaleString('en-IN')}</strong>
                 </div>
                 <p style={{ margin: '.4rem 0 0', fontSize: '.74rem', color: '#999' }}>
                   {codAdvanceDue > 0
@@ -1067,7 +1067,7 @@ export default function CheckoutPage() {
               <button
                 onClick={doPlaceCod}
                 disabled={loading}
-                style={{ flex: 1.3, height: 44, borderRadius: 9, border: 'none', background: '#a7354d', color: '#fff', fontWeight: 800, fontSize: '.92rem', cursor: loading ? 'default' : 'pointer', opacity: loading ? .7 : 1 }}>
+                style={{ flex: 1.3, height: 44, borderRadius: 9, border: 'none', background: '#722f37', color: '#fff', fontWeight: 800, fontSize: '.92rem', cursor: loading ? 'default' : 'pointer', opacity: loading ? .7 : 1 }}>
                 {loading ? 'Placing…' : 'Confirm order'}
               </button>
             </div>

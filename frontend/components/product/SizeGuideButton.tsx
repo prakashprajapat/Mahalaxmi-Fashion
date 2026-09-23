@@ -16,7 +16,7 @@ export default function SizeGuideButton() {
   return (
     <>
       <button onClick={() => setOpen(true)}
-        style={{ background: 'none', border: 'none', color: '#a7354d', fontWeight: 600, fontSize: '.82rem', cursor: 'pointer', textDecoration: 'underline', padding: 0 }}>
+        style={{ background: 'none', border: 'none', color: '#722f37', fontWeight: 600, fontSize: '.82rem', cursor: 'pointer', textDecoration: 'underline', padding: 0 }}>
         📏 Size Guide
       </button>
 
@@ -28,14 +28,14 @@ export default function SizeGuideButton() {
             <button onClick={() => setOpen(false)} aria-label="Close"
               style={{ position: 'absolute', top: '10px', right: '12px', background: 'rgba(0,0,0,.06)', border: 'none', borderRadius: '50%', width: '32px', height: '32px', cursor: 'pointer', fontSize: '1rem' }}>✕</button>
 
-            <h2 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#5c1a28', margin: '0 0 .3rem' }}>Size Guide</h2>
+            <h2 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#4a1f27', margin: '0 0 .3rem' }}>Size Guide</h2>
             <p style={{ fontSize: '.82rem', color: '#888', margin: '0 0 1rem' }}>All measurements in inches. If you are between sizes, we suggest choosing the larger one.</p>
 
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '.85rem' }}>
               <thead>
                 <tr style={{ background: '#faf6f2' }}>
                   {['Size', 'Bust', 'Waist', 'Hip'].map(h => (
-                    <th key={h} style={{ padding: '.55rem', textAlign: 'left', color: '#5c1a28', fontWeight: 700, borderBottom: '1px solid #f0e6ea' }}>{h}</th>
+                    <th key={h} style={{ padding: '.55rem', textAlign: 'left', color: '#4a1f27', fontWeight: 700, borderBottom: '1px solid #f0e6ea' }}>{h}</th>
                   ))}
                 </tr>
               </thead>

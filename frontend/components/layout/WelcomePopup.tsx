@@ -92,7 +92,7 @@ export default function WelcomePopup() {
 
         {/* Left — image panel */}
         <div className="mfh-popup-img" style={{
-          background: 'linear-gradient(160deg,#7a0a22 0%,#a7354d 100%)',
+          background: 'linear-gradient(160deg,#722f37 0%,#722f37 100%)',
           display: 'flex', flexDirection: 'column',
           alignItems: 'center', justifyContent: 'center',
           padding: '2rem 1.25rem', textAlign: 'center', gap: '1rem',
@@ -117,7 +117,7 @@ export default function WelcomePopup() {
           {submitted ? (
             <div style={{ textAlign: 'center', padding: '1rem 0' }}>
               <div style={{ fontSize: '3.5rem', marginBottom: '.75rem' }}>🎁</div>
-              <h2 style={{ color: '#a7354d', fontWeight: 800, margin: '0 0 .4rem' }}>Welcome to the Family!</h2>
+              <h2 style={{ color: '#722f37', fontWeight: 800, margin: '0 0 .4rem' }}>Welcome to the Family!</h2>
               <p style={{ color: '#666', fontSize: '.9rem', margin: 0 }}>
                 You&apos;ll be the first to know about new arrivals, offers and exclusive deals.
               </p>
@@ -212,9 +212,9 @@ export default function WelcomePopup() {
                   rel="noopener noreferrer"
                   style={{
                     display: 'inline-flex', alignItems: 'center', gap: '.4rem',
-                    fontSize: '.76rem', fontWeight: 700, color: '#a7354d',
+                    fontSize: '.76rem', fontWeight: 700, color: '#722f37',
                     textDecoration: 'none', border: '1px solid #f0dde2',
-                    background: '#fdf0f3', borderRadius: '999px', padding: '.32rem .75rem',
+                    background: '#f7eff0', borderRadius: '999px', padding: '.32rem .75rem',
                   }}>
                   <svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true">
                     <rect x="6.2" y="2.4" width="11.6" height="19.2" rx="2.6" fill="none" stroke="currentColor" strokeWidth="1.8" />

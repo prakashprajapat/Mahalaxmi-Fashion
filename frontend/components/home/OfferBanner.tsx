@@ -41,12 +41,12 @@ export default function OfferBanner() {
         flexWrap: 'wrap',
       }}>
         <div style={{ maxWidth: hasButton ? '620px' : '100%' }}>
-          <p style={{ fontSize: '.72rem', textTransform: 'uppercase', letterSpacing: '.18em', color: '#8a2a3e', marginBottom: '.4rem', fontWeight: 700 }}>{offerEyebrow}</p>
-          <h2 style={{ fontSize: 'clamp(1.25rem, 3vw, 1.7rem)', fontWeight: 800, margin: '0 0 .45rem', lineHeight: 1.25, color: '#5c1a28' }}>{offerTitle}</h2>
+          <p style={{ fontSize: '.72rem', textTransform: 'uppercase', letterSpacing: '.18em', color: '#52212a', marginBottom: '.4rem', fontWeight: 700 }}>{offerEyebrow}</p>
+          <h2 style={{ fontSize: 'clamp(1.25rem, 3vw, 1.7rem)', fontWeight: 800, margin: '0 0 .45rem', lineHeight: 1.25, color: '#4a1f27' }}>{offerTitle}</h2>
           <p style={{ fontSize: '.9rem', margin: 0, lineHeight: 1.5, color: 'rgba(92,26,40,.85)', maxWidth: hasButton ? '520px' : '620px', marginLeft: hasButton ? 0 : 'auto', marginRight: hasButton ? 0 : 'auto' }}>{offerText}</p>
         </div>
         {hasButton && (
-          <Link href={offerButtonLink} style={{ background: '#7a0a22', color: '#fff', fontWeight: 800, whiteSpace: 'nowrap', padding: '.7rem 1.7rem', borderRadius: '10px', textDecoration: 'none', flexShrink: 0, boxShadow: '0 4px 14px rgba(0,0,0,.18)' }}>
+          <Link href={offerButtonLink} style={{ background: '#722f37', color: '#fff', fontWeight: 800, whiteSpace: 'nowrap', padding: '.7rem 1.7rem', borderRadius: '10px', textDecoration: 'none', flexShrink: 0, boxShadow: '0 4px 14px rgba(0,0,0,.18)' }}>
             {offerButtonLabel}
           </Link>
         )}

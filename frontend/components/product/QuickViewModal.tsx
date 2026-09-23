@@ -269,7 +269,7 @@ export default function QuickViewModal({ product, onClose }: Props) {
                   <button key={i} onClick={() => setActiveImg(img)}
                     style={{
                       width: '56px', height: '56px', borderRadius: '8px',
-                      overflow: 'hidden', border: activeImg === img ? '2.5px solid #a7354d' : '2px solid #eee',
+                      overflow: 'hidden', border: activeImg === img ? '2.5px solid #722f37' : '2px solid #eee',
                       padding: 0, cursor: 'pointer', background: '#fff', flexShrink: 0,
                     }}>
                     <img src={img} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
@@ -284,7 +284,7 @@ export default function QuickViewModal({ product, onClose }: Props) {
             {/* SKU + Category */}
             <div style={{ display: 'flex', gap: '.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
               {product.category && (
-                <span style={{ background: '#fdf0f3', color: '#a7354d', fontSize: '.72rem', fontWeight: 700, padding: '.2rem .55rem', borderRadius: '20px', textTransform: 'uppercase' }}>
+                <span style={{ background: '#f7eff0', color: '#722f37', fontSize: '.72rem', fontWeight: 700, padding: '.2rem .55rem', borderRadius: '20px', textTransform: 'uppercase' }}>
                   {product.category}
                 </span>
               )}
@@ -305,7 +305,7 @@ export default function QuickViewModal({ product, onClose }: Props) {
 
             {/* Price */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '.75rem', flexWrap: 'wrap' }}>
-              <span style={{ fontSize: '1.5rem', fontWeight: 800, color: '#a7354d' }}>
+              <span style={{ fontSize: '1.5rem', fontWeight: 800, color: '#722f37' }}>
                 ₹{price.toLocaleString('en-IN')}
               </span>
               {saving > 0 && (
@@ -336,7 +336,7 @@ export default function QuickViewModal({ product, onClose }: Props) {
                       style={{
                         padding: 0, overflow: 'hidden',
                         borderRadius: s.photo ? '8px' : '50%',
-                        border: colour === s.name ? '2.5px solid #a7354d' : '1.5px solid #ddd',
+                        border: colour === s.name ? '2.5px solid #722f37' : '1.5px solid #ddd',
                         background: '#fff', cursor: 'pointer', flexShrink: 0,
                         width: s.photo ? '42px' : '34px',
                         height: s.photo ? '42px' : '34px',
@@ -364,9 +364,9 @@ export default function QuickViewModal({ product, onClose }: Props) {
                       <button key={s} onClick={() => !disabled && setSize(s)} disabled={disabled}
                         style={{
                           padding: '.35rem .75rem', borderRadius: '6px', fontSize: '.85rem', fontWeight: 600,
-                          border: size === s ? '2px solid #a7354d' : '1.5px solid #ddd',
-                          background: disabled ? '#f5f5f5' : size === s ? '#fdf0f3' : '#fff',
-                          color: disabled ? '#bbb' : size === s ? '#a7354d' : '#555',
+                          border: size === s ? '2px solid #722f37' : '1.5px solid #ddd',
+                          background: disabled ? '#f5f5f5' : size === s ? '#f7eff0' : '#fff',
+                          color: disabled ? '#bbb' : size === s ? '#722f37' : '#555',
                           cursor: disabled ? 'not-allowed' : 'pointer',
                           textDecoration: disabled ? 'line-through' : 'none',
                         }}>
@@ -402,7 +402,7 @@ export default function QuickViewModal({ product, onClose }: Props) {
                 disabled={!inStock}
                 style={{
                   flex: 1, padding: '.7rem 1rem', borderRadius: '10px', border: 'none',
-                  background: inStock ? (added ? '#27ae60' : '#a7354d') : '#ccc',
+                  background: inStock ? (added ? '#27ae60' : '#722f37') : '#ccc',
                   color: '#fff', fontWeight: 700, fontSize: '.9rem', cursor: inStock ? 'pointer' : 'not-allowed',
                   transition: 'background .2s',
                 }}
@@ -481,7 +481,7 @@ export default function QuickViewModal({ product, onClose }: Props) {
                 </div>
                 {/* Link to full page */}
                 <a href={`/products/${productSlug(product.name, product.dbId)}`} target="_blank" rel="noopener"
-                  style={{ fontSize: '.82rem', color: '#a7354d', textDecoration: 'underline' }}>
+                  style={{ fontSize: '.82rem', color: '#722f37', textDecoration: 'underline' }}>
                   Open full product page ↗
                 </a>
               </div>
@@ -491,7 +491,7 @@ export default function QuickViewModal({ product, onClose }: Props) {
             <button
               onClick={() => setExpanded(e => !e)}
               style={{
-                fontSize: '.82rem', color: '#a7354d', fontWeight: 600,
+                fontSize: '.82rem', color: '#722f37', fontWeight: 600,
                 marginTop: 'auto', textDecoration: 'underline',
                 background: 'none', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'left',
               }}
@@ -507,10 +507,10 @@ export default function QuickViewModal({ product, onClose }: Props) {
             .qv-grid { grid-template-columns: 1fr !important; }
           }
           /* Thin horizontal scrollbar that sits just under the thumbnail strip */
-          .qv-thumbs { scrollbar-width: thin; scrollbar-color: #a7354d #f0e6ea; }
+          .qv-thumbs { scrollbar-width: thin; scrollbar-color: #722f37 #f0e6ea; }
           .qv-thumbs::-webkit-scrollbar { height: 6px; }
           .qv-thumbs::-webkit-scrollbar-track { background: #f0e6ea; border-radius: 3px; }
-          .qv-thumbs::-webkit-scrollbar-thumb { background: #a7354d; border-radius: 3px; }
+          .qv-thumbs::-webkit-scrollbar-thumb { background: #722f37; border-radius: 3px; }
         `}</style>
       </div>
     </div>

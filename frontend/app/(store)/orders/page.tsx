@@ -231,8 +231,8 @@ export default function OrdersPage() {
                 style={{
                   padding: '.65rem 1.5rem', border: 'none', background: 'none', cursor: 'pointer',
                   fontWeight: 700, fontSize: '.95rem',
-                  color: activeTab === tab ? '#a7354d' : '#888',
-                  borderBottom: activeTab === tab ? '2.5px solid #a7354d' : '2.5px solid transparent',
+                  color: activeTab === tab ? '#722f37' : '#888',
+                  borderBottom: activeTab === tab ? '2.5px solid #722f37' : '2.5px solid transparent',
                   marginBottom: '-2px',
                 }}>
                 {tab === 'orders' ? `📦 My Orders (${orders.length})` : `🔄 My Returns (${returnOrders.length})`}
@@ -254,8 +254,8 @@ export default function OrdersPage() {
                 <button key={f} onClick={() => setStatusFilter(f)}
                   style={{
                     padding: '.35rem .9rem', borderRadius: '20px', border: '1.5px solid',
-                    borderColor: statusFilter === f ? '#a7354d' : '#ddd',
-                    background: statusFilter === f ? '#a7354d' : '#fff',
+                    borderColor: statusFilter === f ? '#722f37' : '#ddd',
+                    background: statusFilter === f ? '#722f37' : '#fff',
                     color: statusFilter === f ? '#fff' : '#555',
                     fontSize: '.82rem', fontWeight: 600, cursor: 'pointer',
                   }}>
@@ -340,7 +340,7 @@ export default function OrdersPage() {
                         <span className={`badge ${order.status === 'Delivered' ? 'badge-green' : order.status === 'Cancelled' ? 'badge-red' : 'badge-yellow'}`}>
                           {order.status}
                         </span>
-                        <strong style={{ color: '#a7354d' }}>₹{Number(order.total).toLocaleString('en-IN')}</strong>
+                        <strong style={{ color: '#722f37' }}>₹{Number(order.total).toLocaleString('en-IN')}</strong>
                       </div>
                     </div>
                   </div>
@@ -383,7 +383,7 @@ export default function OrdersPage() {
                       })}
                       {order.cart.length > 3 && <span style={{ color: '#aaa', fontSize: '.82rem' }}>+{order.cart.length - 3} more item{order.cart.length - 3 !== 1 ? 's' : ''}</span>}
                     </div>
-                    <p style={{ fontSize: '.82rem', color: '#a7354d', fontWeight: 600, marginBottom: '.75rem' }}>View full details →</p>
+                    <p style={{ fontSize: '.82rem', color: '#722f37', fontWeight: 600, marginBottom: '.75rem' }}>View full details →</p>
                   </div>
 
                   {order.awb && (
@@ -493,7 +493,7 @@ export default function OrdersPage() {
                         )}
                       </div>
 
-                      {uploadMsg && <p style={{ fontSize: '.78rem', color: '#a7354d', fontWeight: 600, margin: '.25rem 0 .5rem' }}>⏳ {uploadMsg}</p>}
+                      {uploadMsg && <p style={{ fontSize: '.78rem', color: '#722f37', fontWeight: 600, margin: '.25rem 0 .5rem' }}>⏳ {uploadMsg}</p>}
 
                       <div style={{ display: 'flex', gap: '.5rem', marginTop: '.25rem' }}>
                         <button className="button primary" onClick={() => handleReturn(order)} disabled={uploading} style={{ fontSize: '.85rem', padding: '.5rem 1rem', opacity: uploading ? 0.6 : 1 }}>
@@ -516,7 +516,7 @@ export default function OrdersPage() {
                   <div className="ord-actions">
                     {invoiceValid(order) ? (
                       <button className="button secondary" onClick={() => handleInvoice(order.id)}
-                        style={{ fontSize: '.82rem', padding: '.4rem .85rem', borderColor: '#7a0a22', color: '#7a0a22' }}>
+                        style={{ fontSize: '.82rem', padding: '.4rem .85rem', borderColor: '#722f37', color: '#722f37' }}>
                         🧾 Download Invoice
                       </button>
                     ) : (
@@ -616,7 +616,7 @@ export default function OrdersPage() {
               <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Shipping</span><span>{detailOrder.shippingCost ? `₹${Number(detailOrder.shippingCost).toLocaleString('en-IN')}` : 'Free'}</span></div>
               {detailOrder.codFee > 0 && <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>COD Fee</span><span>₹{Number(detailOrder.codFee).toLocaleString('en-IN')}</span></div>}
               {(detailOrder as { discountAmount?: number }).discountAmount ? <div style={{ display: 'flex', justifyContent: 'space-between', color: '#2e7d32' }}><span>Discount{(detailOrder as { couponCode?: string }).couponCode ? ` (${(detailOrder as { couponCode?: string }).couponCode})` : ''}</span><span>−₹{Number((detailOrder as { discountAmount?: number }).discountAmount).toLocaleString('en-IN')}</span></div> : null}
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 800, color: '#a7354d', borderTop: '1px solid #eee', paddingTop: '.4rem' }}><span>Total</span><span>₹{Number(detailOrder.total).toLocaleString('en-IN')}</span></div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 800, color: '#722f37', borderTop: '1px solid #eee', paddingTop: '.4rem' }}><span>Total</span><span>₹{Number(detailOrder.total).toLocaleString('en-IN')}</span></div>
             </div>
 
             {/* Delivery address */}

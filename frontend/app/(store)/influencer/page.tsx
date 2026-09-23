@@ -25,7 +25,7 @@ interface DashboardData {
 }
 
 // ── Brand colors ──────────────────────────────────────────────────────────────
-const BRAND = '#a7354d';
+const BRAND = '#722f37';
 const BRAND_DARK = '#6b1c30';
 const BRAND_LIGHT = '#fdf2f5';
 

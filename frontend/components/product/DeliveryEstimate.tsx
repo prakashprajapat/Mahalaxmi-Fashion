@@ -47,7 +47,7 @@ export default function DeliveryEstimate() {
 
   return (
     <div style={{ border: '1px solid #f0e6ea', borderRadius: '10px', padding: '.8rem .9rem', background: '#fff' }}>
-      <p style={{ fontSize: '.82rem', fontWeight: 700, color: '#5c1a28', margin: '0 0 .5rem' }}>🚚 Check delivery date</p>
+      <p style={{ fontSize: '.82rem', fontWeight: 700, color: '#4a1f27', margin: '0 0 .5rem' }}>🚚 Check delivery date</p>
       <div style={{ display: 'flex', gap: '.5rem', flexWrap: 'wrap' }}>
         <input
           type="text" inputMode="numeric" maxLength={6} value={pin}
@@ -57,7 +57,7 @@ export default function DeliveryEstimate() {
           style={{ flex: 1, minWidth: '140px', border: '1.5px solid #ddd', borderRadius: '8px', padding: '.5rem .7rem', fontSize: '.88rem', boxSizing: 'border-box' }}
         />
         <button onClick={check} disabled={loading}
-          style={{ background: '#a7354d', color: '#fff', border: 'none', borderRadius: '8px', padding: '.5rem 1rem', fontWeight: 600, fontSize: '.85rem', cursor: 'pointer', opacity: loading ? .6 : 1 }}>
+          style={{ background: '#722f37', color: '#fff', border: 'none', borderRadius: '8px', padding: '.5rem 1rem', fontWeight: 600, fontSize: '.85rem', cursor: 'pointer', opacity: loading ? .6 : 1 }}>
           {loading ? 'Checking…' : 'Check'}
         </button>
       </div>

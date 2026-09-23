@@ -380,9 +380,9 @@ export default function ProductDetail({ params, initialProduct = null }: { param
     <>
       {/* Breadcrumb */}
       <nav style={{ background: '#f9f9f9', borderBottom: '1px solid #eee', padding: '.6rem 1.5rem', fontSize: '.83rem', color: '#888' }}>
-        <Link href="/" style={{ color: '#a7354d' }}>Home</Link> &rsaquo;{' '}
-        <Link href="/products" style={{ color: '#a7354d' }}>Products</Link> &rsaquo;{' '}
-        {product.category && <><Link href={`/${product.category.toLowerCase().replace(/ /g, '-')}`} style={{ color: '#a7354d' }}>{product.category}</Link> &rsaquo; </>}
+        <Link href="/" style={{ color: '#722f37' }}>Home</Link> &rsaquo;{' '}
+        <Link href="/products" style={{ color: '#722f37' }}>Products</Link> &rsaquo;{' '}
+        {product.category && <><Link href={`/${product.category.toLowerCase().replace(/ /g, '-')}`} style={{ color: '#722f37' }}>{product.category}</Link> &rsaquo; </>}
         <span>{product.name}</span>
       </nav>
 
@@ -459,7 +459,7 @@ export default function ProductDetail({ params, initialProduct = null }: { param
                 {gallery.map((img, i) => (
                   <button key={i} onClick={() => setActiveImg(img)} style={{
                     width: '64px', height: '64px', borderRadius: '8px', overflow: 'hidden',
-                    border: activeImg === img ? '2px solid #a7354d' : '2px solid #eee',
+                    border: activeImg === img ? '2px solid #722f37' : '2px solid #eee',
                     padding: 0, cursor: 'pointer', background: '#f5f5f5', flexShrink: 0,
                   }}>
                     <Image src={img} alt={`View ${i+1}`} width={64} height={64} sizes="64px"
@@ -550,7 +550,7 @@ export default function ProductDetail({ params, initialProduct = null }: { param
                       style={{
                         padding: 0, overflow: 'hidden',
                         borderRadius: s.photo ? '8px' : '50%',
-                        border: color === s.name ? '2.5px solid #a7354d' : '1.5px solid #ddd',
+                        border: color === s.name ? '2.5px solid #722f37' : '1.5px solid #ddd',
                         background: '#fff', cursor: 'pointer', flexShrink: 0,
                         width: s.photo ? '44px' : '36px',
                         height: s.photo ? '44px' : '36px',
@@ -581,8 +581,8 @@ export default function ProductDetail({ params, initialProduct = null }: { param
                     return (
                       <button key={s} onClick={() => !oos && setSize(s)} disabled={oos} style={{
                         minWidth: '44px', height: '40px', padding: '0 .75rem', borderRadius: '6px',
-                        border: size === s ? '2px solid #a7354d' : '1.5px solid #ddd',
-                        background: oos ? '#f5f5f5' : size === s ? '#a7354d' : '#fff',
+                        border: size === s ? '2px solid #722f37' : '1.5px solid #ddd',
+                        background: oos ? '#f5f5f5' : size === s ? '#722f37' : '#fff',
                         color: oos ? '#ccc' : size === s ? '#fff' : '#333',
                         fontSize: '.85rem', fontWeight: 600,
                         cursor: oos ? 'not-allowed' : 'pointer',
@@ -705,8 +705,8 @@ export default function ProductDetail({ params, initialProduct = null }: { param
 
             {/* Write a Review — only after order delivered */}
             {canReview ? (
-              <div style={{ background: '#fdf0f3', borderRadius: '12px', padding: '1.25rem', border: '1.5px solid #f5c6cb' }}>
-                <h3 style={{ fontWeight: 700, marginBottom: '1rem', fontSize: '1rem', color: '#a7354d' }}>Write a Review</h3>
+              <div style={{ background: '#f7eff0', borderRadius: '12px', padding: '1.25rem', border: '1.5px solid #f5c6cb' }}>
+                <h3 style={{ fontWeight: 700, marginBottom: '1rem', fontSize: '1rem', color: '#722f37' }}>Write a Review</h3>
                 <form onSubmit={handleReviewSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '.75rem' }}>
                   <div>
                     <label style={{ fontSize: '.82rem', fontWeight: 600, display: 'block', marginBottom: '.35rem' }}>Your Rating</label>

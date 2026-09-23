@@ -371,13 +371,13 @@ export default function Navbar() {
                       {img && <Image src={img} alt="" width={38} height={38} sizes="38px" style={{ width: 38, height: 38, objectFit: 'cover', borderRadius: 6, flexShrink: 0, background: '#f6f6f6' }} />}
                       <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
                         <span style={{ fontSize: '.85rem', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</span>
-                        <span style={{ fontSize: '.78rem', color: '#a7354d', fontWeight: 700 }}>₹{finalUnitPrice(p).toLocaleString('en-IN')}</span>
+                        <span style={{ fontSize: '.78rem', color: '#722f37', fontWeight: 700 }}>₹{finalUnitPrice(p).toLocaleString('en-IN')}</span>
                       </span>
                     </Link>
                   );
                 })}
                 <button type="submit"
-                  style={{ width: '100%', textAlign: 'left', padding: '.55rem .7rem', background: '#faf6f2', border: 'none', color: '#a7354d', fontWeight: 700, fontSize: '.82rem', cursor: 'pointer' }}>
+                  style={{ width: '100%', textAlign: 'left', padding: '.55rem .7rem', background: '#faf6f2', border: 'none', color: '#722f37', fontWeight: 700, fontSize: '.82rem', cursor: 'pointer' }}>
                   See all results for “{search.trim()}” →
                 </button>
               </div>
@@ -557,7 +557,7 @@ export default function Navbar() {
           <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,.5)' }} onClick={() => setAccountOpen(false)} />
           <nav style={{ position: 'absolute', top: 0, right: 0, bottom: 0, width: '286px', background: '#fff', padding: '1.25rem 0', overflowY: 'auto', boxShadow: '-4px 0 16px rgba(0,0,0,.15)' }}>
             <div style={{ padding: '0 1.25rem 1rem', borderBottom: '1px solid #eee', marginBottom: '.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <strong style={{ color: '#a7354d', fontSize: '1.05rem' }}>{isLoggedIn && customerName ? `Hi, ${customerName}` : 'My Account'}</strong>
+              <strong style={{ color: '#722f37', fontSize: '1.05rem' }}>{isLoggedIn && customerName ? `Hi, ${customerName}` : 'My Account'}</strong>
               <button onClick={() => setAccountOpen(false)} aria-label="Close account" style={{ background: 'none', border: 'none', fontSize: '1.3rem', cursor: 'pointer', color: '#888' }}><span aria-hidden="true">✕</span></button>
             </div>
             {isLoggedIn ? (
@@ -584,14 +584,14 @@ export default function Navbar() {
                 ))}
                 <button type="button"
                   onClick={() => { logout(); resetLoginForm(); setAccountOpen(false); window.dispatchEvent(new Event('auth-changed')); router.push('/account'); }}
-                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '.4rem', width: '100%', padding: '.65rem', color: '#fff', fontSize: '.92rem', background: '#a7354d', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: 700, margin: '.8rem 0 .3rem' }}>
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '.4rem', width: '100%', padding: '.65rem', color: '#fff', fontSize: '.92rem', background: '#722f37', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: 700, margin: '.8rem 0 .3rem' }}>
                   🔓 Logout
                 </button>
               </div>
             ) : (
               <div style={{ padding: '0 1.25rem' }}>
                 <button type="button" onClick={() => { setAccountOpen(false); openLogin(); }}
-                  style={{ display: 'block', width: '100%', padding: '.72rem', color: '#fff', fontSize: '.95rem', background: '#a7354d', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: 700, marginBottom: '.8rem' }}>
+                  style={{ display: 'block', width: '100%', padding: '.72rem', color: '#fff', fontSize: '.95rem', background: '#722f37', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: 700, marginBottom: '.8rem' }}>
                   🔑 Login / Signup
                 </button>
                 <Link href="/wishlist" onClick={() => setAccountOpen(false)} style={{ display: 'block', padding: '.6rem .25rem', color: '#444', fontSize: '.92rem', textDecoration: 'none', borderBottom: '1px solid #f5f5f5' }}>❤️ Wishlist</Link>
@@ -614,7 +614,7 @@ export default function Navbar() {
             boxShadow: '4px 0 16px rgba(0,0,0,.15)',
           }}>
             <div style={{ padding: '0 1.25rem 1rem', borderBottom: '1px solid #eee', marginBottom: '.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <strong style={{ color: '#a7354d', fontSize: '1.05rem' }}>Categories</strong>
+              <strong style={{ color: '#722f37', fontSize: '1.05rem' }}>Categories</strong>
               <button onClick={() => setCatOpen(false)} aria-label="Close categories" style={{ background: 'none', border: 'none', fontSize: '1.3rem', cursor: 'pointer', color: '#888' }}><span aria-hidden="true">✕</span></button>
             </div>
             <div style={{ padding: '0 1.25rem' }}>
@@ -648,14 +648,14 @@ export default function Navbar() {
             boxShadow: '4px 0 16px rgba(0,0,0,.15)',
           }}>
             <div style={{ padding: '0 1.25rem 1rem', borderBottom: '1px solid #eee', marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <strong style={{ color: '#a7354d' }}>Mahalaxmi Fashion Hub</strong>
+              <strong style={{ color: '#722f37' }}>Mahalaxmi Fashion Hub</strong>
               <button onClick={() => setMenuOpen(false)} aria-label="Close menu" style={{ background: 'none', border: 'none', fontSize: '1.3rem', cursor: 'pointer', color: '#888' }}><span aria-hidden="true">✕</span></button>
             </div>
 
             {isLoggedIn ? (
               <div style={{ padding: '0 1.25rem 1rem', borderBottom: '1px solid #eee', marginBottom: '1rem' }}>
                 <p style={{ fontSize: '.75rem', fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: '.25rem' }}>My Account</p>
-                {customerName && <p style={{ fontSize: '.85rem', fontWeight: 600, color: '#a7354d', marginBottom: '.5rem' }}>👋 {customerName}</p>}
+                {customerName && <p style={{ fontSize: '.85rem', fontWeight: 600, color: '#722f37', marginBottom: '.5rem' }}>👋 {customerName}</p>}
                 {[
                   { href: '/account', label: '🏠 Dashboard' },
                   { href: '/orders', label: '📦 My Orders' },
@@ -679,7 +679,7 @@ export default function Navbar() {
                 <div style={{ borderTop: '1px solid #f0f0f0', marginTop: '.5rem', paddingTop: '.5rem' }}>
                   <button type="button"
                     onClick={() => { logout(); resetLoginForm(); setMenuOpen(false); window.dispatchEvent(new Event('auth-changed')); router.push('/account'); }}
-                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '.4rem', width: '100%', textAlign: 'center', padding: '.6rem .25rem', color: '#fff', fontSize: '.92rem', background: '#a7354d', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: 700, marginBottom: '.4rem' }}>
+                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '.4rem', width: '100%', textAlign: 'center', padding: '.6rem .25rem', color: '#fff', fontSize: '.92rem', background: '#722f37', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: 700, marginBottom: '.4rem' }}>
                     🔓 Logout
                   </button>
                   <Link href="/account/deactivate" onClick={() => setMenuOpen(false)}
@@ -695,7 +695,7 @@ export default function Navbar() {
             ) : (
               <div style={{ padding: '0 1.25rem 1rem', borderBottom: '1px solid #eee', marginBottom: '1rem' }}>
                 <button type="button" onClick={openLogin}
-                  style={{ display: 'block', width: '100%', textAlign: 'left', padding: '.5rem', color: '#a7354d', fontSize: '.95rem', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700 }}>
+                  style={{ display: 'block', width: '100%', textAlign: 'left', padding: '.5rem', color: '#722f37', fontSize: '.95rem', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700 }}>
                   🔑 Login / Signup
                 </button>
                 <Link href="/wishlist" onClick={() => setMenuOpen(false)}
@@ -738,7 +738,7 @@ export default function Navbar() {
                 { href: 'https://affiliate.mahalaxmifashionhub.com/', label: '💸 Earn With Us' },
               ].map(l => (
                 <Link key={l.href} href={l.href} onClick={() => setMenuOpen(false)}
-                  style={{ display: 'block', padding: '.4rem', color: l.href.startsWith('http') ? '#a7354d' : '#666', fontWeight: l.href.startsWith('http') ? 700 : 400, fontSize: '.85rem', textDecoration: 'none' }}>
+                  style={{ display: 'block', padding: '.4rem', color: l.href.startsWith('http') ? '#722f37' : '#666', fontWeight: l.href.startsWith('http') ? 700 : 400, fontSize: '.85rem', textDecoration: 'none' }}>
                   {l.label}
                 </Link>
               ))}
@@ -759,7 +759,7 @@ export default function Navbar() {
               gap: 0; align-items: stretch; overflow: hidden;
             }
             .mfh-login-logo {
-              background: linear-gradient(160deg, #7a0a22 0%, #a7354d 100%);
+              background: linear-gradient(160deg, #722f37 0%, #722f37 100%);
               display: flex; flex-direction: column; align-items: center;
               justify-content: center; padding: 2rem 1.25rem; text-align: center; gap: .75rem;
             }
@@ -899,7 +899,7 @@ export default function Navbar() {
 
                 {/* Mobile / Email OTP */}
                 <button type="button" onClick={switchToOtp} title="Login with Mobile or Email OTP"
-                  style={{ flex: 1, height: 46, borderRadius: 9, background: loginMode === 'otp' ? '#fdf0f3' : '#fff', color: '#a01836', fontWeight: 700, fontSize: '.82rem', whiteSpace: 'nowrap', letterSpacing: '-.01em', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '.4rem', border: '1.5px solid #ddd', cursor: 'pointer' }}>
+                  style={{ flex: 1, height: 46, borderRadius: 9, background: loginMode === 'otp' ? '#f7eff0' : '#fff', color: '#a01836', fontWeight: 700, fontSize: '.82rem', whiteSpace: 'nowrap', letterSpacing: '-.01em', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '.4rem', border: '1.5px solid #ddd', cursor: 'pointer' }}>
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}><rect x="6" y="2" width="12" height="20" rx="2.6" stroke="#a01836" strokeWidth="1.7"/><line x1="10.4" y1="5" x2="13.6" y2="5" stroke="#a01836" strokeWidth="1.7" strokeLinecap="round"/><circle cx="12" cy="18.6" r="1" fill="#a01836"/></svg>
                   Mobile
                 </button>

@@ -124,7 +124,7 @@ export default async function CollectionPage({ params }: { params: { slug: strin
       {/* SEO copy + FAQ (FAQPage rich-result eligible) */}
       <section style={{ background: '#fafafa', borderTop: '1px solid #eee', padding: '2rem 1.5rem' }}>
         <div style={{ maxWidth: '900px', margin: '0 auto' }}>
-          <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#5c1a28', margin: '0 0 .9rem' }}>{def.h1} — Mahalaxmi Fashion Hub</h2>
+          <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#4a1f27', margin: '0 0 .9rem' }}>{def.h1} — Mahalaxmi Fashion Hub</h2>
           {def.intro.map((p, i) => (
             <p key={i} style={{ color: '#555', fontSize: '.92rem', lineHeight: 1.65, margin: '0 0 .8rem' }}>{p}</p>
           ))}
@@ -144,7 +144,7 @@ export default async function CollectionPage({ params }: { params: { slug: strin
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '.5rem' }}>
             {others.map(s => (
               <Link key={s} href={`/collections/${s}`}
-                style={{ background: '#fff', border: '1px solid #e5d5d5', borderRadius: '999px', padding: '.4rem .95rem', fontSize: '.85rem', fontWeight: 600, color: '#7a0a22', textDecoration: 'none' }}>
+                style={{ background: '#fff', border: '1px solid #e6dcdc', borderRadius: '999px', padding: '.4rem .95rem', fontSize: '.85rem', fontWeight: 600, color: '#722f37', textDecoration: 'none' }}>
                 {all[s].label}
               </Link>
             ))}

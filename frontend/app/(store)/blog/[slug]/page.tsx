@@ -91,7 +91,7 @@ export default async function BlogPostPage({ params }: { params: { slug: string 
       </main>
 
       <style>{`
-        .blog-article h2 { font-size: 1.2rem; font-weight: 700; color: #5c1a28; margin: 1.6rem 0 .6rem; }
+        .blog-article h2 { font-size: 1.2rem; font-weight: 700; color: #4a1f27; margin: 1.6rem 0 .6rem; }
         .blog-article p { margin: 0 0 .9rem; }
         .blog-article ul { margin: 0 0 1rem 1.25rem; }
         .blog-article li { margin: 0 0 .35rem; }

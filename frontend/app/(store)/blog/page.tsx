@@ -28,9 +28,9 @@ export default async function BlogIndexPage() {
           {posts.map(p => (
             <Link key={p.slug} href={`/blog/${p.slug}`}
               style={{ display: 'block', background: '#fff', border: '1px solid #eee', borderRadius: '12px', padding: '1.25rem 1.4rem', textDecoration: 'none', boxShadow: '0 1px 4px rgba(0,0,0,.04)' }}>
-              <h2 style={{ fontSize: '1.15rem', fontWeight: 700, color: '#5c1a28', margin: '0 0 .35rem' }}>{p.title}</h2>
+              <h2 style={{ fontSize: '1.15rem', fontWeight: 700, color: '#4a1f27', margin: '0 0 .35rem' }}>{p.title}</h2>
               <p style={{ color: '#666', fontSize: '.9rem', lineHeight: 1.6, margin: '0 0 .5rem' }}>{p.excerpt}</p>
-              <span style={{ color: '#a7354d', fontSize: '.82rem', fontWeight: 600 }}>
+              <span style={{ color: '#722f37', fontSize: '.82rem', fontWeight: 600 }}>
                 Read more → <span style={{ color: '#aaa', fontWeight: 400 }}>· {p.readMinutes} min read</span>
               </span>
             </Link>

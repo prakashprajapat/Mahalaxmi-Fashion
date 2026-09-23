@@ -125,7 +125,7 @@ function AccountContent() {
       <main className="account-shell" style={{ display: 'block' }}>
         <style>{`
           .acct-menu { display:grid; grid-template-columns:repeat(4,1fr); gap:.85rem; margin-bottom:1.5rem; }
-          .acct-menu a { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:.45rem; text-align:center; padding:1.1rem .5rem; background:#fff; border:1px solid #f0dfe4; border-radius:14px; text-decoration:none; color:#7a0a22; font-weight:600; font-size:.86rem; box-shadow:0 2px 8px rgba(122,10,34,.05); transition:transform .12s ease, box-shadow .12s ease, background .12s ease; }
+          .acct-menu a { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:.45rem; text-align:center; padding:1.1rem .5rem; background:#fff; border:1px solid #f0dfe4; border-radius:14px; text-decoration:none; color:#722f37; font-weight:600; font-size:.86rem; box-shadow:0 2px 8px rgba(122,10,34,.05); transition:transform .12s ease, box-shadow .12s ease, background .12s ease; }
           .acct-menu a:hover { transform:translateY(-2px); box-shadow:0 6px 16px rgba(122,10,34,.14); background:#fff6f8; }
           .acct-menu .ico { font-size:1.5rem; line-height:1; }
           @media (max-width:900px){ .acct-menu { grid-template-columns:repeat(3,1fr); } }
@@ -173,7 +173,7 @@ function AccountContent() {
             </div>
             <div style={{ marginTop: '1.25rem', textAlign: 'right' }}>
               <button type="button" onClick={handleLogout}
-                style={{ display: 'inline-flex', alignItems: 'center', gap: '.4rem', padding: '.6rem 1.4rem', background: '#a7354d', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: 700, fontSize: '.9rem', cursor: 'pointer' }}>
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '.4rem', padding: '.6rem 1.4rem', background: '#722f37', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: 700, fontSize: '.9rem', cursor: 'pointer' }}>
                 🔓 Logout
               </button>
             </div>
@@ -209,7 +209,7 @@ function AccountContent() {
           overflow: hidden;
         }
         .mfh-account-login-logo {
-          background: linear-gradient(160deg,#7a0a22 0%,#a7354d 100%);
+          background: linear-gradient(160deg,#722f37 0%,#722f37 100%);
           display: flex;
           flex-direction: column;
           align-items: center;
@@ -357,7 +357,7 @@ function AccountContent() {
 
               {/* Mobile / Email OTP */}
               <button type="button" onClick={switchToOtp} title="Login with Mobile or Email OTP"
-                style={{ flex:1, height:46, borderRadius:9, background: loginMode === 'otp' ? '#fdf0f3' : '#fff', color:'#a01836', fontWeight:700, fontSize:'.82rem', whiteSpace:'nowrap', letterSpacing:'-.01em', display:'flex', alignItems:'center', justifyContent:'center', gap:'.4rem', border: '1.5px solid #ddd', cursor:'pointer' }}>
+                style={{ flex:1, height:46, borderRadius:9, background: loginMode === 'otp' ? '#f7eff0' : '#fff', color:'#a01836', fontWeight:700, fontSize:'.82rem', whiteSpace:'nowrap', letterSpacing:'-.01em', display:'flex', alignItems:'center', justifyContent:'center', gap:'.4rem', border: '1.5px solid #ddd', cursor:'pointer' }}>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" style={{ flexShrink:0 }}><rect x="6" y="2" width="12" height="20" rx="2.6" stroke="#a01836" strokeWidth="1.7"/><line x1="10.4" y1="5" x2="13.6" y2="5" stroke="#a01836" strokeWidth="1.7" strokeLinecap="round"/><circle cx="12" cy="18.6" r="1" fill="#a01836"/></svg>
                 Mobile
               </button>

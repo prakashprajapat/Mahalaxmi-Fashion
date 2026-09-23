@@ -16,7 +16,7 @@ export default function TrustBadges() {
           <div key={it.title} style={{ display: 'flex', alignItems: 'center', gap: '.6rem' }}>
             <span aria-hidden="true" style={{ fontSize: '1.35rem', lineHeight: 1 }}>{it.icon}</span>
             <span>
-              <span style={{ display: 'block', fontWeight: 800, fontSize: '.82rem', color: '#5c1a28' }}>{it.title}</span>
+              <span style={{ display: 'block', fontWeight: 800, fontSize: '.82rem', color: '#4a1f27' }}>{it.title}</span>
               <span style={{ display: 'block', fontSize: '.72rem', color: '#8a7a70' }}>{it.sub}</span>
             </span>
           </div>
@@ -25,7 +25,7 @@ export default function TrustBadges() {
       <div style={{ marginTop: '.8rem', paddingTop: '.7rem', borderTop: '1px dashed #eadfe2', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '.4rem', justifyContent: 'center' }}>
         <span style={{ fontSize: '.7rem', fontWeight: 700, color: '#8a7a70', letterSpacing: '.04em', textTransform: 'uppercase' }}>We accept</span>
         {methods.map(m => (
-          <span key={m} style={{ fontSize: '.68rem', fontWeight: 800, color: '#5c1a28', background: '#fff', border: '1px solid #eadfe2', borderRadius: 6, padding: '.18rem .5rem' }}>{m}</span>
+          <span key={m} style={{ fontSize: '.68rem', fontWeight: 800, color: '#4a1f27', background: '#fff', border: '1px solid #eadfe2', borderRadius: 6, padding: '.18rem .5rem' }}>{m}</span>
         ))}
       </div>
     </div>

@@ -29,7 +29,7 @@ export default function NotFound() {
         .nf-code {
           font-size: 6rem;
           font-weight: 900;
-          color: #a7354d;
+          color: #722f37;
           line-height: 1;
           margin: 0 0 .5rem;
           letter-spacing: -.04em;
@@ -57,7 +57,7 @@ export default function NotFound() {
         .nf-divider {
           width: 48px;
           height: 3px;
-          background: linear-gradient(90deg, #7a0a22, #a7354d);
+          background: linear-gradient(90deg, #722f37, #722f37);
           border-radius: 2px;
           margin: 0 auto 2rem;
         }
@@ -87,7 +87,7 @@ export default function NotFound() {
           transition: background .2s, color .2s;
         }
         .nf-links a:hover {
-          background: #a7354d;
+          background: #722f37;
           color: #fff;
         }
       `}</style>

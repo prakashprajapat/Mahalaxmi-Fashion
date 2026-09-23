@@ -1,8 +1,9 @@
 import type { Metadata } from 'next';
 import { productsApi, settingsApi } from '@/lib/api';
-import ProductsClient from '@/components/products/ProductsClient';
 import HomeHero from '@/components/home/HomeHero';
 import OfferBanner from '@/components/home/OfferBanner';
+import CategoryTiles from '@/components/home/CategoryTiles';
+import ProductEdit from '@/components/home/ProductEdit';
 import GoogleReviews from '@/components/reviews/GoogleReviews';
 import FaqSection from '@/components/home/FaqSection';
 import { toListingProducts } from '@/lib/listingProduct';
@@ -36,6 +37,18 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function HomePage() {
   const { products } = await productsApi.getAll({ pageSize: 200 }).catch(() => ({ products: [] as any[] }));
+  const all = toListingProducts(products as any[]);
+
+  // The homepage used to be the whole catalogue with a filter sidebar, which is
+  // what a category page is for. It is a shop front now: where things are, then
+  // two short runs of products, with the full filterable grid one tap away from
+  // every one of them. Nothing is hidden — /products still holds all of it.
+  const newest = [...all].sort((a, b) => b.dbId - a.dbId);
+  const loved = all.filter(p => p.bestSeller);
+  // If nothing is marked a best seller, fall back to what sells rather than
+  // showing an empty band or, worse, repeating the row above.
+  const mostLoved = (loved.length >= 4 ? loved : [...all].sort((a, b) => (b.soldCount ?? 0) - (a.soldCount ?? 0)))
+    .filter(p => !newest.slice(0, 4).some(n => n.dbId === p.dbId));
 
   return (
     <>
@@ -43,13 +56,27 @@ export default async function HomePage() {
       <HomeHero />
       <OfferBanner />
 
-      {/* FULL, filterable product listing — ALL products, on desktop / tablet / mobile / app.
-          (Previously the desktop home page showed only curated Best Sellers + New Arrivals;
-          now the whole catalogue appears everywhere, like the category pages.) */}
-      <ProductsClient products={toListingProducts(products as any[])} title="" />
+      <CategoryTiles products={all} />
+
+      <ProductEdit
+        eyebrow="The edit"
+        title="New this week"
+        products={newest}
+        href="/products"
+        hrefLabel={`See all ${all.length}`}
+        priority
+      />
+
+      <ProductEdit
+        eyebrow="Bought most often"
+        title="Most loved"
+        products={mostLoved}
+        href="/best-sellers"
+        hrefLabel="See all"
+      />
 
       {/* Desktop-only trust + SEO sections below the listing */}
-      <div className="home-desktop">
+      <div className="home-desktop" style={{ marginTop: 'clamp(2.5rem, 5vw, 4.5rem)' }}>
         {/* Live Google rating + reviews (renders only once configured in admin Settings) */}
         <GoogleReviews />
         {/* SEO: FAQ rich results + AI Overviews (visible accordion + FAQPage schema) */}

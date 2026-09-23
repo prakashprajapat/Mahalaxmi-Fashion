@@ -1,63 +1,81 @@
+import Link from 'next/link';
 import HeroMedia from '@/components/home/HeroMedia';
 import TrustStrip from '@/components/home/TrustStrip';
 
-// Elegant serif for the hero — matches the "Mahalaxmi" wordmark. Loaded via <link> in layout.tsx.
-const HERO_FONT = "var(--font-playfair), Georgia, serif";
+// The first screen.
+//
+// It used to be a gold-bordered panel with three emoji badges and a
+// "Tradition | Style | Quality" bar under the headline. All of that was work
+// the headline was already doing, and emoji plus a decorative border is the
+// look of a template rather than a shop. What is left is the sentence, one
+// line under it, and one button — on a quiet ground, with the photograph
+// carrying the colour.
+//
+// HeroMedia stays exactly as it is: the video and up to three photos are set
+// in Admin → Settings → Homepage Hero, and that control is not something a
+// redesign should take away.
 
-/* Home hero banner (no "Shop Now" CTA). Rendered between the filter chips and the
-   product grid on mobile, and at the top of the desktop home. */
+const SERIF = 'var(--font-playfair), Georgia, serif';
+
 export default function HomeHero() {
   return (
     <>
-      <section style={{
-        position: 'relative',
-        background: 'linear-gradient(180deg, #faf3e6 0%, #f3e6cb 100%)',
-        padding: 'clamp(.75rem, 1.6vw, 1.15rem) 1.15rem',
-      }}>
-        <div aria-hidden="true" style={{ position: 'absolute', inset: '7px', border: '1.5px solid rgba(201,162,75,.55)', borderRadius: '12px', pointerEvents: 'none' }} />
-
+      <section className="hero-shell" style={{ background: '#f6f1ea' }}>
         <div className="hero-grid" style={{
-          maxWidth: 1500, margin: '0 auto', position: 'relative',
-          display: 'grid', gridTemplateColumns: '1.25fr .75fr',
-          gap: 'clamp(.75rem, 2.5vw, 1.75rem)', alignItems: 'center',
+          maxWidth: 'var(--shell)', margin: '0 auto',
+          display: 'grid', gridTemplateColumns: '1fr 1fr', alignItems: 'stretch',
         }}>
-          <div>
-            <h1 className="hero-copy" style={{ fontFamily: HERO_FONT, fontSize: 'clamp(1.05rem, 2.7vw, 1.9rem)', fontWeight: 800, lineHeight: 1.25, color: '#5c1a28', margin: '0 0 .3rem' }}>
-              Every Look, A New Experience
+          <div className="hero-copy-col" style={{
+            display: 'flex', flexDirection: 'column', justifyContent: 'center',
+            gap: 'clamp(.7rem, 1.5vw, 1.3rem)',
+            padding: 'clamp(2rem, 5vw, 4.5rem) clamp(1.25rem, 4vw, 4rem)',
+          }}>
+            <span style={{
+              fontSize: '.66rem', letterSpacing: '.32em', textTransform: 'uppercase',
+              color: '#8a7f76', fontWeight: 600,
+            }}>
+              Balotra, Rajasthan
+            </span>
+
+            <h1 style={{
+              margin: 0, fontFamily: SERIF, fontWeight: 400,
+              fontSize: 'clamp(1.9rem, 5vw, 4rem)', lineHeight: 1.06,
+              letterSpacing: '-0.01em', color: '#1e1b19',
+            }}>
+              Every look,<br />a new experience
             </h1>
-            <p className="hero-copy" style={{ fontFamily: HERO_FONT, fontSize: 'clamp(1.05rem, 2.7vw, 1.9rem)', fontWeight: 600, lineHeight: 1.25, color: 'rgba(92,26,40,.8)', margin: '0 0 1rem' }}>
+
+            <p style={{
+              margin: 0, fontSize: 'clamp(.9rem, 1.4vw, 1.05rem)', lineHeight: 1.7,
+              color: '#554c46', maxWidth: '26rem',
+            }}>
               Discover quality fashion designed to make every moment special.
             </p>
 
-            <div className="hero-badge-row" style={{ display: 'flex', gap: 'clamp(.8rem, 2.5vw, 1.6rem)', flexWrap: 'wrap', marginTop: '1.1rem' }}>
-              {[
-                { icon: '🏅', label: 'Premium Quality' },
-                { icon: '🌿', label: 'Comfort Fabrics' },
-                { icon: '🛍️', label: 'Trusted Shopping' },
-              ].map(b => (
-                <div key={b.label} style={{ display: 'flex', alignItems: 'center', gap: '.4rem', color: '#5c1a28' }}>
-                  <span style={{ fontSize: '1.15rem' }} aria-hidden="true">{b.icon}</span>
-                  <span style={{ fontSize: '.72rem', fontWeight: 700 }}>{b.label}</span>
-                </div>
-              ))}
-            </div>
-
-            <p style={{ fontSize: '.72rem', textTransform: 'uppercase', letterSpacing: '.24em', color: '#8a2a3e', fontWeight: 800, margin: '.7rem 0 0' }}>
-              Tradition &nbsp;|&nbsp; Style &nbsp;|&nbsp; Quality
-            </p>
+            <Link href="/products" className="hero-cta" style={{
+              alignSelf: 'flex-start', marginTop: '.4rem',
+              padding: '1rem 2.4rem', background: '#1e1b19', color: '#fbf8f4',
+              fontSize: '.72rem', letterSpacing: '.2em', textTransform: 'uppercase',
+              fontWeight: 600, textDecoration: 'none',
+            }}>
+              Shop the new season
+            </Link>
           </div>
 
-          <HeroMedia />
+          <div className="hero-media-col" style={{ display: 'flex' }}>
+            <HeroMedia />
+          </div>
         </div>
       </section>
+
       <style>{`
-        .hero-copy { white-space: normal; }
-        @media (max-width: 768px) {
-          .hero-grid { grid-template-columns: 1fr !important; }
+        .hero-media-col > * { width: 100%; }
+        @media (max-width: 860px) {
+          .hero-grid { grid-template-columns: 1fr; }
+          .hero-media-col { order: -1; }
         }
       `}</style>
 
-      {/* Trust signals right below the hero (Secure Payment, Returns, Genuine, Delivery) */}
       <TrustStrip />
     </>
   );

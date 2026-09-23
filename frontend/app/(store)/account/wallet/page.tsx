@@ -77,7 +77,7 @@ export default function WalletPage() {
         name: 'Mahalaxmi Fashion Hub',
         description: 'Add money to wallet',
         prefill: { name: `${cust.firstName} ${cust.lastName}`.trim(), contact: cust.phone, email: cust.email || '' },
-        theme: { color: '#a7354d' },
+        theme: { color: '#722f37' },
         handler: async (r: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) => {
           try {
             await paymentsApi.verify({ razorpayOrderId: r.razorpay_order_id, razorpayPaymentId: r.razorpay_payment_id, razorpaySignature: r.razorpay_signature });
@@ -109,14 +109,14 @@ export default function WalletPage() {
   return (
     <div style={{ maxWidth: 720, margin: '0 auto', padding: '1.25rem 1rem 3rem' }}>
       <div style={{ marginBottom: '1rem' }}>
-        <Link href="/account" style={{ color: '#a7354d', textDecoration: 'none', fontSize: '.9rem', fontWeight: 600 }}>← Back to Account</Link>
+        <Link href="/account" style={{ color: '#722f37', textDecoration: 'none', fontSize: '.9rem', fontWeight: 600 }}>← Back to Account</Link>
       </div>
 
       <h1 style={{ fontSize: '1.35rem', fontWeight: 800, color: '#1a1a1a', margin: '0 0 1rem' }}>My Wallet</h1>
 
       {/* Balance card */}
       <div style={{
-        background: 'linear-gradient(135deg, #7a0a22 0%, #a7354d 100%)', color: '#fff',
+        background: 'linear-gradient(135deg, #722f37 0%, #722f37 100%)', color: '#fff',
         borderRadius: 16, padding: '1.5rem 1.5rem', boxShadow: '0 8px 24px rgba(122,10,34,.28)', marginBottom: '1.5rem',
       }}>
         <div style={{ fontSize: '.85rem', opacity: .9, letterSpacing: '.03em' }}>Available Balance</div>
@@ -127,7 +127,7 @@ export default function WalletPage() {
           Earn rewards on every delivered order and use them on your next purchase.
         </div>
         <button onClick={() => { setShowAdd(true); setAddMsg(''); setAddAmt(''); }}
-          style={{ marginTop: '1rem', background: '#fff', color: '#7a0a22', border: 'none', borderRadius: 10, padding: '.6rem 1.4rem', fontWeight: 800, fontSize: '.9rem', cursor: 'pointer' }}>
+          style={{ marginTop: '1rem', background: '#fff', color: '#722f37', border: 'none', borderRadius: 10, padding: '.6rem 1.4rem', fontWeight: 800, fontSize: '.9rem', cursor: 'pointer' }}>
           ➕ Add Money
         </button>
       </div>
@@ -143,7 +143,7 @@ export default function WalletPage() {
             <div style={{ display: 'flex', gap: '.5rem', marginBottom: '.75rem' }}>
               {[100, 200, 500, 1000].map(v => (
                 <button key={v} onClick={() => setAddAmt(String(v))}
-                  style={{ flex: 1, padding: '.5rem 0', borderRadius: 8, border: `1.5px solid ${addAmt === String(v) ? '#a7354d' : '#ddd'}`, background: addAmt === String(v) ? '#fdf0f3' : '#fff', color: '#a7354d', fontWeight: 700, fontSize: '.85rem', cursor: 'pointer' }}>₹{v}</button>
+                  style={{ flex: 1, padding: '.5rem 0', borderRadius: 8, border: `1.5px solid ${addAmt === String(v) ? '#722f37' : '#ddd'}`, background: addAmt === String(v) ? '#f7eff0' : '#fff', color: '#722f37', fontWeight: 700, fontSize: '.85rem', cursor: 'pointer' }}>₹{v}</button>
               ))}
             </div>
             <input type="number" min={100} value={addAmt} onChange={e => setAddAmt(e.target.value)} placeholder="Enter amount (₹)"
@@ -153,7 +153,7 @@ export default function WalletPage() {
               <button onClick={() => setShowAdd(false)} disabled={addBusy}
                 style={{ flex: 1, padding: '.7rem', borderRadius: 8, border: '1.5px solid #ddd', background: '#fff', fontWeight: 600, cursor: 'pointer' }}>Cancel</button>
               <button onClick={handleAddMoney} disabled={addBusy}
-                style={{ flex: 2, padding: '.7rem', borderRadius: 8, border: 'none', background: 'linear-gradient(180deg,#a7354d,#8e2a3f)', color: '#fff', fontWeight: 800, cursor: 'pointer', opacity: addBusy ? .7 : 1 }}>
+                style={{ flex: 2, padding: '.7rem', borderRadius: 8, border: 'none', background: 'linear-gradient(180deg,#722f37,#8e2a3f)', color: '#fff', fontWeight: 800, cursor: 'pointer', opacity: addBusy ? .7 : 1 }}>
                 {addBusy ? 'Processing…' : `Pay ₹${addAmt || 0}`}
               </button>
             </div>

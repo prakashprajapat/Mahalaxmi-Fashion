@@ -66,7 +66,7 @@ export default function FloatingCart() {
         .floating-cart-bar {
           position: fixed; bottom: 0; left: 0; right: 0; z-index: 460;
           /* website (wine) colour */
-          background: linear-gradient(180deg,#7a0a22 0%, #5c1420 100%);
+          background: linear-gradient(180deg,#722f37 0%, #5c1420 100%);
           animation: floatUp .35s ease;
           box-shadow: 0 -4px 24px rgba(0,0,0,.28);
         }
@@ -90,7 +90,7 @@ export default function FloatingCart() {
           white-space: nowrap;
         }
         .fcart-checkout {
-          background: #ffffff; color: #7a0a22;
+          background: #ffffff; color: #722f37;
           border: none; border-radius: 8px;
           padding: .5rem 1.1rem; font-size: .86rem; font-weight: 800; cursor: pointer;
           white-space: nowrap;

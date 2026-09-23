@@ -138,7 +138,7 @@ export default function PushOptIn() {
     >
       <div style={{
         flexShrink: 0, width: 42, height: 42, borderRadius: '50%',
-        background: 'linear-gradient(180deg,#7a0a22,#5c1420)', color: '#fff',
+        background: 'linear-gradient(180deg,#722f37,#5c1420)', color: '#fff',
         display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.25rem',
       }}>🔔</div>
       <div style={{ flex: 1, minWidth: 0 }}>
@@ -151,7 +151,7 @@ export default function PushOptIn() {
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '.35rem', flexShrink: 0 }}>
         <button onClick={allow} disabled={busy}
-          style={{ background: '#7a0a22', color: '#fff', border: 'none', borderRadius: 8, padding: '.45rem .8rem', fontWeight: 700, fontSize: '.82rem', cursor: busy ? 'default' : 'pointer', whiteSpace: 'nowrap' }}>
+          style={{ background: '#722f37', color: '#fff', border: 'none', borderRadius: 8, padding: '.45rem .8rem', fontWeight: 700, fontSize: '.82rem', cursor: busy ? 'default' : 'pointer', whiteSpace: 'nowrap' }}>
           {busy ? '…' : 'Allow'}
         </button>
         <button onClick={dismiss}

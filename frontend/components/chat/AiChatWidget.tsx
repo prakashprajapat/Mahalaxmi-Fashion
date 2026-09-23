@@ -5,7 +5,7 @@ import { getCustomer } from '@/lib/auth';
 
 type Msg = { role: 'user' | 'assistant'; content: string };
 
-const BRAND = '#a7354d';
+const BRAND = '#722f37';
 const BRAND_DARK = '#7d1f34';
 type Lead = { name: string; phone: string };
 const LEAD_KEY = 'mfh-chat-lead';
@@ -185,7 +185,7 @@ export default function AiChatWidget() {
                 Namaste! 🙏 Before we start, please tell me your name and mobile number so I can help you better.
               </div>
 
-              <label style={{ fontSize: '.76rem', fontWeight: 700, color: '#5c1a28', marginTop: '.2rem' }}>Your Name</label>
+              <label style={{ fontSize: '.76rem', fontWeight: 700, color: '#4a1f27', marginTop: '.2rem' }}>Your Name</label>
               <input
                 value={leadForm.name}
                 onChange={e => { setLeadForm(f => ({ ...f, name: e.target.value })); setLeadErr(''); }}
@@ -195,9 +195,9 @@ export default function AiChatWidget() {
                 style={{ border: '1.5px solid #e0d5d5', borderRadius: 10, padding: '.6rem .8rem', fontSize: '.88rem', outline: 'none' }}
               />
 
-              <label style={{ fontSize: '.76rem', fontWeight: 700, color: '#5c1a28' }}>Mobile Number</label>
+              <label style={{ fontSize: '.76rem', fontWeight: 700, color: '#4a1f27' }}>Mobile Number</label>
               <div style={{ display: 'flex', alignItems: 'stretch', border: '1.5px solid #e0d5d5', borderRadius: 10, overflow: 'hidden', background: '#fff' }}>
-                <span style={{ display: 'flex', alignItems: 'center', padding: '0 .6rem', background: '#f6f0f1', fontSize: '.85rem', fontWeight: 700, color: '#5c1a28', borderRight: '1.5px solid #e0d5d5' }}>+91</span>
+                <span style={{ display: 'flex', alignItems: 'center', padding: '0 .6rem', background: '#f6f0f1', fontSize: '.85rem', fontWeight: 700, color: '#4a1f27', borderRight: '1.5px solid #e0d5d5' }}>+91</span>
                 <input
                   value={leadForm.phone}
                   onChange={e => { setLeadForm(f => ({ ...f, phone: e.target.value.replace(/\D/g, '').slice(0, 10) })); setLeadErr(''); }}

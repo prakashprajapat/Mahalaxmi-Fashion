@@ -125,11 +125,11 @@ export default function AccountEditPage() {
             <div style={{ width: 74, height: 74, borderRadius: '50%', overflow: 'hidden', background: '#faf0ec', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, border: '2px solid #f0dfe4' }}>
               {customer.photoUrl
                 ? <img src={customer.photoUrl} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                : <span style={{ fontSize: '1.9rem', fontWeight: 800, color: '#a7354d' }}>{(customer.firstName || '?').charAt(0).toUpperCase()}</span>}
+                : <span style={{ fontSize: '1.9rem', fontWeight: 800, color: '#722f37' }}>{(customer.firstName || '?').charAt(0).toUpperCase()}</span>}
             </div>
             <div>
               <h2 style={{ margin: '0 0 .35rem' }}>Profile Photo</h2>
-              <label style={{ display: 'inline-block', padding: '.5rem 1rem', background: photoBusy ? '#c98a99' : '#a7354d', color: '#fff', borderRadius: 8, cursor: photoBusy ? 'default' : 'pointer', fontWeight: 700, fontSize: '.85rem' }}>
+              <label style={{ display: 'inline-block', padding: '.5rem 1rem', background: photoBusy ? '#c98a99' : '#722f37', color: '#fff', borderRadius: 8, cursor: photoBusy ? 'default' : 'pointer', fontWeight: 700, fontSize: '.85rem' }}>
                 {photoBusy ? 'Uploading…' : (customer.photoUrl ? 'Change Photo' : 'Upload Photo')}
                 <input type="file" accept="image/*" onChange={handlePhoto} disabled={photoBusy} style={{ display: 'none' }} />
               </label>

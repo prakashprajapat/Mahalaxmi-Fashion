@@ -77,12 +77,12 @@ export default function ImageCropper({ src, onCancel, onCrop }: {
       </div>
       <input type="range" min={minScale} max={minScale * 3} step="any" value={scale}
         onChange={e => onZoom(parseFloat(e.target.value))}
-        style={{ width: VIEW, margin: '1.25rem 0', accentColor: '#a7354d' }} aria-label="Zoom" />
+        style={{ width: VIEW, margin: '1.25rem 0', accentColor: '#722f37' }} aria-label="Zoom" />
       <div style={{ display: 'flex', gap: '.75rem' }}>
         <button type="button" onClick={onCancel}
           style={{ padding: '.6rem 1.4rem', borderRadius: 10, border: '1.5px solid #fff', background: 'transparent', color: '#fff', fontWeight: 700, cursor: 'pointer' }}>Cancel</button>
         <button type="button" onClick={save}
-          style={{ padding: '.6rem 1.8rem', borderRadius: 10, border: 'none', background: '#a7354d', color: '#fff', fontWeight: 800, cursor: 'pointer' }}>Set Photo</button>
+          style={{ padding: '.6rem 1.8rem', borderRadius: 10, border: 'none', background: '#722f37', color: '#fff', fontWeight: 800, cursor: 'pointer' }}>Set Photo</button>
       </div>
     </div>
   );

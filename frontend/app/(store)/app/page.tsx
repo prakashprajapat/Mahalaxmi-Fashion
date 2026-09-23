@@ -32,7 +32,7 @@ export default function GetAppPage() {
             You are reading this inside it. Carry on shopping — your offer code works at checkout.
           </p>
           <Link href="/products"
-            style={{ display: 'inline-block', background: '#a7354d', color: '#fff', borderRadius: 10, padding: '.85rem 1.9rem', fontWeight: 700, fontSize: '1rem', textDecoration: 'none' }}>
+            style={{ display: 'inline-block', background: '#722f37', color: '#fff', borderRadius: 10, padding: '.85rem 1.9rem', fontWeight: 700, fontSize: '1rem', textDecoration: 'none' }}>
             Start shopping
           </Link>
         </>
@@ -46,12 +46,12 @@ export default function GetAppPage() {
           </p>
 
           <a href={PLAY_URL} rel="noopener"
-            style={{ display: 'inline-block', background: '#a7354d', color: '#fff', borderRadius: 10, padding: '.85rem 1.9rem', fontWeight: 700, fontSize: '1rem', textDecoration: 'none' }}>
+            style={{ display: 'inline-block', background: '#722f37', color: '#fff', borderRadius: 10, padding: '.85rem 1.9rem', fontWeight: 700, fontSize: '1rem', textDecoration: 'none' }}>
             Get it on Google Play
           </a>
 
           <p style={{ margin: '1.5rem 0 0', fontSize: '.9rem' }}>
-            <Link href="/products" style={{ color: '#a7354d', fontWeight: 600 }}>
+            <Link href="/products" style={{ color: '#722f37', fontWeight: 600 }}>
               Or shop on the website
             </Link>
           </p>
