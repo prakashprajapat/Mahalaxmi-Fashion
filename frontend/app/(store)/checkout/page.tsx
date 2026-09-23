@@ -705,7 +705,7 @@ export default function CheckoutPage() {
     <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '2.5rem 1.5rem' }}>
       <script src="https://sdk.cashfree.com/js/v3/cashfree.js" async />
       <script src="https://checkout.razorpay.com/v1/checkout.js" async />
-      <style>{`
+      <style dangerouslySetInnerHTML={{ __html: `
         /* Grid items default to min-width:auto, which refuses to shrink below their
            content and pushes the layout off-screen (the bug seen in the mobile app).
            min-width:0 lets tracks actually shrink so nothing overflows to the right. */
@@ -717,7 +717,7 @@ export default function CheckoutPage() {
           .checkout-pan-grid { grid-template-columns: minmax(0, 1fr) !important; }
           .checkout-summary { position: static !important; }
         }
-      `}</style>
+      ` }} />
       <h1 style={{ fontSize: '1.75rem', fontWeight: 700, marginBottom: '1.5rem', color: '#722f37' }}>Checkout</h1>
 
       <div className="checkout-outer-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 320px', gap: '2rem', alignItems: 'start' }}>

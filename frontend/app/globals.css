@@ -1543,15 +1543,36 @@ a.footer-app-btn.footer-app-live:hover{ background:rgba(255,255,255,.16); transf
 /* The greeting-bar search already covers mobile — never show this one there */
 @media (max-width: 1024px) { .dept-search.show { display: none !important; } }
 
-/* ===== Trust strip on mobile: 2 per row, custom order =====
-   Row 1: Easy 7-Day Returns, 100% Genuine  ·  Row 2: Pan-India Delivery, Secure Payment */
+/* ===== Trust strip on mobile =====
+   Two per row, in the order they are written.
+   What used to sit here reordered them by :nth-child for a set of items that
+   no longer exists — one of them was "100% Genuine" — so it was still pushing
+   "Secure payment" to the end for no reason. Worse, one caption wraps to two
+   lines at phone width while the others take one, so the two rows came out
+   different heights and the top row's titles ended up hidden under the sticky
+   header: two half-items stacked on each other, which is what this looked
+   like on a phone.
+   On a phone the four titles carry the meaning on their own, so the captions
+   go and every cell is one line. */
 @media (max-width: 1024px) {
-  .trust-grid { grid-template-columns: 1fr 1fr !important; gap: .7rem .5rem !important; }
-  .trust-grid > :nth-child(1) { order: 4; } /* Secure Payment  -> last  */
-  .trust-grid > :nth-child(2) { order: 1; } /* Easy 7-Day Returns -> 1st */
-  .trust-grid > :nth-child(3) { order: 2; } /* 100% Genuine    -> 2nd  */
-  .trust-grid > :nth-child(4) { order: 3; } /* Pan-India       -> 3rd  */
+  .trust-grid { grid-template-columns: 1fr 1fr !important; gap: .9rem .6rem !important; align-items: start; }
   .trust-grid > div { justify-content: flex-start !important; }
+}
+@media (max-width: 600px) {
+  .trust-sub { display: none !important; }
+}
+
+/* ===== Homepage hero =====
+   These three rules were an inline <style> inside the hero component. React
+   escapes ">" when it renders a <style> on the server, so ".hero-media-col >
+   *" arrived at the browser as ".hero-media-col &gt; *" — an invalid selector
+   that did nothing, and then a hydration mismatch when the browser re-rendered
+   it correctly. That mismatch is the React #418/#423/#425 errors in the
+   console. Stylesheet rules are not escaped, so here they work. */
+.hero-media-col > * { width: 100%; }
+@media (max-width: 860px) {
+  .hero-grid { grid-template-columns: 1fr; }
+  .hero-media-col { order: -1; }
 }
 
 /* ===== Desktop single-row header: logo + nav + search + cart + login on ONE row ===== */

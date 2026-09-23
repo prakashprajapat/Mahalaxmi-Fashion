@@ -21,7 +21,7 @@ const ITEMS = [
   },
   {
     title: 'Checked by hand',
-    sub: 'Every order inspected before packing',
+    sub: 'Before it is packed',
     path: <><path d="M12 3l7 3v5.5c0 4.2-3 7.6-7 8.5-4-.9-7-4.3-7-8.5V6l7-3z" /><path d="M9 12l2 2 4-4" /></>,
   },
   {
@@ -45,7 +45,7 @@ export default function TrustStrip() {
             </svg>
             <span>
               <span style={{ display: 'block', fontWeight: 600, fontSize: '.84rem', color: '#1e1b19', letterSpacing: '.04em' }}>{it.title}</span>
-              <span style={{ display: 'block', fontSize: '.76rem', color: '#6b625c', marginTop: '.15rem' }}>{it.sub}</span>
+              <span className="trust-sub" style={{ display: 'block', fontSize: '.76rem', color: '#6b625c', marginTop: '.15rem' }}>{it.sub}</span>
             </span>
           </div>
         ))}

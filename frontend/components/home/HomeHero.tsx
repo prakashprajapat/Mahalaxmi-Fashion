@@ -68,14 +68,6 @@ export default function HomeHero() {
         </div>
       </section>
 
-      <style>{`
-        .hero-media-col > * { width: 100%; }
-        @media (max-width: 860px) {
-          .hero-grid { grid-template-columns: 1fr; }
-          .hero-media-col { order: -1; }
-        }
-      `}</style>
-
       <TrustStrip />
     </>
   );
