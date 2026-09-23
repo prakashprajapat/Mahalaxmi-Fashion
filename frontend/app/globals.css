@@ -1577,6 +1577,20 @@ a.footer-app-btn.footer-app-live:hover{ background:rgba(255,255,255,.16); transf
 @media (max-width: 860px) {
   .hero-grid { grid-template-columns: 1fr; }
   .hero-media-col { order: -1; }
+
+  /* On a phone and in the app the hero is the banner alone — the owner's call.
+     The words go, but the <h1> stays in the page, only unseen: Google indexes
+     the phone version of a site, and a page with no heading at all on a phone
+     is a page with no heading as far as Google is concerned. A heading kept
+     for screen readers and crawlers, saying exactly what the page says, is the
+     ordinary way to do this. */
+  .hero-copy-col { padding: 0 !important; gap: 0 !important; }
+  .hero-eyebrow, .hero-lede, .hero-cta { display: none !important; }
+  .hero-h1 {
+    position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+    overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%);
+    white-space: nowrap; border: 0;
+  }
 }
 
 /* ===== Desktop single-row header: logo + nav + search + cart + login on ONE row ===== */

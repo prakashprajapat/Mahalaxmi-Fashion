@@ -33,14 +33,14 @@ export default function HomeHero() {
             gap: 'clamp(.7rem, 1.5vw, 1.3rem)',
             padding: 'clamp(2rem, 5vw, 4.5rem) clamp(1.25rem, 4vw, 4rem)',
           }}>
-            <span style={{
+            <span className="hero-eyebrow" style={{
               fontSize: '.66rem', letterSpacing: '.32em', textTransform: 'uppercase',
               color: '#8a7f76', fontWeight: 600,
             }}>
               Balotra, Rajasthan
             </span>
 
-            <h1 style={{
+            <h1 className="hero-h1" style={{
               margin: 0, fontFamily: SERIF, fontWeight: 400,
               fontSize: 'clamp(1.9rem, 5vw, 4rem)', lineHeight: 1.06,
               letterSpacing: '-0.01em', color: '#1e1b19',
@@ -48,7 +48,7 @@ export default function HomeHero() {
               Every look,<br />a new experience
             </h1>
 
-            <p style={{
+            <p className="hero-lede" style={{
               margin: 0, fontSize: 'clamp(.9rem, 1.4vw, 1.05rem)', lineHeight: 1.7,
               color: '#554c46', maxWidth: '26rem',
             }}>
