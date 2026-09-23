@@ -348,6 +348,7 @@ export const seoContentApi = {
     blog: any[];
     collections: any[];
     categories: Record<string, any>;
+    homeTiles: any[];
   }> => request('/seo-content'),
 
   saveBlog: (posts: unknown[], token: string) =>
@@ -358,6 +359,9 @@ export const seoContentApi = {
 
   saveCategories: (cats: Record<string, unknown>, token: string) =>
     request('/seo-content/categories', { method: 'PUT', body: JSON.stringify(cats) }, token),
+
+  saveHomeTiles: (tiles: unknown[], token: string) =>
+    request('/seo-content/home-tiles', { method: 'PUT', body: JSON.stringify(tiles) }, token),
 
   /** Clear the page caches so an edit is live immediately instead of within the minute. */
   publish: async (token: string) => {

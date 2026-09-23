@@ -55,6 +55,7 @@ public class SettingsController : ControllerBase
         "seoBlog",
         "seoCollections",
         "seoCategories",
+        "seoHomeTiles",
     };
 
     private static bool IsPublic(string key) =>

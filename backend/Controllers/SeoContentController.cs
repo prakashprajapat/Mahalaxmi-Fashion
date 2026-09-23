@@ -39,6 +39,7 @@ public class SeoContentController : ControllerBase
     public const string BlogKey = "seoBlog";
     public const string CollectionsKey = "seoCollections";
     public const string CategoriesKey = "seoCategories";
+    public const string HomeTilesKey = "seoHomeTiles";
 
     // Each row is read by the public site, so it has to stay small enough to
     // ship on a page render. 1 MB is roughly 200 full-length articles.
@@ -98,6 +99,27 @@ public class SeoContentController : ControllerBase
         public bool Published { get; set; } = true;
     }
 
+    /// <summary>
+    /// One of the doors on the homepage: "Shop by category".
+    ///
+    /// These were five entries hardcoded in the page, which meant a new
+    /// category could not appear without a developer, and the photograph on
+    /// each tile was whichever product happened to be first — which is how a
+    /// shoe still in its delivery box ended up representing footwear. Both are
+    /// the owner's to decide now.
+    /// </summary>
+    public class HomeTileDto
+    {
+        public string Label { get; set; } = "";
+        /// <summary>Where the tile goes — a collection, a category page, anything on the site.</summary>
+        public string Href { get; set; } = "";
+        /// <summary>The photograph. Empty = fall back to a product from the group.</summary>
+        public string Image { get; set; } = "";
+        /// <summary>Subcategory words that decide which products are counted behind this tile.</summary>
+        public List<string> Terms { get; set; } = new();
+        public bool Published { get; set; } = true;
+    }
+
     public class CategoryDto
     {
         public string Title { get; set; } = "";
@@ -118,7 +140,7 @@ public class SeoContentController : ControllerBase
             return Ok(hit);
 
         var rows = await _db.SiteSettings
-            .Where(s => s.Key == BlogKey || s.Key == CollectionsKey || s.Key == CategoriesKey)
+            .Where(s => s.Key == BlogKey || s.Key == CollectionsKey || s.Key == CategoriesKey || s.Key == HomeTilesKey)
             .ToListAsync();
 
         var payload = new
@@ -128,6 +150,7 @@ public class SeoContentController : ControllerBase
             collections = Parse<List<CollectionDto>>(rows, CollectionsKey) ?? new List<CollectionDto>(),
             categories = Parse<Dictionary<string, CategoryDto>>(rows, CategoriesKey)
                          ?? new Dictionary<string, CategoryDto>(),
+            homeTiles = Parse<List<HomeTileDto>>(rows, HomeTilesKey) ?? new List<HomeTileDto>(),
         };
 
         _cache.Set(CacheKey, payload, TimeSpan.FromMinutes(5));
@@ -166,6 +189,12 @@ public class SeoContentController : ControllerBase
     [RequirePerm("settings")]
     public Task<IActionResult> SaveCollections([FromBody] List<CollectionDto>? items) =>
         Save(CollectionsKey, items, ValidateCollections, 100);
+
+    [HttpPut("home-tiles")]
+    [Authorize]
+    [RequirePerm("settings")]
+    public Task<IActionResult> SaveHomeTiles([FromBody] List<HomeTileDto>? tiles) =>
+        Save(HomeTilesKey, tiles, ValidateHomeTiles, 12);
 
     [HttpPut("categories")]
     [Authorize]
@@ -245,6 +274,32 @@ public class SeoContentController : ControllerBase
             p.Excerpt = (p.Excerpt ?? "").Trim();
             p.ReadMinutes = Math.Clamp(p.ReadMinutes <= 0 ? 3 : p.ReadMinutes, 1, 90);
             p.Content = SeoHtmlSanitizer.Clean(p.Content);
+        }
+        return null;
+    }
+
+    private string? ValidateHomeTiles(List<HomeTileDto> tiles)
+    {
+        foreach (var t in tiles)
+        {
+            t.Label = (t.Label ?? "").Trim();
+            t.Href = (t.Href ?? "").Trim();
+            t.Image = (t.Image ?? "").Trim();
+
+            if (t.Label.Length == 0) return "One of the tiles has no name.";
+            if (t.Label.Length > 40) return $"The name \"{t.Label}\" is too long for a tile — keep it under 40 characters.";
+            if (t.Href.Length == 0) return $"\"{t.Label}\" has no link, so tapping it would go nowhere.";
+            // A tile links somewhere on this site. An off-site link here would
+            // walk a shopper out of the shop from its front page.
+            if (!t.Href.StartsWith("/", StringComparison.Ordinal))
+                return $"The link on \"{t.Label}\" has to start with / — for example /collections/cotton-nighty.";
+            if (t.Image.Length > 0 && !(t.Image.StartsWith("/", StringComparison.Ordinal)
+                                        || t.Image.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
+                                        || t.Image.StartsWith("https://", StringComparison.OrdinalIgnoreCase)))
+                return $"The photo on \"{t.Label}\" is not a usable address.";
+
+            t.Terms = (t.Terms ?? new List<string>())
+                .Select(x => (x ?? "").Trim()).Where(x => x.Length > 0).Take(20).ToList();
         }
         return null;
     }

@@ -31,13 +31,25 @@ interface StoredCollection extends Omit<CollectionDef, 'label'> {
   published?: boolean;
 }
 
+/** One door on the homepage's "Shop by category" row. */
+export interface HomeTile {
+  label: string;
+  href: string;
+  /** Empty means: borrow a photo from the products behind the tile. */
+  image?: string;
+  /** Subcategory words that decide what is counted behind it. */
+  terms?: string[];
+  published?: boolean;
+}
+
 interface SeoContent {
   blog: StoredPost[];
   collections: StoredCollection[];
   categories: Record<string, CategorySeo>;
+  homeTiles: HomeTile[];
 }
 
-const EMPTY: SeoContent = { blog: [], collections: [], categories: {} };
+const EMPTY: SeoContent = { blog: [], collections: [], categories: {}, homeTiles: [] };
 
 /**
  * Read the stored content. Cached for a minute by the Next data cache, so a
@@ -55,6 +67,7 @@ export async function loadSeoContent(): Promise<SeoContent> {
       blog: Array.isArray(body?.blog) ? body.blog : [],
       collections: Array.isArray(body?.collections) ? body.collections : [],
       categories: body?.categories && typeof body.categories === 'object' ? body.categories : {},
+      homeTiles: Array.isArray(body?.homeTiles) ? body.homeTiles : [],
     };
   } catch {
     return EMPTY;
@@ -148,4 +161,28 @@ export async function getCategorySeo(): Promise<Record<string, CategorySeo>> {
   }
 
   return out;
+}
+
+// ── Homepage category tiles ───────────────────────────────────────────────────
+
+/**
+ * The five doors that ship with the site. They are the floor, not the answer:
+ * the moment the owner saves a row in Admin → Home Categories, that replaces
+ * this list entirely — including adding categories that did not exist when
+ * this code was written, which was the whole point.
+ */
+export const DEFAULT_HOME_TILES: HomeTile[] = [
+  { label: 'Nightwear',      href: '/collections/cotton-nighty',          terms: ['nighty', 'night gown', 'nightwear'] },
+  { label: 'Petticoats',     href: '/collections/saree-petticoat',        terms: ['petticoat'] },
+  { label: "Men's Footwear", href: '/collections/formal-shoes-for-men',   terms: ['shoe', 'footwear', 'sandal'] },
+  { label: 'Innerwear',      href: '/men',                                terms: ['undergarment', 'innerwear', 'shorts'] },
+  { label: 'Perfume',        href: '/beauty',                             terms: ['perfume', 'fragrance', 'deo'] },
+];
+
+export async function getHomeTiles(): Promise<HomeTile[]> {
+  const { homeTiles } = await loadSeoContent();
+  const source = homeTiles.length > 0 ? homeTiles : DEFAULT_HOME_TILES;
+  return source
+    .filter(t => t?.label && t?.href && t.published !== false)
+    .map(t => ({ ...t, terms: Array.isArray(t.terms) ? t.terms : [] }));
 }
