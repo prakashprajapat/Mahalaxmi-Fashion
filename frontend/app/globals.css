@@ -723,6 +723,9 @@ button { cursor: pointer; font-family: inherit; }
 .site-footer-col h2 { color: #f1bd79; font-size: .92rem; font-weight: 800; margin: 0 0 1rem; text-transform: uppercase; letter-spacing: .06em; }
 .site-footer-col a { display: block; color: #fff1e0; font-size: .88rem; margin-bottom: .5rem; transition: color .2s; }
 .site-footer-col a:hover { color: #fff; }
+/* Checkout's trimmed footer has no columns above it, so the baseline's divider
+   has nothing left to divide. */
+.site-footer-minimal .site-footer-baseline { border-top: 0; }
 .site-footer-baseline { border-top: 1px solid rgba(241,189,121,.2); padding: 1.25rem 1.5rem; display: flex; justify-content: space-between; align-items: center; max-width: var(--shell); margin: 0 auto; font-size: .8rem; gap: 1rem; }
 /* Wraps. In one line these run 500px wide, which made the whole page scroll
    sideways on a phone — and a page that can slide sideways looks broken

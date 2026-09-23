@@ -23,7 +23,12 @@ function SocialIcon({ name }: { name: string }) {
   return <svg {...p}><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93A8.001 8.001 0 014.06 13H7v2a2 2 0 002 2v1.93zM17.9 17.39A2 2 0 0016 16h-1v-3a1 1 0 00-1-1H8v-2h2a1 1 0 001-1V7h2a2 2 0 002-2v-.41A8.003 8.003 0 0117.9 17.39z"/></svg>;
 }
 
-export default function Footer() {
+/**
+ * `minimal` is for the checkout page. A full footer there offers a customer
+ * paying for an order two dozen ways to leave it — every other page wants the
+ * links, that one page does not.
+ */
+export default function Footer({ minimal = false }: { minimal?: boolean }) {
   // Store info + social links are managed in Admin → Settings.
   const [socials, setSocials] = useState<{ name: string; url: string }[]>([]);
   const [info, setInfo] = useState<Record<string, string>>({});
@@ -68,6 +73,22 @@ export default function Footer() {
     return list;
   })();
 
+  if (minimal) {
+    return (
+      <footer className="site-footer site-footer-minimal">
+        <div className="site-footer-baseline">
+          <small>&copy; {new Date().getFullYear()} {storeName}. All rights reserved.</small>
+          <nav className="site-footer-legal">
+            <Link href="/privacy-policy">Privacy</Link>
+            <Link href="/terms-conditions">Terms</Link>
+            <Link href="/return-policy">Returns</Link>
+            <Link href="/contact">Contact</Link>
+          </nav>
+        </div>
+      </footer>
+    );
+  }
+
   return (
     <footer className="site-footer">
       <div className="site-footer-grid">
@@ -105,7 +126,7 @@ export default function Footer() {
           <Link href="/blog">Blog &amp; Style Guides</Link>
           <Link href="/about-us">About Us</Link>
           <Link href="/contact">Contact Us</Link>
-          <a href="https://affiliate.mahalaxmifashionhub.com/">💸 Earn With Us</a>
+          <a href="https://affiliate.mahalaxmifashionhub.com/">Earn With Us</a>
         </nav>
 
         <nav className="site-footer-col">
@@ -155,14 +176,15 @@ export default function Footer() {
 
       <div className="site-footer-baseline">
         <small>&copy; {new Date().getFullYear()} {storeName}. All rights reserved.</small>
+        {/* About, Contact, Shipping and Cancellation were here as well as in the
+            Help column above — the same page linked twice from one footer, which
+            on a phone is just more to scroll past. What is left is what is not
+            already above: Privacy, Terms, the return policy (a different page
+            from Returns & Exchange) and the supplier page. */}
         <nav className="site-footer-legal">
-          <Link href="/about-us">About</Link>
-          <Link href="/contact">Contact</Link>
           <Link href="/privacy-policy">Privacy</Link>
           <Link href="/terms-conditions">Terms</Link>
-          <Link href="/shipping-delivery-policy">Shipping</Link>
-          <Link href="/return-policy">Returns</Link>
-          <Link href="/cancellation-policy">Cancellation</Link>
+          <Link href="/return-policy">Return Policy</Link>
           <Link href="/become-supplier">Become a Supplier</Link>
         </nav>
       </div>

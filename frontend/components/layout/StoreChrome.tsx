@@ -59,7 +59,7 @@ export default function StoreChrome({ children }: { children: React.ReactNode })
       <RefCapture />
       <Navbar />
       {children}
-      <Footer />
+      <Footer minimal={pathname?.startsWith('/checkout') ?? false} />
       <FloatingCart />
       <WelcomePopup />
       <CompareBar />
