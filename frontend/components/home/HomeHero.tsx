@@ -21,10 +21,13 @@ export default function HomeHero() {
   return (
     <>
       <section className="hero-shell" style={{ background: '#f6f1ea' }}>
-        <div className="hero-grid" style={{
-          maxWidth: 'var(--shell)', margin: '0 auto',
-          display: 'grid', gridTemplateColumns: '1fr 1fr', alignItems: 'stretch',
-        }}>
+        {/* The two columns are set in globals.css, not here. An inline style beats
+            a stylesheet rule, so "grid-template-columns: 1fr 1fr" written here
+            was overriding the phone rule that collapses it to one column — the
+            hero stayed two columns 709px wide inside a 400px phone, which pushed
+            the headline and the button off the right edge and left the photo
+            sitting on top of the trust row. */}
+        <div className="hero-grid" style={{ maxWidth: 'var(--shell)', margin: '0 auto', alignItems: 'stretch' }}>
           <div className="hero-copy-col" style={{
             display: 'flex', flexDirection: 'column', justifyContent: 'center',
             gap: 'clamp(.7rem, 1.5vw, 1.3rem)',
