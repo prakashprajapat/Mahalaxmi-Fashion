@@ -33,9 +33,9 @@ const ITEMS = [
 
 export default function TrustStrip() {
   return (
-    <section style={{ background: '#fff', borderTop: '1px solid #efe7e8', borderBottom: '1px solid #efe7e8', padding: '1.15rem 1.25rem' }}>
+    <section style={{ background: '#fff', borderTop: '1px solid #efe7e8', borderBottom: '1px solid #efe7e8', padding: '1.15rem 0' }}>
       <div className="trust-grid" style={{
-        maxWidth: 'var(--shell)', margin: '0 auto',
+        maxWidth: 'var(--shell)', margin: '0 auto', padding: '0 var(--gutter)',
         display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '1rem',
       }}>
         {ITEMS.map(it => (

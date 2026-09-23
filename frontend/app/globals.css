@@ -15,6 +15,12 @@
   /* One shared page width. Header, hero, product grid and footer all use it,
      so the site fills big monitors instead of stopping at 1400px. */
   --shell: 1760px;
+  /* One gutter for every block on the page. Blocks used to carry their own —
+     the footer 1.5rem, the header 2rem, the homepage sections 4rem, the trust
+     strip 1.25rem, the hero none at all — so on a wide screen nothing started
+     on the same line as anything else. Every block is now the same shape:
+     max-width: var(--shell); margin: 0 auto; padding: 0 var(--gutter). */
+  --gutter: clamp(1rem, 2vw, 2rem);
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -463,7 +469,7 @@ button { cursor: pointer; font-family: inherit; }
   color: var(--brand);
   margin: 0 0 1.25rem;
 }
-.section-wrap { max-width: var(--shell); margin: 0 auto; padding: 2.5rem clamp(1rem, 2.5vw, 2rem); }
+.section-wrap { max-width: var(--shell); margin: 0 auto; padding: 2.5rem var(--gutter); }
 
 /* ─── Product Grid ─── */
 /* Default (inside sidebar layout ~1140px content area) */
@@ -715,7 +721,7 @@ button { cursor: pointer; font-family: inherit; }
 
 /* ─── Footer ─── */
 .site-footer { background: #6b1c30; color: #f4eadf; padding-top: 3rem; }
-.site-footer-grid { max-width: var(--shell); margin: 0 auto; padding: 0 1.5rem 2.5rem; display: grid; grid-template-columns: 1.7fr .85fr .95fr 1fr 1.1fr; gap: 2rem; }
+.site-footer-grid { max-width: var(--shell); margin: 0 auto; padding: 0 var(--gutter) 2.5rem; display: grid; grid-template-columns: 1.7fr .85fr .95fr 1fr 1.1fr; gap: 2rem; }
 .site-footer-brand .brand strong { color: #fff; }
 .site-footer-brand .brand-tagline { color: #f1bd79; font-weight: 800; text-transform: uppercase; }
 .site-footer-brand .brand-mark img { width: 84px; height: 84px; }
@@ -726,7 +732,7 @@ button { cursor: pointer; font-family: inherit; }
 /* Checkout's trimmed footer has no columns above it, so the baseline's divider
    has nothing left to divide. */
 .site-footer-minimal .site-footer-baseline { border-top: 0; }
-.site-footer-baseline { border-top: 1px solid rgba(241,189,121,.2); padding: 1.25rem 1.5rem; display: flex; justify-content: space-between; align-items: center; max-width: var(--shell); margin: 0 auto; font-size: .8rem; gap: 1rem; }
+.site-footer-baseline { border-top: 1px solid rgba(241,189,121,.2); padding: 1.25rem var(--gutter); display: flex; justify-content: space-between; align-items: center; max-width: var(--shell); margin: 0 auto; font-size: .8rem; gap: 1rem; }
 /* Wraps. In one line these run 500px wide, which made the whole page scroll
    sideways on a phone — and a page that can slide sideways looks broken
    everywhere, not only at the footer. */
@@ -1601,7 +1607,7 @@ a.footer-app-btn.footer-app-live:hover{ background:rgba(255,255,255,.16); transf
 @media (min-width: 1025px) {
   /* the whole header row sticks on scroll (was the department nav before) */
   .m-head { position: sticky; top: 0; z-index: 200; background: #fff; box-shadow: 0 1px 6px rgba(0,0,0,.08); }
-  .brand-row { flex-wrap: nowrap !important; gap: 1.1rem !important; padding: .45rem clamp(1rem, 2vw, 2rem) !important; max-width: var(--shell); margin: 0 auto; }
+  .brand-row { flex-wrap: nowrap !important; gap: 1.1rem !important; padding: .45rem var(--gutter) !important; max-width: var(--shell); margin: 0 auto; }
   .brand { flex: 0 0 auto !important; }
   .brand-mark img { height: 54px !important; max-width: 200px !important; }
 

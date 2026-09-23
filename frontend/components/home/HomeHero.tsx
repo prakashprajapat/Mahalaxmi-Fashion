@@ -20,6 +20,12 @@ const SERIF = 'var(--font-playfair), Georgia, serif';
 export default function HomeHero() {
   return (
     <>
+      {/* The gutter belongs to the section, not to the column inside it.
+          It used to be on the copy column, which meant the headline sat 64px
+          further in than every other heading on the page once the screen was
+          wide enough for the shell to bind — on a 2560 screen "Every look"
+          started at 456 while "Shop by category" started at 392. The cream
+          still runs edge to edge; only what is written on it lines up now. */}
       <section className="hero-shell" style={{ background: '#f6f1ea' }}>
         {/* The two columns are set in globals.css, not here. An inline style beats
             a stylesheet rule, so "grid-template-columns: 1fr 1fr" written here
@@ -27,11 +33,11 @@ export default function HomeHero() {
             hero stayed two columns 709px wide inside a 400px phone, which pushed
             the headline and the button off the right edge and left the photo
             sitting on top of the trust row. */}
-        <div className="hero-grid" style={{ maxWidth: 'var(--shell)', margin: '0 auto', alignItems: 'stretch' }}>
+        <div className="hero-grid" style={{ maxWidth: 'var(--shell)', margin: '0 auto', padding: '0 var(--gutter)', alignItems: 'stretch', gap: 'clamp(1.5rem, 3vw, 3rem)' }}>
           <div className="hero-copy-col" style={{
             display: 'flex', flexDirection: 'column', justifyContent: 'center',
             gap: 'clamp(.7rem, 1.5vw, 1.3rem)',
-            padding: 'clamp(2rem, 5vw, 4.5rem) clamp(1.25rem, 4vw, 4rem)',
+            padding: 'clamp(2rem, 5vw, 4.5rem) 0',
           }}>
             <span className="hero-eyebrow" style={{
               fontSize: '.66rem', letterSpacing: '.32em', textTransform: 'uppercase',

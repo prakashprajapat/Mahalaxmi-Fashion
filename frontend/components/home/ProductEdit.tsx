@@ -32,8 +32,8 @@ export default function ProductEdit({
   if (shown.length === 0) return null;
 
   return (
-    <section style={{ padding: 'clamp(2.5rem, 5vw, 4.5rem) clamp(1rem, 4vw, 4rem) 0' }}>
-      <div style={{ maxWidth: 'var(--shell)', margin: '0 auto' }}>
+    <section style={{ padding: 'clamp(2.5rem, 5vw, 4.5rem) 0 0' }}>
+      <div style={{ maxWidth: 'var(--shell)', margin: '0 auto', padding: '0 var(--gutter)' }}>
         <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: '1rem', marginBottom: '1.6rem' }}>
           <div>
             {eyebrow && (
