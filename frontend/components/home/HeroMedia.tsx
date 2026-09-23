@@ -26,10 +26,21 @@ export default function HeroMedia() {
       .catch(() => {});
   }, []);
 
-  const slideCount = 1 + imgs.length; // slide 0 = video/logo, phir photos
+  // The logo card used to be slide 0 whenever there was no video, so the first
+  // thing anyone saw of the shop was the logo on a cream card — a logo that is
+  // already printed on the banner behind it, together with the tagline. It also
+  // showed small: the logo is 547x300 and the box is 4:3, so "contain" left
+  // cream all around it, while the uploaded banners are 1206x905, exactly 4:3,
+  // and fill the box completely. With photos set, the banner leads now.
+  const showFirst = Boolean(video) || imgs.length === 0;
+  const slideCount = (showFirst ? 1 : 0) + imgs.length;
 
   // Auto-advance only when photos exist
   useEffect(() => {
+    // Settings arrive after the first render, so the number of slides can shrink
+    // under a position we are already on — without this the track would sit on
+    // an empty frame until the next tick.
+    setIdx(i => (i < slideCount ? i : 0));
     if (slideCount <= 1) return;
     const t = setInterval(() => {
       if (!paused.current) setIdx(i => (i + 1) % slideCount);
@@ -80,12 +91,12 @@ export default function HeroMedia() {
         transform: `translateX(-${idx * 100}%)`,
         transition: 'transform .65s ease',
       }}>
-        <div style={{ flex: '0 0 100%', height: '100%' }}>{firstSlide}</div>
+        {showFirst && <div style={{ flex: '0 0 100%', height: '100%' }}>{firstSlide}</div>}
         {imgs.map((src, i) => (
           <div key={i} style={{ flex: '0 0 100%', height: '100%' }}>
             <Image src={src} alt={`Mahalaxmi Fashion Hub collection ${i + 1}`}
               width={1200} height={520}
-              priority={i === 0} fetchPriority={i === 0 ? 'high' : undefined}
+              priority={!showFirst && i === 0} fetchPriority={!showFirst && i === 0 ? 'high' : undefined}
               sizes="100vw"
               style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
           </div>
