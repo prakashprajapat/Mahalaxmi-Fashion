@@ -139,22 +139,26 @@ public class ReviewsController : ControllerBase
 
         var reviews = rows.Select(r => new {
             r.id, r.productId, r.productName, r.productImage,
-            customerName = ShortName(r.first, r.last),
+            customerName = MaskedName(r.first, r.last),
             r.rating, r.text, r.imageUrls, r.createdAt,
         });
 
         return Ok(new { success = true, total, reviews });
     }
 
-    /// <summary>"Priya Sharma" -> "Priya S." — enough to read as a person, not a directory entry.</summary>
-    private static string ShortName(string? first, string? last)
+    /// <summary>
+    /// "Yogita" -> "Y***a". The review is public; the name of the person who
+    /// wrote it is not something they agreed to publish, and a first name plus a
+    /// town is enough to find someone. Enough is left that a shopper reads it as
+    /// a person rather than a blank.
+    /// </summary>
+    private static string MaskedName(string? first, string? last)
     {
-        var f = (first ?? "").Trim();
-        var l = (last ?? "").Trim();
-        if (f.Length == 0 && l.Length == 0) return "Verified buyer";
-        if (l.Length == 0) return f;
-        if (f.Length == 0) return l;
-        return $"{f} {char.ToUpperInvariant(l[0])}.";
+        var n = (first ?? "").Trim();
+        if (n.Length == 0) n = (last ?? "").Trim();
+        if (n.Length == 0) return "Verified buyer";
+        if (n.Length <= 2) return $"{n[0]}***";
+        return $"{n[0]}***{n[^1]}";
     }
 
     // GET /api/reviews/product/{productId}
