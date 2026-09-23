@@ -103,6 +103,60 @@ public class ReviewsController : ControllerBase
         return Ok(new { success = true, reviews });
     }
 
+    /// <summary>
+    /// Approved reviews across the whole catalogue, newest first — for the public
+    /// reviews page and the homepage strip.
+    ///
+    /// Only approved ones, and only the fields a visitor's page shows. The
+    /// customer's surname is cut to an initial: a review is public, a full name
+    /// on a public page is not something a shopper agreed to when they wrote it.
+    /// </summary>
+    // GET /api/reviews/recent?take=24
+    [HttpGet("recent")]
+    public async Task<IActionResult> GetRecent([FromQuery] int take = 24)
+    {
+        take = Math.Clamp(take, 1, 100);
+
+        var rows = await _db.Reviews
+            .Where(r => r.Status == "approved")
+            .OrderByDescending(r => r.CreatedAt)
+            .Take(take)
+            .Select(r => new {
+                id = r.Id,
+                productId = r.ProductId,
+                productName = r.Product != null ? r.Product.Name : null,
+                productImage = r.Product != null ? r.Product.Image : null,
+                first = r.Customer != null ? r.Customer.FirstName : null,
+                last = r.Customer != null ? r.Customer.LastName : null,
+                rating = r.Rating,
+                text = r.Body ?? "",
+                imageUrls = r.ImageUrls,
+                createdAt = r.CreatedAt,
+            })
+            .ToListAsync();
+
+        var total = await _db.Reviews.CountAsync(r => r.Status == "approved");
+
+        var reviews = rows.Select(r => new {
+            r.id, r.productId, r.productName, r.productImage,
+            customerName = ShortName(r.first, r.last),
+            r.rating, r.text, r.imageUrls, r.createdAt,
+        });
+
+        return Ok(new { success = true, total, reviews });
+    }
+
+    /// <summary>"Priya Sharma" -> "Priya S." — enough to read as a person, not a directory entry.</summary>
+    private static string ShortName(string? first, string? last)
+    {
+        var f = (first ?? "").Trim();
+        var l = (last ?? "").Trim();
+        if (f.Length == 0 && l.Length == 0) return "Verified buyer";
+        if (l.Length == 0) return f;
+        if (f.Length == 0) return l;
+        return $"{f} {char.ToUpperInvariant(l[0])}.";
+    }
+
     // GET /api/reviews/product/{productId}
     [HttpGet("product/{productId:int}")]
     public async Task<IActionResult> GetByProduct(int productId)

@@ -5,6 +5,7 @@ import OfferBanner from '@/components/home/OfferBanner';
 import CategoryTiles from '@/components/home/CategoryTiles';
 import ProductEdit from '@/components/home/ProductEdit';
 import GoogleReviews from '@/components/reviews/GoogleReviews';
+import CustomerReviews from '@/components/reviews/CustomerReviews';
 import FaqSection from '@/components/home/FaqSection';
 import { toListingProducts } from '@/lib/listingProduct';
 
@@ -74,6 +75,10 @@ export default async function HomePage() {
         href="/best-sellers"
         hrefLabel="See all"
       />
+
+      {/* Real customer reviews. Shows itself only once there are four of them —
+          on a phone as well as on a desktop, which is where most of them are read. */}
+      <CustomerReviews />
 
       {/* Desktop-only trust + SEO sections below the listing */}
       <div className="home-desktop" style={{ marginTop: 'clamp(2.5rem, 5vw, 4.5rem)' }}>

@@ -107,26 +107,26 @@ export default function Footer({ minimal = false }: { minimal?: boolean }) {
           <p className="site-footer-contact">{address}</p>
         </div>
 
+        {/* Shop's six links — Women, Men, Kids, Beauty, Fabrics, More — are all in
+            the top navigation on every page, so the column was a second copy of
+            the menu. Popular below is not: those collection pages are linked
+            from nowhere else, and that is how they get found. */}
         <nav className="site-footer-col">
-          <h2>Shop</h2>
-          <Link href="/women">Women</Link>
-          <Link href="/men">Men</Link>
-          <Link href="/kids">Kids</Link>
-          <Link href="/beauty">Beauty</Link>
-          <Link href="/fabrics">Fabrics</Link>
-          <Link href="/more">More Collections</Link>
+          <h2>Quick Links</h2>
+          <Link href="/">Home</Link>
+          <Link href="/about-us">About Us</Link>
+          <Link href="/contact">Contact Us</Link>
+          <Link href="/customer-reviews">Customer Reviews</Link>
+          <a href="https://affiliate.mahalaxmifashionhub.com/">Earn With Us</a>
         </nav>
 
         <nav className="site-footer-col">
-          <h2>Help</h2>
+          <h2>Information</h2>
           <Link href="/return-exchange">Returns &amp; Exchange</Link>
           <Link href="/shipping-delivery-policy">Shipping Policy</Link>
           <Link href="/cancellation-policy">Cancellation</Link>
           <Link href="/safety-center">Safety Center</Link>
           <Link href="/blog">Blog &amp; Style Guides</Link>
-          <Link href="/about-us">About Us</Link>
-          <Link href="/contact">Contact Us</Link>
-          <a href="https://affiliate.mahalaxmifashionhub.com/">Earn With Us</a>
         </nav>
 
         <nav className="site-footer-col">
@@ -141,7 +141,6 @@ export default function Footer({ minimal = false }: { minimal?: boolean }) {
           {/* The shoes are 23 of the 84 products and the most valuable ones;
               until now nothing on the site linked them together. */}
           <Link href="/collections/formal-shoes-for-men">Formal Shoes for Men</Link>
-          <Link href="/reviews">Customer Reviews</Link>
         </nav>
 
         <nav className="site-footer-col">

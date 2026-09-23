@@ -512,11 +512,27 @@ export const suppliersApi = {
 };
 
 // ── Reviews ───────────────────────────────────────────────────────────────────
+export interface PublicReview {
+  id: number;
+  productId: number;
+  productName: string | null;
+  productImage: string | null;
+  customerName: string;
+  rating: number;
+  text: string;
+  imageUrls: string | null;
+  createdAt: string;
+}
+
 export const reviewsApi = {
   getPending: (token: string) =>
     request<{ success: boolean; reviews: import('@/types').Review[] }>('/reviews/pending', undefined, token),
   getByProduct: (productId: number) =>
     request<{ success: boolean; reviews: import('@/types').Review[] }>(`/reviews/product/${productId}`),
+
+  /** Approved reviews across the catalogue, newest first, plus how many there are in all. */
+  recent: (take = 24) =>
+    request<{ success: boolean; total: number; reviews: PublicReview[] }>(`/reviews/recent?take=${take}`),
   submit: (data: { productId: number; rating: number; text: string; orderId?: string; images?: string[] }, token: string) =>
     request<{ success: boolean }>('/reviews', { method: 'POST', body: JSON.stringify(data) }, token),
   // Upload ONE review photo (called per file); returns its URL to include in submit().
