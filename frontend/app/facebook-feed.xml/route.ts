@@ -1,12 +1,22 @@
 import { productsApi } from '@/lib/api';
 import { productSlug } from '@/lib/productSlug';
 import { productImageSrc } from '@/lib/productImages';
+import {
+  isFeedable, variantsOf, productTypeOf, genderOf, ageGroupOf, googleCategoryOf,
+} from '@/lib/merchantFeed';
 
-// Meta / Facebook product feed (RSS 2.0 with the g: namespace). Meta Commerce Manager pulls
-// this URL on a schedule to build/refresh the product catalogue, which then powers the
-// WhatsApp Business catalogue. Because it reads live from the products API, adding or editing
-// a product on the site automatically updates the WhatsApp catalogue on the next feed refresh.
+// The Meta catalogue feed. Commerce Manager pulls this URL on a schedule to
+// build the catalogue behind Instagram Shopping, the WhatsApp catalogue and
+// Advantage+ catalogue ads, so a product edited on the site reaches all three
+// on the next refresh.
 //   Feed URL:  https://www.mahalaxmifashionhub.com/facebook-feed.xml
+//
+// Until now this file wrote its own rows and shipped one row per product with
+// no colour, no size and no item_group_id — the exact gaps that were leaving
+// products unapproved in Google Merchant Center, and Meta asks for the same
+// things on apparel. The Google feed already had the fix, in lib/merchantFeed,
+// so this one now uses it: one row per size and colour, ids that cannot
+// collide, drafts left out.
 
 const BASE = 'https://www.mahalaxmifashionhub.com';
 
@@ -21,8 +31,11 @@ function esc(s: string): string {
     .replace(/'/g, '&apos;');
 }
 
-const sellingPrice = (p: any): number =>
-  p.discountPrice && p.discountPrice > 0 && p.discountPrice < p.price ? p.discountPrice : p.price;
+const absImage = (img?: string | null): string => {
+  const src = productImageSrc(img ?? '');
+  if (!src) return '';
+  return /^https?:/i.test(src) ? src : `${BASE}${src}`;
+};
 
 export async function GET() {
   let products: any[] = [];
@@ -33,38 +46,46 @@ export async function GET() {
     products = [];
   }
 
-  const items = products
-    .map((p) => {
-      const img = productImageSrc(p.image);
-      const price = sellingPrice(p);
-      // Meta requires a valid image and a price > 0 for every item.
-      if (!img || !(price > 0)) return '';
+  // Shared across the whole feed: two products with the same SKU would
+  // otherwise produce rows with the same id, and Meta rejects the later one.
+  const usedIds = new Set<string>();
 
-      const imageUrl = /^https?:/i.test(img) ? img : `${BASE}${img}`;
-      const link = `${BASE}/products/${productSlug(p.name, p.dbId)}`;
-      const outOfStock = (p.stock || '').toLowerCase().includes('out of stock');
-      const id = (p.sku && String(p.sku).trim()) || String(p.dbId);
+  const items = products
+    .filter(p => isFeedable(p))
+    .flatMap(p => {
+      const image = absImage(p.image);
+      const price = Number(p.price) || 0;
+      if (!image || !(price > 0)) return [];   // Meta needs both on every row
+
+      const selling = p.discountPrice && p.discountPrice > 0 && p.discountPrice < price ? p.discountPrice : null;
+      const outOfStock = String(p.stock || '').toLowerCase().includes('out of stock');
       const desc = (p.description
         || `${p.name} — quality-checked ${p.category || 'fashion'} from Mahalaxmi Fashion Hub. COD available, free shipping over rupees 999, pan-India delivery.`)
-        .replace(/\s+/g, ' ').trim().slice(0, 4900);
-      const hasSale = p.discountPrice && p.discountPrice > 0 && p.discountPrice < p.price;
-      const regular = hasSale ? p.price : price;
+        .replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 4900);
+      const link = `${BASE}/products/${productSlug(p.name, p.dbId)}`;
+      const variants = variantsOf(p, usedIds);
+      const ptype = productTypeOf(p);
 
-      return `  <item>
-    <g:id>${esc(id)}</g:id>
+      return variants.map(v => `  <item>
+    <g:id>${esc(v.id)}</g:id>${variants.length > 1 ? `
+    <g:item_group_id>${esc(v.itemGroupId)}</g:item_group_id>` : ''}
     <g:title>${esc(String(p.name).slice(0, 150))}</g:title>
     <g:description>${esc(desc)}</g:description>
     <g:link>${esc(link)}</g:link>
-    <g:image_link>${esc(imageUrl)}</g:image_link>
+    <g:image_link>${esc(image)}</g:image_link>
     <g:availability>${outOfStock ? 'out of stock' : 'in stock'}</g:availability>
     <g:condition>new</g:condition>
-    <g:price>${regular.toFixed(2)} INR</g:price>${hasSale ? `
-    <g:sale_price>${price.toFixed(2)} INR</g:sale_price>` : ''}
+    <g:price>${price.toFixed(2)} INR</g:price>${selling ? `
+    <g:sale_price>${selling.toFixed(2)} INR</g:sale_price>` : ''}
     <g:brand>Mahalaxmi Fashion Hub</g:brand>
-    <g:product_type>${esc(p.category || 'Fashion')}</g:product_type>
-  </item>`;
+    <g:google_product_category>${esc(googleCategoryOf(p))}</g:google_product_category>${ptype ? `
+    <g:product_type>${esc(ptype)}</g:product_type>` : ''}${v.size ? `
+    <g:size>${esc(v.size)}</g:size>` : ''}${v.colour ? `
+    <g:color>${esc(v.colour)}</g:color>` : ''}
+    <g:gender>${genderOf(p)}</g:gender>
+    <g:age_group>${ageGroupOf(p)}</g:age_group>
+  </item>`);
     })
-    .filter(Boolean)
     .join('\n');
 
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
