@@ -967,7 +967,7 @@ public class CustomersController : ControllerBase
 
             // Exchange code for token
             var tokenRes = await http.GetAsync(
-                $"https://graph.facebook.com/v18.0/oauth/access_token?client_id={appId}&redirect_uri={Uri.EscapeDataString(req.RedirectUri)}&client_secret={appSecret}&code={req.Code}");
+                $"https://graph.facebook.com/v25.0/oauth/access_token?client_id={appId}&redirect_uri={Uri.EscapeDataString(req.RedirectUri)}&client_secret={appSecret}&code={req.Code}");
             if (!tokenRes.IsSuccessStatusCode)
                 return BadRequest(new { success = false, message = "Facebook token exchange failed. Please try again." });
 
@@ -978,7 +978,7 @@ public class CustomersController : ControllerBase
 
             // Get user info
             var infoRes = await http.GetAsync(
-                $"https://graph.facebook.com/me?fields=id,name,email&access_token={accessToken}");
+                $"https://graph.facebook.com/v25.0/me?fields=id,name,email&access_token={accessToken}");
             if (!infoRes.IsSuccessStatusCode)
                 return BadRequest(new { success = false, message = "Failed to get Facebook user info." });
 
