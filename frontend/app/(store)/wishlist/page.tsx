@@ -5,6 +5,7 @@ import Image from 'next/image';
 import type { Product } from '@/types';
 import { getWishlist, removeFromWishlist, loadServerWishlist } from '@/lib/wishlist';
 import { addToCart, finalUnitPrice } from '@/lib/cart';
+import { trackEvent } from '@/lib/analytics';
 
 export default function WishlistPage() {
   const [items, setItems] = useState<Product[]>([]);
@@ -25,6 +26,18 @@ export default function WishlistPage() {
 
   const handleAddToCart = (product: Product) => {
     addToCart(product);
+    // The wishlist is the other door into the cart, and it was silent too.
+    trackEvent('add_to_cart', {
+      currency: 'INR',
+      value: finalUnitPrice(product),
+      items: [{
+        item_id: (product as unknown as { sku?: string }).sku || String(product.dbId),
+        item_name: product.name,
+        item_category: product.category ?? '',
+        price: finalUnitPrice(product),
+        quantity: 1,
+      }],
+    });
     window.dispatchEvent(new Event('cart-updated'));
   };
 

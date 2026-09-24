@@ -25,6 +25,85 @@ export function trackEvent(name: string, params: Params = {}): void {
   } catch {
     /* analytics is best-effort — never throw */
   }
+
+  // And the same event to Meta. Separate try/catch on purpose: a fault on one
+  // side must not cost the other its event.
+  try {
+    trackMeta(name, params);
+  } catch {
+    /* best-effort */
+  }
+}
+
+// ── Meta (Facebook / Instagram) ───────────────────────────────────────────────
+//
+// Meta's ads optimise on what people BOUGHT, not on how many arrived. Until now
+// the only thing the Pixel sent was a PageView, which tells Meta nothing it can
+// bid on. Rather than scattering fbq() calls through the app, every existing
+// trackEvent call is mirrored here under Meta's own names.
+//
+// Two ways the Pixel can be installed and only one of them may be used, or the
+// event is counted twice:
+//   - on the page (Admin → Settings → Facebook Pixel ID) — window.fbq
+//   - at the edge (Cloudflare Zaraz) — window.zaraz
+// fbq wins when both somehow exist, which is the case where a double would
+// otherwise happen.
+
+/** GA4's name for a thing → Meta's name for the same thing. */
+const META_EVENTS: Record<string, string> = {
+  view_item: 'ViewContent',
+  add_to_cart: 'AddToCart',
+  begin_checkout: 'InitiateCheckout',
+  purchase: 'Purchase',
+  sign_up: 'CompleteRegistration',
+  generate_lead: 'Lead',
+  add_to_wishlist: 'AddToWishlist',
+  search: 'Search',
+};
+
+interface Ga4Item { item_id?: unknown; item_name?: unknown; quantity?: unknown; price?: unknown }
+
+function trackMeta(name: string, params: Params): void {
+  const metaName = META_EVENTS[name];
+  if (!metaName) return;                      // not an event Meta has a name for
+
+  const w = window as unknown as {
+    fbq?: (...args: unknown[]) => void;
+    zaraz?: { track?: (name: string, data?: Record<string, unknown>) => void };
+  };
+  const hasFbq = typeof w.fbq === 'function';
+  const hasZaraz = typeof w.zaraz?.track === 'function';
+  if (!hasFbq && !hasZaraz) return;           // no Pixel installed yet — nothing to do
+
+  const items = Array.isArray(params.items) ? (params.items as Ga4Item[]) : [];
+  const payload: Record<string, unknown> = {
+    currency: (params.currency as string) ?? 'INR',
+    value: Number(params.value ?? 0),
+  };
+  if (items.length > 0) {
+    payload.content_type = 'product';
+    payload.content_ids = items.map(i => String(i.item_id ?? ''));
+    payload.contents = items.map(i => ({
+      id: String(i.item_id ?? ''),
+      quantity: Number(i.quantity ?? 1),
+      item_price: Number(i.price ?? 0),
+    }));
+    payload.num_items = items.reduce((n, i) => n + Number(i.quantity ?? 1), 0);
+    if (items.length === 1 && items[0].item_name) payload.content_name = String(items[0].item_name);
+  }
+
+  // The order id doubles as Meta's event id, so a purchase that reaches Meta
+  // both from the browser and from the Conversions API is counted once. Without
+  // it every sale would show twice the moment the server-side path is on.
+  const eventId = typeof params.transaction_id === 'string' && params.transaction_id
+    ? params.transaction_id
+    : undefined;
+
+  if (hasFbq) {
+    w.fbq!('track', metaName, payload, eventId ? { eventID: eventId } : undefined);
+    return;
+  }
+  w.zaraz!.track!(metaName, eventId ? { ...payload, event_id: eventId } : payload);
 }
 
 // Build a GA4 ecommerce "items" array from cart-like objects.

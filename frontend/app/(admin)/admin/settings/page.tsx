@@ -94,7 +94,8 @@ const SECTIONS = [
       { key: 'googleSiteVerification', label: 'Google Search Console Verification Code (content value only)', type: 'text' },
       { key: 'bingSiteVerification', label: 'Bing Webmaster Verification Code (content value only)', type: 'text' },
       { key: 'gtmId', label: 'Google Tag Manager ID (e.g. GTM-XXXXXXX)', type: 'text' },
-      { key: 'facebookPixelId', label: 'Facebook Pixel ID (numbers only)', type: 'text' },
+      { key: 'facebookPixelId', label: 'Facebook Pixel ID (numbers only) — leave blank if the Pixel is set up in Cloudflare Zaraz, or every event counts twice', type: 'text' },
+      { key: 'facebookDomainVerification', label: 'Meta domain verification token — Business Suite → Brand Safety → Domains → Meta-tag method; paste only the content value', type: 'text' },
       { key: 'robotsDisallow', label: 'Robots.txt — extra Disallow paths (one per line, e.g. /admin)', type: 'textarea' },
     ]
   },

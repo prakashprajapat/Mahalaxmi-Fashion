@@ -117,6 +117,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const s = await getSeoSettings();
   const gtmId = s.gtmId?.trim();
   const fbPixelId = s.facebookPixelId?.trim();
+  // Meta asks for this tag to prove the domain is yours, before a catalogue or
+  // the Conversions API will attach to it. It is a setting rather than a code
+  // change so the token can be pasted in Admin → Settings and be live on the
+  // next page load — and it is not a secret: it ships in the page either way.
+  const fbDomainVerification = s.facebookDomainVerification?.trim();
 
   // The switch that moves tracking into Tag Manager.
   //
@@ -152,6 +157,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         {/* Hero heading font (Playfair Display) — loaded NON-render-blocking:
             fetched with media="print" (so it doesn't block first paint), then a tiny
             script flips it to "all". display=swap keeps text visible meanwhile. */}
+        {fbDomainVerification && (
+          <meta name="facebook-domain-verification" content={fbDomainVerification} />
+        )}
+
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link

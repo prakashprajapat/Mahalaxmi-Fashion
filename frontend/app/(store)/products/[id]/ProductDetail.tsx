@@ -316,6 +316,19 @@ export default function ProductDetail({ params, initialProduct = null }: { param
   const handleAddToCart = () => {
     if (outOfStock) return;
     addToCart(product, cappedQty, size || undefined, color || undefined, variantStock ?? undefined);
+    // The one step of the funnel nothing was recording. Both Google and Meta
+    // bid on what happens after the click, and this is the first sign of it.
+    trackEvent('add_to_cart', {
+      currency: 'INR',
+      value: finalUnitPrice(product) * cappedQty,
+      items: [{
+        item_id: (product as any).sku || String(product.dbId),
+        item_name: product.name,
+        item_category: product.category ?? '',
+        price: finalUnitPrice(product),
+        quantity: cappedQty,
+      }],
+    });
     setAdded(true);
     window.dispatchEvent(new Event('cart-updated'));
     setTimeout(() => setAdded(false), 2000);
