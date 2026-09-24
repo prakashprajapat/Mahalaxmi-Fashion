@@ -693,6 +693,32 @@ public class OrdersController : ControllerBase
                 await Services.Ga4Mp.SendPurchaseAsync(
                     ga4Mid, ga4Secret, req.GaClientId, orderId, serverTotal, "INR", ga4Items);
             }
+
+            // The same purchase to Meta, for the same reason: fbq in the browser is
+            // dropped by ad blockers, by the app, and by a UPI redirect, and Meta's
+            // ads bid on purchases. The order id goes out as the event id and the
+            // browser sends the same one, so the pair is counted once. No-op until
+            // metaCapiAccessToken is set in Settings; never throws.
+            var metaToken = await _db.SiteSettings.Where(s => s.Key == "metaCapiAccessToken")
+                .Select(s => s.Value).FirstOrDefaultAsync() ?? "";
+            if (!string.IsNullOrWhiteSpace(metaToken))
+            {
+                var metaPixel = await _db.SiteSettings.Where(s => s.Key == "facebookPixelId")
+                    .Select(s => s.Value).FirstOrDefaultAsync() ?? "";
+
+                var metaItems = (req.Cart ?? new List<CartLineDto>())
+                    .Select(c => (
+                        id: (c.Sku ?? "").Trim(),
+                        name: (c.Name ?? "").Trim(),
+                        qty: Math.Max(1, c.Quantity),
+                        price: c.Price))
+                    .ToList();
+
+                await Services.MetaCapi.SendPurchaseAsync(
+                    metaPixel, metaToken, orderId, serverTotal, "INR",
+                    req.CustomerEmail, req.CustomerPhone,
+                    "https://www.mahalaxmifashionhub.com/checkout", metaItems);
+            }
         }
 
         return Ok(new { success = true, orderId });

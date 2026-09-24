@@ -96,6 +96,7 @@ const SECTIONS = [
       { key: 'gtmId', label: 'Google Tag Manager ID (e.g. GTM-XXXXXXX)', type: 'text' },
       { key: 'facebookPixelId', label: 'Facebook Pixel ID (numbers only) — leave blank if the Pixel is set up in Cloudflare Zaraz, or every event counts twice', type: 'text' },
       { key: 'facebookDomainVerification', label: 'Meta domain verification token — Business Suite → Brand Safety → Domains → Meta-tag method; paste only the content value', type: 'text' },
+      { key: 'metaCapiAccessToken', label: 'Meta Conversions API access token — makes EVERY order reach Meta even when the browser blocks the Pixel, the buyer pays in the app, or through a UPI redirect. Events Manager → your dataset → Settings → Conversions API → Generate access token. Counted once: the order id is sent as the event id on both sides.', type: 'password' },
       { key: 'robotsDisallow', label: 'Robots.txt — extra Disallow paths (one per line, e.g. /admin)', type: 'textarea' },
     ]
   },
