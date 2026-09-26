@@ -3,19 +3,23 @@ import { useState } from 'react';
 import { paymentsApi, type ReconcileRow } from '@/lib/api';
 import { getAdminToken } from '@/lib/auth';
 import * as XLSX from 'xlsx';
+import { PageHeader, Card, Stat, StatGrid, Chips, Pill, Empty } from '@/components/admin/Ui';
 
+// What each of the four verdicts means, in the words you would use to explain
+// it to someone. MATCHED is the boring one; the two red ones are why the page
+// exists at all.
 const CATEGORY_LABEL: Record<ReconcileRow['category'], string> = {
-  MATCHED:          '✅ Matched',
-  AMOUNT_MISMATCH:  '⚠️ Amount Mismatch',
-  PAYMENT_NO_ORDER: '❌ Payment received, no Order',
-  ORDER_NO_PAYMENT: '❌ Order exists, no Payment',
+  MATCHED:          'Matched',
+  AMOUNT_MISMATCH:  'Wrong amount',
+  PAYMENT_NO_ORDER: 'Paid, no order',
+  ORDER_NO_PAYMENT: 'Order, no payment',
 };
 
-const CATEGORY_COLOR: Record<ReconcileRow['category'], string> = {
-  MATCHED: '#e8f5e9',
-  AMOUNT_MISMATCH: '#fff8e1',
-  PAYMENT_NO_ORDER: '#ffebee',
-  ORDER_NO_PAYMENT: '#ffebee',
+const CATEGORY_TONE: Record<ReconcileRow['category'], 'green' | 'amber' | 'red'> = {
+  MATCHED: 'green',
+  AMOUNT_MISMATCH: 'amber',
+  PAYMENT_NO_ORDER: 'red',
+  ORDER_NO_PAYMENT: 'red',
 };
 
 function daysAgo(n: number) {
@@ -32,12 +36,12 @@ export default function ReconcilePage() {
 
   const run = async () => {
     const token = getAdminToken();
-    if (!token) { setError('Admin login required'); return; }
+    if (!token) { setError('Sign in again — your session has expired.'); return; }
     setLoading(true); setError('');
     try {
       setData(await paymentsApi.reconcile(from, to, token));
-    } catch (e: any) {
-      setError(e.message ?? 'Failed');
+    } catch (e) {
+      setError((e as Error).message || 'Could not fetch the payments.');
     } finally { setLoading(false); }
   };
 
@@ -74,93 +78,98 @@ export default function ReconcilePage() {
     XLSX.writeFile(wb, `payment-reconcile-${from}-to-${to}.xlsx`);
   };
 
-  const card = (label: string, value: number | string, bg = '#fff') => (
-    <div style={{ background: bg, border: '1px solid #eee', borderRadius: 8, padding: '.8rem 1.1rem', minWidth: 130 }}>
-      <div style={{ fontSize: '.75rem', color: '#888' }}>{label}</div>
-      <div style={{ fontSize: '1.3rem', fontWeight: 700 }}>{value}</div>
-    </div>
-  );
+  const s = data?.summary;
+  const needsLooking = s ? s.amountMismatch + s.paymentWithoutOrder + s.orderWithoutPayment : 0;
 
   return (
-    <div style={{ padding: '1.2rem' }}>
-      <h1 style={{ fontSize: '1.3rem', marginBottom: '1rem' }}>💰 Payment Reconciliation (Razorpay vs Orders)</h1>
+    <div className="admin-page">
+      <PageHeader
+        title="Payment reconcile"
+        sub="Every Razorpay payment matched against your orders. Money in with no order, or an order with no money, shows up here."
+        right={data ? <button className="adm-btn adm-btn-primary" onClick={exportXlsx}>Export Excel</button> : undefined}
+      />
 
-      <div style={{ display: 'flex', gap: '.6rem', alignItems: 'end', flexWrap: 'wrap', marginBottom: '1rem' }}>
-        <label style={{ fontSize: '.8rem' }}>From<br />
-          <input type="date" value={from} onChange={e => setFrom(e.target.value)} style={{ padding: '.4rem' }} /></label>
-        <label style={{ fontSize: '.8rem' }}>To<br />
-          <input type="date" value={to} onChange={e => setTo(e.target.value)} style={{ padding: '.4rem' }} /></label>
-        <button onClick={run} disabled={loading}
-          style={{ padding: '.55rem 1.4rem', background: '#a7354d', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer' }}>
-          {loading ? 'Fetching…' : 'Reconcile'}
-        </button>
-        {data && (
-          <button onClick={exportXlsx}
-            style={{ padding: '.55rem 1.2rem', background: '#2e7d32', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer' }}>
-            ⬇ Excel Export
+      <Card title="Which dates">
+        <div style={{ display: 'flex', gap: '.55rem', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+          <label style={{ display: 'block' }}>
+            <span className="adm-stat-l">From</span>
+            <input className="adm-input" type="date" style={{ display: 'block', marginTop: '.2rem' }}
+                   value={from} onChange={e => setFrom(e.target.value)} />
+          </label>
+          <label style={{ display: 'block' }}>
+            <span className="adm-stat-l">To</span>
+            <input className="adm-input" type="date" style={{ display: 'block', marginTop: '.2rem' }}
+                   value={to} onChange={e => setTo(e.target.value)} />
+          </label>
+          <button className="adm-btn adm-btn-primary" onClick={run} disabled={loading}>
+            {loading ? 'Checking…' : 'Reconcile'}
           </button>
-        )}
-      </div>
-
-      {error && <p style={{ color: '#c62828' }}>{error}</p>}
-
-      {data && (
-        <>
-          <div style={{ display: 'flex', gap: '.7rem', flexWrap: 'wrap', marginBottom: '1.2rem' }}>
-            {card('Captured Total', `₹${data.summary.capturedTotal.toLocaleString('en-IN')}`)}
-            {card('Matched', data.summary.matched, '#e8f5e9')}
-            {card('Amount Mismatch', data.summary.amountMismatch, data.summary.amountMismatch ? '#fff8e1' : '#fff')}
-            {card('Payment ✓ Order ✗', data.summary.paymentWithoutOrder, data.summary.paymentWithoutOrder ? '#ffebee' : '#fff')}
-            {card('Order ✓ Payment ✗', data.summary.orderWithoutPayment, data.summary.orderWithoutPayment ? '#ffebee' : '#fff')}
-            {card('Refunded', `${data.summary.refunded} (₹${data.summary.refundedTotal.toLocaleString('en-IN')})`)}
-            {card('Failed', data.summary.failed)}
-          </div>
-
-          <div style={{ marginBottom: '.7rem' }}>
-            <select value={filter} onChange={e => setFilter(e.target.value as any)} style={{ padding: '.4rem' }}>
-              <option value="ALL">Show all ({data.rows.length})</option>
-              {(Object.keys(CATEGORY_LABEL) as ReconcileRow['category'][]).map(c => (
-                <option key={c} value={c}>{CATEGORY_LABEL[c]} ({data.rows.filter(r => r.category === c).length})</option>
-              ))}
-            </select>
-          </div>
-
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: '.82rem' }}>
-              <thead>
-                <tr style={{ background: '#f5f5f5', textAlign: 'left' }}>
-                  {['Status', 'Payment ID', 'Payment ₹', 'Order ID', 'Order ₹', 'Order Status', 'Refund ₹', 'Date', 'Contact'].map(h =>
-                    <th key={h} style={{ padding: '.5rem .6rem', borderBottom: '2px solid #ddd' }}>{h}</th>)}
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((r, i) => (
-                  <tr key={i} style={{ background: CATEGORY_COLOR[r.category], borderBottom: '1px solid #eee' }}>
-                    <td style={{ padding: '.45rem .6rem', whiteSpace: 'nowrap' }}>{CATEGORY_LABEL[r.category]}</td>
-                    <td style={{ padding: '.45rem .6rem', fontFamily: 'monospace' }}>{r.paymentId ?? '—'}</td>
-                    <td style={{ padding: '.45rem .6rem' }}>{r.paymentAmount != null ? `₹${r.paymentAmount.toLocaleString('en-IN')}` : '—'}</td>
-                    <td style={{ padding: '.45rem .6rem', fontFamily: 'monospace' }}>{r.orderId ?? '—'}</td>
-                    <td style={{ padding: '.45rem .6rem' }}>{r.orderTotal != null ? `₹${r.orderTotal.toLocaleString('en-IN')}` : '—'}</td>
-                    <td style={{ padding: '.45rem .6rem' }}>{r.orderStatus ?? '—'}</td>
-                    <td style={{ padding: '.45rem .6rem' }}>{r.refundedAmount ? `₹${r.refundedAmount.toLocaleString('en-IN')}` : ''}</td>
-                    <td style={{ padding: '.45rem .6rem', whiteSpace: 'nowrap' }}>{r.paymentDate ? new Date(r.paymentDate).toLocaleDateString('en-IN') : '—'}</td>
-                    <td style={{ padding: '.45rem .6rem' }}>{r.contact || r.email}</td>
-                  </tr>
-                ))}
-                {rows.length === 0 && (
-                  <tr><td colSpan={9} style={{ padding: '1rem', textAlign: 'center', color: '#888' }}>No rows</td></tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </>
-      )}
+        </div>
+        {error && <p style={{ color: '#c0392b', fontWeight: 700, fontSize: '.85rem', margin: '.6rem 0 0' }}>{error}</p>}
+      </Card>
 
       {!data && !loading && (
-        <p style={{ color: '#777', fontSize: '.88rem' }}>
-          Pick a date range and click <b>Reconcile</b> — every Razorpay payment will be matched against your orders.
-          Red rows = money received but no order was created (or an order exists without payment) — check these immediately.
-        </p>
+        <Card>
+          <Empty>
+            Pick a date range and press Reconcile. Anything that does not add up — money received with no order,
+            an order with no money, or the two disagreeing on the amount — is worth looking at the same day.
+          </Empty>
+        </Card>
+      )}
+
+      {s && (
+        <>
+          <StatGrid>
+            <Stat label="Money taken" value={`₹${s.capturedTotal.toLocaleString('en-IN')}`} />
+            <Stat label="Matched cleanly" value={s.matched} tone="green" />
+            <Stat label="Needs looking at" value={needsLooking} tone={needsLooking > 0 ? 'red' : undefined}
+                  action={needsLooking > 0 && filter === 'ALL' ? 'Show the mismatches' : undefined}
+                  onClick={needsLooking > 0 ? () => setFilter('AMOUNT_MISMATCH') : undefined} />
+            <Stat label="Refunded" value={`${s.refunded} · ₹${s.refundedTotal.toLocaleString('en-IN')}`} />
+          </StatGrid>
+
+          <Card
+            title={`${rows.length} of ${data.rows.length} payments`}
+            right={s.failed > 0 ? <Pill tone="grey">{s.failed} failed payments, not counted</Pill> : undefined}
+          >
+            <Chips value={filter} onChange={k => setFilter(k as typeof filter)}
+                   items={[
+                     { key: 'ALL', label: 'All', count: data.rows.length },
+                     ...(Object.keys(CATEGORY_LABEL) as ReconcileRow['category'][]).map(c => ({
+                       key: c, label: CATEGORY_LABEL[c], count: data.rows.filter(r => r.category === c).length,
+                     })),
+                   ]} />
+
+            {rows.length === 0 ? (
+              <Empty>Nothing in this group — which, for the red ones, is the answer you want.</Empty>
+            ) : (
+              <div className="adm-table-wrap">
+                <table className="adm-table">
+                  <thead><tr>
+                    <th>Verdict</th><th>Payment</th><th className="num">Paid</th>
+                    <th>Order</th><th className="num">Order total</th><th>Order status</th>
+                    <th className="num">Refund</th><th>Date</th><th>Contact</th>
+                  </tr></thead>
+                  <tbody>
+                    {rows.map((r, i) => (
+                      <tr key={r.paymentId ?? r.orderId ?? i}>
+                        <td data-label="Verdict"><Pill tone={CATEGORY_TONE[r.category]}>{CATEGORY_LABEL[r.category]}</Pill></td>
+                        <td data-label="Payment" className="mono">{r.paymentId ?? '—'}</td>
+                        <td data-label="Paid" className="num">{r.paymentAmount != null ? `₹${r.paymentAmount.toLocaleString('en-IN')}` : '—'}</td>
+                        <td data-label="Order" className="mono">{r.orderId ?? '—'}</td>
+                        <td data-label="Order total" className="num">{r.orderTotal != null ? `₹${r.orderTotal.toLocaleString('en-IN')}` : '—'}</td>
+                        <td data-label="Order status">{r.orderStatus ?? '—'}</td>
+                        <td data-label="Refund" className="num">{r.refundedAmount ? `₹${r.refundedAmount.toLocaleString('en-IN')}` : '—'}</td>
+                        <td data-label="Date">{r.paymentDate ? new Date(r.paymentDate).toLocaleDateString('en-IN') : '—'}</td>
+                        <td data-label="Contact">{r.contact || r.email || '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Card>
+        </>
       )}
     </div>
   );

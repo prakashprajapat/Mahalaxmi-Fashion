@@ -2,17 +2,20 @@
 import { useEffect, useState } from 'react';
 import { ordersApi, productsApi } from '@/lib/api';
 import { getAdminToken } from '@/lib/auth';
-import { exportGSTR1Excel, exportSalesExcel, exportGSTR1GovTemplate, productGstTotals } from '@/lib/exportExcel';
+import { exportGSTR1Excel, exportSalesExcel, exportGSTR1GovTemplate, productGstBreakdown } from '@/lib/exportExcel';
 import type { Order } from '@/types';
+import { PageHeader, Card, Stat, StatGrid, Chips, Empty, Pill } from '@/components/admin/Ui';
 
-// Apparel GST slab (GST-inclusive prices): per-piece ≤ ₹2500 → 5%, above → 18%.
+// Apparel GST slab (prices include GST): per-piece ≤ ₹2500 → 5%, above → 18%.
 const gstSlab = (unitPrice: number) => (unitPrice > 2500 ? 18 : 5);
+const HOME_STATE = 'rajasthan';
+const OFF_BOOKS = ['Cancelled', 'Return'];
 
 function exportGSTR1(orders: Order[], from: string, to: string) {
   const header = ['GSTIN','Invoice No','Invoice Date','Customer Name','State','HSN Code','Description','Qty','Taxable Value','GST Rate','CGST','SGST','IGST','Invoice Value'];
   const rows: string[][] = [];
 
-  orders.filter(o => !['Cancelled','Return'].includes(o.status)).forEach(o => {
+  orders.filter(o => !OFF_BOOKS.includes(o.status)).forEach(o => {
     const date = new Date(o.placedAt ?? o.createdAt).toLocaleDateString('en-IN');
     o.cart.forEach(item => {
       const qty = Number(item.quantity ?? 1) || 1;
@@ -20,21 +23,14 @@ function exportGSTR1(orders: Order[], from: string, to: string) {
       const taxable = item.lineTotal / (1 + rate / 100);
       const gst = item.lineTotal - taxable;
       const state = (o as any).shippingState ?? '';
-      const isIntraState = state.toLowerCase() === 'rajasthan';
+      const intra = state.toLowerCase() === HOME_STATE;
       rows.push([
-        '',
-        o.id,
-        date,
-        o.customerName ?? '',
-        state,
-        item.hsn || '6211',
-        item.name,
-        String(item.quantity),
-        taxable.toFixed(2),
-        `${rate}%`,
-        isIntraState ? (gst / 2).toFixed(2) : '0.00',
-        isIntraState ? (gst / 2).toFixed(2) : '0.00',
-        !isIntraState ? gst.toFixed(2) : '0.00',
+        '', o.id, date, o.customerName ?? '', state,
+        item.hsn || '6211', item.name, String(item.quantity),
+        taxable.toFixed(2), `${rate}%`,
+        intra ? (gst / 2).toFixed(2) : '0.00',
+        intra ? (gst / 2).toFixed(2) : '0.00',
+        !intra ? gst.toFixed(2) : '0.00',
         item.lineTotal.toFixed(2),
       ]);
     });
@@ -53,29 +49,25 @@ function exportSalesCSV(orders: Order[]) {
   const rows = orders.map(o => [
     o.id,
     new Date(o.placedAt ?? o.createdAt).toLocaleDateString('en-IN'),
-    o.customerName ?? '',
-    o.customerPhone ?? '',
-    (o as any).shippingCity ?? '',
-    (o as any).shippingState ?? '',
-    o.subtotal,
-    o.shippingCost,
-    o.codFee,
-    o.total,
-    o.method,
-    o.status,
+    o.customerName ?? '', o.customerPhone ?? '',
+    (o as any).shippingCity ?? '', (o as any).shippingState ?? '',
+    o.subtotal, o.shippingCost, o.codFee, o.total, o.method, o.status,
   ]);
   const csv = [header, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
   const blob = new Blob([csv], { type: 'text/csv' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a'); a.href = url;
-  a.download = `sales-report.csv`;
+  a.download = 'sales-report.csv';
   a.click(); URL.revokeObjectURL(url);
 }
+
+const money = (n: number) => `₹${Math.round(n).toLocaleString('en-IN')}`;
+const money2 = (n: number) => `₹${n.toFixed(2)}`;
 
 export default function AdminReportsPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'summary'|'gstr1'|'category'>('summary');
+  const [tab, setTab] = useState<'summary' | 'gstr1' | 'category'>('summary');
   const [dateFrom, setDateFrom] = useState(() => {
     const d = new Date(); d.setMonth(d.getMonth() - 1); return d.toISOString().split('T')[0];
   });
@@ -88,7 +80,7 @@ export default function AdminReportsPage() {
       .then(r => setOrders(r.orders))
       .catch(console.error)
       .finally(() => setLoading(false));
-    // Build SKU → pack-of map so report quantities can be counted in pieces.
+    // SKU → pack-of, so report quantities can be counted in pieces.
     productsApi.getAll({ pageSize: 10000 })
       .then(r => {
         const m: Record<string, number> = {};
@@ -103,221 +95,217 @@ export default function AdminReportsPage() {
     return d >= new Date(dateFrom) && d <= new Date(dateTo + 'T23:59:59');
   });
 
-  const revenue = filtered.filter(o => !['Cancelled','Return'].includes(o.status)).reduce((s, o) => s + o.total, 0);
-  // GST-inclusive prices, apparel slab (5% / 18% by piece price). Net of returns.
-  const { taxable: taxableBase, gst: totalGst } = productGstTotals(filtered);
-  const cgst = totalGst / 2;
-  const sgst = totalGst / 2;
+  const onBooks = filtered.filter(o => !OFF_BOOKS.includes(o.status));
+  const revenue = onBooks.reduce((s, o) => s + o.total, 0);
+  const g = productGstBreakdown(filtered);
+
   const delivered = filtered.filter(o => o.status === 'Delivered').length;
   const cancelled = filtered.filter(o => o.status === 'Cancelled').length;
   const codOrders = filtered.filter(o => o.method === 'cod').length;
   const onlineOrders = filtered.filter(o => o.method !== 'cod').length;
-  const codRevenue = filtered.filter(o => o.method === 'cod' && !['Cancelled','Return'].includes(o.status)).reduce((s, o) => s + o.total, 0);
-  const onlineRevenue = filtered.filter(o => o.method !== 'cod' && !['Cancelled','Return'].includes(o.status)).reduce((s, o) => s + o.total, 0);
+  const codRevenue = onBooks.filter(o => o.method === 'cod').reduce((s, o) => s + o.total, 0);
+  const onlineRevenue = onBooks.filter(o => o.method !== 'cod').reduce((s, o) => s + o.total, 0);
 
-  // Category breakdown
   const categoryMap: Record<string, { qty: number; revenue: number }> = {};
-  filtered.filter(o => !['Cancelled','Return'].includes(o.status)).forEach(o => {
-    o.cart.forEach(item => {
-      const c = item.category || 'Unknown';
-      if (!categoryMap[c]) categoryMap[c] = { qty: 0, revenue: 0 };
-      categoryMap[c].qty += item.quantity;
-      categoryMap[c].revenue += item.lineTotal;
-    });
-  });
+  onBooks.forEach(o => o.cart.forEach(item => {
+    const c = item.category || 'Uncategorised';
+    if (!categoryMap[c]) categoryMap[c] = { qty: 0, revenue: 0 };
+    categoryMap[c].qty += item.quantity;
+    categoryMap[c].revenue += item.lineTotal;
+  }));
   const categoryRows = Object.entries(categoryMap).sort((a, b) => b[1].revenue - a[1].revenue);
 
-  // HSN breakdown for GSTR-1
-  const hsnMap: Record<string, { qty: number; taxable: number; gst: number }> = {};
-  filtered.filter(o => !['Cancelled','Return'].includes(o.status)).forEach(o => {
+  // GSTR-1 Table 12 wants one row per HSN *and rate*. Lumping two rates under
+  // one HSN and printing "5%" over the total is how a return goes in wrong.
+  const hsnMap: Record<string, { hsn: string; rate: number; qty: number; taxable: number; gst: number; intraGst: number; interGst: number }> = {};
+  onBooks.forEach(o => {
+    const intra = String((o as any).shippingState ?? '').toLowerCase() === HOME_STATE;
     o.cart.forEach(item => {
       const hsn = item.hsn || '6211';
-      if (!hsnMap[hsn]) hsnMap[hsn] = { qty: 0, taxable: 0, gst: 0 };
       const qty = Number(item.quantity ?? 1) || 1;
       const rate = gstSlab(item.lineTotal / qty);
+      const key = `${hsn}|${rate}`;
+      if (!hsnMap[key]) hsnMap[key] = { hsn, rate, qty: 0, taxable: 0, gst: 0, intraGst: 0, interGst: 0 };
       const taxable = item.lineTotal / (1 + rate / 100);
-      hsnMap[hsn].qty += item.quantity;
-      hsnMap[hsn].taxable += taxable;
-      hsnMap[hsn].gst += item.lineTotal - taxable;
+      const gst = item.lineTotal - taxable;
+      hsnMap[key].qty += item.quantity;
+      hsnMap[key].taxable += taxable;
+      hsnMap[key].gst += gst;
+      if (intra) hsnMap[key].intraGst += gst; else hsnMap[key].interGst += gst;
     });
   });
+  const hsnRows = Object.values(hsnMap).sort((a, b) => a.hsn.localeCompare(b.hsn) || a.rate - b.rate);
 
-  const statCard = (label: string, value: string | number, sub?: string, color = '#1a1a1a') => (
-    <div key={label} style={{ background: '#fff', borderRadius: '12px', padding: '1.25rem', boxShadow: '0 1px 4px rgba(0,0,0,.07)' }}>
-      <p style={{ fontSize: '.8rem', color: '#888', marginBottom: '.35rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.05em' }}>{label}</p>
-      <p style={{ fontSize: '1.5rem', fontWeight: 800, color, margin: 0 }}>{value}</p>
-      {sub && <p style={{ fontSize: '.78rem', color: '#aaa', marginTop: '.25rem' }}>{sub}</p>}
-    </div>
-  );
+  const rateLabel = g.rates.length === 0 ? '—'
+    : g.rates.length === 1 ? `${g.rates[0]}%`
+    : `${g.rates.join('% and ')}%`;
 
   return (
-    <div>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', flexWrap: 'wrap', gap: '.75rem' }}>
-        <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#1a1a1a' }}>Reports & GSTR-1</h1>
-        <div style={{ display: 'flex', gap: '.5rem', flexWrap: 'wrap' }}>
-          <button onClick={() => exportSalesCSV(filtered)}
-            style={{ background: '#27ae60', color: '#fff', border: 'none', borderRadius: '8px', padding: '.5rem 1rem', fontSize: '.82rem', fontWeight: 600, cursor: 'pointer' }}>
-            ⬇️ Sales CSV
-          </button>
-          <button onClick={() => exportSalesExcel(filtered, dateFrom, dateTo, packOf)}
-            style={{ background: '#1b5e20', color: '#fff', border: 'none', borderRadius: '8px', padding: '.5rem 1rem', fontSize: '.82rem', fontWeight: 600, cursor: 'pointer' }}>
-            📊 Sales Excel
-          </button>
-          <button onClick={() => exportGSTR1(filtered, dateFrom, dateTo)}
-            style={{ background: '#1565c0', color: '#fff', border: 'none', borderRadius: '8px', padding: '.5rem 1rem', fontSize: '.82rem', fontWeight: 600, cursor: 'pointer' }}>
-            📄 GSTR-1 CSV
-          </button>
-          <button onClick={() => exportGSTR1Excel(filtered, dateFrom, dateTo, packOf)}
-            style={{ background: '#0d47a1', color: '#fff', border: 'none', borderRadius: '8px', padding: '.5rem 1rem', fontSize: '.82rem', fontWeight: 600, cursor: 'pointer' }}>
-            📊 GSTR-1 Excel
-          </button>
-          <button onClick={() => exportGSTR1GovTemplate(filtered, dateFrom, dateTo, packOf)}
-            style={{ background: '#4a148c', color: '#fff', border: 'none', borderRadius: '8px', padding: '.5rem 1rem', fontSize: '.82rem', fontWeight: 600, cursor: 'pointer' }}>
-            🏛️ GSTR-1 Gov Template
-          </button>
-        </div>
-      </div>
+    <div className="admin-page">
+      <PageHeader
+        title="Reports &amp; GSTR-1"
+        sub="Sales and tax for a date range. Cancelled orders and returns are left out, so these are net figures."
+        right={
+          <>
+            <button className="adm-btn" onClick={() => exportSalesCSV(filtered)}>Sales CSV</button>
+            <button className="adm-btn" onClick={() => exportSalesExcel(filtered, dateFrom, dateTo, packOf)}>Sales Excel</button>
+            <button className="adm-btn" onClick={() => exportGSTR1(filtered, dateFrom, dateTo)}>GSTR-1 CSV</button>
+            <button className="adm-btn" onClick={() => exportGSTR1Excel(filtered, dateFrom, dateTo, packOf)}>GSTR-1 Excel</button>
+            <button className="adm-btn adm-btn-primary" onClick={() => exportGSTR1GovTemplate(filtered, dateFrom, dateTo, packOf)}>
+              GSTR-1 gov template
+            </button>
+          </>
+        }
+      />
 
-      {/* Date Filter */}
-      <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', background: '#fff', padding: '1rem 1.25rem', borderRadius: '12px', boxShadow: '0 1px 4px rgba(0,0,0,.07)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '.5rem' }}>
-          <label style={{ fontSize: '.85rem', fontWeight: 600, color: '#555' }}>From:</label>
-          <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
-            style={{ border: '1.5px solid #ddd', borderRadius: '8px', padding: '.45rem .75rem', fontSize: '.88rem' }} />
+      <Card title="Which dates">
+        <div style={{ display: 'flex', gap: '.55rem', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+          <label style={{ display: 'block' }}>
+            <span className="adm-stat-l">From</span>
+            <input className="adm-input" type="date" style={{ display: 'block', marginTop: '.2rem' }}
+                   value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
+          </label>
+          <label style={{ display: 'block' }}>
+            <span className="adm-stat-l">To</span>
+            <input className="adm-input" type="date" style={{ display: 'block', marginTop: '.2rem' }}
+                   value={dateTo} onChange={e => setDateTo(e.target.value)} />
+          </label>
+          <span style={{ fontSize: '.82rem', color: '#7d736d', fontWeight: 600, paddingBottom: '.5rem' }}>
+            {filtered.length} orders in this range, {onBooks.length} of them on the books
+          </span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '.5rem' }}>
-          <label style={{ fontSize: '.85rem', fontWeight: 600, color: '#555' }}>To:</label>
-          <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
-            style={{ border: '1.5px solid #ddd', borderRadius: '8px', padding: '.45rem .75rem', fontSize: '.88rem' }} />
-        </div>
-        <span style={{ fontSize: '.85rem', color: '#888' }}>{filtered.length} orders in range</span>
-      </div>
+      </Card>
 
       {loading ? (
-        <p style={{ color: '#aaa' }}>Loading report data…</p>
+        <Card><Empty>Loading the orders…</Empty></Card>
       ) : (
         <>
-          {/* Tabs */}
-          <div style={{ display: 'flex', gap: '.5rem', marginBottom: '1.25rem' }}>
-            {(['summary','gstr1','category'] as const).map(tab => (
-              <button key={tab} onClick={() => setActiveTab(tab)}
-                style={{ padding: '.5rem 1.25rem', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '.88rem', fontWeight: 600,
-                  background: activeTab === tab ? '#a7354d' : '#f5f5f5',
-                  color: activeTab === tab ? '#fff' : '#555' }}>
-                {tab === 'summary' ? '📊 Summary' : tab === 'gstr1' ? '📄 GSTR-1 / HSN' : '🗂️ By Category'}
-              </button>
-            ))}
-          </div>
+          <Chips value={tab} onChange={k => setTab(k as typeof tab)}
+                 items={[
+                   { key: 'summary', label: 'Summary' },
+                   { key: 'gstr1', label: 'GSTR-1 / HSN' },
+                   { key: 'category', label: 'By category' },
+                 ]} />
 
-          {activeTab === 'summary' && (
+          {tab === 'summary' && (
             <>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
-                {statCard('Total Revenue', `₹${revenue.toLocaleString('en-IN')}`, `${filtered.length} orders`, '#27ae60')}
-                {statCard('Taxable Base', `₹${taxableBase.toFixed(0)}`, 'excl. GST', '#1565c0')}
-                {statCard('Total GST (5%)', `₹${totalGst.toFixed(0)}`, `CGST ₹${cgst.toFixed(0)} + SGST ₹${sgst.toFixed(0)}`, '#7b1fa2')}
-                {statCard('Delivered', delivered, 'orders', '#27ae60')}
-                {statCard('Cancelled', cancelled, 'orders', '#c62828')}
-                {statCard('COD Orders', codOrders, `₹${codRevenue.toLocaleString('en-IN')}`, '#e67e22')}
-                {statCard('Online Orders', onlineOrders, `₹${onlineRevenue.toLocaleString('en-IN')}`, '#1565c0')}
-              </div>
+              <StatGrid>
+                <Stat label="Revenue" value={money(revenue)} action={`${onBooks.length} orders`} tone="green" />
+                <Stat label="Taxable base" value={money(g.taxable)} action="before GST" />
+                <Stat label="GST collected" value={money(g.gst)} action={`at ${rateLabel}`} />
+                <Stat label="Delivered" value={delivered} tone="green" />
+              </StatGrid>
+              <StatGrid>
+                <Stat label="Cancelled" value={cancelled} tone={cancelled > 0 ? 'red' : undefined} />
+                <Stat label="Cash on delivery" value={codOrders} action={money(codRevenue)} />
+                <Stat label="Paid online" value={onlineOrders} action={money(onlineRevenue)} />
+                <Stat label="Orders out of state" value={g.igst > 0 ? 'Yes — IGST' : 'None'}
+                      action={g.igst > 0 ? money(g.igst) + ' IGST' : 'all inside Rajasthan'} />
+              </StatGrid>
 
-              {/* GST Summary Table */}
-              <div style={{ background: '#fff', borderRadius: '12px', padding: '1.25rem', boxShadow: '0 1px 4px rgba(0,0,0,.07)', marginBottom: '1.25rem' }}>
-                <h3 style={{ fontWeight: 700, marginBottom: '1rem', color: '#333' }}>GST Summary (5% Rate)</h3>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '.88rem' }}>
-                  <thead style={{ background: '#f9f9f9' }}>
-                    <tr>
-                      {['Component','Amount'].map(h => (
-                        <th key={h} style={{ padding: '.6rem 1rem', textAlign: 'left', fontWeight: 600, color: '#555', fontSize: '.78rem', textTransform: 'uppercase' }}>{h}</th>
+              <Card title="GST, split the way the return wants it">
+                <p style={{ fontSize: '.82rem', color: '#7d736d', margin: '0 0 .6rem', lineHeight: 1.6 }}>
+                  A sale inside Rajasthan is CGST plus SGST; a sale to another state is IGST. Apparel is 5% up to
+                  ₹2,500 a piece and 18% above it. Both splits below are counted from the orders, not assumed —
+                  this range used {rateLabel}.
+                </p>
+                <div className="adm-table-wrap">
+                  <table className="adm-table">
+                    <thead><tr><th>Component</th><th className="num">Amount</th></tr></thead>
+                    <tbody>
+                      {[
+                        ['Taxable base (before GST)', money2(g.taxable)],
+                        ['CGST — sales inside Rajasthan', money2(g.cgst)],
+                        ['SGST — sales inside Rajasthan', money2(g.sgst)],
+                        ['IGST — sales to other states', money2(g.igst)],
+                        ['Total GST', money2(g.gst)],
+                        ['Invoice value (with GST)', money2(revenue)],
+                      ].map(([label, value]) => (
+                        <tr key={label}>
+                          <td data-label="Component">{label}</td>
+                          <td data-label="Amount" className="num" style={{ fontWeight: 800 }}>{value}</td>
+                        </tr>
                       ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {[
-                      { label: 'Taxable Base (excl. GST)', value: `₹${taxableBase.toFixed(2)}` },
-                      { label: 'CGST @ 2.5%', value: `₹${cgst.toFixed(2)}` },
-                      { label: 'SGST @ 2.5%', value: `₹${sgst.toFixed(2)}` },
-                      { label: 'Total GST', value: `₹${totalGst.toFixed(2)}` },
-                      { label: 'Total Invoice Value (incl. GST)', value: `₹${revenue.toLocaleString('en-IN')}` },
-                    ].map((row, i) => (
-                      <tr key={row.label} style={{ borderTop: i > 0 ? '1px solid #f5f5f5' : undefined }}>
-                        <td style={{ padding: '.6rem 1rem' }}>{row.label}</td>
-                        <td style={{ padding: '.6rem 1rem', fontWeight: 700 }}>{row.value}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </tbody>
+                  </table>
+                </div>
+              </Card>
             </>
           )}
 
-          {activeTab === 'gstr1' && (
-            <div style={{ background: '#fff', borderRadius: '12px', padding: '1.25rem', boxShadow: '0 1px 4px rgba(0,0,0,.07)' }}>
-              <h3 style={{ fontWeight: 700, marginBottom: '1rem', color: '#333' }}>HSN-wise Summary (for GSTR-1 Table 12)</h3>
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '.85rem' }}>
-                  <thead style={{ background: '#f9f9f9' }}>
-                    <tr>
-                      {['HSN Code','Description','Total Qty','Taxable Value','GST Rate','CGST','SGST','Total GST'].map(h => (
-                        <th key={h} style={{ padding: '.65rem 1rem', textAlign: 'left', fontWeight: 600, color: '#555', fontSize: '.75rem', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{h}</th>
+          {tab === 'gstr1' && (
+            <Card title="HSN summary — for GSTR-1 table 12"
+                  right={g.rates.length > 1 ? <Pill tone="amber">Two GST rates in this range</Pill> : undefined}>
+              <p style={{ fontSize: '.82rem', color: '#7d736d', margin: '0 0 .6rem', lineHeight: 1.6 }}>
+                One row per HSN code and rate, which is what the return asks for. A single HSN can appear twice
+                if some pieces cost over ₹2,500.
+              </p>
+              {hsnRows.length === 0 ? (
+                <Empty>No taxable orders in this range.</Empty>
+              ) : (
+                <div className="adm-table-wrap">
+                  <table className="adm-table">
+                    <thead><tr>
+                      <th>HSN</th><th>Description</th><th className="num">Qty</th>
+                      <th className="num">Taxable</th><th className="num">Rate</th>
+                      <th className="num">CGST</th><th className="num">SGST</th>
+                      <th className="num">IGST</th><th className="num">Total GST</th>
+                    </tr></thead>
+                    <tbody>
+                      {hsnRows.map(r => (
+                        <tr key={`${r.hsn}-${r.rate}`}>
+                          <td data-label="HSN" className="mono" style={{ fontWeight: 800 }}>{r.hsn}</td>
+                          <td data-label="Description">Garments / clothing</td>
+                          <td data-label="Qty" className="num">{r.qty}</td>
+                          <td data-label="Taxable" className="num">{money2(r.taxable)}</td>
+                          <td data-label="Rate" className="num">{r.rate}%</td>
+                          <td data-label="CGST" className="num">{money2(r.intraGst / 2)}</td>
+                          <td data-label="SGST" className="num">{money2(r.intraGst / 2)}</td>
+                          <td data-label="IGST" className="num">{money2(r.interGst)}</td>
+                          <td data-label="Total GST" className="num" style={{ fontWeight: 800 }}>{money2(r.gst)}</td>
+                        </tr>
                       ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {Object.entries(hsnMap).length === 0 ? (
-                      <tr><td colSpan={8} style={{ textAlign: 'center', padding: '2rem', color: '#aaa' }}>No taxable orders in selected period.</td></tr>
-                    ) : Object.entries(hsnMap).map(([hsn, data], i) => (
-                      <tr key={hsn} style={{ borderTop: i > 0 ? '1px solid #f5f5f5' : undefined }}>
-                        <td style={{ padding: '.65rem 1rem', fontFamily: 'monospace', fontWeight: 700 }}>{hsn}</td>
-                        <td style={{ padding: '.65rem 1rem' }}>Garments / Clothing</td>
-                        <td style={{ padding: '.65rem 1rem' }}>{data.qty}</td>
-                        <td style={{ padding: '.65rem 1rem' }}>₹{data.taxable.toFixed(2)}</td>
-                        <td style={{ padding: '.65rem 1rem' }}>5%</td>
-                        <td style={{ padding: '.65rem 1rem' }}>₹{(data.gst / 2).toFixed(2)}</td>
-                        <td style={{ padding: '.65rem 1rem' }}>₹{(data.gst / 2).toFixed(2)}</td>
-                        <td style={{ padding: '.65rem 1rem', fontWeight: 700 }}>₹{data.gst.toFixed(2)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </Card>
           )}
 
-          {activeTab === 'category' && (
-            <div style={{ background: '#fff', borderRadius: '12px', padding: '1.25rem', boxShadow: '0 1px 4px rgba(0,0,0,.07)' }}>
-              <h3 style={{ fontWeight: 700, marginBottom: '1rem', color: '#333' }}>Sales by Category</h3>
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '.85rem' }}>
-                  <thead style={{ background: '#f9f9f9' }}>
-                    <tr>
-                      {['Category','Units Sold','Revenue','% of Total'].map(h => (
-                        <th key={h} style={{ padding: '.65rem 1rem', textAlign: 'left', fontWeight: 600, color: '#555', fontSize: '.75rem', textTransform: 'uppercase' }}>{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {categoryRows.length === 0 ? (
-                      <tr><td colSpan={4} style={{ textAlign: 'center', padding: '2rem', color: '#aaa' }}>No data in selected period.</td></tr>
-                    ) : categoryRows.map(([cat, data], i) => (
-                      <tr key={cat} style={{ borderTop: i > 0 ? '1px solid #f5f5f5' : undefined }}>
-                        <td style={{ padding: '.65rem 1rem', fontWeight: 500 }}>{cat}</td>
-                        <td style={{ padding: '.65rem 1rem' }}>{data.qty}</td>
-                        <td style={{ padding: '.65rem 1rem', fontWeight: 600 }}>₹{data.revenue.toLocaleString('en-IN')}</td>
-                        <td style={{ padding: '.65rem 1rem' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '.5rem' }}>
-                            <div style={{ flex: 1, height: '6px', background: '#f5f5f5', borderRadius: '3px', overflow: 'hidden', maxWidth: '100px' }}>
-                              <div style={{ height: '100%', background: '#a7354d', borderRadius: '3px', width: `${Math.round((data.revenue / revenue) * 100)}%` }} />
-                            </div>
-                            <span>{revenue > 0 ? Math.round((data.revenue / revenue) * 100) : 0}%</span>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+          {tab === 'category' && (
+            <Card title="Sales by category">
+              {categoryRows.length === 0 ? (
+                <Empty>Nothing sold in this range.</Empty>
+              ) : (
+                <div className="adm-table-wrap">
+                  <table className="adm-table">
+                    <thead><tr>
+                      <th>Category</th><th className="num">Units</th><th className="num">Revenue</th><th>Share</th>
+                    </tr></thead>
+                    <tbody>
+                      {categoryRows.map(([cat, d]) => {
+                        const pct = revenue > 0 ? Math.round((d.revenue / revenue) * 100) : 0;
+                        return (
+                          <tr key={cat}>
+                            <td data-label="Category" style={{ fontWeight: 650 }}>{cat}</td>
+                            <td data-label="Units" className="num">{d.qty}</td>
+                            <td data-label="Revenue" className="num" style={{ fontWeight: 800 }}>{money(d.revenue)}</td>
+                            <td data-label="Share">
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '.5rem', justifyContent: 'flex-end' }}>
+                                <div style={{ flex: 1, maxWidth: 110, height: 6, background: '#f4efec', borderRadius: 3, overflow: 'hidden' }}>
+                                  <div style={{ height: '100%', width: `${pct}%`, background: '#722f37', borderRadius: 3 }} />
+                                </div>
+                                <span style={{ fontVariantNumeric: 'tabular-nums' }}>{pct}%</span>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </Card>
           )}
         </>
       )}

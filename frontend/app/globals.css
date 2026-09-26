@@ -2168,6 +2168,24 @@ a.footer-app-btn.footer-app-live:hover{ background:rgba(255,255,255,.16); transf
   }
 }
 
+/* ─── Admin tables ───
+   Some admin screens are genuinely tabular - a reconciliation, a pincode
+   report - and a table is the right shape for them. This is what one looks
+   like, so a page does not have to inline its own th and td styling. Give
+   every cell a data-label and the block below turns the whole thing into
+   cards on a phone. */
+.adm-table-wrap { overflow-x: auto; }
+.adm-table { width: 100%; border-collapse: collapse; font-size: .82rem; }
+.adm-table thead th {
+  text-align: left; font-weight: 800; font-size: .7rem; text-transform: uppercase;
+  letter-spacing: .04em; color: #8a7f76; padding: .55rem .65rem;
+  border-bottom: 1px solid #eee3e4; white-space: nowrap;
+}
+.adm-table tbody td { padding: .55rem .65rem; border-bottom: 1px solid #f6f1ef; color: #3a332f; vertical-align: top; }
+.adm-table tbody tr:last-child td { border-bottom: 0; }
+.adm-table .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .76rem; }
+.adm-table .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
 /* ─── Admin tables become cards on a phone ───
    Each row is one card and each cell prints its column name, so nothing has to
    be scrolled sideways to be read. Buttons and menus inside the cells keep

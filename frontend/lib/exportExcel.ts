@@ -62,17 +62,37 @@ function creditNoteNo(o: Order): string {
 const neg = (x: number) => -Number(x.toFixed(2));
 const r2 = (x: number) => +Number(x.toFixed(2));
 
-/** Net taxable base + GST for a set of orders (order-total incl. shipping, GST-inclusive,
- *  at the order's slab rate; returns/cancelled excluded → net figure). Used by the Reports page. */
-export function productGstTotals(orders: Order[]) {
-  let taxable = 0, gst = 0;
+/** Net taxable base and GST for a set of orders, split the way a GST return needs them.
+ *  Order totals include shipping; cancelled orders and returns are left out, so
+ *  these are net figures.
+ *
+ *  The Reports screen used to print "CGST @ 2.5%" and "SGST @ 2.5%" over these
+ *  numbers, which was only true when every order stayed inside Rajasthan and
+ *  every piece cost under the slab threshold. A sale to another state is IGST,
+ *  not CGST+SGST, and a piece over the threshold is 18%, not 5% - so the label
+ *  was wrong on exactly the orders where being wrong matters. This returns what
+ *  is actually there, including which rates were used, so nothing has to be
+ *  assumed by whoever draws it. */
+export function productGstBreakdown(orders: Order[]) {
+  let taxable = 0, gst = 0, intraGst = 0, interGst = 0;
+  const rates = new Set<number>();
   orders
     .filter(o => o.status !== 'Cancelled' && !RETURN_STATUSES.includes(o.status))
     .forEach(o => {
-      const s = splitGst(Number(o.total ?? 0), orderGstRate(o));
-      taxable += s.taxable; gst += s.gst;
+      const rate = orderGstRate(o);
+      rates.add(rate);
+      const s = splitGst(Number(o.total ?? 0), rate);
+      taxable += s.taxable;
+      gst += s.gst;
+      if (isIntraState(o)) intraGst += s.gst; else interGst += s.gst;
     });
-  return { taxable, gst };
+  return {
+    taxable, gst,
+    cgst: intraGst / 2,
+    sgst: intraGst / 2,
+    igst: interGst,
+    rates: [...rates].sort((a, b) => a - b),
+  };
 }
 
 /** Parse sizes / colours / stock from product ExtraJson */

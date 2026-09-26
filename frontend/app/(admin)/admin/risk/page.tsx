@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { getAdminToken } from '@/lib/auth';
 import { ordersApi } from '@/lib/api';
+import { PageHeader, Card, Stat, StatGrid, Pill, Empty } from '@/components/admin/Ui';
 
 type Pin = {
   pincode: string; city?: string | null; state?: string | null;
@@ -48,8 +49,7 @@ export default function RiskPage() {
     if (next && !confirm(`Block Cash on Delivery for pincode ${pin.pincode}? Customers there can still order by paying online.`)) return;
     setBusyPin(pin.pincode);
     try {
-      const token = getAdminToken() || '';
-      await ordersApi.setCodBlock(pin.pincode, next, token);
+      await ordersApi.setCodBlock(pin.pincode, next, getAdminToken() || '');
       setPins(list => list.map(p => p.pincode === pin.pincode ? { ...p, codBlocked: next } : p));
     } catch (e) {
       alert('Could not update: ' + (e as Error).message);
@@ -68,130 +68,108 @@ export default function RiskPage() {
   const blockedCount = pins.filter(p => p.codBlocked).length;
   const riskyCount = pins.filter(p => p.risky).length;
 
-  const th: React.CSSProperties = { padding: '.7rem 1rem', textAlign: 'left', fontWeight: 700, color: '#555', whiteSpace: 'nowrap', fontSize: '.8rem' };
-  const td: React.CSSProperties = { padding: '.6rem 1rem', fontSize: '.85rem', whiteSpace: 'nowrap' };
-
   return (
     <div className="admin-page">
-      <div className="admin-page-header">
-        <div>
-          <h1>🛡️ Fraud &amp; Risk</h1>
-          <p className="admin-page-sub">Spot risky customers and delivery areas, and switch off Cash on Delivery where fake or return-heavy orders come from.</p>
-        </div>
-        <button onClick={load} className="button secondary" style={{ fontSize: '.85rem' }}>🔄 Refresh</button>
-      </div>
+      <PageHeader
+        title="Fraud &amp; risk"
+        sub="Where fake and return-heavy orders come from, and where to switch Cash on Delivery off. Paying online is never blocked."
+        right={<button className="adm-btn" onClick={load}>Refresh</button>}
+      />
 
-      {/* Stats */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
-        {[
-          { label: 'High-Risk Customers', value: customers.length, icon: '🚩' },
-          { label: 'Risky Pincodes', value: riskyCount, icon: '📍' },
-          { label: 'COD Blocked Pincodes', value: blockedCount, icon: '⛔' },
-          { label: 'Pincodes Seen', value: pins.length, icon: '🗺️' },
-        ].map(s => (
-          <div key={s.label} style={{ background: '#fff', border: '1px solid #eee', borderRadius: 12, padding: '1rem 1.25rem', textAlign: 'center' }}>
-            <div style={{ fontSize: '1.4rem' }}>{s.icon}</div>
-            <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#a7354d' }}>{s.value}</div>
-            <div style={{ fontSize: '.74rem', color: '#888', marginTop: '.2rem' }}>{s.label}</div>
-          </div>
-        ))}
-      </div>
+      <StatGrid>
+        <Stat label="High-risk customers" value={customers.length} tone={customers.length > 0 ? 'red' : undefined} />
+        <Stat label="Risky pincodes" value={riskyCount} tone={riskyCount > 0 ? 'red' : undefined}
+              action={riskyCount > 0 ? 'Show only these' : undefined}
+              onClick={riskyCount > 0 ? () => setOnlyRisky(true) : undefined} />
+        <Stat label="COD switched off" value={blockedCount} />
+        <Stat label="Pincodes ordered from" value={pins.length} />
+      </StatGrid>
 
-      {/* ── High-Risk Customers (Red Zone) ── */}
-      <h2 style={{ fontSize: '1rem', margin: '0 0 .6rem', display: 'flex', alignItems: 'center', gap: '.5rem' }}>
-        <span style={{ background: '#e53935', color: '#fff', borderRadius: 6, padding: '2px 8px', fontSize: '.72rem', fontWeight: 800 }}>RED ZONE</span>
-        High-Risk Customers
-        <span style={{ fontSize: '.75rem', color: '#999', fontWeight: 400 }}>(more than {threshold} cancelled orders)</span>
-      </h2>
-      <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #eee', overflow: 'hidden', marginBottom: '2rem' }}>
+      <Card title={`High-risk customers — more than ${threshold} cancelled orders`}>
+        <p style={{ fontSize: '.82rem', color: '#7d736d', margin: '0 0 .6rem', lineHeight: 1.55 }}>
+          Cash on Delivery is already off for everyone here; it happens on its own, you do not have to do
+          anything. They can still order by paying online.
+        </p>
         {loading ? (
-          <div style={{ padding: '2rem', textAlign: 'center', color: '#aaa' }}>Loading…</div>
+          <Empty>Loading…</Empty>
         ) : customers.length === 0 ? (
-          <div style={{ padding: '2rem', textAlign: 'center', color: '#aaa' }}>
-            <div style={{ fontSize: '2rem' }}>✅</div>
-            <p style={{ margin: '.4rem 0 0' }}>No high-risk customers. Good news!</p>
-          </div>
+          <Empty>Nobody has crossed the line. Good news.</Empty>
         ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead><tr style={{ background: '#fff5f5', borderBottom: '2px solid #ffe0e0' }}>
-                {['Customer', 'Phone', 'Total Orders', 'Cancelled', 'Returned', 'Status'].map(h => <th key={h} style={th}>{h}</th>)}
+          <div className="adm-table-wrap">
+            <table className="adm-table">
+              <thead><tr>
+                <th>Customer</th><th>Phone</th><th className="num">Orders</th>
+                <th className="num">Cancelled</th><th className="num">Returned</th><th>Status</th>
               </tr></thead>
               <tbody>
                 {customers.map(c => (
-                  <tr key={c.customerId} style={{ borderBottom: '1px solid #f5f5f5', background: '#fffafa' }}>
-                    <td style={{ ...td, fontWeight: 600 }}>{c.name || <span style={{ color: '#ccc' }}>—</span>}</td>
-                    <td style={td}>
-                      {c.phone ? (
-                        <a href={waHref(c.phone)} target="_blank" rel="noopener noreferrer" style={{ color: '#25d366', fontWeight: 600, textDecoration: 'none' }}>{c.phone}</a>
-                      ) : <span style={{ color: '#ccc' }}>—</span>}
+                  <tr key={c.customerId}>
+                    <td data-label="Customer" style={{ fontWeight: 650 }}>{c.name || '—'}</td>
+                    <td data-label="Phone">
+                      {c.phone
+                        ? <a href={waHref(c.phone)} target="_blank" rel="noopener noreferrer"
+                             style={{ color: '#128C7E', fontWeight: 700, textDecoration: 'none' }}>{c.phone}</a>
+                        : '—'}
                     </td>
-                    <td style={td}>{c.total}</td>
-                    <td style={{ ...td, color: '#c62828', fontWeight: 700 }}>{c.cancelled}</td>
-                    <td style={{ ...td, color: '#e65100' }}>{c.returned}</td>
-                    <td style={td}>
-                      <span style={{ background: '#ffebee', color: '#c62828', borderRadius: 20, padding: '3px 10px', fontSize: '.72rem', fontWeight: 800 }}>🚩 HIGH RISK · COD OFF</span>
-                    </td>
+                    <td data-label="Orders" className="num">{c.total}</td>
+                    <td data-label="Cancelled" className="num" style={{ color: '#c0392b', fontWeight: 800 }}>{c.cancelled}</td>
+                    <td data-label="Returned" className="num" style={{ color: '#b26b00' }}>{c.returned}</td>
+                    <td data-label="Status"><Pill tone="red">COD off</Pill></td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
         )}
-      </div>
-      <p style={{ fontSize: '.78rem', color: '#999', margin: '-1.4rem 0 2rem' }}>
-        These customers are automatically blocked from Cash on Delivery — they can still order by paying online.
-      </p>
+      </Card>
 
-      {/* ── Pincode Risk Analysis ── */}
-      <h2 style={{ fontSize: '1rem', margin: '0 0 .6rem' }}>📍 Pincode Risk Analysis</h2>
-      <div style={{ display: 'flex', gap: '.75rem', alignItems: 'center', flexWrap: 'wrap', marginBottom: '.8rem' }}>
-        <input type="text" placeholder="Search pincode, city or state…" value={search} onChange={e => setSearch(e.target.value)}
-          style={{ height: 36, border: '1.5px solid #ddd', borderRadius: 8, padding: '0 .9rem', fontSize: '.85rem', width: 260, boxSizing: 'border-box' }} />
-        <label style={{ display: 'flex', alignItems: 'center', gap: '.4rem', fontSize: '.82rem', color: '#555', cursor: 'pointer' }}>
-          <input type="checkbox" checked={onlyRisky} onChange={e => setOnlyRisky(e.target.checked)} />
-          Only risky / blocked
-        </label>
-      </div>
-      <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #eee', overflow: 'hidden' }}>
+      <Card
+        title="Every pincode you have shipped to"
+        right={
+          <span style={{ display: 'flex', gap: '.55rem', alignItems: 'center', flexWrap: 'wrap' }}>
+            <input className="adm-input" style={{ width: '200px' }} placeholder="Pincode, city or state"
+                   value={search} onChange={e => setSearch(e.target.value)} />
+            <label style={{ display: 'flex', alignItems: 'center', gap: '.35rem', fontSize: '.78rem', color: '#7d736d', fontWeight: 700, cursor: 'pointer' }}>
+              <input type="checkbox" checked={onlyRisky} onChange={e => setOnlyRisky(e.target.checked)} />
+              Only risky or blocked
+            </label>
+          </span>
+        }
+      >
         {loading ? (
-          <div style={{ padding: '2rem', textAlign: 'center', color: '#aaa' }}>Loading…</div>
+          <Empty>Loading…</Empty>
         ) : filtered.length === 0 ? (
-          <div style={{ padding: '2rem', textAlign: 'center', color: '#aaa' }}>No pincodes to show.</div>
+          <Empty>{pins.length === 0 ? 'No orders yet, so there is nothing to judge.' : 'Nothing matches those filters.'}</Empty>
         ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead><tr style={{ background: '#fdf0f3', borderBottom: '2px solid #eee' }}>
-                {['Pincode', 'Area', 'Orders', 'COD', 'Cancelled', 'Returned', 'Delivered', 'Risk', 'COD'].map(h => <th key={h} style={th}>{h}</th>)}
+          <div className="adm-table-wrap">
+            <table className="adm-table">
+              <thead><tr>
+                <th>Pincode</th><th>Area</th><th className="num">Orders</th><th className="num">COD</th>
+                <th className="num">Cancelled</th><th className="num">Returned</th><th className="num">Delivered</th>
+                <th>Risk</th><th>Cash on Delivery</th>
               </tr></thead>
               <tbody>
                 {filtered.map(p => (
-                  <tr key={p.pincode} style={{ borderBottom: '1px solid #f5f5f5', background: p.codBlocked ? '#fff5f5' : p.risky ? '#fffaf3' : '#fff' }}>
-                    <td style={{ ...td, fontWeight: 700 }}>{p.pincode}</td>
-                    <td style={{ ...td, color: '#666' }}>{[p.city, p.state].filter(Boolean).join(', ') || <span style={{ color: '#ccc' }}>—</span>}</td>
-                    <td style={td}>{p.total}</td>
-                    <td style={td}>{p.cod}</td>
-                    <td style={{ ...td, color: p.cancelled ? '#c62828' : '#888', fontWeight: p.cancelled ? 700 : 400 }}>
-                      {p.cancelled}{p.cancelled > 0 && <span style={{ color: '#aaa', fontWeight: 400 }}> ({p.cancelRate}%)</span>}
+                  <tr key={p.pincode}>
+                    <td data-label="Pincode" className="mono" style={{ fontWeight: 800 }}>{p.pincode}</td>
+                    <td data-label="Area">{[p.city, p.state].filter(Boolean).join(', ') || '—'}</td>
+                    <td data-label="Orders" className="num">{p.total}</td>
+                    <td data-label="COD" className="num">{p.cod}</td>
+                    <td data-label="Cancelled" className="num" style={{ color: p.cancelled ? '#c0392b' : '#9a908a', fontWeight: p.cancelled ? 800 : 400 }}>
+                      {p.cancelled}{p.cancelled > 0 ? ` (${p.cancelRate}%)` : ''}
                     </td>
-                    <td style={{ ...td, color: p.returned ? '#e65100' : '#888', fontWeight: p.returned ? 700 : 400 }}>
-                      {p.returned}{p.returned > 0 && <span style={{ color: '#aaa', fontWeight: 400 }}> ({p.returnRate}%)</span>}
+                    <td data-label="Returned" className="num" style={{ color: p.returned ? '#b26b00' : '#9a908a', fontWeight: p.returned ? 800 : 400 }}>
+                      {p.returned}{p.returned > 0 ? ` (${p.returnRate}%)` : ''}
                     </td>
-                    <td style={{ ...td, color: '#2e7d32' }}>{p.delivered}</td>
-                    <td style={td}>
-                      {p.risky
-                        ? <span style={{ background: '#ffebee', color: '#c62828', borderRadius: 20, padding: '3px 9px', fontSize: '.72rem', fontWeight: 800 }}>⚠ RISKY</span>
-                        : <span style={{ background: '#e8f5e9', color: '#2e7d32', borderRadius: 20, padding: '3px 9px', fontSize: '.72rem', fontWeight: 700 }}>OK</span>}
+                    <td data-label="Delivered" className="num" style={{ color: '#2e7d32' }}>{p.delivered}</td>
+                    <td data-label="Risk">
+                      {p.risky ? <Pill tone="red">Risky</Pill> : <Pill tone="green">OK</Pill>}
                     </td>
-                    <td style={td}>
-                      <button onClick={() => toggleCod(p)} disabled={busyPin === p.pincode}
-                        style={{
-                          border: 'none', borderRadius: 7, padding: '.35rem .7rem', fontSize: '.76rem', fontWeight: 700,
-                          cursor: busyPin === p.pincode ? 'default' : 'pointer',
-                          background: p.codBlocked ? '#e8f5e9' : '#ffebee',
-                          color: p.codBlocked ? '#2e7d32' : '#c62828',
-                        }}>
-                        {busyPin === p.pincode ? '…' : p.codBlocked ? '✓ Enable COD' : '⛔ Block COD'}
+                    <td data-label="Cash on Delivery">
+                      <button className="adm-btn" style={{ padding: '.32rem .7rem', fontSize: '.76rem',
+                                                           color: p.codBlocked ? '#2e7d32' : '#c0392b' }}
+                              onClick={() => toggleCod(p)} disabled={busyPin === p.pincode}>
+                        {busyPin === p.pincode ? '…' : p.codBlocked ? 'Turn COD back on' : 'Switch COD off'}
                       </button>
                     </td>
                   </tr>
@@ -200,10 +178,11 @@ export default function RiskPage() {
             </table>
           </div>
         )}
-      </div>
-      <p style={{ fontSize: '.78rem', color: '#999', marginTop: '.8rem' }}>
-        Blocking COD for a pincode hides the Cash-on-Delivery option there — customers can still order by paying online. Online (prepaid) orders are never blocked.
-      </p>
+        <p style={{ fontSize: '.78rem', color: '#9a908a', margin: '.75rem 0 0', lineHeight: 1.6 }}>
+          Switching COD off for a pincode hides the Cash-on-Delivery option there. Nobody is stopped from
+          ordering — they pay online instead.
+        </p>
+      </Card>
     </div>
   );
 }
