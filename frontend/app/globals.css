@@ -740,6 +740,40 @@ button { cursor: pointer; font-family: inherit; }
   padding: 6px 13px; font-size: .78rem; font-weight: 700; cursor: pointer; white-space: nowrap;
 }
 .adm-chip.on { background: #722f37; color: #fff; border-color: #722f37; }
+
+/* A row with a picture in it: products, orders, customers all list this shape. */
+.adm-item { display: grid; grid-template-columns: 52px minmax(0, 1fr) auto; gap: .7rem; align-items: center; padding: .7rem 0; border-bottom: 1px solid #f4efec; }
+.adm-item:last-child { border-bottom: 0; }
+.adm-item-thumb {
+  width: 52px; height: 52px; border-radius: 9px; object-fit: cover; background: #f6f2f0;
+  display: flex; align-items: center; justify-content: center; font-size: 1.15rem; flex-shrink: 0;
+}
+.adm-item-t { font-size: .88rem; font-weight: 650; color: #2d2724; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.adm-item-s { font-size: .74rem; color: #9a908a; margin-top: 2px; }
+.adm-item-r { text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: .3rem; }
+.adm-money { font-size: .9rem; font-weight: 800; color: #1e1b19; }
+.adm-money-s { font-size: .7rem; color: #a49a94; font-weight: 600; }
+.adm-actions { display: flex; gap: .6rem; }
+.adm-actions button, .adm-actions a {
+  background: none; border: 0; padding: 0; font-size: .76rem; font-weight: 700;
+  cursor: pointer; text-decoration: none; color: #722f37;
+}
+
+/* One set of buttons and one input, so a screen stops inventing its own. */
+.adm-btn {
+  border: 1px solid #e5dcdd; background: #fff; color: #463d38; border-radius: 10px;
+  padding: .5rem .85rem; font-size: .8rem; font-weight: 700; cursor: pointer;
+  text-decoration: none; display: inline-flex; align-items: center; gap: .35rem; white-space: nowrap;
+}
+.adm-btn:hover { border-color: #d3c6c8; }
+.adm-btn-primary { background: #722f37; border-color: #722f37; color: #fff; }
+.adm-btn-primary:hover { background: #5e262d; border-color: #5e262d; }
+.adm-btn:disabled { opacity: .55; cursor: not-allowed; }
+.adm-input {
+  border: 1px solid #e5dcdd; border-radius: 10px; padding: .55rem .7rem;
+  font-size: .85rem; background: #fff; color: #2d2724; font-family: inherit;
+}
+.adm-input:focus { outline: none; border-color: #c9a98f; }
 .admin-topbar { background: #fff; border-bottom: 1px solid var(--border); padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center; margin-left: 220px; position: sticky; top: 0; z-index: 40; }
 .admin-topbar h1 { font-size: 1.2rem; font-weight: 700; margin: 0; color: var(--brand); }
 

@@ -39,9 +39,12 @@ export function Card({ title, right, children, style }: { title?: string; right?
   );
 }
 
-/** A number worth acting on. `href` makes it a link, which is the point of it. */
-export function Stat({ label, value, action, href, tone }: {
-  label: string; value: ReactNode; action?: string; href?: string; tone?: 'green' | 'red';
+/** A number worth acting on. `href` or `onClick` makes it a link, which is the
+ *  point of it: a count you cannot click is a count you have to go hunting for.
+ *  Use `onClick` when the destination is a filter on the page you are already
+ *  on — a Link to the same route would not re-run the page's effects. */
+export function Stat({ label, value, action, href, onClick, tone }: {
+  label: string; value: ReactNode; action?: string; href?: string; onClick?: () => void; tone?: 'green' | 'red';
 }) {
   const body = (
     <>
@@ -52,9 +55,14 @@ export function Stat({ label, value, action, href, tone }: {
       {action && <div className="adm-stat-a">{action} →</div>}
     </>
   );
-  return href
-    ? <Link href={href} className="adm-card" style={{ display: 'block' }}>{body}</Link>
-    : <div className="adm-card">{body}</div>;
+  if (href) return <Link href={href} className="adm-card" style={{ display: 'block' }}>{body}</Link>;
+  if (onClick) return (
+    <button type="button" onClick={onClick} className="adm-card"
+            style={{ display: 'block', textAlign: 'left', cursor: 'pointer', font: 'inherit', width: '100%' }}>
+      {body}
+    </button>
+  );
+  return <div className="adm-card">{body}</div>;
 }
 
 export function StatGrid({ children, cols = 4 }: { children: ReactNode; cols?: 3 | 4 }) {
