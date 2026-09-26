@@ -1,6 +1,8 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
+import Link from 'next/link';
 import { getAdminToken } from '@/lib/auth';
+import { PageHeader, Card, Stat, StatGrid, Chips, Pill, Empty } from '@/components/admin/Ui';
 
 interface Lead {
   id: number;
@@ -21,12 +23,13 @@ const auth = () => ({ Authorization: `Bearer ${getAdminToken()}` });
 export default function GoogleLeadsPage() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [total, setTotal] = useState(0);
-  const [unread, setUnread] = useState(0);
   const [lastSync, setLastSync] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [search, setSearch] = useState('');
+  const [tab, setTab] = useState('all');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -36,7 +39,6 @@ export default function GoogleLeadsPage() {
       if (!res.ok || !d.success) { setError(d.message || 'Could not load the leads.'); return; }
       setLeads(d.leads ?? []);
       setTotal(d.total ?? 0);
-      setUnread(d.unread ?? 0);
       setLastSync(d.lastSync ?? null);
     } catch { setError('Could not reach the server.'); }
     finally { setLoading(false); }
@@ -52,7 +54,7 @@ export default function GoogleLeadsPage() {
       if (!res.ok || !d.success) { setError(d.message || 'The sync did not go through.'); return; }
       setNotice(d.added > 0
         ? `${d.added} new lead${d.added === 1 ? '' : 's'} brought in.`
-        : 'Nothing new — Google has no leads we have not already saved.');
+        : 'Nothing new — Google has no leads that are not already saved here.');
       await load();
     } catch { setError('Could not reach the server.'); }
     finally { setSyncing(false); }
@@ -61,7 +63,6 @@ export default function GoogleLeadsPage() {
   const markRead = async (id: number) => {
     await fetch(`/api/googleleads/${id}/read`, { method: 'POST', headers: auth() }).catch(() => {});
     setLeads(list => list.map(l => l.id === id ? { ...l, isRead: true } : l));
-    setUnread(u => Math.max(0, u - 1));
   };
 
   const download = () => {
@@ -78,104 +79,121 @@ export default function GoogleLeadsPage() {
       .catch(() => setError('Could not download the list.'));
   };
 
+  const unread = leads.filter(l => !l.isRead).length;
+  const customers = leads.filter(l => l.isRegistered).length;
+
+  const filtered = leads.filter(l => {
+    const q = search.trim().toLowerCase();
+    const matchSearch = !q
+      || (l.fullName || '').toLowerCase().includes(q)
+      || (l.phone || '').includes(search.trim())
+      || (l.email || '').toLowerCase().includes(q)
+      || (l.city || '').toLowerCase().includes(q)
+      || (l.campaignName || '').toLowerCase().includes(q);
+    const matchTab = tab === 'all'
+      || (tab === 'new' && !l.isRead)
+      || (tab === 'customers' && l.isRegistered);
+    return matchSearch && matchTab;
+  });
+
   return (
-    <div style={{ padding: '1.5rem', maxWidth: 1100 }}>
-      <h1 style={{ fontSize: '1.4rem', fontWeight: 800, margin: '0 0 .3rem' }}>Google Ad Leads</h1>
-      <p style={{ margin: '0 0 1.25rem', color: '#666', fontSize: '.9rem', lineHeight: 1.6 }}>
-        People who filled in a lead form on your Google ads. Google throws this data away after
-        about 60 days, so press Sync now and then — once a lead is here, it stays.
-      </p>
+    <div className="admin-page">
+      <PageHeader
+        title="Google ad leads"
+        sub="People who filled in a lead form on your Google ads. Google throws this data away after about 60 days — once it is here, it stays."
+        right={
+          <>
+            <button className="adm-btn adm-btn-primary" onClick={sync} disabled={syncing}>
+              {syncing ? 'Asking Google…' : 'Sync from Google'}
+            </button>
+            <button className="adm-btn" onClick={download} disabled={total === 0}>Download CSV</button>
+          </>
+        }
+      />
 
       {notice && (
-        <div style={{ background: '#e8f5e9', border: '1px solid #c8e6c9', color: '#1b5e20', borderRadius: 10, padding: '.7rem 1rem', marginBottom: '1rem', fontSize: '.88rem' }}>
-          {notice}
-        </div>
+        <Card style={{ background: '#f2faf3', borderColor: '#cbe6cf' }}>
+          <p style={{ margin: 0, fontSize: '.86rem', color: '#2e7d32', fontWeight: 600 }}>{notice}</p>
+        </Card>
       )}
       {error && (
-        <div style={{ background: '#fdecea', border: '1px solid #f5c6c2', color: '#8a1c13', borderRadius: 10, padding: '.7rem 1rem', marginBottom: '1rem', fontSize: '.88rem' }}>
-          {error}
-        </div>
+        <Card style={{ background: '#fdf3f2', borderColor: '#f0cdc9' }}>
+          <p style={{ margin: 0, fontSize: '.86rem', color: '#c0392b', fontWeight: 600 }}>{error}</p>
+        </Card>
       )}
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: '.6rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
-        <button onClick={sync} disabled={syncing}
-          style={{ background: '#a7354d', color: '#fff', border: 'none', borderRadius: 8, padding: '.6rem 1.2rem', fontWeight: 700, fontSize: '.88rem', cursor: syncing ? 'default' : 'pointer', opacity: syncing ? .6 : 1 }}>
-          {syncing ? 'Asking Google…' : '↻ Sync from Google'}
-        </button>
-        <button onClick={download} disabled={total === 0}
-          style={{ background: '#fff', color: '#555', border: '1.5px solid #ddd', borderRadius: 8, padding: '.6rem 1.1rem', fontWeight: 600, fontSize: '.86rem', cursor: 'pointer', opacity: total === 0 ? .5 : 1 }}>
-          ⬇ Download CSV
-        </button>
-        <span style={{ fontSize: '.85rem', color: '#777' }}>
-          {total} lead{total === 1 ? '' : 's'}{unread > 0 && <b style={{ color: '#a7354d' }}> · {unread} unread</b>}
-        </span>
-        <span style={{ flex: 1 }} />
-        {lastSync && (
-          <span style={{ fontSize: '.78rem', color: '#999' }}>
-            last synced {new Date(lastSync).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
-          </span>
-        )}
-      </div>
+      <StatGrid>
+        <Stat label="Not looked at yet" value={unread} tone={unread > 0 ? 'red' : undefined}
+              action={tab === 'new' ? undefined : 'Open these'} onClick={() => setTab('new')} />
+        <Stat label="Leads saved here" value={total} />
+        <Stat label="Already customers" value={customers} tone={customers > 0 ? 'green' : undefined} />
+        <Stat label="Last sync"
+              value={lastSync
+                ? new Date(lastSync).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+                : 'Never'}
+              action={lastSync ? undefined : 'Press Sync to check'} />
+      </StatGrid>
 
-      {loading ? (
-        <p style={{ color: '#999' }}>Loading…</p>
-      ) : leads.length === 0 ? (
-        <div style={{ background: '#fff', border: '1px solid #eee', borderRadius: 12, padding: '2rem', textAlign: 'center' }}>
-          <p style={{ margin: '0 0 .4rem', fontSize: '1rem', fontWeight: 600 }}>No Google leads yet</p>
-          <p style={{ margin: 0, color: '#888', fontSize: '.87rem', lineHeight: 1.7 }}>
-            Press <b>Sync from Google</b> to check. If it comes back empty, your campaigns have no
-            lead form asset yet — that is the piece that collects names and numbers inside the ad.
-          </p>
-        </div>
-      ) : (
-        <div style={{ background: '#fff', border: '1px solid #eee', borderRadius: 12, overflowX: 'auto' }}>
-          <table className="adm-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '.86rem' }}>
-            <thead>
-              <tr style={{ background: '#fafafa', textAlign: 'left' }}>
-                <th style={{ padding: '.6rem .8rem' }}>Name</th>
-                <th style={{ padding: '.6rem .8rem' }}>Phone</th>
-                <th style={{ padding: '.6rem .8rem' }}>Email</th>
-                <th style={{ padding: '.6rem .8rem' }}>City</th>
-                <th style={{ padding: '.6rem .8rem' }}>Campaign</th>
-                <th style={{ padding: '.6rem .8rem' }}>When</th>
-              </tr>
-            </thead>
-            <tbody>
-              {leads.map(l => (
-                <tr key={l.id}
-                  onClick={() => !l.isRead && markRead(l.id)}
-                  style={{
-                    borderTop: '1px solid #f2f2f2',
-                    background: l.isRead ? 'transparent' : '#fffdf2',
-                    cursor: l.isRead ? 'default' : 'pointer',
-                  }}>
-                  <td data-label="Name" style={{ padding: '.6rem .8rem' }}>
-                    <b>{l.fullName || '—'}</b>
-                    {!l.isRead && <span style={{ marginLeft: '.4rem', fontSize: '.68rem', fontWeight: 700, color: '#a7354d' }}>NEW</span>}
-                    {l.isRegistered && <span style={{ display: 'block', fontSize: '.72rem', color: '#1b5e20' }}>already a customer</span>}
-                  </td>
-                  <td data-label="Phone" style={{ padding: '.6rem .8rem', whiteSpace: 'nowrap' }}>
-                    {l.phone ? <a href={`tel:${l.phone}`} style={{ color: '#a7354d' }}>{l.phone}</a> : '—'}
-                  </td>
-                  <td data-label="Email" style={{ padding: '.6rem .8rem', wordBreak: 'break-all' }}>{l.email || '—'}</td>
-                  <td data-label="City" style={{ padding: '.6rem .8rem' }}>
-                    {l.city || '—'}
-                    {l.postalCode && <span style={{ display: 'block', fontSize: '.72rem', color: '#999' }}>{l.postalCode}</span>}
-                  </td>
-                  <td data-label="Campaign" style={{ padding: '.6rem .8rem' }}>{l.campaignName || l.assetName || '—'}</td>
-                  <td data-label="When" style={{ padding: '.6rem .8rem', whiteSpace: 'nowrap' }}>
-                    {new Date(l.submittedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+      {leads.length > 0 && (
+        <Card>
+          <input className="adm-input" style={{ width: '100%', maxWidth: '340px', marginBottom: '.65rem' }}
+                 placeholder="Search name, phone, email, city or campaign"
+                 value={search} onChange={e => setSearch(e.target.value)} />
+          <Chips value={tab} onChange={setTab}
+                 items={[
+                   { key: 'all', label: 'All', count: leads.length },
+                   { key: 'new', label: 'New', count: unread },
+                   { key: 'customers', label: 'Already customers', count: customers },
+                 ]} />
+        </Card>
       )}
 
-      <p style={{ margin: '1.1rem 0 0', fontSize: '.78rem', color: '#999', lineHeight: 1.75 }}>
-        These same people can be sent back to Meta and Google as an ad audience from{' '}
-        <b>Marketing → Audiences</b>, where &ldquo;Google Ad Leads&rdquo; is one of the sources.
+      <Card title={leads.length ? `${filtered.length} ${filtered.length === 1 ? 'lead' : 'leads'}` : 'No leads yet'}>
+        {loading ? (
+          <Empty>Loading…</Empty>
+        ) : leads.length === 0 ? (
+          <Empty>
+            Press <strong>Sync from Google</strong> to check. If it comes back empty, your campaigns have no
+            lead form asset yet — that is the piece inside the ad that collects names and numbers.
+          </Empty>
+        ) : filtered.length === 0 ? (
+          <Empty>{tab === 'new' ? 'Nothing new — you have looked at every lead.' : 'Nothing matches that search.'}</Empty>
+        ) : filtered.map(l => {
+          const ph = (l.phone || '').replace(/\D/g, '').slice(-10);
+          return (
+            <div key={l.id} className="adm-item" style={{ gridTemplateColumns: 'minmax(0,1fr) auto',
+                                                          background: !l.isRead ? '#fffdf5' : undefined }}>
+              <div style={{ minWidth: 0 }}>
+                <div className="adm-item-t" style={{ display: 'flex', gap: '.45rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                  {!l.isRead && <Pill tone="red">New</Pill>}
+                  {l.fullName || 'No name given'}
+                  {l.isRegistered && <Pill tone="green">Already a customer</Pill>}
+                </div>
+                <div className="adm-item-s">
+                  {l.phone || 'no phone'}{l.email ? ` · ${l.email}` : ''}
+                  {l.city ? ` · ${l.city}` : ''}{l.postalCode ? ` ${l.postalCode}` : ''}
+                </div>
+                <div className="adm-item-s">
+                  {l.campaignName || l.assetName || 'no campaign name'}
+                  {' · '}{new Date(l.submittedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                </div>
+                <div className="adm-actions" style={{ marginTop: '.4rem', flexWrap: 'wrap' }}>
+                  {ph && <a href={`https://wa.me/91${ph}`} target="_blank" rel="noopener noreferrer" style={{ color: '#128C7E' }}>WhatsApp</a>}
+                  {l.phone && <a href={`tel:${l.phone}`}>Call</a>}
+                  {l.email && <a href={`mailto:${l.email}`}>Email</a>}
+                  {!l.isRead && <button onClick={() => markRead(l.id)} style={{ color: '#2e7d32' }}>Mark as seen</button>}
+                </div>
+              </div>
+              <div />
+            </div>
+          );
+        })}
+      </Card>
+
+      <p style={{ fontSize: '.79rem', color: '#9a908a', margin: '.85rem 0 0', lineHeight: 1.7 }}>
+        These same people can go back to Google and Meta as an ad audience from{' '}
+        <Link href="/admin/audiences" style={{ color: '#722f37', fontWeight: 700 }}>Audiences</Link>, where
+        “Google Ad Leads” is one of the sources.
       </p>
     </div>
   );

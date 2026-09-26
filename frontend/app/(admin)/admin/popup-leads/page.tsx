@@ -1,6 +1,8 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { getAdminToken } from '@/lib/auth';
+import { fetchAllPages, downloadCsv } from '@/lib/adminPaged';
+import { PageHeader, Card, Stat, StatGrid, Chips, Pill, Empty } from '@/components/admin/Ui';
 
 interface Lead {
   id: number;
@@ -23,225 +25,147 @@ function isToday(raw: string) {
   return d.getDate() === now.getDate() && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
 }
 
-type StatusFilter = 'all' | 'registered' | 'unregistered';
-
 export default function PopupLeadsPage() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
+  const [truncated, setTruncated] = useState(false);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
-  const limit = 50;
+  const [tab, setTab] = useState('all');
 
-  const load = async (p = 1) => {
+  const load = async () => {
     setLoading(true);
     try {
-      const token = getAdminToken();
-      const res = await fetch(`/api/popup-leads?page=${p}&limit=${limit}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await res.json();
-      setLeads(data.leads || []);
-      setTotal(data.total || 0);
-      setPage(p);
+      const r = await fetchAllPages<Lead>(
+        (p, l) => `/api/popup-leads?page=${p}&limit=${l}`,
+        b => (b.leads as Lead[]) ?? [],
+        getAdminToken() ?? '',
+      );
+      setLeads(r.rows); setTotal(r.total); setTruncated(r.truncated);
     } catch { setLeads([]); }
     finally { setLoading(false); }
   };
 
-  useEffect(() => { load(1); }, []);
+  useEffect(() => { load(); }, []);
 
   const handleDelete = async (id: number) => {
-    if (!confirm('Delete this lead?')) return;
-    const token = getAdminToken();
+    if (!confirm('Delete this lead? It cannot be brought back.')) return;
     await fetch(`/api/popup-leads/${id}`, {
       method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` },
+      headers: { Authorization: `Bearer ${getAdminToken()}` },
     });
     setLeads(l => l.filter(x => x.id !== id));
     setTotal(t => t - 1);
   };
 
   const exportCsv = () => {
-    const rows = [['ID', 'Name', 'Email', 'Phone', 'Source', 'Status', 'Date']];
-    leads.forEach(l => rows.push([
-      String(l.id), l.name || '', l.email || '', l.phone || '', l.source,
-      l.isRegistered ? 'Registered' : 'Unregistered',
-      formatDate(l.createdAt),
-    ]));
-    const csv = rows.map(r => r.map(c => `"${c}"`).join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `popup-leads-${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
+    downloadCsv(
+      [['ID', 'Name', 'Email', 'Phone', 'Source', 'Status', 'Date'],
+       ...filtered.map(l => [
+         String(l.id), l.name || '', l.email || '', l.phone || '', l.source,
+         l.isRegistered ? 'Registered' : 'Not registered', formatDate(l.createdAt),
+       ])],
+      `popup-leads-${new Date().toISOString().slice(0, 10)}.csv`,
+    );
   };
 
   const filtered = leads.filter(l => {
-    const matchSearch = !search ||
-      (l.email || '').includes(search.toLowerCase()) ||
-      (l.phone || '').includes(search) ||
-      (l.name || '').toLowerCase().includes(search.toLowerCase());
-    const matchStatus =
-      statusFilter === 'all' ||
-      (statusFilter === 'registered' && l.isRegistered) ||
-      (statusFilter === 'unregistered' && !l.isRegistered);
-    return matchSearch && matchStatus;
+    const q = search.trim().toLowerCase();
+    const matchSearch = !q
+      || (l.email || '').toLowerCase().includes(q)
+      || (l.phone || '').includes(search.trim())
+      || (l.name || '').toLowerCase().includes(q);
+    const matchTab = tab === 'all'
+      || (tab === 'registered' && l.isRegistered)
+      || (tab === 'not' && !l.isRegistered);
+    return matchSearch && matchTab;
   });
 
+  const registered = leads.filter(l => l.isRegistered).length;
+  const notYet = leads.length - registered;
   const todayCount = leads.filter(l => isToday(l.createdAt)).length;
-  const registeredCount = leads.filter(l => l.isRegistered).length;
-  const unregisteredCount = leads.filter(l => !l.isRegistered).length;
-
-  const filterBtnStyle = (active: boolean): React.CSSProperties => ({
-    padding: '.35rem .9rem',
-    borderRadius: 20,
-    border: active ? '2px solid #a7354d' : '1.5px solid #ddd',
-    background: active ? '#a7354d' : '#fff',
-    color: active ? '#fff' : '#555',
-    fontWeight: active ? 700 : 400,
-    fontSize: '.82rem',
-    cursor: 'pointer',
-  });
+  const reachable = leads.filter(l => l.phone).length;
 
   return (
     <div className="admin-page">
-      <div className="admin-page-header">
-        <div>
-          <h1>Popup Leads</h1>
-          <p className="admin-page-sub">Visitors who submitted the welcome popup form</p>
-        </div>
-        <button onClick={exportCsv} className="button secondary" style={{ fontSize: '.85rem' }}>
-          ⬇️ Export CSV
-        </button>
-      </div>
+      <PageHeader
+        title="Popup leads"
+        sub="People who left their details in the welcome popup. Some of them never went on to make an account."
+        right={
+          <>
+            <button className="adm-btn" onClick={load}>Refresh</button>
+            <button className="adm-btn adm-btn-primary" onClick={exportCsv} disabled={!filtered.length}>
+              Export CSV ({filtered.length})
+            </button>
+          </>
+        }
+      />
 
-      {/* Stats */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
-        {[
-          { label: 'Total Leads', value: total, icon: '📋' },
-          { label: 'Today', value: todayCount, icon: '📅' },
-          { label: 'Registered', value: registeredCount, icon: '✅' },
-          { label: 'Unregistered', value: unregisteredCount, icon: '⏳' },
-          { label: 'With Email', value: leads.filter(l => l.email).length, icon: '📧' },
-          { label: 'With WhatsApp', value: leads.filter(l => l.phone).length, icon: '💬' },
-        ].map(s => (
-          <div key={s.label} style={{
-            background: '#fff', border: '1px solid #eee', borderRadius: 12,
-            padding: '1rem 1.25rem', textAlign: 'center',
-          }}>
-            <div style={{ fontSize: '1.4rem' }}>{s.icon}</div>
-            <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#a7354d' }}>{s.value}</div>
-            <div style={{ fontSize: '.74rem', color: '#888', marginTop: '.2rem' }}>{s.label}</div>
-          </div>
-        ))}
-      </div>
+      <StatGrid>
+        <Stat label="Leads" value={total} />
+        <Stat label="Came in today" value={todayCount} tone={todayCount > 0 ? 'green' : undefined} />
+        <Stat label="Never made an account" value={notYet} tone={notYet > 0 ? 'red' : undefined}
+              action={tab === 'not' ? undefined : 'These are the ones to chase'}
+              onClick={() => setTab('not')} />
+        <Stat label="Reachable on WhatsApp" value={reachable} />
+      </StatGrid>
 
-      {/* Filters */}
-      <div style={{ display: 'flex', gap: '.75rem', alignItems: 'center', flexWrap: 'wrap', marginBottom: '1rem' }}>
-        <input
-          type="text"
-          placeholder="Search by name, email or phone…"
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          style={{
-            height: 38, border: '1.5px solid #ddd', borderRadius: 8,
-            padding: '0 1rem', fontSize: '.88rem', width: 260, boxSizing: 'border-box',
-          }} />
-        <button style={filterBtnStyle(statusFilter === 'all')} onClick={() => setStatusFilter('all')}>All</button>
-        <button style={filterBtnStyle(statusFilter === 'registered')} onClick={() => setStatusFilter('registered')}>✅ Registered</button>
-        <button style={filterBtnStyle(statusFilter === 'unregistered')} onClick={() => setStatusFilter('unregistered')}>⏳ Unregistered</button>
-      </div>
-
-      {/* Table */}
-      <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #eee', overflow: 'hidden' }}>
-        {loading ? (
-          <div style={{ padding: '3rem', textAlign: 'center', color: '#aaa' }}>Loading…</div>
-        ) : filtered.length === 0 ? (
-          <div style={{ padding: '3rem', textAlign: 'center', color: '#aaa' }}>
-            <div style={{ fontSize: '2.5rem', marginBottom: '.5rem' }}>📭</div>
-            <p>No leads found.</p>
-          </div>
-        ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '.88rem' }}>
-              <thead>
-                <tr style={{ background: '#fdf0f3', borderBottom: '2px solid #eee' }}>
-                  {['#', 'Name', 'Email', 'WhatsApp', 'Status', 'Source', 'Date', 'Action'].map(h => (
-                    <th key={h} style={{ padding: '.75rem 1rem', textAlign: 'left', fontWeight: 700, color: '#555', whiteSpace: 'nowrap' }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((l, i) => (
-                  <tr key={l.id} style={{
-                    borderBottom: '1px solid #f5f5f5',
-                    background: isToday(l.createdAt) ? '#fffbf0' : i % 2 === 0 ? '#fff' : '#fafafa',
-                  }}>
-                    <td style={{ padding: '.65rem 1rem', color: '#aaa', fontSize: '.8rem' }}>{l.id}</td>
-                    <td style={{ padding: '.65rem 1rem', fontWeight: 500 }}>
-                      {l.name || <span style={{ color: '#ccc' }}>—</span>}
-                    </td>
-                    <td style={{ padding: '.65rem 1rem' }}>
-                      {l.email ? (
-                        <a href={`mailto:${l.email}`} style={{ color: '#a7354d', textDecoration: 'none', fontWeight: 500 }}>
-                          {l.email}
-                        </a>
-                      ) : <span style={{ color: '#ccc' }}>—</span>}
-                    </td>
-                    <td style={{ padding: '.65rem 1rem' }}>
-                      {l.phone ? (
-                        <a href={`https://wa.me/91${l.phone.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer"
-                          style={{ color: '#25d366', fontWeight: 600, textDecoration: 'none' }}>
-                          💬 {l.phone}
-                        </a>
-                      ) : <span style={{ color: '#ccc' }}>—</span>}
-                    </td>
-                    <td style={{ padding: '.65rem 1rem' }}>
-                      {l.isRegistered ? (
-                        <span style={{
-                          background: '#e8f5e9', color: '#2e7d32', borderRadius: 20,
-                          padding: '3px 10px', fontSize: '.75rem', fontWeight: 700, whiteSpace: 'nowrap',
-                        }}>✅ Regd</span>
-                      ) : (
-                        <span style={{
-                          background: '#fff3e0', color: '#e65100', borderRadius: 20,
-                          padding: '3px 10px', fontSize: '.75rem', fontWeight: 700, whiteSpace: 'nowrap',
-                        }}>⏳ Unreg</span>
-                      )}
-                    </td>
-                    <td style={{ padding: '.65rem 1rem', color: '#888', fontSize: '.8rem' }}>{l.source}</td>
-                    <td style={{ padding: '.65rem 1rem', color: '#888', fontSize: '.8rem', whiteSpace: 'nowrap' }}>
-                      {isToday(l.createdAt) && <span style={{ background: '#e8f5e9', color: '#2e7d32', borderRadius: 4, padding: '1px 6px', fontSize: '.72rem', marginRight: '.4rem', fontWeight: 700 }}>TODAY</span>}
-                      {formatDate(l.createdAt)}
-                    </td>
-                    <td style={{ padding: '.65rem 1rem' }}>
-                      <button
-                        onClick={() => handleDelete(l.id)}
-                        style={{ background: 'none', border: '1px solid #ffcdd2', color: '#c0392b', borderRadius: 6, padding: '.3rem .65rem', fontSize: '.78rem', cursor: 'pointer' }}>
-                        Delete
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-      {/* Pagination */}
-      {total > limit && (
-        <div style={{ display: 'flex', gap: '.5rem', marginTop: '1rem', justifyContent: 'center' }}>
-          <button disabled={page <= 1} onClick={() => load(page - 1)}
-            className="button secondary" style={{ fontSize: '.85rem' }}>← Prev</button>
-          <span style={{ padding: '.5rem 1rem', color: '#555', fontSize: '.85rem' }}>
-            Page {page} / {Math.ceil(total / limit)}
-          </span>
-          <button disabled={page >= Math.ceil(total / limit)} onClick={() => load(page + 1)}
-            className="button secondary" style={{ fontSize: '.85rem' }}>Next →</button>
-        </div>
+      {truncated && (
+        <Card style={{ background: '#fff9ec', borderColor: '#f0e0bd' }}>
+          <p style={{ margin: 0, fontSize: '.83rem', color: '#7a5a18', lineHeight: 1.6 }}>
+            Showing the {leads.length} newest of {total}. The search, the counts and the export all cover
+            those {leads.length} — the older ones are still safe in the database, they are just not on this
+            screen.
+          </p>
+        </Card>
       )}
+
+      <Card>
+        <input className="adm-input" style={{ width: '100%', maxWidth: '320px', marginBottom: '.65rem' }}
+               placeholder="Search name, email or phone"
+               value={search} onChange={e => setSearch(e.target.value)} />
+        <Chips value={tab} onChange={setTab}
+               items={[
+                 { key: 'all', label: 'All', count: leads.length },
+                 { key: 'not', label: 'No account yet', count: notYet },
+                 { key: 'registered', label: 'Became a customer', count: registered },
+               ]} />
+      </Card>
+
+      <Card title={`${filtered.length} ${filtered.length === 1 ? 'lead' : 'leads'}`}>
+        {loading ? (
+          <Empty>Loading leads…</Empty>
+        ) : filtered.length === 0 ? (
+          <Empty>
+            {leads.length === 0
+              ? 'Nobody has filled in the popup yet. Leads land here the moment they do.'
+              : 'Nothing matches that search.'}
+          </Empty>
+        ) : filtered.map(l => {
+          const ph = (l.phone || '').replace(/\D/g, '');
+          return (
+            <div key={l.id} className="adm-item" style={{ gridTemplateColumns: 'minmax(0,1fr) auto' }}>
+              <div style={{ minWidth: 0 }}>
+                <div className="adm-item-t" style={{ display: 'flex', gap: '.45rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                  {l.name || 'No name given'}
+                  {l.isRegistered ? <Pill tone="green">Customer</Pill> : <Pill tone="amber">No account</Pill>}
+                  {isToday(l.createdAt) && <Pill tone="grey">Today</Pill>}
+                </div>
+                <div className="adm-item-s">
+                  {l.email || 'no email'}{l.phone ? ` · ${l.phone}` : ''} · from {l.source}
+                </div>
+                <div className="adm-item-s">{formatDate(l.createdAt)}</div>
+                <div className="adm-actions" style={{ marginTop: '.35rem', flexWrap: 'wrap' }}>
+                  {ph && <a href={`https://wa.me/91${ph.slice(-10)}`} target="_blank" rel="noopener noreferrer" style={{ color: '#128C7E' }}>WhatsApp</a>}
+                  {l.email && <a href={`mailto:${l.email}`}>Email</a>}
+                  <button onClick={() => handleDelete(l.id)} style={{ color: '#c0392b' }}>Delete</button>
+                </div>
+              </div>
+              <div />
+            </div>
+          );
+        })}
+      </Card>
     </div>
   );
 }

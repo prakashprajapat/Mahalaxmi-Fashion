@@ -64,6 +64,12 @@ public class PopupLeadsController : ControllerBase
     [RequirePerm("popup-leads")]
     public async Task<IActionResult> GetAll([FromQuery] int page = 1, [FromQuery] int limit = 50)
     {
+        // The admin list asks for the lot so that searching and the counts are
+        // true rather than page-deep; an unbounded Take() is still not something
+        // to hand out, so it is clamped the way GoogleLeads already clamps it.
+        page = Math.Max(1, page);
+        limit = Math.Clamp(limit, 1, 200);
+
         var total = await _db.PopupLeads.CountAsync();
         var leads = await _db.PopupLeads
             .OrderByDescending(l => l.CreatedAt)
