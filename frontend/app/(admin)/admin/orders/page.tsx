@@ -6,6 +6,7 @@ import { exportOrders } from '@/lib/exportExcel';
 import { productImageSrc } from '@/lib/productImages';
 import type { Order } from '@/types';
 import { openOrderLabels, openPicklist } from '@/lib/orderLabel';
+import { PageHeader, Card, Stat, StatGrid, Chips, Pill, Empty } from '@/components/admin/Ui';
 
 const ORDER_STATUS_TABS: { key: string; label: string; hidden?: boolean }[] = [
   { key: 'all',                  label: 'All Orders' },
@@ -383,243 +384,224 @@ export default function AdminOrdersPage() {
 
   const downloadShippingLabel = (order: Order) => openOrderLabels([order]);
 
+  const anyFilter = Boolean(dateFilter || filterSize || filterColour || search);
+  const clearFilters = () => { setDateFilter(''); setFilterSize(''); setFilterColour(''); setSearch(''); };
+  const allShownSelected = filtered.length > 0 && selectedIds.size === filtered.length;
+
   return (
-    <div>
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', flexWrap: 'wrap', gap: '.75rem' }}>
-        <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#1a1a1a' }}>Order Management</h1>
-        <div style={{ display: 'flex', gap: '.5rem', flexWrap: 'wrap' }}>
-          <button onClick={fetchOrders}
-            style={{ background: '#1565c0', color: '#fff', border: 'none', borderRadius: '8px', padding: '.5rem 1rem', fontSize: '.85rem', fontWeight: 600, cursor: 'pointer' }}>
-            🔄 Refresh
-          </button>
-          <button onClick={() => exportCSV(filtered)}
-            style={{ background: '#555', color: '#fff', border: 'none', borderRadius: '8px', padding: '.5rem 1rem', fontSize: '.85rem', fontWeight: 600, cursor: 'pointer' }}>
-            ⬇️ CSV ({filtered.length})
-          </button>
-          <button onClick={() => exportOrders(filtered, new Date().toISOString().slice(0,10))}
-            style={{ background: '#1b5e20', color: '#fff', border: 'none', borderRadius: '8px', padding: '.5rem 1.25rem', fontSize: '.88rem', fontWeight: 600, cursor: 'pointer' }}>
-            📊 Export Excel ({filtered.length})
-          </button>
+    <div className="admin-page">
+      <PageHeader
+        title={mainTab === 'returns' ? 'Returns' : 'Orders'}
+        sub="Everything bought, and everything coming back. A change here is live on the website at once."
+        right={
+          <>
+            <button className="adm-btn" onClick={fetchOrders}>Refresh</button>
+            <button className="adm-btn" onClick={() => exportCSV(filtered)}>CSV ({filtered.length})</button>
+            <button className="adm-btn adm-btn-primary" onClick={() => exportOrders(filtered, new Date().toISOString().slice(0,10))}>
+              Excel ({filtered.length})
+            </button>
+          </>
+        }
+      />
+
+      <StatGrid>
+        <Stat label="Waiting to be packed" value={countFor('Pending')}
+              tone={countFor('Pending') > 0 ? 'red' : undefined}
+              action="Open these"
+              onClick={() => { setMainTab('orders'); setActiveTab('Pending'); }} />
+        <Stat label="Ready to ship" value={countFor('Ready for Shipping')}
+              action="Print the picklist"
+              onClick={() => { setMainTab('orders'); setActiveTab('Ready for Shipping'); }} />
+        <Stat label="On the way" value={countFor('Transit') + countFor('Shipped')}
+              action="Track these"
+              onClick={() => { setMainTab('orders'); setActiveTab('Transit'); }} />
+        <Stat label="Returns to decide" value={orders.filter(o => o.status === 'Return Requested').length}
+              tone={orders.filter(o => o.status === 'Return Requested').length > 0 ? 'red' : undefined}
+              action="Review these"
+              onClick={() => { setMainTab('returns'); setActiveTab('Return Requested'); }} />
+      </StatGrid>
+
+      <Card>
+        {/* Orders and Returns are two different jobs, so they stay two tabs —
+            but they are the same kind of control as everything else now. */}
+        <div className="adm-toolbar">
+          {(['orders', 'returns'] as const).map(mt => {
+            const cnt = mt === 'returns'
+              ? orders.filter(o => RETURN_STATUSES.includes(o.status)).length
+              : orders.filter(o => !RETURN_STATUSES.includes(o.status)).length;
+            return (
+              <button key={mt} type="button" className={`adm-chip${mainTab === mt ? ' on' : ''}`}
+                      style={{ fontSize: '.84rem', padding: '7px 16px' }}
+                      onClick={() => { setMainTab(mt); setActiveTab('all'); }}>
+                {mt === 'orders' ? 'Orders' : 'Returns'} {cnt}
+              </button>
+            );
+          })}
         </div>
-      </div>
 
-      {/* Main Tabs: Orders / Returns */}
-      <div style={{ display: 'flex', gap: 0, marginBottom: '1rem', borderBottom: '2px solid #a7354d' }}>
-        {(['orders', 'returns'] as const).map(mt => {
-          const isActive = mainTab === mt;
-          const cnt = mt === 'returns'
-            ? orders.filter(o => RETURN_STATUSES.includes(o.status)).length
-            : orders.filter(o => !RETURN_STATUSES.includes(o.status)).length;
-          return (
-            <button key={mt} onClick={() => { setMainTab(mt); setActiveTab('all'); }}
-              style={{
-                padding: '.6rem 1.5rem', border: 'none', borderRadius: '8px 8px 0 0',
-                background: isActive ? '#a7354d' : '#f5f5f5',
-                color: isActive ? '#fff' : '#555',
-                fontSize: '.9rem', fontWeight: 700, cursor: 'pointer',
-                textTransform: 'capitalize', marginRight: '4px',
-              }}>
-              {mt === 'orders' ? '📦 Orders' : '↩️ Returns'} ({cnt})
-            </button>
-          );
-        })}
-      </div>
+        <Chips value={activeTab} onChange={setActiveTab}
+               items={currentStatusTabs.filter(t => !t.hidden).map(t => ({ key: t.key, label: t.label, count: countFor(t.key) }))} />
 
-      {/* Sub-status Tabs */}
-      <div style={{ display: 'flex', gap: '.35rem', flexWrap: 'wrap', marginBottom: '1rem', borderBottom: '1px solid #eee', paddingBottom: '.5rem' }}>
-        {currentStatusTabs.filter(tab => !tab.hidden).map(tab => {
-          const cnt = countFor(tab.key);
-          return (
-            <button key={tab.key} onClick={() => setActiveTab(tab.key)}
-              style={{
-                padding: '.4rem .85rem', borderRadius: '20px', border: 'none',
-                background: activeTab === tab.key ? '#a7354d' : '#f5f5f5',
-                color: activeTab === tab.key ? '#fff' : '#555',
-                fontSize: '.78rem', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap',
-              }}>
-              {tab.label} <span style={{ opacity: .8 }}>({cnt})</span>
-            </button>
-          );
-        })}
-      </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '.5rem', alignItems: 'center',
+                      borderTop: '1px solid #f4efec', paddingTop: '.7rem' }}>
+          <input className="adm-input" style={{ flex: '1 1 200px' }}
+                 placeholder="Search ID, name, phone, AWB or SKU"
+                 value={search} onChange={e => setSearch(e.target.value)} />
+          <input className="adm-input" style={{ width: '110px' }} placeholder="Size"
+                 value={filterSize} onChange={e => setFilterSize(e.target.value)} />
+          <input className="adm-input" style={{ width: '130px' }} placeholder="Colour"
+                 value={filterColour} onChange={e => setFilterColour(e.target.value)} />
+          <input className="adm-input" type="date" value={dateFilter} onChange={e => setDateFilter(e.target.value)} />
+          {anyFilter && <button className="adm-btn" onClick={clearFilters}>Clear</button>}
+          {activeTab === 'Ready for Shipping' && filtered.length > 0 && (
+            <button className="adm-btn" onClick={() => openPicklist(filtered)}>Picklist ({filtered.length})</button>
+          )}
+        </div>
+      </Card>
 
-      {/* Filters row */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '.75rem', marginBottom: '1rem', alignItems: 'center' }}>
-        <input placeholder="Search ID, name, phone, AWB, SKU..."
-          value={search} onChange={e => setSearch(e.target.value)}
-          style={{ border: '1.5px solid #ddd', borderRadius: '8px', padding: '.5rem .75rem', fontSize: '.88rem', width: '240px' }} />
-        <input placeholder="Size (e.g. XL)"
-          value={filterSize} onChange={e => setFilterSize(e.target.value)}
-          style={{ border: '1.5px solid #ddd', borderRadius: '8px', padding: '.5rem .75rem', fontSize: '.88rem', width: '130px' }} />
-        <input placeholder="Colour / Design"
-          value={filterColour} onChange={e => setFilterColour(e.target.value)}
-          style={{ border: '1.5px solid #ddd', borderRadius: '8px', padding: '.5rem .75rem', fontSize: '.88rem', width: '150px' }} />
-        <input type="date" value={dateFilter} onChange={e => setDateFilter(e.target.value)}
-          style={{ border: '1.5px solid #ddd', borderRadius: '8px', padding: '.5rem .75rem', fontSize: '.88rem' }} />
-        {(dateFilter || filterSize || filterColour || search) && <button onClick={() => { setDateFilter(''); setFilterSize(''); setFilterColour(''); setSearch(''); }}
-          style={{ background: '#f5f5f5', border: 'none', borderRadius: '8px', padding: '.5rem .75rem', fontSize: '.82rem', cursor: 'pointer' }}>
-          Clear
-        </button>}
-        {activeTab === 'Ready for Shipping' && filtered.length > 0 && (
-          <button onClick={() => openPicklist(filtered)} style={{ background: '#6d4c1f', color: '#fff', border: 'none', borderRadius: '8px', padding: '.5rem .85rem', fontSize: '.82rem', cursor: 'pointer', fontWeight: 700 }}>🧾 Picklist / Manifest ({filtered.length})</button>
-        )}
-        <span style={{ fontSize: '.85rem', color: '#888', fontWeight: 600 }}>{filtered.length} orders</span>
-      </div>
-
-      {/* Bulk Actions */}
+      {/* What you can do to the ones you ticked. It only appears when something
+          is ticked, because until then there is nothing it could do. */}
       {selectedIds.size > 0 && (
-        <div style={{ background: '#fff3cd', borderRadius: '8px', padding: '.6rem 1rem', marginBottom: '1rem', display: 'flex', gap: '.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
-          <strong style={{ fontSize: '.85rem' }}>{selectedIds.size} selected</strong>
+        <div className="adm-card" style={{ background: '#fff9ec', borderColor: '#f0e0bd', display: 'flex',
+                                           flexWrap: 'wrap', gap: '.5rem', alignItems: 'center' }}>
+          <strong style={{ fontSize: '.84rem', marginRight: '.2rem' }}>{selectedIds.size} selected</strong>
           {mainTab === 'returns' ? (
             <>
-              <button onClick={() => bulkUpdateStatus('Return Transit')} style={{ background: '#e67e22', color: '#fff', border: 'none', borderRadius: '6px', padding: '.35rem .75rem', fontSize: '.8rem', cursor: 'pointer' }}>🚚 Mark Return Transit</button>
-              <button onClick={() => bulkUpdateStatus('Return')} style={{ background: '#2e7d32', color: '#fff', border: 'none', borderRadius: '6px', padding: '.35rem .75rem', fontSize: '.8rem', cursor: 'pointer' }}>✅ Mark Returned</button>
-              <button onClick={() => bulkUpdateStatus('Cancelled')} style={{ background: '#c62828', color: '#fff', border: 'none', borderRadius: '6px', padding: '.35rem .75rem', fontSize: '.8rem', cursor: 'pointer' }}>Cancel Return</button>
+              <button className="adm-btn" onClick={() => bulkUpdateStatus('Return Transit')}>Mark Return Transit</button>
+              <button className="adm-btn" onClick={() => bulkUpdateStatus('Return')}>Mark Returned</button>
+              <button className="adm-btn" onClick={() => bulkUpdateStatus('Cancelled')}>Cancel Return</button>
             </>
           ) : (
             <>
-              <button onClick={() => bulkUpdateStatus('Ready for Shipping')} style={{ background: '#27ae60', color: '#fff', border: 'none', borderRadius: '6px', padding: '.35rem .75rem', fontSize: '.8rem', cursor: 'pointer' }}>Ready to Ship</button>
-              <button onClick={openManualAwb} style={{ background: '#00695c', color: '#fff', border: 'none', borderRadius: '6px', padding: '.35rem .75rem', fontSize: '.8rem', cursor: 'pointer' }}>🚚 AWB / Courier</button>
-              <button onClick={() => bulkUpdateStatus('Shipped')} style={{ background: '#7b1fa2', color: '#fff', border: 'none', borderRadius: '6px', padding: '.35rem .75rem', fontSize: '.8rem', cursor: 'pointer' }}>Mark Shipped</button>
-              <button onClick={() => bulkUpdateStatus('Delivered')} style={{ background: '#2e7d32', color: '#fff', border: 'none', borderRadius: '6px', padding: '.35rem .75rem', fontSize: '.8rem', cursor: 'pointer' }}>✅ Mark Delivered</button>
-              <button onClick={() => bulkUpdateStatus('Cancelled')} style={{ background: '#c62828', color: '#fff', border: 'none', borderRadius: '6px', padding: '.35rem .75rem', fontSize: '.8rem', cursor: 'pointer' }}>Cancel</button>
+              <button className="adm-btn" onClick={() => bulkUpdateStatus('Ready for Shipping')}>Ready to Ship</button>
+              <button className="adm-btn" onClick={openManualAwb}>AWB / Courier</button>
+              <button className="adm-btn" onClick={() => bulkUpdateStatus('Shipped')}>Mark Shipped</button>
+              <button className="adm-btn" onClick={() => bulkUpdateStatus('Delivered')}>Mark Delivered</button>
+              <button className="adm-btn" onClick={() => bulkUpdateStatus('Cancelled')}>Cancel</button>
             </>
           )}
-          <button onClick={() => openOrderLabels(filtered.filter(o => selectedIds.has(o.id)))} style={{ background: '#1565c0', color: '#fff', border: 'none', borderRadius: '6px', padding: '.35rem .75rem', fontSize: '.8rem', cursor: 'pointer', fontWeight: 700 }}>⬇ Labels PDF ({selectedIds.size})</button>
-          <button onClick={bulkDelete} title="Permanently delete selected orders (admin only)" style={{ background: '#7a0a22', color: '#fff', border: 'none', borderRadius: '6px', padding: '.35rem .75rem', fontSize: '.8rem', cursor: 'pointer', fontWeight: 700 }}>🗑 Delete ({selectedIds.size})</button>
-          <button onClick={() => setSelectedIds(new Set())} style={{ background: '#f5f5f5', border: 'none', borderRadius: '6px', padding: '.35rem .75rem', fontSize: '.8rem', cursor: 'pointer' }}>Clear</button>
+          <button className="adm-btn" onClick={() => openOrderLabels(filtered.filter(o => selectedIds.has(o.id)))}>
+            Labels PDF ({selectedIds.size})
+          </button>
+          <button className="adm-btn" onClick={bulkDelete} style={{ color: '#a3122b', borderColor: '#eccdd3' }}
+                  title="Deletes these orders for good">
+            Delete ({selectedIds.size})
+          </button>
+          <button className="adm-btn" onClick={() => setSelectedIds(new Set())}>Clear</button>
         </div>
       )}
 
-      {/* Table */}
-      <div style={{ background: '#fff', borderRadius: '12px', boxShadow: '0 1px 4px rgba(0,0,0,.07)', overflow: 'hidden' }}>
-        <div className="adm-table-wrap" style={{ overflowX: 'auto' }}>
-          <table className="adm-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '.85rem' }}>
-            <thead style={{ background: '#f9f9f9' }}>
-              <tr>
-                <th style={{ padding: '.75rem 1rem', width: '36px' }}>
-                  <input type="checkbox"
-                    checked={selectedIds.size === filtered.length && filtered.length > 0}
-                    onChange={e => setSelectedIds(e.target.checked ? new Set(filtered.map(o => o.id)) : new Set())} />
-                </th>
-                {['S.No','Order ID','Date','Customer','Pincode','Item(s)','Size','Colour/Design','Amount','Method','AWB','Action'].map(h => (
-                  <th key={h} style={{ padding: '.75rem 1rem', textAlign: 'left', fontWeight: 600, fontSize: '.72rem', color: '#888', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr><td colSpan={13} style={{ textAlign: 'center', padding: '3rem', color: '#aaa' }}>Loading orders…</td></tr>
-              ) : filtered.length === 0 ? (
-                <tr><td colSpan={13} style={{ textAlign: 'center', padding: '3rem', color: '#aaa' }}>No orders found.</td></tr>
-              ) : filtered.map((o, i) => {
-                return (
-                  <tr key={o.id} style={{ borderTop: i > 0 ? '1px solid #f5f5f5' : undefined, background: selectedIds.has(o.id) ? '#fdf0f3' : undefined }}>
-                    <td data-label="" style={{ padding: '.65rem 1rem' }}>
-                      <input type="checkbox" checked={selectedIds.has(o.id)} onChange={() => toggleSelect(o.id)} />
-                    </td>
-                    <td data-label="S.No" style={{ padding: '.65rem 1rem', fontWeight: 700, fontSize: '.82rem', color: '#a7354d', whiteSpace: 'nowrap' }}>{i + 1}</td>
-                    <td data-label="Order ID" style={{ padding: '.65rem 1rem', fontFamily: 'monospace', fontSize: '.75rem', color: '#555', whiteSpace: 'nowrap' }}>{o.id}</td>
-                    <td data-label="Date" style={{ padding: '.65rem 1rem', fontSize: '.75rem', color: '#888', whiteSpace: 'nowrap' }}>
-                      {new Date(o.placedAt ?? o.createdAt).toLocaleDateString('en-IN')}
-                    </td>
-                    <td data-label="Customer" style={{ padding: '.65rem 1rem', fontWeight: 500 }}>{o.customerName || '—'}</td>
-                    <td data-label="Pincode" style={{ padding: '.65rem 1rem', fontFamily: 'monospace', fontWeight: 700, fontSize: '.82rem', color: o.shippingPincode ? '#1a1a1a' : '#ccc', whiteSpace: 'nowrap' }}>{o.shippingPincode || '—'}</td>
-                    <td data-label="Item(s)" style={{ padding: '.5rem 1rem', minWidth: '270px' }}>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '.45rem' }}>
-                        {(o.cart ?? []).map((c, ci) => {
-                          const thumb = productImageSrc(c.colorPhoto || c.image);
-                          // `size` historically holds "size / colour" — strip the colour part when we show it separately
-                          const sizeOnly = c.color ? (c.size || '').split(' / ').filter(p => p && p !== c.color).join(' / ') : (c.size || '');
-                          return (
-                            <div key={ci} style={{ display: 'flex', gap: '.5rem', alignItems: 'center' }}>
-                              {thumb
-                                ? <img src={thumb} alt="" style={{ width: 40, height: 40, borderRadius: 6, objectFit: 'cover', flexShrink: 0, border: '1px solid #eee' }} />
-                                : <div style={{ width: 40, height: 40, borderRadius: 6, background: '#f5f5f5', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.1rem', flexShrink: 0 }}>👗</div>}
-                              <div style={{ fontSize: '.72rem', lineHeight: 1.4 }}>
-                                <div style={{ fontWeight: 600, color: '#333', maxWidth: 190, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</div>
-                                <div style={{ color: '#888', fontFamily: 'monospace' }}>
-                                  SKU: {c.sku || '—'}{c.colorColumn ? ` · Col ${c.colorColumn}` : ''}
-                                </div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '.3rem', color: '#666', flexWrap: 'wrap' }}>
-                                  {c.color && (
-                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '.25rem' }}>
-                                      {c.colorCode && <span style={{ width: 11, height: 11, borderRadius: '50%', background: c.colorCode, border: '1px solid #ccc', display: 'inline-block', flexShrink: 0 }} />}
-                                      {c.color}{c.colorCode ? ` (${c.colorCode})` : ''}
-                                    </span>
-                                  )}
-                                  {sizeOnly && <span>{c.color ? '· ' : ''}Size: {sizeOnly}</span>}
-                                  <span>· ×{c.quantity}</span>
-                                </div>
-                              </div>
+      <Card
+        title={`${filtered.length} ${filtered.length === 1 ? (mainTab === 'returns' ? 'return' : 'order') : (mainTab === 'returns' ? 'returns' : 'orders')}`}
+        right={filtered.length > 0 && (
+          <label style={{ fontSize: '.76rem', color: '#7d736d', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '.35rem', cursor: 'pointer' }}>
+            <input type="checkbox" checked={allShownSelected}
+                   onChange={e => setSelectedIds(e.target.checked ? new Set(filtered.map(o => o.id)) : new Set())} />
+            Select all shown
+          </label>
+        )}
+      >
+        {loading ? (
+          <Empty>Loading orders…</Empty>
+        ) : filtered.length === 0 ? (
+          <Empty>
+            {mainTab === 'returns'
+              ? 'No returns here. Nothing is waiting on you.'
+              : anyFilter
+                ? 'No order matches this search. Clear the filters to see them all.'
+                : 'No orders in this queue.'}
+          </Empty>
+        ) : filtered.map(o => {
+          const picked = selectedIds.has(o.id);
+          const placed = new Date(o.placedAt ?? o.createdAt);
+          const tone = o.status === 'Delivered' ? 'green'
+            : o.status === 'Cancelled' ? 'grey'
+            : o.status === 'Pending' || o.status === 'Return Requested' || o.status === 'Cancel Requested' ? 'red'
+            : 'amber';
+          return (
+            <div key={o.id} style={{ borderBottom: '1px solid #f4efec', padding: '.8rem 0',
+                                     background: picked ? '#fdf7f8' : undefined }}>
+              <div style={{ display: 'flex', gap: '.6rem', alignItems: 'flex-start' }}>
+                <input type="checkbox" checked={picked} onChange={() => toggleSelect(o.id)}
+                       style={{ marginTop: '.2rem', flexShrink: 0 }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', gap: '.6rem', alignItems: 'baseline', flexWrap: 'wrap' }}>
+                    <span style={{ fontFamily: 'monospace', fontSize: '.8rem', fontWeight: 700, color: '#2d2724' }}>{o.id}</span>
+                    <Pill tone={tone}>{o.status}</Pill>
+                    <span className="adm-money" style={{ marginLeft: 'auto' }}>₹{o.total.toLocaleString('en-IN')}</span>
+                  </div>
+                  <div className="adm-item-s">
+                    {placed.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                    {' · '}{o.customerName || 'no name'}
+                    {o.shippingPincode ? ` · ${o.shippingPincode}` : ''}
+                    {' · '}<span style={{ textTransform: 'capitalize' }}>{o.method}</span>
+                    {o.awb && <> · <button onClick={() => openLiveTrack(o.awb!)} title="Live Delhivery tracking"
+                      style={{ background: 'none', border: 0, padding: 0, cursor: 'pointer', fontFamily: 'monospace',
+                               fontSize: '.74rem', color: '#1565c0', textDecoration: 'underline' }}>{o.awb}</button></>}
+                  </div>
+
+                  {/* Size and colour used to be their own columns as well as being
+                      written on every item. Once is enough, and it is the line
+                      the packer actually reads. */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '.4rem', marginTop: '.5rem' }}>
+                    {(o.cart ?? []).map((c, ci) => {
+                      const thumb = productImageSrc(c.colorPhoto || c.image);
+                      const sizeOnly = c.color ? (c.size || '').split(' / ').filter(p => p && p !== c.color).join(' / ') : (c.size || '');
+                      return (
+                        <div key={ci} style={{ display: 'flex', gap: '.5rem', alignItems: 'center' }}>
+                          {thumb
+                            ? <img src={thumb} alt="" style={{ width: 38, height: 38, borderRadius: 7, objectFit: 'cover', flexShrink: 0, border: '1px solid #f0eae7' }} />
+                            : <div className="adm-item-thumb" style={{ width: 38, height: 38, fontSize: '.9rem' }}>—</div>}
+                          <div style={{ fontSize: '.74rem', lineHeight: 1.45, minWidth: 0 }}>
+                            <div style={{ fontWeight: 650, color: '#2d2724', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 260 }}>{c.name}</div>
+                            <div style={{ color: '#9a908a', display: 'flex', gap: '.3rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                              <span style={{ fontFamily: 'monospace' }}>{c.sku || 'no SKU'}</span>
+                              {c.colorColumn ? <span>· Col {c.colorColumn}</span> : null}
+                              {c.color && (
+                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '.25rem' }}>
+                                  · {c.colorCode && <span style={{ width: 10, height: 10, borderRadius: '50%', background: c.colorCode, border: '1px solid #ddd', display: 'inline-block' }} />}
+                                  {c.color}
+                                </span>
+                              )}
+                              {sizeOnly && <span>· Size {sizeOnly}</span>}
+                              <span>· ×{c.quantity}</span>
                             </div>
-                          );
-                        })}
-                      </div>
-                    </td>
-                    <td data-label="Size" style={{ padding: '.5rem 1rem', fontSize: '.75rem', color: '#444' }}>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '.45rem' }}>
-                        {(o.cart ?? []).map((c, ci) => {
-                          const sizeOnly = c.color ? (c.size || '').split(' / ').filter(p => p && p !== c.color).join(' / ') : (c.size || '');
-                          return <div key={ci} style={{ minHeight: 40, display: 'flex', alignItems: 'center', fontWeight: 600 }}>{sizeOnly || '—'}</div>;
-                        })}
-                      </div>
-                    </td>
-                    <td data-label="Colour/Design" style={{ padding: '.5rem 1rem', fontSize: '.75rem', color: '#444' }}>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '.45rem' }}>
-                        {(o.cart ?? []).map((c, ci) => (
-                          <div key={ci} style={{ minHeight: 40, display: 'flex', alignItems: 'center', gap: '.3rem', flexWrap: 'wrap' }}>
-                            {c.colorCode && <span style={{ width: 11, height: 11, borderRadius: '50%', background: c.colorCode, border: '1px solid #ccc', display: 'inline-block', flexShrink: 0 }} />}
-                            <span>{c.color || c.colorColumn ? `${c.color || ''}${c.colorColumn ? ` (Col ${c.colorColumn})` : ''}` : '—'}</span>
                           </div>
-                        ))}
-                      </div>
-                    </td>
-                    <td data-label="Amount" style={{ padding: '.65rem 1rem', fontWeight: 600, whiteSpace: 'nowrap' }}>₹{o.total.toLocaleString('en-IN')}</td>
-                    <td data-label="Method" style={{ padding: '.65rem 1rem', textTransform: 'capitalize', fontSize: '.78rem' }}>{o.method}</td>
-                    <td data-label="AWB" style={{ padding: '.65rem 1rem', fontSize: '.75rem', fontFamily: 'monospace', color: o.awb ? '#333' : '#ccc' }}>
-                      {o.awb ? (
-                        <button onClick={() => openLiveTrack(o.awb!)} title="Live Delhivery tracking"
-                          style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'monospace', fontSize: '.75rem', color: '#1565c0', textDecoration: 'underline' }}>
-                          {o.awb}
-                        </button>
-                      ) : '—'}
-                    </td>
-                    <td data-label="Action" style={{ padding: '.65rem 1rem', whiteSpace: 'nowrap' }}>
-                      <button onClick={() => downloadShippingLabel(o)}
-                        style={{ color: '#1565c0', background: 'none', border: 'none', cursor: 'pointer', fontSize: '.82rem', fontWeight: 600 }}>
-                        ⬇ Label
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className="adm-actions" style={{ marginTop: '.55rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                    <button onClick={() => downloadShippingLabel(o)}>Label</button>
+                    <button onClick={() => ordersApi.downloadInvoice(o.id, getAdminToken() ?? '').catch(() => {})}>Invoice</button>
+                    {o.customerPhone && (
+                      <details>
+                        <summary style={{ cursor: 'pointer', color: '#128C7E', fontWeight: 700, fontSize: '.76rem', listStyle: 'none', userSelect: 'none' }}>
+                          WhatsApp ▾
+                        </summary>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '.1rem', marginTop: '.3rem',
+                                      background: '#f0fbf4', border: '1px solid #cdeede', borderRadius: 8, padding: '.4rem .55rem' }}>
+                          <a href={waCustomerLink(o.customerPhone, o.customerName, o.id, o.total, o.awb, 'confirm')} target="_blank" rel="noopener noreferrer" style={waItemStyle}>Confirm</a>
+                          <a href={waCustomerLink(o.customerPhone, o.customerName, o.id, o.total, o.awb, 'shipped')} target="_blank" rel="noopener noreferrer" style={waItemStyle}>Shipped</a>
+                          <a href={waCustomerLink(o.customerPhone, o.customerName, o.id, o.total, o.awb, 'delivered')} target="_blank" rel="noopener noreferrer" style={waItemStyle}>Delivered</a>
+                          <a href={waCustomerLink(o.customerPhone, o.customerName, o.id, o.total, o.awb, 'chat')} target="_blank" rel="noopener noreferrer" style={waItemStyle}>Open chat</a>
+                        </div>
+                      </details>
+                    )}
+                    {RETURN_STATUSES.includes(o.status) && (
+                      <button onClick={() => { setShowReject(false); setRejectReason(''); setReturnModalId(o.id); }}
+                              style={{ color: o.returnDecision === 'rejected' ? '#c0392b' : o.returnDecision === 'approved' ? '#2e7d32' : '#722f37' }}>
+                        Return{o.returnDecision === 'approved' ? ' ✓' : o.returnDecision === 'rejected' ? ' ✕' : ''}
                       </button>
-                      <button onClick={() => ordersApi.downloadInvoice(o.id, getAdminToken() ?? '').catch(() => {})}
-                        style={{ display: 'block', marginTop: '.35rem', color: '#7a5a2e', background: 'none', border: 'none', cursor: 'pointer', fontSize: '.82rem', fontWeight: 700 }}>
-                        🧾 Invoice
-                      </button>
-                      {o.customerPhone && (
-                        <details style={{ marginTop: '.4rem' }}>
-                          <summary style={{ cursor: 'pointer', color: '#128C7E', fontWeight: 700, fontSize: '.82rem', listStyle: 'none', userSelect: 'none' }}>📱 WhatsApp ▾</summary>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '.1rem', marginTop: '.3rem', background: '#f0fbf4', border: '1px solid #cdeede', borderRadius: 8, padding: '.4rem .55rem' }}>
-                            <a href={waCustomerLink(o.customerPhone, o.customerName, o.id, o.total, o.awb, 'confirm')} target="_blank" rel="noopener noreferrer" style={waItemStyle}>✅ Confirm</a>
-                            <a href={waCustomerLink(o.customerPhone, o.customerName, o.id, o.total, o.awb, 'shipped')} target="_blank" rel="noopener noreferrer" style={waItemStyle}>🚚 Shipped</a>
-                            <a href={waCustomerLink(o.customerPhone, o.customerName, o.id, o.total, o.awb, 'delivered')} target="_blank" rel="noopener noreferrer" style={waItemStyle}>📦 Delivered</a>
-                            <a href={waCustomerLink(o.customerPhone, o.customerName, o.id, o.total, o.awb, 'chat')} target="_blank" rel="noopener noreferrer" style={waItemStyle}>💬 Open chat</a>
-                          </div>
-                        </details>
-                      )}
-                      {RETURN_STATUSES.includes(o.status) && (
-                        <button onClick={() => { setShowReject(false); setRejectReason(''); setReturnModalId(o.id); }}
-                          style={{ display: 'block', marginTop: '.35rem', color: o.returnDecision === 'rejected' ? '#c62828' : o.returnDecision === 'approved' ? '#2e7d32' : '#a7354d', background: 'none', border: 'none', cursor: 'pointer', fontSize: '.82rem', fontWeight: 700 }}>
-                          ↩ Return{o.returnDecision === 'approved' ? ' ✓' : o.returnDecision === 'rejected' ? ' ✕' : ''}
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </Card>
 
       {/* Live Delhivery tracking modal — AWB pe click karne par */}
       {liveModal && (
