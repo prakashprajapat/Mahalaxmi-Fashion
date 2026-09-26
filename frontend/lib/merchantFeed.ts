@@ -148,6 +148,42 @@ export function variantsOf(p: FeedInput, seen?: Set<string>): Variant[] {
  * category is an item-level error in Merchant Center, so a vague-but-correct
  * value beats a specific guess.
  */
+/** ExtraJson as an object, or null when it is missing or unreadable. */
+function parseExtra(p: FeedInput): unknown | null {
+  const raw = (p as unknown as { extraJson?: unknown }).extraJson;
+  if (!raw) return null;
+  if (typeof raw === 'object') return raw;
+  try { return JSON.parse(String(raw)); } catch { return null; }
+}
+
+/**
+ * Is this product actually on the shelf in the Balotra shop?
+ *
+ * Google turns free local listings and local inventory ads on for EVERY product
+ * once the add-on is enabled, and then reports "Missing local inventory data"
+ * for each one it has no shelf row for. A shop that also sells things it does
+ * not keep in the shop has to say so; claiming shelf stock that is not there is
+ * worse than the warning, because a customer can walk in for it.
+ *
+ * Unset means yes, which is what the shop does today. Only a product explicitly
+ * marked otherwise in Admin is treated as online-only.
+ */
+export function inStoreOf(p: FeedInput): boolean {
+  const extra = parseExtra(p);
+  if (extra === null) return true;
+  const v = (extra as Record<string, unknown>).inStoreAvailable;
+  return v !== false && v !== 'false' && v !== 0 && v !== '0' && v !== 'no';
+}
+
+/** Shelf count, when the owner has entered one. Never guessed. */
+export function inStoreQtyOf(p: FeedInput): number | null {
+  const extra = parseExtra(p);
+  if (extra === null) return null;
+  const raw = (extra as Record<string, unknown>).inStoreQty;
+  const n = typeof raw === 'number' ? raw : parseInt(String(raw ?? ''), 10);
+  return Number.isFinite(n) && n >= 0 ? n : null;
+}
+
 export function googleCategoryOf(p: FeedInput): string {
   const s = `${p.subcategory ?? ''} ${p.category ?? ''}`.toLowerCase();
 

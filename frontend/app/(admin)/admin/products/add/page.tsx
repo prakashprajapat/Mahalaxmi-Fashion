@@ -563,6 +563,11 @@ export default function AddProductPage() {
   // Basic fields
   const [sku, setSku]           = useState('MFH…');
   const [hsnCode, setHsnCode]   = useState('');
+  // Google turns local listings on for every product and then complains about
+  // each one it has no shelf row for. Default yes, which is what the shop does;
+  // a product sold online but not kept in Balotra is switched off here.
+  const [inStore, setInStore] = useState(true);
+  const [inStoreQty, setInStoreQty] = useState('');
   const [name, setName]         = useState('');
   const [category, setCategory] = useState('Women');
   const [sub, setSub]           = useState('');
@@ -788,6 +793,10 @@ export default function AddProductPage() {
       const cleanSpecs = Object.fromEntries(Object.entries(specs).filter(([, v]) => v.trim()));
       const extraJson = JSON.stringify({
         specs: Object.keys(cleanSpecs).length ? cleanSpecs : undefined,
+        // Only written when it is NOT the default, so an untouched product
+        // keeps meaning "on the shelf" without carrying a field for it.
+        inStoreAvailable: inStore ? undefined : false,
+        inStoreQty: inStore && inStoreQty.trim() !== '' ? Number(inStoreQty) : undefined,
         // Only the currently-SELECTED sizes (selSizes). Using the union with customSizes
         // re-added sizes the admin had de-selected, advertising a size with no stock entry.
         sizes: [...new Set(selSizes)],
@@ -977,6 +986,30 @@ export default function AddProductPage() {
           <div>
             <label style={lbl}>HSN Code</label>
             <input value={hsnCode} onChange={e => setHsnCode(e.target.value)} placeholder="e.g. 6211" style={inp} />
+          </div>
+
+          <div style={{ gridColumn: '1 / -1', background: '#fff8e6', border: '1px solid #f2dfa8', borderRadius: 10, padding: '.8rem .9rem' }}>
+            <label style={{ display: 'flex', alignItems: 'flex-start', gap: '.55rem', cursor: 'pointer' }}>
+              <input type="checkbox" checked={inStore} onChange={e => setInStore(e.target.checked)} style={{ marginTop: 3 }} />
+              <span>
+                <span style={{ display: 'block', fontWeight: 700, fontSize: '.88rem', color: '#1e1b19' }}>
+                  Available in the Balotra shop
+                </span>
+                <span style={{ display: 'block', fontSize: '.78rem', color: '#8a6300', marginTop: 2, lineHeight: 1.5 }}>
+                  Keep this ticked for anything a customer can walk in and buy. Untick it for something sold
+                  online only — Google is then told not to expect shop stock for it, instead of reporting
+                  &quot;Missing local inventory data&quot;. Saying a product is in the shop when it is not sends
+                  customers to the counter for something that is not there.
+                </span>
+              </span>
+            </label>
+            {inStore && (
+              <div style={{ marginTop: '.7rem' }}>
+                <label style={lbl}>How many are in the shop (optional)</label>
+                <input value={inStoreQty} onChange={e => setInStoreQty(e.target.value.replace(/[^0-9]/g, ''))}
+                  placeholder="leave blank if you do not count it" style={inp} inputMode="numeric" />
+              </div>
+            )}
           </div>
 
           <div style={{ gridColumn:'1 / -1' }}>

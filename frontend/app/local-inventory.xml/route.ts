@@ -16,7 +16,7 @@
 // here with the same id.
 
 import { productsApi } from '@/lib/api';
-import { isFeedable, variantsOf } from '@/lib/merchantFeed';
+import { isFeedable, variantsOf, inStoreOf, inStoreQtyOf } from '@/lib/merchantFeed';
 
 export const dynamic = 'force-dynamic';
 
@@ -45,13 +45,21 @@ export async function GET() {
     // a local row for a product Google does not have is a row it cannot join.
     .filter(p => isFeedable(p))
     .filter(p => (Number(p.price) || 0) > 0)
+    // Only what is actually on the shelf. A product the shop sells online but
+    // does not keep in Balotra has no row here, and the product feed tells
+    // Google to stop expecting one.
+    .filter(p => inStoreOf(p))
     .flatMap(p => {
       const outOfStock = String(p.stock ?? '').toLowerCase().includes('out');
+      const qty = inStoreQtyOf(p);
       return variantsOf(p, usedIds).map(v =>
         '<item>'
         + `<g:store_code>${STORE_CODE}</g:store_code>`
         + `<g:id>${esc(v.id)}</g:id>`
         + `<g:availability>${outOfStock ? 'out_of_stock' : 'in_stock'}</g:availability>`
+        // Only when the owner has entered a count. A guessed quantity is worse
+        // than none: Google treats it as a promise about the shelf.
+        + (qty !== null ? `<g:quantity>${qty}</g:quantity>` : '')
         + '</item>'
       );
     })

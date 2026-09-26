@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { productSlug } from '@/lib/productSlug';
 import {
   isFeedable, variantsOf, googleCategoryOf, productTypeOf, genderOf, ageGroupOf,
+  inStoreOf,
 } from '@/lib/merchantFeed';
 
 /**
@@ -77,6 +78,14 @@ export async function GET() {
       const desc = (p.description ?? p.name).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 4900);
       const variants = variantsOf(p, usedIds);
       const ptype = productTypeOf(p);
+      // Google switches free local listings and local inventory ads on for
+      // every product once the add-on is enabled, then reports "Missing local
+      // inventory data" for each one with no shelf row. For a product the shop
+      // does not keep in Balotra, this is how it is told not to expect one.
+      const excluded = inStoreOf(p)
+        ? ''
+        : '\n    <g:excluded_destination>local_inventory_ads</g:excluded_destination>'
+          + '\n    <g:excluded_destination>free_local_listings</g:excluded_destination>';
 
       // One row per size and colour, sharing an item_group_id — Google's size
       // and colour attributes hold one value each, and it requires both for
@@ -99,7 +108,7 @@ export async function GET() {
     <g:size>${esc(v.size)}</g:size>` : ''}${v.colour ? `
     <g:color>${esc(v.colour)}</g:color>` : ''}
     <g:gender>${genderOf(p)}</g:gender>
-    <g:age_group>${ageGroupOf(p)}</g:age_group>
+    <g:age_group>${ageGroupOf(p)}</g:age_group>${excluded}
   </item>`);
     })
     .join('\n');

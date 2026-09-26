@@ -511,6 +511,11 @@ export default function EditProductPage() {
   // Basic fields
   const [sku, setSku]             = useState('');
   const [hsnCode, setHsnCode]     = useState('6211');
+  // Same pair as the add form. Without them here an edit would quietly drop the
+  // flag, and a product marked online-only would start claiming shelf stock
+  // again the next time anything on it was changed.
+  const [inStore, setInStore] = useState(true);
+  const [inStoreQty, setInStoreQty] = useState('');
   const [name, setName]           = useState('');
   const [category, setCategory]   = useState('Women');
   const [sub, setSub]             = useState('');
@@ -619,6 +624,13 @@ export default function EditProductPage() {
           // Sizes — ALL saved sizes stay selected (both preset like M/L and custom like 42);
           // custom (non-preset) ones are also registered so they render as chips.
           // De-duplicate so a size never renders as a repeated row in the stock table.
+          setInStore(ex.inStoreAvailable !== false);
+          setInStoreQty(
+            typeof ex.inStoreQty === 'number' || (ex.inStoreQty ?? '') !== ''
+              ? String(ex.inStoreQty)
+              : ''
+          );
+
           const exSizes: string[] = [...new Set((ex.sizes ?? []) as string[])];
           const presetSet = new Set(SIZES_PRESET);
           setSelSizes(exSizes);
@@ -794,6 +806,8 @@ export default function EditProductPage() {
       const cleanSpecs = Object.fromEntries(Object.entries(specs).filter(([, v]) => v.trim()));
       const extraJson = JSON.stringify({
         specs: Object.keys(cleanSpecs).length ? cleanSpecs : undefined,
+        inStoreAvailable: inStore ? undefined : false,
+        inStoreQty: inStore && inStoreQty.trim() !== '' ? Number(inStoreQty) : undefined,
         // Only the currently-SELECTED sizes — using the union with customSizes re-added sizes
         // the admin had de-selected, advertising a size with no matching stock entry.
         sizes:            [...new Set(selSizes)],
@@ -996,6 +1010,29 @@ export default function EditProductPage() {
           <div>
             <label style={lbl}>HSN Code</label>
             <input value={hsnCode} onChange={e => setHsnCode(e.target.value)} placeholder="e.g. 6211" style={inp} />
+          </div>
+
+          <div style={{ gridColumn: '1 / -1', background: '#fff8e6', border: '1px solid #f2dfa8', borderRadius: 10, padding: '.8rem .9rem' }}>
+            <label style={{ display: 'flex', alignItems: 'flex-start', gap: '.55rem', cursor: 'pointer' }}>
+              <input type="checkbox" checked={inStore} onChange={e => setInStore(e.target.checked)} style={{ marginTop: 3 }} />
+              <span>
+                <span style={{ display: 'block', fontWeight: 700, fontSize: '.88rem', color: '#1e1b19' }}>
+                  Available in the Balotra shop
+                </span>
+                <span style={{ display: 'block', fontSize: '.78rem', color: '#8a6300', marginTop: 2, lineHeight: 1.5 }}>
+                  Keep this ticked for anything a customer can walk in and buy. Untick it for something sold
+                  online only — Google is then told not to expect shop stock for it, instead of reporting
+                  &quot;Missing local inventory data&quot;.
+                </span>
+              </span>
+            </label>
+            {inStore && (
+              <div style={{ marginTop: '.7rem' }}>
+                <label style={lbl}>How many are in the shop (optional)</label>
+                <input value={inStoreQty} onChange={e => setInStoreQty(e.target.value.replace(/[^0-9]/g, ''))}
+                  placeholder="leave blank if you do not count it" style={inp} inputMode="numeric" />
+              </div>
+            )}
           </div>
 
           <div style={{ gridColumn:'1 / -1' }}>
