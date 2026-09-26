@@ -63,11 +63,16 @@ const nextConfig = {
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://www.google-analytics.com https://checkout.razorpay.com https://cdn.razorpay.com https://connect.facebook.net https://static.cloudflareinsights.com https://sdk.cashfree.com",
+              // googleadservices + googleads.g.doubleclick are the Google Ads
+              // conversion and remarketing tag. They were missing, so every
+              // conversion the shop paid for was blocked at the browser before
+              // it could be counted — the console said so on every page load,
+              // under four React errors that turned out to be harmless.
+              "script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://www.google-analytics.com https://www.googleadservices.com https://googleads.g.doubleclick.net https://checkout.razorpay.com https://cdn.razorpay.com https://connect.facebook.net https://static.cloudflareinsights.com https://sdk.cashfree.com",
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "font-src 'self' data: https://fonts.gstatic.com",
               "img-src 'self' data: blob: https:",
-              "connect-src 'self' https://www.google-analytics.com https://region1.google-analytics.com https://analytics.google.com https://www.googletagmanager.com https://api.razorpay.com https://lumberjack.razorpay.com https://connect.facebook.net https://*.facebook.com https://static.cloudflareinsights.com https://*.merchant-center-analytics.goog https://*.google.com https://*.cashfree.com https://sdk.cashfree.com https://stats.g.doubleclick.net https://*.g.doubleclick.net",
+              "connect-src 'self' https://www.google-analytics.com https://region1.google-analytics.com https://analytics.google.com https://www.googletagmanager.com https://api.razorpay.com https://lumberjack.razorpay.com https://connect.facebook.net https://*.facebook.com https://static.cloudflareinsights.com https://*.merchant-center-analytics.goog https://*.google.com https://*.cashfree.com https://sdk.cashfree.com https://stats.g.doubleclick.net https://*.g.doubleclick.net https://www.googleadservices.com https://ad.doubleclick.net",
               "frame-src https://checkout.razorpay.com https://api.razorpay.com https://*.razorpay.com https://*.cashfree.com https://sdk.cashfree.com https://www.google.com https://maps.google.com",
               "object-src 'none'",
               "base-uri 'self'",
