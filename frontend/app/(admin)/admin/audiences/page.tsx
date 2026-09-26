@@ -1,6 +1,7 @@
 'use client';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { getAdminToken } from '@/lib/auth';
+import { PageHeader } from '@/components/admin/Ui';
 
 interface Sources {
   customers: number;
@@ -30,32 +31,19 @@ interface PushResult {
 type Source = 'customers' | 'metaleads' | 'googleleads' | 'popupleads' | 'csv';
 type Filter = 'all' | 'consent' | 'buyers' | 'lapsed';
 
+// The page's own shapes, now drawn from the shared admin look rather than
+// their own greys, so this screen matches the rest of the panel.
 const box: React.CSSProperties = {
-  background: '#fff', border: '1px solid #eee', borderRadius: 12, padding: '1.15rem 1.25rem',
+  background: '#fff', border: '1px solid #eae3e4', borderRadius: 13, padding: '.85rem .9rem',
 };
 const label: React.CSSProperties = {
-  fontSize: '.76rem', fontWeight: 700, letterSpacing: '.05em',
-  textTransform: 'uppercase', color: '#888', margin: '0 0 .5rem',
-};
-const primary: React.CSSProperties = {
-  background: '#a7354d', color: '#fff', border: 'none', borderRadius: 8,
-  padding: '.7rem 1.3rem', fontWeight: 700, fontSize: '.9rem', cursor: 'pointer',
-};
-const ghost: React.CSSProperties = {
-  background: '#fff', color: '#555', border: '1.5px solid #ddd', borderRadius: 8,
-  padding: '.55rem 1rem', fontWeight: 600, fontSize: '.85rem', cursor: 'pointer',
+  fontSize: '.74rem', fontWeight: 800, letterSpacing: '.05em',
+  textTransform: 'uppercase', color: '#8a7f76', margin: '0 0 .5rem',
 };
 
 function Choice({ on, onClick, children }: { on: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
-    <button type="button" onClick={onClick}
-      style={{
-        border: '1.5px solid ' + (on ? '#a7354d' : '#ddd'),
-        background: on ? '#a7354d' : '#fff',
-        color: on ? '#fff' : '#555',
-        borderRadius: 999, padding: '.4rem 1rem', fontSize: '.85rem', fontWeight: 600,
-        cursor: 'pointer', font: 'inherit', fontFamily: 'inherit',
-      }}>
+    <button type="button" onClick={onClick} className={`adm-chip${on ? ' on' : ''}`}>
       {children}
     </button>
   );
@@ -162,15 +150,14 @@ export default function AudiencesPage() {
   };
 
   return (
-    <div style={{ padding: '1.5rem', maxWidth: 900 }}>
-      <h1 style={{ fontSize: '1.4rem', fontWeight: 800, margin: '0 0 .3rem' }}>Audiences</h1>
-      <p style={{ margin: '0 0 1.25rem', color: '#666', fontSize: '.9rem', lineHeight: 1.6 }}>
-        Hand a list of people you already know to Meta and Google, so the ads go to them instead of
-        strangers. Download the same list as a CSV, or upload one from elsewhere.
-      </p>
+    <div className="admin-page" style={{ maxWidth: 900 }}>
+      <PageHeader
+        title="Audiences"
+        sub="Hand a list of people you already know to Meta and Google, so the ads go to them instead of strangers. Or download the same list as a CSV, or upload one from elsewhere."
+      />
 
       {error && (
-        <div style={{ background: '#fdecea', border: '1px solid #f5c6c2', color: '#8a1c13', borderRadius: 10, padding: '.7rem 1rem', marginBottom: '1rem', fontSize: '.88rem' }}>
+        <div className="adm-card" style={{ background: '#fdf3f2', borderColor: '#f0cdc9', color: '#c0392b', marginBottom: '.85rem', fontSize: '.86rem', fontWeight: 600 }}>
           {error}
         </div>
       )}
@@ -207,9 +194,9 @@ export default function AudiencesPage() {
             {filter === 'lapsed' && (
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: '.35rem', fontSize: '.85rem', color: '#555' }}>
                 older than
-                <input type="number" min={7} max={730} value={days}
+                <input className="adm-input" type="number" min={7} max={730} value={days}
                   onChange={e => { setDays(Number(e.target.value)); setPreview(null); }}
-                  style={{ width: 70, padding: '.3rem .45rem', border: '1.5px solid #ddd', borderRadius: 6 }} />
+                  style={{ width: 76, padding: '.3rem .45rem' }} />
                 days
               </span>
             )}
@@ -232,12 +219,12 @@ export default function AudiencesPage() {
         )}
 
         <div style={{ marginTop: '.9rem', display: 'flex', gap: '.5rem', flexWrap: 'wrap' }}>
-          <button onClick={runPreview} disabled={busy !== ''} style={{ ...ghost, opacity: busy ? .6 : 1 }}>
+          <button className="adm-btn" onClick={runPreview} disabled={busy !== ''}>
             {busy === 'preview' ? 'Counting…' : 'Count them'}
           </button>
           {source !== 'csv' && (
-            <button onClick={download} disabled={busy !== ''} style={{ ...ghost, opacity: busy ? .6 : 1 }}>
-              {busy === 'download' ? 'Preparing…' : '⬇ Download CSV'}
+            <button className="adm-btn" onClick={download} disabled={busy !== ''}>
+              {busy === 'download' ? 'Preparing…' : 'Download CSV'}
             </button>
           )}
         </div>
@@ -284,18 +271,17 @@ export default function AudiencesPage() {
 
         <div style={{ marginTop: '1rem' }}>
           <p style={{ ...label, margin: '0 0 .35rem' }}>Name for the list</p>
-          <input value={name} onChange={e => setName(e.target.value)}
+          <input className="adm-input" value={name} onChange={e => setName(e.target.value)}
             placeholder="Mahalaxmi customers — Sep 2026"
-            style={{ width: '100%', maxWidth: 420, padding: '.55rem .7rem', border: '1.5px solid #ddd', borderRadius: 8, fontSize: '.9rem', minWidth: 0 }} />
+            style={{ width: '100%', maxWidth: 420, minWidth: 0 }} />
         </div>
       </div>
 
       {/* 3 — send */}
       {!confirming ? (
-        <button
+        <button className="adm-btn adm-btn-primary"
           onClick={() => { setError(''); setConfirming(true); }}
-          disabled={busy !== '' || (!toMeta && !toGoogle)}
-          style={{ ...primary, opacity: (busy || (!toMeta && !toGoogle)) ? .6 : 1 }}>
+          disabled={busy !== '' || (!toMeta && !toGoogle)}>
           Send the list
         </button>
       ) : (
@@ -308,10 +294,10 @@ export default function AudiencesPage() {
             goes to {[toMeta && 'Meta', toGoogle && 'Google'].filter(Boolean).join(' and ')}.
             Phone numbers and emails are hashed here first — neither of them sees the real ones.
           </p>
-          <button onClick={push} disabled={busy !== ''} style={{ ...primary, marginRight: '.5rem', opacity: busy ? .6 : 1 }}>
+          <button className="adm-btn adm-btn-primary" onClick={push} disabled={busy !== ''} style={{ marginRight: '.5rem' }}>
             {busy === 'push' ? 'Sending…' : 'Yes, send it'}
           </button>
-          <button onClick={() => setConfirming(false)} style={ghost}>Cancel</button>
+          <button className="adm-btn" onClick={() => setConfirming(false)}>Cancel</button>
         </div>
       )}
 
