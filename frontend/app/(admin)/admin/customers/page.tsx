@@ -4,9 +4,15 @@ import { customersApi, walletApi, ordersApi, type WalletTxn } from '@/lib/api';
 import { getAdminToken } from '@/lib/auth';
 import { exportCustomers } from '@/lib/exportExcel';
 import type { Customer } from '@/types';
+import { PageHeader, Card, Stat, StatGrid, Pill, Empty } from '@/components/admin/Ui';
+
+// The server hands out fifty at a time; the paging maths has to agree with it.
+const PAGE_SIZE = 50;
+// The most the server will return in one request, used for the export.
+const EXPORT_CHUNK = 500;
 
 function formatDate(raw?: string) {
-  if (!raw) return '-';
+  if (!raw) return '—';
   const date = new Date(raw);
   if (Number.isNaN(date.getTime())) return raw;
   return date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
@@ -30,13 +36,12 @@ export default function AdminCustomersPage() {
   const [message, setMessage] = useState('');
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
-  // Edit customer (fix/merge duplicates — change name / email / mobile)
+
   const [editCust, setEditCust] = useState<Customer | null>(null);
   const [editForm, setEditForm] = useState({ firstName: '', lastName: '', email: '', phone: '' });
   const [editMsg, setEditMsg] = useState('');
   const [editSaving, setEditSaving] = useState(false);
 
-  // Wallet modal state
   const [walletCust, setWalletCust] = useState<Customer | null>(null);
   const [walletBalance, setWalletBalance] = useState(0);
   const [walletTxns, setWalletTxns] = useState<WalletTxn[]>([]);
@@ -44,6 +49,34 @@ export default function AdminCustomersPage() {
   const [walletAmt, setWalletAmt] = useState('');
   const [walletNote, setWalletNote] = useState('');
   const [walletBusy, setWalletBusy] = useState(false);
+
+  const [form, setForm] = useState({
+    firstName: '', lastName: '', email: '', phone: '',
+    dateOfBirth: '', marriageDate: '', state: '', district: '',
+    password: 'Mfh@12345',
+  });
+
+  // More than two cancelled orders: Cash on Delivery is off for them.
+  const [highRiskIds, setHighRiskIds] = useState<Set<string>>(new Set());
+
+  const fetchCustomers = () => {
+    setLoading(true);
+    customersApi.getAll(getAdminToken() ?? '', { search, page })
+      .then(r => { setCustomers(r.customers); setTotal(r.total); })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    fetchCustomers();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search, page]);
+
+  useEffect(() => {
+    ordersApi.riskSummary(getAdminToken() ?? '')
+      .then(r => setHighRiskIds(new Set((r.riskyCustomers || []).map(c => String(c.customerId)))))
+      .catch(() => { /* not worth blocking the page for */ });
+  }, []);
 
   const openWallet = async (c: Customer) => {
     setWalletCust(c); setWalletBalance(0); setWalletTxns([]); setWalletAmt(''); setWalletNote('');
@@ -67,41 +100,6 @@ export default function AdminCustomersPage() {
     } catch (e) { alert('Failed: ' + (e as Error).message); }
     finally { setWalletBusy(false); }
   };
-  const [form, setForm] = useState({
-    firstName: '',
-    lastName: '',
-    email: '',
-    phone: '',
-    dateOfBirth: '',
-    marriageDate: '',
-    state: '',
-    district: '',
-    password: 'Mfh@12345',
-  });
-
-  // High-risk customers (>2 cancelled orders) — shown as a red "HIGH RISK" badge.
-  const [highRiskIds, setHighRiskIds] = useState<Set<string>>(new Set());
-
-  const fetchCustomers = () => {
-    const token = getAdminToken() ?? '';
-    setLoading(true);
-    customersApi.getAll(token, { search, page })
-      .then(r => { setCustomers(r.customers); setTotal(r.total); })
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  };
-
-  useEffect(() => {
-    fetchCustomers();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search, page]);
-
-  // Load the high-risk "red zone" list once, so we can flag those customers.
-  useEffect(() => {
-    ordersApi.riskSummary(getAdminToken() ?? '')
-      .then(r => setHighRiskIds(new Set((r.riskyCustomers || []).map(c => String(c.customerId)))))
-      .catch(() => { /* non-blocking */ });
-  }, []);
 
   const openEdit = (c: Customer) => {
     setEditCust(c);
@@ -136,214 +134,206 @@ export default function AdminCustomersPage() {
     }
   };
 
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const token = getAdminToken() ?? '';
+      let all: Customer[] = [];
+      for (let p = 1; ; p++) {
+        const r = await customersApi.getAll(token, { page: p, pageSize: EXPORT_CHUNK });
+        all = [...all, ...r.customers];
+        if (all.length >= r.total || r.customers.length === 0) break;
+      }
+      exportCustomers(all);
+    } finally { setExporting(false); }
+  };
+
   const handleAddCustomer = async (e: React.FormEvent) => {
     e.preventDefault();
     setMessage('');
-    if (!form.firstName.trim()) { setMessage('First name required.'); return; }
-    if (!form.email.trim() || !/\S+@\S+\.\S+/.test(form.email)) { setMessage('Valid email required.'); return; }
-    if (form.password.length < 8) { setMessage('Password must be at least 8 characters.'); return; }
+    if (!form.firstName.trim()) { setMessage('First name is required.'); return; }
+    if (!form.email.trim() || !/\S+@\S+\.\S+/.test(form.email)) { setMessage('A valid email is required.'); return; }
+    if (form.password.length < 8) { setMessage('The password must be at least 8 characters.'); return; }
     setAdding(true);
     try {
       await customersApi.register({
-        firstName: form.firstName.trim(),
-        lastName: form.lastName.trim(),
-        email: form.email.trim(),
-        phone: form.phone.trim(),
-        password: form.password,
-        gender: '',
-        dateOfBirth: form.dateOfBirth,
-        marriageDate: form.marriageDate,
-        addrLine1: '',
-        addrLine2: '',
-        pincode: '',
-        postOffice: '',
-        state: form.state.trim(),
-        district: form.district.trim(),
-        marketingConsent: true,
+        firstName: form.firstName.trim(), lastName: form.lastName.trim(),
+        email: form.email.trim(), phone: form.phone.trim(), password: form.password,
+        gender: '', dateOfBirth: form.dateOfBirth, marriageDate: form.marriageDate,
+        addrLine1: '', addrLine2: '', pincode: '', postOffice: '',
+        state: form.state.trim(), district: form.district.trim(), marketingConsent: true,
       }, getAdminToken() ?? '');
       setForm({ firstName: '', lastName: '', email: '', phone: '', dateOfBirth: '', marriageDate: '', state: '', district: '', password: 'Mfh@12345' });
-      setMessage('Customer added successfully.');
+      setMessage('Customer added.');
       setAddOpen(false);
       setPage(1);
       fetchCustomers();
     } catch (err) {
-      setMessage((err as Error).message || 'Customer add failed.');
+      setMessage((err as Error).message || 'Could not add the customer.');
     } finally {
       setAdding(false);
     }
   };
 
+  const birthdaysToday = customers.filter(c => isToday(c.dateOfBirth)).length;
+  const annivToday = customers.filter(c => isToday(c.marriageDate)).length;
+  const riskyOnPage = customers.filter(c => highRiskIds.has(String(c.id))).length;
+  const lastPage = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   return (
-    <div>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', flexWrap: 'wrap', gap: '.75rem' }}>
-        <h1 className="text-2xl font-bold text-gray-800">Customers ({total})</h1>
-        <button
-          disabled={exporting}
-          onClick={async () => {
-            setExporting(true);
-            try {
-              const token = getAdminToken() ?? '';
-              // Fetch ALL customers (large pageSize) for complete export
-              const r = await customersApi.getAll(token, { page: 1 });
-              // If more pages exist, fetch remaining
-              let all = r.customers;
-              if (r.total > all.length) {
-                const pages = Math.ceil(r.total / 50);
-                for (let p = 2; p <= pages; p++) {
-                  const pr = await customersApi.getAll(token, { page: p });
-                  all = [...all, ...pr.customers];
-                }
-              }
-              exportCustomers(all);
-            } finally { setExporting(false); }
-          }}
-          style={{ background: exporting ? '#888' : '#1b5e20', color: '#fff', border: 'none', borderRadius: '8px', padding: '.5rem 1.25rem', fontSize: '.88rem', fontWeight: 600, cursor: exporting ? 'not-allowed' : 'pointer' }}>
-          {exporting ? '⏳ Exporting…' : `📊 Export Excel (${total})`}
-        </button>
-      </div>
-
-      <div className="bg-white rounded-xl shadow-sm p-4 mb-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="text-sm font-semibold text-gray-800">Add Customer</p>
-            <p className="text-xs text-gray-500">Add a customer from admin, along with birthday/anniversary offer dates.</p>
-          </div>
-          <button type="button" onClick={() => setAddOpen(v => !v)}
-            className="px-4 py-2 rounded-lg bg-pink-700 text-white text-sm font-semibold">
-            {addOpen ? 'Close' : '+ Add Customer'}
-          </button>
-        </div>
-
-        {addOpen && (
-          <form onSubmit={handleAddCustomer} className="grid grid-cols-1 md:grid-cols-4 gap-3 mt-4">
-            <input className="border rounded-lg px-3 py-2 text-sm" placeholder="First name *"
-              value={form.firstName} onChange={e => setForm(f => ({ ...f, firstName: e.target.value }))} />
-            <input className="border rounded-lg px-3 py-2 text-sm" placeholder="Last name"
-              value={form.lastName} onChange={e => setForm(f => ({ ...f, lastName: e.target.value }))} />
-            <input className="border rounded-lg px-3 py-2 text-sm" placeholder="Email *" type="email"
-              value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
-            <input className="border rounded-lg px-3 py-2 text-sm" placeholder="Mobile"
-              value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} />
-            <label className="text-xs text-gray-500">
-              Birthday
-              <input className="border rounded-lg px-3 py-2 text-sm w-full mt-1" type="date"
-                value={form.dateOfBirth} onChange={e => setForm(f => ({ ...f, dateOfBirth: e.target.value }))} />
-            </label>
-            <label className="text-xs text-gray-500">
-              Anniversary
-              <input className="border rounded-lg px-3 py-2 text-sm w-full mt-1" type="date"
-                value={form.marriageDate} onChange={e => setForm(f => ({ ...f, marriageDate: e.target.value }))} />
-            </label>
-            <input className="border rounded-lg px-3 py-2 text-sm" placeholder="State"
-              value={form.state} onChange={e => setForm(f => ({ ...f, state: e.target.value }))} />
-            <input className="border rounded-lg px-3 py-2 text-sm" placeholder="District"
-              value={form.district} onChange={e => setForm(f => ({ ...f, district: e.target.value }))} />
-            <input className="border rounded-lg px-3 py-2 text-sm md:col-span-2" placeholder="Temporary password"
-              value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} />
-            <button disabled={adding} className="px-4 py-2 rounded-lg bg-green-600 text-white text-sm font-semibold disabled:opacity-60">
-              {adding ? 'Adding...' : 'Create Customer'}
+    <div className="admin-page">
+      <PageHeader
+        title="Customers"
+        sub={`${total.toLocaleString('en-IN')} accounts. Search covers name, email, phone and customer code.`}
+        right={
+          <>
+            <button className="adm-btn" onClick={() => setAddOpen(v => !v)}>{addOpen ? 'Close' : 'Add Customer'}</button>
+            <button className="adm-btn adm-btn-primary" disabled={exporting} onClick={handleExport}>
+              {exporting ? 'Exporting…' : `Excel (${total})`}
             </button>
-          </form>
-        )}
-
-        {message && <p className={`text-xs mt-3 ${message.includes('success') ? 'text-green-700' : 'text-red-600'}`}>{message}</p>}
-      </div>
-
-      <input
-        placeholder="Search by name, email, phone..."
-        value={search}
-        onChange={e => { setSearch(e.target.value); setPage(1); }}
-        className="border rounded-lg px-3 py-2 text-sm w-72 mb-4"
+          </>
+        }
       />
 
-      <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-50 text-xs uppercase text-gray-500">
-            <tr>
-              {['Code', 'Photo', 'Name', 'Email', 'Phone', 'Birthday', 'Anniv.', 'District', 'State', 'Actions'].map(h => (
-                <th key={h} className="px-4 py-3 text-left">{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y">
-            {loading ? (
-              <tr><td colSpan={10} className="text-center py-10 text-gray-400">Loading...</td></tr>
-            ) : customers.map(c => (
-              <tr key={c.id} className="hover:bg-gray-50">
-                <td className="px-4 py-3 font-mono text-xs">{c.customerCode}</td>
-                <td className="px-4 py-3">
-                  {c.photoUrl
-                    ? <img src={c.photoUrl} alt="" className="w-9 h-9 rounded-full object-cover" />
-                    : <span className="w-9 h-9 rounded-full bg-pink-50 text-pink-700 font-bold flex items-center justify-center text-xs">{(c.firstName || '?').charAt(0).toUpperCase()}</span>}
-                </td>
-                <td className="px-4 py-3">
+      <StatGrid>
+        <Stat label="Customers" value={total.toLocaleString('en-IN')} />
+        <Stat label="Birthdays today" value={birthdaysToday}
+              action={birthdaysToday > 0 ? 'Send an offer' : undefined}
+              href={birthdaysToday > 0 ? '/admin/birthday' : undefined} />
+        <Stat label="Anniversaries today" value={annivToday}
+              action={annivToday > 0 ? 'Send an offer' : undefined}
+              href={annivToday > 0 ? '/admin/birthday' : undefined} />
+        <Stat label="High risk on this page" value={riskyOnPage} tone={riskyOnPage > 0 ? 'red' : undefined}
+              action="See why" href="/admin/risk" />
+      </StatGrid>
+
+      {addOpen && (
+        <Card title="Add a customer">
+          <p style={{ fontSize: '.82rem', color: '#7d736d', margin: '0 0 .7rem' }}>
+            For a customer who ordered over the phone or in the shop. The birthday and anniversary dates are what
+            the offer emails go out on.
+          </p>
+          <form onSubmit={handleAddCustomer}
+                style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '.6rem' }}>
+            <input className="adm-input" placeholder="First name *" value={form.firstName}
+                   onChange={e => setForm(f => ({ ...f, firstName: e.target.value }))} />
+            <input className="adm-input" placeholder="Last name" value={form.lastName}
+                   onChange={e => setForm(f => ({ ...f, lastName: e.target.value }))} />
+            <input className="adm-input" placeholder="Email *" type="email" value={form.email}
+                   onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
+            <input className="adm-input" placeholder="Mobile" value={form.phone}
+                   onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} />
+            <label style={{ display: 'block' }}>
+              <span className="adm-stat-l">Birthday</span>
+              <input className="adm-input" type="date" style={{ width: '100%', marginTop: '.2rem' }}
+                     value={form.dateOfBirth} onChange={e => setForm(f => ({ ...f, dateOfBirth: e.target.value }))} />
+            </label>
+            <label style={{ display: 'block' }}>
+              <span className="adm-stat-l">Anniversary</span>
+              <input className="adm-input" type="date" style={{ width: '100%', marginTop: '.2rem' }}
+                     value={form.marriageDate} onChange={e => setForm(f => ({ ...f, marriageDate: e.target.value }))} />
+            </label>
+            <input className="adm-input" placeholder="State" value={form.state}
+                   onChange={e => setForm(f => ({ ...f, state: e.target.value }))} />
+            <input className="adm-input" placeholder="District" value={form.district}
+                   onChange={e => setForm(f => ({ ...f, district: e.target.value }))} />
+            <input className="adm-input" placeholder="Temporary password" value={form.password}
+                   onChange={e => setForm(f => ({ ...f, password: e.target.value }))} />
+            <button className="adm-btn adm-btn-primary" disabled={adding} style={{ justifyContent: 'center' }}>
+              {adding ? 'Adding…' : 'Create customer'}
+            </button>
+          </form>
+          {message && (
+            <p style={{ fontSize: '.82rem', fontWeight: 700, marginTop: '.6rem',
+                        color: message === 'Customer added.' ? '#2e7d32' : '#c0392b' }}>{message}</p>
+          )}
+        </Card>
+      )}
+
+      <Card>
+        <input className="adm-input" style={{ width: '100%', maxWidth: '340px' }}
+               placeholder="Search name, email, phone or code"
+               value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} />
+      </Card>
+
+      <Card
+        title={`${customers.length} shown${total > customers.length ? ` of ${total}` : ''}`}
+        right={total > PAGE_SIZE && (
+          <span style={{ display: 'flex', gap: '.4rem', alignItems: 'center' }}>
+            <button className="adm-btn" style={{ padding: '.3rem .6rem' }} disabled={page === 1}
+                    onClick={() => setPage(p => p - 1)}>Prev</button>
+            <span style={{ fontSize: '.76rem', color: '#7d736d', fontWeight: 700 }}>{page} / {lastPage}</span>
+            <button className="adm-btn" style={{ padding: '.3rem .6rem' }} disabled={page >= lastPage}
+                    onClick={() => setPage(p => p + 1)}>Next</button>
+          </span>
+        )}
+      >
+        {loading ? (
+          <Empty>Loading customers…</Empty>
+        ) : customers.length === 0 ? (
+          <Empty>{search ? 'Nobody matches that search.' : 'No customers yet.'}</Empty>
+        ) : customers.map(c => {
+          const risky = highRiskIds.has(String(c.id));
+          const bday = isToday(c.dateOfBirth);
+          const anniv = isToday(c.marriageDate);
+          return (
+            <div key={c.id} className="adm-item">
+              {c.photoUrl
+                ? <img src={c.photoUrl} alt="" className="adm-item-thumb" style={{ borderRadius: '50%' }} />
+                : <div className="adm-item-thumb" style={{ borderRadius: '50%', background: '#fbf1f3', color: '#722f37', fontWeight: 800, fontSize: '1rem' }}>
+                    {(c.firstName || '?').charAt(0).toUpperCase()}
+                  </div>}
+              <div style={{ minWidth: 0 }}>
+                <div className="adm-item-t" style={{ display: 'flex', gap: '.4rem', alignItems: 'center', flexWrap: 'wrap' }}>
                   {c.firstName} {c.lastName}
-                  {highRiskIds.has(String(c.id)) && (
-                    <span title="More than 2 cancelled orders — Cash on Delivery is blocked for this customer"
-                      style={{ marginLeft: 6, background: '#ffebee', color: '#c62828', borderRadius: 20, padding: '2px 8px', fontSize: '.66rem', fontWeight: 800, whiteSpace: 'nowrap' }}>
-                      🚩 HIGH RISK
-                    </span>
-                  )}
-                </td>
-                <td className="px-4 py-3 text-xs text-gray-500">{c.email}</td>
-                <td className="px-4 py-3 text-xs">{c.phone}</td>
-                <td className={`px-4 py-3 text-xs ${isToday(c.dateOfBirth) ? 'font-bold text-pink-700' : ''}`}>
-                  {formatDate(c.dateOfBirth)}
-                </td>
-                <td className={`px-4 py-3 text-xs ${isToday(c.marriageDate) ? 'font-bold text-pink-700' : ''}`}>
-                  {formatDate(c.marriageDate)}
-                </td>
-                <td className="px-4 py-3 text-xs">{c.district || '—'}</td>
-                <td className="px-4 py-3 text-xs">{c.state || '—'}</td>
-                <td className="px-4 py-3 text-xs whitespace-nowrap">
-                  <button onClick={() => openEdit(c)}
-                    className="px-2 py-1 rounded bg-blue-50 text-blue-700 font-semibold mr-1">Edit</button>
-                  <button onClick={() => openWallet(c)}
-                    className="px-2 py-1 rounded bg-amber-50 text-amber-700 font-semibold mr-1">👛 Wallet</button>
-                  <button onClick={() => handleDelete(c)}
-                    className="px-2 py-1 rounded bg-red-50 text-red-600 font-semibold">Delete</button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+                  {risky && <Pill tone="red">High risk — COD off</Pill>}
+                  {bday && <Pill tone="amber">Birthday today</Pill>}
+                  {anniv && <Pill tone="amber">Anniversary today</Pill>}
+                </div>
+                <div className="adm-item-s">
+                  <span style={{ fontFamily: 'monospace' }}>{c.customerCode}</span>
+                  {c.email ? ` · ${c.email}` : ''}{c.phone ? ` · ${c.phone}` : ''}
+                </div>
+                <div className="adm-item-s">
+                  {[c.district, c.state].filter(Boolean).join(', ') || 'no address'}
+                  {' · '}b {formatDate(c.dateOfBirth)}
+                  {' · '}a {formatDate(c.marriageDate)}
+                </div>
+                <div className="adm-actions" style={{ marginTop: '.35rem' }}>
+                  <button onClick={() => openEdit(c)}>Edit</button>
+                  <button onClick={() => openWallet(c)} style={{ color: '#b26b00' }}>Wallet</button>
+                  <button onClick={() => handleDelete(c)} style={{ color: '#c0392b' }}>Delete</button>
+                </div>
+              </div>
+              <div />
+            </div>
+          );
+        })}
+      </Card>
 
-      {/* Pagination */}
-      <div className="flex justify-between items-center mt-4 text-sm text-gray-500">
-        <span>Page {page} · {customers.length} of {total}</span>
-        <div className="flex gap-2">
-          <button disabled={page === 1} onClick={() => setPage(p => p - 1)}
-            className="px-3 py-1 border rounded disabled:opacity-40">← Prev</button>
-          <button disabled={page * 50 >= total} onClick={() => setPage(p => p + 1)}
-            className="px-3 py-1 border rounded disabled:opacity-40">Next →</button>
-        </div>
-      </div>
-
-      {/* Edit customer modal — fix name / email / mobile (to resolve duplicates) */}
       {editCust && (
         <div onClick={() => setEditCust(null)}
-          style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+             style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
           <div onClick={e => e.stopPropagation()}
-            style={{ background: '#fff', borderRadius: 12, padding: '1.5rem', width: '100%', maxWidth: 420 }}>
-            <h2 className="text-lg font-bold text-gray-800 mb-1">Edit Customer</h2>
-            <p className="text-xs text-gray-500 mb-4">Code: {editCust.customerCode}</p>
-            <div className="grid grid-cols-2 gap-3">
-              <input className="border rounded-lg px-3 py-2 text-sm" placeholder="First name"
-                value={editForm.firstName} onChange={e => setEditForm(f => ({ ...f, firstName: e.target.value }))} />
-              <input className="border rounded-lg px-3 py-2 text-sm" placeholder="Last name"
-                value={editForm.lastName} onChange={e => setEditForm(f => ({ ...f, lastName: e.target.value }))} />
-              <input className="border rounded-lg px-3 py-2 text-sm col-span-2" placeholder="Email" type="email"
-                value={editForm.email} onChange={e => setEditForm(f => ({ ...f, email: e.target.value }))} />
-              <input className="border rounded-lg px-3 py-2 text-sm col-span-2" placeholder="Mobile"
-                value={editForm.phone} onChange={e => setEditForm(f => ({ ...f, phone: e.target.value }))} />
+               style={{ background: '#fff', borderRadius: 14, padding: '1.4rem', width: '100%', maxWidth: 420 }}>
+            <h2 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800 }}>Edit customer</h2>
+            <p className="admin-page-sub" style={{ marginBottom: '.9rem' }}>
+              {editCust.customerCode} — use this to merge a duplicate account, or fix a wrong number.
+            </p>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '.6rem' }}>
+              <input className="adm-input" placeholder="First name" value={editForm.firstName}
+                     onChange={e => setEditForm(f => ({ ...f, firstName: e.target.value }))} />
+              <input className="adm-input" placeholder="Last name" value={editForm.lastName}
+                     onChange={e => setEditForm(f => ({ ...f, lastName: e.target.value }))} />
+              <input className="adm-input" style={{ gridColumn: '1 / -1' }} placeholder="Email" type="email"
+                     value={editForm.email} onChange={e => setEditForm(f => ({ ...f, email: e.target.value }))} />
+              <input className="adm-input" style={{ gridColumn: '1 / -1' }} placeholder="Mobile"
+                     value={editForm.phone} onChange={e => setEditForm(f => ({ ...f, phone: e.target.value }))} />
             </div>
-            {editMsg && <p className="text-sm text-red-600 font-semibold mt-3">{editMsg}</p>}
-            <div className="flex gap-2 justify-end mt-4">
-              <button onClick={() => setEditCust(null)} className="px-4 py-2 rounded-lg border text-sm">Cancel</button>
-              <button onClick={saveEdit} disabled={editSaving}
-                className="px-4 py-2 rounded-lg bg-pink-700 text-white text-sm font-semibold">
+            {editMsg && <p style={{ fontSize: '.84rem', color: '#c0392b', fontWeight: 700, marginTop: '.6rem' }}>{editMsg}</p>}
+            <div style={{ display: 'flex', gap: '.5rem', justifyContent: 'flex-end', marginTop: '1rem' }}>
+              <button className="adm-btn" onClick={() => setEditCust(null)}>Cancel</button>
+              <button className="adm-btn adm-btn-primary" onClick={saveEdit} disabled={editSaving}>
                 {editSaving ? 'Saving…' : 'Save'}
               </button>
             </div>
@@ -351,58 +341,55 @@ export default function AdminCustomersPage() {
         </div>
       )}
 
-      {/* Wallet modal — view balance & statement, and credit / debit manually */}
       {walletCust && (
         <div onClick={() => setWalletCust(null)}
-          style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+             style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
           <div onClick={e => e.stopPropagation()}
-            style={{ background: '#fff', borderRadius: 12, padding: '1.5rem', width: '100%', maxWidth: 460, maxHeight: '85vh', overflowY: 'auto' }}>
-            <h2 className="text-lg font-bold text-gray-800 mb-1">👛 Wallet — {walletCust.firstName} {walletCust.lastName}</h2>
-            <p className="text-xs text-gray-500 mb-3">Code: {walletCust.customerCode}</p>
+               style={{ background: '#fff', borderRadius: 14, padding: '1.4rem', width: '100%', maxWidth: 460, maxHeight: '85vh', overflowY: 'auto' }}>
+            <h2 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800 }}>
+              Wallet — {walletCust.firstName} {walletCust.lastName}
+            </h2>
+            <p className="admin-page-sub" style={{ marginBottom: '.9rem' }}>{walletCust.customerCode}</p>
 
-            <div style={{ background: 'linear-gradient(135deg,#7a0a22,#a7354d)', color: '#fff', borderRadius: 12, padding: '1rem 1.25rem', marginBottom: '1rem' }}>
-              <div style={{ fontSize: '.8rem', opacity: .9 }}>Balance</div>
-              <div style={{ fontSize: '1.8rem', fontWeight: 800 }}>₹{walletBalance.toLocaleString('en-IN', { minimumFractionDigits: walletBalance % 1 ? 2 : 0 })}</div>
-            </div>
-
-            {/* Adjust */}
-            <div className="grid grid-cols-2 gap-2 mb-2">
-              <input className="border rounded-lg px-3 py-2 text-sm" placeholder="Amount ₹" type="number" min="0"
-                value={walletAmt} onChange={e => setWalletAmt(e.target.value)} />
-              <input className="border rounded-lg px-3 py-2 text-sm" placeholder="Note (optional)"
-                value={walletNote} onChange={e => setWalletNote(e.target.value)} />
-            </div>
-            <div className="flex gap-2 mb-4">
-              <button onClick={() => doAdjust(1)} disabled={walletBusy || !walletAmt}
-                className="flex-1 px-3 py-2 rounded-lg bg-green-600 text-white text-sm font-semibold disabled:opacity-40">+ Credit</button>
-              <button onClick={() => doAdjust(-1)} disabled={walletBusy || !walletAmt}
-                className="flex-1 px-3 py-2 rounded-lg bg-red-600 text-white text-sm font-semibold disabled:opacity-40">− Debit</button>
-            </div>
-
-            {/* History */}
-            <div className="text-xs font-semibold text-gray-500 mb-1">Recent activity</div>
-            {walletLoading ? (
-              <div className="text-center text-gray-400 py-4 text-sm">Loading…</div>
-            ) : walletTxns.length === 0 ? (
-              <div className="text-center text-gray-400 py-4 text-sm">No activity yet.</div>
-            ) : (
-              <div className="border rounded-lg divide-y">
-                {walletTxns.map(t => (
-                  <div key={t.id} className="flex items-center justify-between px-3 py-2 text-sm">
-                    <div className="min-w-0">
-                      <div className="font-medium text-gray-800 capitalize">{t.type.replace('_', ' ')}</div>
-                      <div className="text-xs text-gray-400 truncate">{t.note || t.orderId || ''}</div>
-                    </div>
-                    <div className={`font-bold ${t.amount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                      {t.amount >= 0 ? '+' : '−'}₹{Math.abs(t.amount).toLocaleString('en-IN')}
-                    </div>
-                  </div>
-                ))}
+            <div style={{ background: 'linear-gradient(135deg,#5e262d,#8c3d47)', color: '#fff', borderRadius: 12, padding: '.9rem 1.15rem', marginBottom: '.9rem' }}>
+              <div style={{ fontSize: '.78rem', opacity: .85 }}>Balance</div>
+              <div style={{ fontSize: '1.7rem', fontWeight: 800 }}>
+                ₹{walletBalance.toLocaleString('en-IN', { minimumFractionDigits: walletBalance % 1 ? 2 : 0 })}
               </div>
-            )}
+            </div>
 
-            <div className="flex justify-end mt-4">
-              <button onClick={() => setWalletCust(null)} className="px-4 py-2 rounded-lg border text-sm">Close</button>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '.5rem', marginBottom: '.5rem' }}>
+              <input className="adm-input" placeholder="Amount ₹" type="number" min="0"
+                     value={walletAmt} onChange={e => setWalletAmt(e.target.value)} />
+              <input className="adm-input" placeholder="Note (optional)"
+                     value={walletNote} onChange={e => setWalletNote(e.target.value)} />
+            </div>
+            <div style={{ display: 'flex', gap: '.5rem', marginBottom: '1rem' }}>
+              <button className="adm-btn" style={{ flex: 1, justifyContent: 'center', color: '#2e7d32' }}
+                      onClick={() => doAdjust(1)} disabled={walletBusy || !walletAmt}>Add money</button>
+              <button className="adm-btn" style={{ flex: 1, justifyContent: 'center', color: '#c0392b' }}
+                      onClick={() => doAdjust(-1)} disabled={walletBusy || !walletAmt}>Take money out</button>
+            </div>
+
+            <h3 className="adm-card-h">Recent activity</h3>
+            {walletLoading ? (
+              <Empty>Loading…</Empty>
+            ) : walletTxns.length === 0 ? (
+              <Empty>Nothing has gone in or out of this wallet yet.</Empty>
+            ) : walletTxns.map(t => (
+              <div key={t.id} className="adm-row">
+                <span style={{ flex: 1, minWidth: 0 }}>
+                  <span className="adm-row-t" style={{ display: 'block', textTransform: 'capitalize' }}>{t.type.replace('_', ' ')}</span>
+                  <span className="adm-row-s" style={{ display: 'block' }}>{t.note || t.orderId || ''}</span>
+                </span>
+                <strong style={{ color: t.amount >= 0 ? '#2e7d32' : '#c0392b', fontSize: '.88rem' }}>
+                  {t.amount >= 0 ? '+' : '−'}₹{Math.abs(t.amount).toLocaleString('en-IN')}
+                </strong>
+              </div>
+            ))}
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1rem' }}>
+              <button className="adm-btn" onClick={() => setWalletCust(null)}>Close</button>
             </div>
           </div>
         </div>

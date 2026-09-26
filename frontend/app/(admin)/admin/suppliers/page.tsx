@@ -1,6 +1,7 @@
 'use client';
-import { useEffect, useState, Fragment } from 'react';
+import { useEffect, useState } from 'react';
 import { getAdminToken } from '@/lib/auth';
+import { PageHeader, Card, Stat, StatGrid, Pill, Empty } from '@/components/admin/Ui';
 
 interface SupplierApplication {
   id: number;
@@ -34,6 +35,8 @@ function isToday(raw: string) {
   return d.getDate() === now.getDate() && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
 }
 
+const digits = (s: string | null) => (s || '').replace(/\D/g, '');
+
 export default function SuppliersPage() {
   const [apps, setApps] = useState<SupplierApplication[]>([]);
   const [loading, setLoading] = useState(true);
@@ -44,9 +47,7 @@ export default function SuppliersPage() {
     setLoading(true);
     try {
       const token = getAdminToken();
-      const res = await fetch('/api/suppliers', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await fetch('/api/suppliers', { headers: { Authorization: `Bearer ${token}` } });
       const data = await res.json();
       setApps(data.applications || []);
     } catch { setApps([]); }
@@ -56,7 +57,7 @@ export default function SuppliersPage() {
   useEffect(() => { load(); }, []);
 
   const exportCsv = () => {
-    const rows = [['ID', 'Firm', 'Contact', 'Phone', 'Email', 'GST', 'PAN', 'Business Type', 'Categories', 'City', 'State', 'Pincode', 'Website', 'Years', 'Message', 'Status', 'Date']];
+    const rows = [['ID','Firm','Contact','Phone','Email','GST','PAN','Business Type','Categories','City','State','Pincode','Website','Years','Message','Status','Date']];
     apps.forEach(a => rows.push([
       String(a.id), a.firmName, a.contactName, a.phone, a.email || '', a.gstNumber || '', a.panNumber || '',
       a.businessType || '', a.categories || '', a.city || '', a.state || '', a.pincode || '',
@@ -69,6 +70,7 @@ export default function SuppliersPage() {
     el.href = url;
     el.download = `seller-applications-${new Date().toISOString().slice(0, 10)}.csv`;
     el.click();
+    URL.revokeObjectURL(url);
   };
 
   const filtered = apps.filter(a => {
@@ -86,125 +88,86 @@ export default function SuppliersPage() {
 
   return (
     <div className="admin-page">
-      <div className="admin-page-header">
-        <div>
-          <h1>Seller Applications</h1>
-          <p className="admin-page-sub">People who applied via the “Become a Seller” form</p>
-        </div>
-        <button onClick={exportCsv} className="button secondary" style={{ fontSize: '.85rem' }}>
-          ⬇️ Export CSV
-        </button>
-      </div>
+      <PageHeader
+        title="Seller applications"
+        sub="People who filled in the “Become a Seller” form. Nobody here has been contacted yet unless you did it."
+        right={
+          <>
+            <button className="adm-btn" onClick={load}>Refresh</button>
+            <button className="adm-btn adm-btn-primary" onClick={exportCsv} disabled={!apps.length}>Export CSV</button>
+          </>
+        }
+      />
 
-      {/* Stats */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
-        {[
-          { label: 'Total Applications', value: apps.length, icon: '🏪' },
-          { label: 'Today', value: todayCount, icon: '📅' },
-          { label: 'With GST', value: withGst, icon: '🧾' },
-        ].map(s => (
-          <div key={s.label} style={{ background: '#fff', border: '1px solid #eee', borderRadius: 12, padding: '1rem 1.25rem', textAlign: 'center' }}>
-            <div style={{ fontSize: '1.4rem' }}>{s.icon}</div>
-            <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#a7354d' }}>{s.value}</div>
-            <div style={{ fontSize: '.74rem', color: '#888', marginTop: '.2rem' }}>{s.label}</div>
-          </div>
-        ))}
-      </div>
+      <StatGrid cols={3}>
+        <Stat label="Applications" value={apps.length} />
+        <Stat label="Came in today" value={todayCount} tone={todayCount > 0 ? 'green' : undefined} />
+        <Stat label="With a GST number" value={withGst} />
+      </StatGrid>
 
-      {/* Search */}
-      <div style={{ display: 'flex', gap: '.75rem', alignItems: 'center', flexWrap: 'wrap', marginBottom: '1rem' }}>
-        <input
-          type="text"
-          placeholder="Search firm, contact, phone, email, city…"
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          style={{ height: 38, border: '1.5px solid #ddd', borderRadius: 8, padding: '0 1rem', fontSize: '.88rem', width: 300, boxSizing: 'border-box' }} />
-        <button onClick={load} className="button secondary" style={{ fontSize: '.82rem' }}>🔄 Refresh</button>
-      </div>
+      <Card>
+        <input className="adm-input" style={{ width: '100%', maxWidth: '340px' }}
+               placeholder="Search firm, contact, phone, email or city"
+               value={search} onChange={e => setSearch(e.target.value)} />
+      </Card>
 
-      {/* Table */}
-      <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #eee', overflow: 'hidden' }}>
+      <Card title={`${filtered.length} ${filtered.length === 1 ? 'application' : 'applications'}`}>
         {loading ? (
-          <div style={{ padding: '3rem', textAlign: 'center', color: '#aaa' }}>Loading…</div>
+          <Empty>Loading applications…</Empty>
         ) : filtered.length === 0 ? (
-          <div style={{ padding: '3rem', textAlign: 'center', color: '#aaa' }}>
-            <div style={{ fontSize: '2.5rem', marginBottom: '.5rem' }}>📭</div>
-            <p>No seller applications yet.</p>
-          </div>
-        ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '.88rem' }}>
-              <thead>
-                <tr style={{ background: '#fdf0f3', borderBottom: '2px solid #eee' }}>
-                  {['#', 'Firm', 'Contact', 'WhatsApp', 'Email', 'GST', 'Categories', 'City / State', 'Date', ''].map(h => (
-                    <th key={h} style={{ padding: '.75rem 1rem', textAlign: 'left', fontWeight: 700, color: '#555', whiteSpace: 'nowrap' }}>{h}</th>
+          <Empty>
+            {apps.length === 0
+              ? 'Nobody has applied yet. Applications arrive here the moment the form is submitted.'
+              : 'Nothing matches that search.'}
+          </Empty>
+        ) : filtered.map(a => {
+          const open = expanded === a.id;
+          const ph = digits(a.phone);
+          return (
+            <div key={a.id} style={{ borderBottom: '1px solid #f4efec', padding: '.8rem 0',
+                                     background: isToday(a.createdAt) ? '#fffdf6' : undefined }}>
+              <div style={{ display: 'flex', gap: '.7rem', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div className="adm-item-t" style={{ display: 'flex', gap: '.45rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                    {a.firmName || '(no firm name)'}
+                    {isToday(a.createdAt) && <Pill tone="green">Today</Pill>}
+                    {a.gstNumber && <Pill tone="grey">GST</Pill>}
+                  </div>
+                  <div className="adm-item-s">
+                    {a.contactName || 'no contact name'}
+                    {' · '}{[a.city, a.state].filter(Boolean).join(', ') || 'no city'}
+                    {a.categories ? ` · ${a.categories}` : ''}
+                  </div>
+                  <div className="adm-item-s">{formatDate(a.createdAt)}</div>
+                  <div className="adm-actions" style={{ marginTop: '.4rem', flexWrap: 'wrap' }}>
+                    {ph && <a href={`https://wa.me/91${ph}`} target="_blank" rel="noopener noreferrer" style={{ color: '#128C7E' }}>WhatsApp</a>}
+                    {ph && <a href={`tel:+91${ph}`}>{a.phone}</a>}
+                    {a.email && <a href={`mailto:${a.email}`}>{a.email}</a>}
+                    <button onClick={() => setExpanded(open ? null : a.id)}>{open ? 'Hide details' : 'Details'}</button>
+                  </div>
+                </div>
+              </div>
+              {open && (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))',
+                              gap: '.7rem 1.4rem', fontSize: '.84rem', marginTop: '.7rem',
+                              background: '#fbf9f8', borderRadius: 10, padding: '.8rem .9rem' }}>
+                  {([
+                    ['GST', a.gstNumber], ['PAN', a.panNumber],
+                    ['Business type', a.businessType], ['Years in business', a.yearsInBusiness],
+                    ['Pincode', a.pincode], ['Website', a.website],
+                    ['Address', a.address], ['Status', a.status], ['Message', a.message],
+                  ] as [string, string | null][]).map(([label, val]) => (
+                    <div key={label}>
+                      <div className="adm-stat-l" style={{ textTransform: 'uppercase', letterSpacing: '.04em', fontSize: '.68rem' }}>{label}</div>
+                      <div style={{ color: '#463d38', marginTop: '.1rem', wordBreak: 'break-word' }}>{val || '—'}</div>
+                    </div>
                   ))}
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((a, i) => (
-                  <Fragment key={a.id}>
-                    <tr style={{
-                      borderBottom: expanded === a.id ? 'none' : '1px solid #f5f5f5',
-                      background: isToday(a.createdAt) ? '#fffbf0' : i % 2 === 0 ? '#fff' : '#fafafa',
-                    }}>
-                      <td style={{ padding: '.65rem 1rem', color: '#aaa', fontSize: '.8rem' }}>{a.id}</td>
-                      <td style={{ padding: '.65rem 1rem', fontWeight: 600 }}>{a.firmName}</td>
-                      <td style={{ padding: '.65rem 1rem' }}>{a.contactName}</td>
-                      <td style={{ padding: '.65rem 1rem', whiteSpace: 'nowrap' }}>
-                        <a href={`https://wa.me/91${(a.phone || '').replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer"
-                          style={{ color: '#25d366', fontWeight: 600, textDecoration: 'none', marginRight: '.5rem' }}>💬</a>
-                        <a href={`tel:+91${(a.phone || '').replace(/\D/g, '')}`} style={{ color: '#a7354d', textDecoration: 'none', fontWeight: 500 }}>{a.phone}</a>
-                      </td>
-                      <td style={{ padding: '.65rem 1rem' }}>
-                        {a.email ? <a href={`mailto:${a.email}`} style={{ color: '#a7354d', textDecoration: 'none' }}>{a.email}</a> : <span style={{ color: '#ccc' }}>—</span>}
-                      </td>
-                      <td style={{ padding: '.65rem 1rem', fontSize: '.8rem' }}>{a.gstNumber || <span style={{ color: '#ccc' }}>—</span>}</td>
-                      <td style={{ padding: '.65rem 1rem', fontSize: '.82rem' }}>{a.categories || <span style={{ color: '#ccc' }}>—</span>}</td>
-                      <td style={{ padding: '.65rem 1rem', fontSize: '.82rem', whiteSpace: 'nowrap' }}>
-                        {[a.city, a.state].filter(Boolean).join(', ') || <span style={{ color: '#ccc' }}>—</span>}
-                      </td>
-                      <td style={{ padding: '.65rem 1rem', color: '#888', fontSize: '.8rem', whiteSpace: 'nowrap' }}>
-                        {isToday(a.createdAt) && <span style={{ background: '#e8f5e9', color: '#2e7d32', borderRadius: 4, padding: '1px 6px', fontSize: '.72rem', marginRight: '.4rem', fontWeight: 700 }}>TODAY</span>}
-                        {formatDate(a.createdAt)}
-                      </td>
-                      <td style={{ padding: '.65rem 1rem' }}>
-                        <button onClick={() => setExpanded(expanded === a.id ? null : a.id)}
-                          style={{ background: 'none', border: '1px solid #ddd', color: '#a7354d', borderRadius: 6, padding: '.3rem .65rem', fontSize: '.78rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                          {expanded === a.id ? 'Hide' : 'Details'}
-                        </button>
-                      </td>
-                    </tr>
-                    {expanded === a.id && (
-                      <tr style={{ borderBottom: '1px solid #f5f5f5', background: '#fbfbfb' }}>
-                        <td colSpan={10} style={{ padding: '1rem 1.5rem' }}>
-                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '.75rem 1.5rem', fontSize: '.85rem' }}>
-                            {[
-                              ['PAN', a.panNumber],
-                              ['Business Type', a.businessType],
-                              ['Years in Business', a.yearsInBusiness],
-                              ['Pincode', a.pincode],
-                              ['Website', a.website],
-                              ['Address', a.address],
-                              ['Status', a.status],
-                              ['Message', a.message],
-                            ].map(([label, val]) => (
-                              <div key={label as string}>
-                                <div style={{ fontSize: '.72rem', color: '#aaa', textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: '.15rem' }}>{label}</div>
-                                <div style={{ color: '#333' }}>{val ? String(val) : '—'}</div>
-                              </div>
-                            ))}
-                          </div>
-                        </td>
-                      </tr>
-                    )}
-                  </Fragment>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </Card>
     </div>
   );
 }

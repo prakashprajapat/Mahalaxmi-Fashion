@@ -264,7 +264,7 @@ export const customersApi = {
     ),
   delete: (id: number, token: string) =>
     request(`/customers/${id}`, { method: 'DELETE' }, token),
-  getAll: (token: string, params?: { search?: string; page?: number }) => {
+  getAll: (token: string, params?: { search?: string; page?: number; pageSize?: number }) => {
     const qs = new URLSearchParams(
       Object.entries(params ?? {}).filter(([, v]) => v !== undefined).map(([k, v]) => [k, String(v)])
     ).toString();

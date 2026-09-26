@@ -74,6 +74,11 @@ public class CustomersController : ControllerBase
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 50)
     {
+        // An admin asking for every customer at once (the Excel export) is a fair
+        // request; an unbounded Take() is not, so it is clamped rather than trusted.
+        pageSize = Math.Clamp(pageSize, 1, 500);
+        if (page < 1) page = 1;
+
         var query = _db.Customers.AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(search))
