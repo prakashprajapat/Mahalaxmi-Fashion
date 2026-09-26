@@ -323,6 +323,18 @@ export default function AdminOrdersPage() {
   // orders selected on a different tab that are no longer on screen.
   useEffect(() => { setSelectedIds(new Set()); }, [mainTab, activeTab]);
 
+  // Open straight onto a status when the dashboard links here
+  // (/admin/orders?status=Pending, ?tab=returns). Read from location rather
+  // than useSearchParams: that hook forces a Suspense boundary at build time,
+  // and this is a client-only admin screen that gains nothing from it.
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search);
+    const t = q.get('tab');
+    if (t === 'returns' || t === 'orders') setMainTab(t);
+    const st = q.get('status');
+    if (st) setActiveTab(st);
+  }, []);
+
   const bulkUpdateStatus = async (status: string) => {
     if (!selectedIds.size) return;
     let ids = [...selectedIds];
