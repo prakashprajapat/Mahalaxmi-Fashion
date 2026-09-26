@@ -8,6 +8,7 @@ import QcPanel from '@/components/admin/QcPanel';
 import { getAdminToken } from '@/lib/auth';
 import { checkProduct } from '@/lib/productGate';
 import PublishPanel from '@/components/admin/PublishPanel';
+import { PageHeader } from '@/components/admin/Ui';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const CATEGORIES = ['Women','Men','Kids','Beauty','Fabrics','More'];
@@ -958,7 +959,7 @@ export default function EditProductPage() {
   }
 
   return (
-    <div>
+    <div className="admin-page">
       {/* ── Automatic QC checklist (Duplicate Name/Photo, Description, SEO) ── */}
       {qcOpen && (
         <QcPanel
@@ -973,26 +974,18 @@ export default function EditProductPage() {
       {/* Why this product is or is not on the website — always on screen, never a popup. */}
       <PublishPanel gate={gate} serverSaid={serverGate} />
 
-      {/* ── Page Header ── */}
-      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'1.5rem', flexWrap:'wrap', gap:'1rem' }}>
-        <div>
-          <p style={{ fontSize:'.75rem', fontWeight:700, color:'#a7354d', textTransform:'uppercase', letterSpacing:'.08em', margin:'0 0 .25rem' }}>CATALOG MANAGER</p>
-          <h1 style={{ fontSize:'1.5rem', fontWeight:700, color:'#1a1a1a', margin:0 }}>✏️ Edit Product</h1>
-          <p style={{ fontSize:'.8rem', color:'#888', margin:'.25rem 0 0' }}>SKU: {sku || '—'}</p>
-        </div>
-        <div style={{ display:'flex', gap:'.5rem', flexWrap:'wrap' }}>
-          <Link href="/admin/products/add"
-            style={{ background:'#555', color:'#fff', borderRadius:'8px', padding:'.5rem 1rem', fontSize:'.82rem', fontWeight:600, textDecoration:'none', display:'inline-block' }}>
-            ➕ Add New Product
-          </Link>
-          <Link href="/admin/products"
-            style={{ background:'#1a1a2e', color:'#fff', borderRadius:'8px', padding:'.5rem 1rem', fontSize:'.82rem', fontWeight:600, textDecoration:'none', display:'inline-block' }}>
-            ← View Product Listing
-          </Link>
-        </div>
-      </div>
+      <PageHeader
+        title="Edit product"
+        sub={sku ? `SKU ${sku}` : 'No SKU yet'}
+        right={
+          <>
+            <Link className="adm-btn" href="/admin/products/add">Add another</Link>
+            <Link className="adm-btn" href="/admin/products">All products</Link>
+          </>
+        }
+      />
 
-      <div style={{ background:'#fff', borderRadius:'12px', padding:'1.5rem', boxShadow:'0 1px 4px rgba(0,0,0,.07)' }}>
+      <div className="adm-card" style={{ padding:'1.15rem 1.2rem' }}>
 
         {/* ── Basic Fields Grid ── */}
         <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'1rem' }}>

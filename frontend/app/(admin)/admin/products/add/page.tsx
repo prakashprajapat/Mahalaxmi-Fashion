@@ -10,6 +10,7 @@ import { getTaxonomy } from '@/lib/womenTaxonomy';
 import { runProductQC, deepImageDuplicateCheck, type QcIssue } from '@/lib/productQC';
 import QcPanel from '@/components/admin/QcPanel';
 import TaxonomyCombo from '@/components/admin/TaxonomyCombo';
+import { PageHeader } from '@/components/admin/Ui';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const CATEGORIES = ['Women','Men','Kids','Beauty','Fabrics','More'];
@@ -938,7 +939,7 @@ export default function AddProductPage() {
   }, [selectedSizes.join('|'), selectedColours.join('|')]);
 
   return (
-    <div>
+    <div className="admin-page">
       {/* ── Automatic QC checklist (Duplicate Name/Photo, Description, SEO) ── */}
       {qcOpen && (
         <QcPanel
@@ -953,27 +954,18 @@ export default function AddProductPage() {
       {/* Why this product will or will not go on the website — shown before saving, not after. */}
       <PublishPanel gate={gate} serverSaid={serverGate} />
 
-      {/* ── Page Header ── */}
-      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'1.5rem', flexWrap:'wrap', gap:'1rem' }}>
-        <div>
-          <p style={{ fontSize:'.75rem', fontWeight:700, color:'#a7354d', textTransform:'uppercase', letterSpacing:'.08em', margin:'0 0 .25rem' }}>CATALOG MANAGER</p>
-          <h1 style={{ fontSize:'1.5rem', fontWeight:700, color:'#1a1a1a', margin:0 }}>Add or Edit Product</h1>
-        </div>
-        <div style={{ display:'flex', gap:'.5rem', flexWrap:'wrap' }}>
-          <button style={{ background:'#e67e22', color:'#fff', border:'none', borderRadius:'8px', padding:'.5rem 1rem', fontSize:'.82rem', fontWeight:600, cursor:'pointer' }}>
-            🏖️ Mark All Out of Stock
-          </button>
-          <button style={{ background:'#27ae60', color:'#fff', border:'none', borderRadius:'8px', padding:'.5rem 1rem', fontSize:'.82rem', fontWeight:600, cursor:'pointer' }}>
-            ✅ Mark All In Stock
-          </button>
-          <Link href="/admin/products"
-            style={{ background:'#1a1a2e', color:'#fff', borderRadius:'8px', padding:'.5rem 1rem', fontSize:'.82rem', fontWeight:600, textDecoration:'none', display:'inline-block' }}>
-            View Product Listing
-          </Link>
-        </div>
-      </div>
+      {/* Two buttons used to sit here, "Mark All In Stock" and "Mark All Out of
+          Stock", with no onClick on either — nothing happened when you pressed
+          them. They also had no business on the page for adding one product;
+          the working versions live on the Products list, where the whole
+          catalogue is in front of you. Removed rather than wired up. */}
+      <PageHeader
+        title="Add a product"
+        sub="Everything Google needs, in one pass. The panel above says whether it will go on the website when you save."
+        right={<Link className="adm-btn" href="/admin/products">All products</Link>}
+      />
 
-      <div style={{ background:'#fff', borderRadius:'12px', padding:'1.5rem', boxShadow:'0 1px 4px rgba(0,0,0,.07)' }}>
+      <div className="adm-card" style={{ padding:'1.15rem 1.2rem' }}>
 
         {/* ── Basic Fields Grid ── */}
         <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'1rem' }}>
