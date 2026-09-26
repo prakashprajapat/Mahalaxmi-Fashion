@@ -1,21 +1,30 @@
 // Google Merchant Center LOCAL product inventory feed.
-// Tells Google which products are available in the physical store (by store code),
-// so items stop showing "Missing local inventory data" and can appear as
-// in-store / available-nearby on Google Search & Maps.
 //
-// Add this URL in Merchant Center → Data sources → Add local inventory →
-// "Enter a link to your file":
-//     https://www.mahalaxmifashionhub.com/local-inventory.xml
+// Tells Google which products are on the shelf in the Balotra shop, so they can
+// show as available nearby on Search and Maps instead of reading "Missing local
+// inventory data".
 //
-// The product ids here match the main product feed (SKU / dbId), so Google links
-// each inventory row to the right product. Regenerates live on every fetch.
+// Merchant Center → Data sources → Add local inventory → "Enter a link to your
+// file":  https://www.mahalaxmifashionhub.com/local-inventory.xml
+//
+// Google joins a local inventory row to a product BY ID. That is the whole
+// contract, and it is what broke: when the product feed started sending one row
+// per size and colour — MFH1103-free-size-rose — to get apparel approved, this
+// file was left sending the bare SKU, MFH1103. Almost nothing matched, and 282
+// of 292 products reported missing local inventory. It now walks the same
+// variants through the same helper, so every row in the product feed has a row
+// here with the same id.
 
 import { productsApi } from '@/lib/api';
+import { isFeedable, variantsOf } from '@/lib/merchantFeed';
 
 export const dynamic = 'force-dynamic';
 
 // The Business Profile store code for MAHALAXMI FASHION HUB (Balotra).
 const STORE_CODE = '06755793204923870023';
+
+const esc = (s: string) =>
+  (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 export async function GET() {
   let products: any[] = [];
@@ -26,16 +35,25 @@ export async function GET() {
     products = [];
   }
 
+  // Shared across the whole feed, exactly as in the product feed: two products
+  // with one SKU would otherwise claim the same id, and the ids here have to be
+  // the ids there.
+  const usedIds = new Set<string>();
+
   const items = products
-    .filter((p: any) => (Number(p.price) || 0) > 0)
-    .map((p: any) => {
-      const avail = (p.stock ?? '').toLowerCase().includes('out') ? 'out_of_stock' : 'in_stock';
-      let s = '<item>';
-      s += `<g:store_code>${STORE_CODE}</g:store_code>`;
-      s += `<g:id>${String(p.sku || p.dbId)}</g:id>`;
-      s += `<g:availability>${avail}</g:availability>`;
-      s += '</item>';
-      return s;
+    // Drafts are not on the website, so they are not in the product feed either;
+    // a local row for a product Google does not have is a row it cannot join.
+    .filter(p => isFeedable(p))
+    .filter(p => (Number(p.price) || 0) > 0)
+    .flatMap(p => {
+      const outOfStock = String(p.stock ?? '').toLowerCase().includes('out');
+      return variantsOf(p, usedIds).map(v =>
+        '<item>'
+        + `<g:store_code>${STORE_CODE}</g:store_code>`
+        + `<g:id>${esc(v.id)}</g:id>`
+        + `<g:availability>${outOfStock ? 'out_of_stock' : 'in_stock'}</g:availability>`
+        + '</item>'
+      );
     })
     .join('');
 
