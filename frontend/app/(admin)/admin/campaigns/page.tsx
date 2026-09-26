@@ -2,48 +2,51 @@
 import { useState } from 'react';
 import { customersApi } from '@/lib/api';
 import { getAdminToken } from '@/lib/auth';
+import { PageHeader, Card, Stat, StatGrid } from '@/components/admin/Ui';
 
 export default function BulkCampaignsPage() {
   const [downloading, setDownloading] = useState(false);
-  const [msg, setMsg] = useState('');
-  const [onlyConsent, setOnlyConsent] = useState(false);
-  // Send-from-website state
+  const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
+  const [onlyConsent, setOnlyConsent] = useState(true);
   const [templateId, setTemplateId] = useState('');
   const [var1, setVar1] = useState('');
   const [var2, setVar2] = useState('');
   const [sending, setSending] = useState(false);
-  const [sendResult, setSendResult] = useState('');
+  const [sendResult, setSendResult] = useState<{ kind: 'ok' | 'warn' | 'err'; text: string } | null>(null);
+  const [audience, setAudience] = useState<{ count: number; total: number; optedIn: number } | null>(null);
+
+  const who = onlyConsent ? 'customers who opted in' : 'every customer';
 
   const sendCampaign = async () => {
     const token = getAdminToken();
-    if (!token) { setSendResult('❌ Admin login required.'); return; }
-    if (!templateId.trim()) { setSendResult('❌ Enter your DLT-approved template ID first.'); return; }
-    if (!window.confirm(`Send this campaign to ${onlyConsent ? 'opted-in' : 'ALL'} customers now? This will send real SMS via MSG91.`)) return;
-    setSending(true); setSendResult('');
+    if (!token) { setSendResult({ kind: 'err', text: 'Sign in again — your session has expired.' }); return; }
+    if (!templateId.trim()) { setSendResult({ kind: 'err', text: 'The DLT-approved template ID is needed first.' }); return; }
+    if (!window.confirm(`Send a real SMS to ${who} now? This costs money from your MSG91 balance and cannot be taken back.`)) return;
+    setSending(true); setSendResult(null);
     try {
       const vars: Record<string, string> = {};
       if (var1.trim()) { vars.var1 = var1.trim(); vars.coupon = var1.trim(); }
       if (var2.trim()) { vars.var2 = var2.trim(); }
       const r = await customersApi.sendCampaign({ templateId: templateId.trim(), optedInOnly: onlyConsent, vars }, token);
       setSendResult(r.success
-        ? `✅ ${r.message} (${r.sent}/${r.total} sent)`
-        : `⚠️ ${r.message} — Sent: ${r.sent}, Failed: ${r.failed}`);
+        ? { kind: 'ok', text: `${r.message} — ${r.sent} of ${r.total} sent.` }
+        : { kind: 'warn', text: `${r.message} — ${r.sent} sent, ${r.failed} failed.` });
     } catch (e) {
-      setSendResult('❌ ' + (e as Error).message);
+      setSendResult({ kind: 'err', text: (e as Error).message });
     } finally { setSending(false); }
   };
 
-  // Export the customer mobile numbers as a CSV to upload to MSG91.
   const exportContacts = async () => {
     const token = getAdminToken();
-    if (!token) { setMsg('❌ Admin login required.'); return; }
-    setDownloading(true); setMsg('');
+    if (!token) { setMsg({ kind: 'err', text: 'Sign in again — your session has expired.' }); return; }
+    setDownloading(true); setMsg(null);
     try {
       const res = await customersApi.phones(onlyConsent, token);
       const phones = res.phones ?? [];
-      if (phones.length === 0) { setMsg('No valid mobile numbers found.'); setDownloading(false); return; }
+      setAudience({ count: phones.length, total: res.totalCustomers, optedIn: res.optedIn });
+      if (phones.length === 0) { setMsg({ kind: 'err', text: 'No usable mobile numbers in that group.' }); return; }
 
-      // MSG91 wants numbers with the 91 country code.
+      // MSG91 wants the country code on the front of every number.
       const csv = 'mobile\n' + phones.map(p => `91${p}`).join('\n');
       const blob = new Blob([csv], { type: 'text/csv' });
       const url = URL.createObjectURL(blob);
@@ -52,93 +55,95 @@ export default function BulkCampaignsPage() {
       a.download = `mfh-contacts-${onlyConsent ? 'optedin' : 'all'}-${new Date().toISOString().slice(0, 10)}.csv`;
       a.click();
       URL.revokeObjectURL(url);
-      setMsg(`✅ Exported ${phones.length} unique mobile number${phones.length > 1 ? 's' : ''} (of ${res.totalCustomers} customers). Upload this CSV in MSG91 as your campaign contact list.`);
+      setMsg({ kind: 'ok', text: `${phones.length} number${phones.length === 1 ? '' : 's'} downloaded, out of ${res.totalCustomers} customers. Upload this file in MSG91 as the campaign list — or skip it and send from here instead.` });
     } catch (e) {
-      setMsg('❌ Export failed: ' + (e as Error).message);
+      setMsg({ kind: 'err', text: (e as Error).message });
     } finally { setDownloading(false); }
   };
 
-  const card: React.CSSProperties = { background: '#fff', border: '1px solid #eee', borderRadius: 12, padding: '1.4rem 1.6rem', marginBottom: '1.2rem' };
-  const stepNum: React.CSSProperties = { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 26, height: 26, borderRadius: '50%', background: '#a7354d', color: '#fff', fontWeight: 800, fontSize: '.85rem', flexShrink: 0 };
-
   return (
-    <div style={{ maxWidth: 820, padding: '1.2rem' }}>
-      <h1 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#1a1a1a', margin: '0 0 .3rem' }}>📣 Bulk Campaigns</h1>
-      <p style={{ color: '#777', fontSize: '.9rem', margin: '0 0 1.4rem' }}>
-        Send promotional messages to your customers in bulk through MSG91. It works in 2 simple steps.
-      </p>
+    <div className="admin-page">
+      <PageHeader
+        title="Bulk SMS"
+        sub="Sends a real SMS through MSG91 to your customers. It costs money from your MSG91 balance and cannot be taken back."
+      />
 
-      {/* Step 1: export */}
-      <div style={card}>
-        <div style={{ display: 'flex', gap: '.7rem', alignItems: 'center', marginBottom: '.7rem' }}>
-          <span style={stepNum}>1</span>
-          <h2 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700 }}>Download your customer contact list</h2>
-        </div>
-        <p style={{ color: '#555', fontSize: '.88rem', margin: '0 0 .8rem' }}>
-          This exports all your customers&apos; mobile numbers as a CSV file. You&apos;ll upload it to MSG91 as the campaign audience.
-        </p>
-        <label style={{ display: 'flex', alignItems: 'center', gap: '.5rem', fontSize: '.85rem', color: '#555', marginBottom: '.9rem' }}>
-          <input type="checkbox" checked={onlyConsent} onChange={e => setOnlyConsent(e.target.checked)} />
-          Only include customers who opted in to marketing (recommended for promos)
+      <StatGrid cols={3}>
+        <Stat label="Sending to" value={onlyConsent ? 'Opted in only' : 'Everyone'}
+              action={onlyConsent ? 'Switch to everyone' : 'Switch to opted in only'}
+              onClick={() => setOnlyConsent(v => !v)} />
+        <Stat label="Numbers in that group" value={audience ? audience.count : '—'}
+              action={audience ? undefined : 'Check with the download'} />
+        <Stat label="Customers in total" value={audience ? audience.total : '—'} />
+      </StatGrid>
+
+      <Card title="Who it goes to">
+        <label style={{ display: 'flex', alignItems: 'flex-start', gap: '.5rem', fontSize: '.86rem', color: '#463d38', cursor: 'pointer', lineHeight: 1.5 }}>
+          <input type="checkbox" checked={onlyConsent} onChange={e => setOnlyConsent(e.target.checked)} style={{ marginTop: '.2rem' }} />
+          <span>
+            <strong>Only customers who opted in to marketing.</strong> Leave this ticked for anything
+            promotional — a customer who never agreed to messages can report them, and reported numbers get the
+            whole sender blocked, not just that message.
+          </span>
         </label>
-        <button onClick={exportContacts} disabled={downloading}
-          style={{ background: '#2e7d32', color: '#fff', border: 'none', borderRadius: 8, padding: '.6rem 1.4rem', fontWeight: 700, fontSize: '.9rem', cursor: 'pointer', opacity: downloading ? .6 : 1 }}>
-          {downloading ? 'Preparing…' : '⬇️ Download Contacts CSV'}
-        </button>
+        <div style={{ display: 'flex', gap: '.6rem', alignItems: 'center', flexWrap: 'wrap', marginTop: '.8rem' }}>
+          <button className="adm-btn" onClick={exportContacts} disabled={downloading}>
+            {downloading ? 'Preparing…' : 'Download the numbers as CSV'}
+          </button>
+          <span style={{ fontSize: '.78rem', color: '#9a908a' }}>
+            Only needed if you would rather send from the MSG91 website.
+          </span>
+        </div>
         {msg && (
-          <p style={{ marginTop: '.8rem', fontSize: '.86rem', fontWeight: 600, color: msg.startsWith('✅') ? '#2e7d32' : '#c0392b' }}>{msg}</p>
+          <p style={{ marginTop: '.7rem', fontSize: '.84rem', fontWeight: 600, lineHeight: 1.55,
+                      color: msg.kind === 'ok' ? '#2e7d32' : '#c0392b' }}>{msg.text}</p>
         )}
-      </div>
+      </Card>
 
-      {/* Step 2: Send from website (no MSG91 site needed) */}
-      <div style={card}>
-        <div style={{ display: 'flex', gap: '.7rem', alignItems: 'center', marginBottom: '.7rem' }}>
-          <span style={stepNum}>2</span>
-          <h2 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700 }}>Send the campaign — right here</h2>
-        </div>
-        <p style={{ color: '#555', fontSize: '.88rem', margin: '0 0 1rem' }}>
-          Enter your <strong>DLT-approved promotional template ID</strong> and its variable values, then send.
-          The SMS goes out directly through MSG91 — no need to open the MSG91 website.
+      <Card title="Send it from here">
+        <p style={{ fontSize: '.84rem', color: '#7d736d', margin: '0 0 .8rem', lineHeight: 1.6 }}>
+          A promotional SMS in India needs a template that DLT has already approved — you cannot type your own
+          wording here. Paste that template&apos;s ID, fill in whatever it leaves blank, and the message goes out
+          through MSG91 without opening their website.
         </p>
-
-        <div style={{ display: 'grid', gap: '.9rem', maxWidth: 560 }}>
-          <div>
-            <label style={{ display: 'block', fontSize: '.82rem', fontWeight: 600, color: '#444', marginBottom: '.3rem' }}>DLT Template ID *</label>
-            <input value={templateId} onChange={e => setTemplateId(e.target.value)}
-              placeholder="e.g. 6612ab34cd..."
-              style={{ width: '100%', border: '1.5px solid #ddd', borderRadius: 8, padding: '.6rem .8rem', fontSize: '.9rem', boxSizing: 'border-box', fontFamily: 'monospace' }} />
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '.8rem' }}>
-            <div>
-              <label style={{ display: 'block', fontSize: '.82rem', fontWeight: 600, color: '#444', marginBottom: '.3rem' }}>Variable 1 <span style={{ color: '#999', fontWeight: 400 }}>(e.g. coupon / discount)</span></label>
-              <input value={var1} onChange={e => setVar1(e.target.value)} placeholder="SAVE30"
-                style={{ width: '100%', border: '1.5px solid #ddd', borderRadius: 8, padding: '.6rem .8rem', fontSize: '.9rem', boxSizing: 'border-box' }} />
-            </div>
-            <div>
-              <label style={{ display: 'block', fontSize: '.82rem', fontWeight: 600, color: '#444', marginBottom: '.3rem' }}>Variable 2 <span style={{ color: '#999', fontWeight: 400 }}>(optional)</span></label>
-              <input value={var2} onChange={e => setVar2(e.target.value)} placeholder=""
-                style={{ width: '100%', border: '1.5px solid #ddd', borderRadius: 8, padding: '.6rem .8rem', fontSize: '.9rem', boxSizing: 'border-box' }} />
-            </div>
-          </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '.65rem', maxWidth: 620 }}>
+          <label style={{ display: 'block', gridColumn: '1 / -1' }}>
+            <span className="adm-stat-l">DLT template ID *</span>
+            <input className="adm-input" style={{ width: '100%', marginTop: '.2rem', fontFamily: 'monospace' }}
+                   value={templateId} onChange={e => setTemplateId(e.target.value)} placeholder="6612ab34cd…" />
+          </label>
+          <label style={{ display: 'block' }}>
+            <span className="adm-stat-l">First blank — usually the coupon</span>
+            <input className="adm-input" style={{ width: '100%', marginTop: '.2rem' }}
+                   value={var1} onChange={e => setVar1(e.target.value)} placeholder="SAVE30" />
+          </label>
+          <label style={{ display: 'block' }}>
+            <span className="adm-stat-l">Second blank (if the template has one)</span>
+            <input className="adm-input" style={{ width: '100%', marginTop: '.2rem' }}
+                   value={var2} onChange={e => setVar2(e.target.value)} />
+          </label>
         </div>
 
-        <button onClick={sendCampaign} disabled={sending}
-          style={{ marginTop: '1.1rem', background: '#a7354d', color: '#fff', border: 'none', borderRadius: 8, padding: '.65rem 1.6rem', fontWeight: 700, fontSize: '.92rem', cursor: 'pointer', opacity: sending ? .6 : 1 }}>
-          {sending ? 'Sending…' : `🚀 Send Campaign to ${onlyConsent ? 'Opted-in' : 'All'} Customers`}
+        <button className="adm-btn adm-btn-primary" style={{ marginTop: '.9rem' }}
+                onClick={sendCampaign} disabled={sending || !templateId.trim()}>
+          {sending ? 'Sending…' : `Send to ${who}`}
         </button>
 
         {sendResult && (
-          <p style={{ marginTop: '.9rem', fontSize: '.88rem', fontWeight: 600, color: sendResult.startsWith('✅') ? '#2e7d32' : sendResult.startsWith('⚠️') ? '#f57f17' : '#c0392b' }}>{sendResult}</p>
+          <p style={{ marginTop: '.75rem', fontSize: '.85rem', fontWeight: 700, lineHeight: 1.55,
+                      color: sendResult.kind === 'ok' ? '#2e7d32' : sendResult.kind === 'warn' ? '#b26b00' : '#c0392b' }}>
+            {sendResult.text}
+          </p>
         )}
-      </div>
+      </Card>
 
-      <div style={{ ...card, background: '#fff8f9', borderColor: '#f3d5dc' }}>
-        <p style={{ margin: 0, fontSize: '.82rem', color: '#8a2a3e' }}>
-          <strong>Note:</strong> Promotional bulk SMS needs a DLT-approved template and sufficient MSG91 wallet balance.
-          Send only to customers who expect messages from you — spam messages may get blocked. For WhatsApp campaigns,
-          the customer&apos;s number must be active on WhatsApp.
+      <Card style={{ background: '#fdf8f9', borderColor: '#f0dde1' }}>
+        <p style={{ margin: 0, fontSize: '.82rem', color: '#7a3540', lineHeight: 1.65 }}>
+          <strong>Two things stop a campaign dead:</strong> a template DLT has not approved, and an MSG91 balance
+          that has run out. Both fail quietly at their end, so if the count comes back as zero sent, check those
+          before anything else.
         </p>
-      </div>
+      </Card>
     </div>
   );
 }

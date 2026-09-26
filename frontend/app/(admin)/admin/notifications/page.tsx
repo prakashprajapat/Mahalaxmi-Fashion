@@ -1,21 +1,22 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { getAdminToken } from '@/lib/auth';
+import { PageHeader, Card, Stat, StatGrid } from '@/components/admin/Ui';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? '/api';
 
-// Admin composer for browser/app Push notifications (offers, launches, sale alerts).
-// Sends a Web Push message to every customer who allowed notifications on the site.
+// Push notifications reach a phone's lock screen whether or not the site is
+// open, and cannot be taken back once sent. So the point of this page is the
+// preview: see the thing as the customer will, then send it.
 export default function PushNotificationsPage() {
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const [url, setUrl] = useState('https://www.mahalaxmifashionhub.com/products');
   const [image, setImage] = useState('');
   const [sending, setSending] = useState(false);
-  const [result, setResult] = useState('');
+  const [result, setResult] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
   const [count, setCount] = useState<number | null>(null);
 
-  // Show how many devices are subscribed.
   useEffect(() => {
     const token = getAdminToken();
     if (!token) return;
@@ -27,10 +28,10 @@ export default function PushNotificationsPage() {
 
   const send = async () => {
     const token = getAdminToken();
-    if (!token) { setResult('❌ Admin login required.'); return; }
-    if (!title.trim() || !body.trim()) { setResult('❌ Title and message are required.'); return; }
-    if (!window.confirm(`Send this notification to all ${count ?? ''} subscribed customers now?`)) return;
-    setSending(true); setResult('');
+    if (!token) { setResult({ kind: 'err', text: 'Sign in again — your session has expired.' }); return; }
+    if (!title.trim() || !body.trim()) { setResult({ kind: 'err', text: 'A title and a message are both needed.' }); return; }
+    if (!window.confirm(`Send this to ${count ?? 'every'} subscribed device now? A notification cannot be taken back.`)) return;
+    setSending(true); setResult(null);
     try {
       const res = await fetch(`${API_BASE}/push/send`, {
         method: 'POST',
@@ -39,57 +40,96 @@ export default function PushNotificationsPage() {
       });
       const d = await res.json().catch(() => ({}));
       if (res.ok && d.success) {
-        setResult(`✅ Sent to ${d.sent} device(s)${d.failed ? `, ${d.failed} failed` : ''}.`);
+        setResult({ kind: 'ok', text: `Sent to ${d.sent} device${d.sent === 1 ? '' : 's'}${d.failed ? `. ${d.failed} could not be reached — usually a phone that has since turned notifications off.` : '.'}` });
       } else {
-        setResult('❌ ' + (d.message || `Failed (${res.status})`));
+        setResult({ kind: 'err', text: d.message || `Failed (${res.status})` });
       }
     } catch (e) {
-      setResult('❌ ' + (e as Error).message);
+      setResult({ kind: 'err', text: (e as Error).message });
     } finally { setSending(false); }
   };
 
-  const box: React.CSSProperties = {
-    width: '100%', padding: '.65rem .8rem', border: '1px solid #ddd',
-    borderRadius: 8, fontSize: '.95rem', marginTop: '.35rem',
-  };
-  const label: React.CSSProperties = { fontWeight: 600, fontSize: '.9rem', color: '#333', display: 'block', marginTop: '1rem' };
+  const ready = Boolean(title.trim() && body.trim());
 
   return (
-    <div style={{ maxWidth: 640 }}>
-      <div style={{ background: '#fff', border: '1px solid #eee', borderRadius: 12, padding: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,.05)' }}>
-        <h2 style={{ margin: '0 0 .35rem', color: '#a7354d' }}>🔔 Push Notifications</h2>
-        <p style={{ color: '#666', fontSize: '.9rem', margin: 0 }}>
-          Send an offer or update to every customer who allowed notifications on the website — it pops up on their phone/desktop even when the site is closed.
-          {count !== null && <> Currently <strong>{count}</strong> subscribed device{count === 1 ? '' : 's'}.</>}
-        </p>
+    <div className="admin-page">
+      <PageHeader
+        title="Push notifications"
+        sub="Goes to the phone of everyone who allowed notifications on the website, even when the site is closed. It cannot be taken back."
+      />
 
-        <label style={label}>Title
-          <input style={box} value={title} maxLength={80}
-            onChange={e => setTitle(e.target.value)} placeholder="e.g. Festive Sale is Live! 🎉" />
-        </label>
-        <label style={label}>Message
-          <textarea style={{ ...box, minHeight: 90, resize: 'vertical' }} value={body} maxLength={300}
-            onChange={e => setBody(e.target.value)} placeholder="e.g. Flat 30% off on all sarees & nighties. Shop now before stock runs out!" />
-        </label>
-        <label style={label}>Link (opens when tapped)
-          <input style={box} value={url}
-            onChange={e => setUrl(e.target.value)} placeholder="https://www.mahalaxmifashionhub.com/products" />
-        </label>
-        <label style={label}>Image URL (optional)
-          <input style={box} value={image}
-            onChange={e => setImage(e.target.value)} placeholder="https://www.mahalaxmifashionhub.com/og-image.jpg" />
-        </label>
+      <StatGrid cols={3}>
+        <Stat label="Subscribed devices" value={count === null ? '—' : count} />
+        <Stat label="Characters in the title" value={`${title.length} / 80`}
+              tone={title.length > 65 ? 'red' : undefined} />
+        <Stat label="Characters in the message" value={`${body.length} / 300`}
+              tone={body.length > 240 ? 'red' : undefined} />
+      </StatGrid>
 
-        <button onClick={send} disabled={sending}
-          style={{ marginTop: '1.25rem', background: sending ? '#ccc' : '#a7354d', color: '#fff', border: 'none', borderRadius: 8, padding: '.75rem 1.5rem', fontWeight: 700, fontSize: '.95rem', cursor: sending ? 'default' : 'pointer' }}>
-          {sending ? 'Sending…' : '📤 Send Notification'}
-        </button>
+      <div className="adm-grid-3" style={{ alignItems: 'start' }}>
+        <Card title="What to send" style={{ gridColumn: 'span 2' }}>
+          <label style={{ display: 'block', marginBottom: '.65rem' }}>
+            <span className="adm-stat-l">Title</span>
+            <input className="adm-input" style={{ width: '100%', marginTop: '.2rem' }} maxLength={80}
+                   value={title} onChange={e => setTitle(e.target.value)}
+                   placeholder="Festive sale is live" />
+          </label>
+          <label style={{ display: 'block', marginBottom: '.65rem' }}>
+            <span className="adm-stat-l">Message</span>
+            <textarea className="adm-input" style={{ width: '100%', marginTop: '.2rem', minHeight: 88, resize: 'vertical' }}
+                      maxLength={300} value={body} onChange={e => setBody(e.target.value)}
+                      placeholder="Flat 30% off on all sarees and nighties. Shop before the stock runs out." />
+          </label>
+          <label style={{ display: 'block', marginBottom: '.65rem' }}>
+            <span className="adm-stat-l">Where it opens when tapped</span>
+            <input className="adm-input" style={{ width: '100%', marginTop: '.2rem' }}
+                   value={url} onChange={e => setUrl(e.target.value)}
+                   placeholder="https://www.mahalaxmifashionhub.com/products" />
+          </label>
+          <label style={{ display: 'block' }}>
+            <span className="adm-stat-l">Picture (optional)</span>
+            <input className="adm-input" style={{ width: '100%', marginTop: '.2rem' }}
+                   value={image} onChange={e => setImage(e.target.value)}
+                   placeholder="https://www.mahalaxmifashionhub.com/og-image.jpg" />
+          </label>
 
-        {result && (
-          <p style={{ marginTop: '1rem', fontSize: '.9rem', color: result.startsWith('✅') ? '#2e7d32' : '#c62828' }}>
-            {result}
+          <div style={{ display: 'flex', gap: '.6rem', alignItems: 'center', flexWrap: 'wrap', marginTop: '.9rem' }}>
+            <button className="adm-btn adm-btn-primary" onClick={send} disabled={sending || !ready}>
+              {sending ? 'Sending…' : count === null ? 'Send notification' : `Send to ${count} device${count === 1 ? '' : 's'}`}
+            </button>
+            {!ready && <span style={{ fontSize: '.78rem', color: '#9a908a' }}>A title and a message are needed first.</span>}
+          </div>
+
+          {result && (
+            <p style={{ marginTop: '.75rem', fontSize: '.85rem', fontWeight: 700,
+                        color: result.kind === 'ok' ? '#2e7d32' : '#c0392b' }}>{result.text}</p>
+          )}
+        </Card>
+
+        <Card title="How it will look">
+          <div style={{ background: '#2a2522', borderRadius: 16, padding: '.85rem', color: '#fff' }}>
+            <div style={{ background: 'rgba(255,255,255,.12)', borderRadius: 12, padding: '.7rem .8rem', backdropFilter: 'blur(2px)' }}>
+              <div style={{ fontSize: '.66rem', opacity: .7, marginBottom: '.25rem', letterSpacing: '.03em' }}>
+                MAHALAXMI FASHION HUB · now
+              </div>
+              <div style={{ fontWeight: 800, fontSize: '.86rem', lineHeight: 1.3, wordBreak: 'break-word' }}>
+                {title.trim() || 'Your title goes here'}
+              </div>
+              <div style={{ fontSize: '.78rem', opacity: .85, lineHeight: 1.45, marginTop: '.2rem', wordBreak: 'break-word' }}>
+                {body.trim() || 'And the message underneath it.'}
+              </div>
+              {image.trim() && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={image.trim()} alt="" style={{ width: '100%', borderRadius: 8, marginTop: '.5rem', display: 'block' }}
+                     onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+              )}
+            </div>
+          </div>
+          <p style={{ fontSize: '.76rem', color: '#9a908a', margin: '.6rem 0 0', lineHeight: 1.55 }}>
+            A phone may cut a long title to one line, so put what matters first. If the picture does not appear
+            above, the link is wrong or the image is not reachable — it will not appear on the phone either.
           </p>
-        )}
+        </Card>
       </div>
     </div>
   );

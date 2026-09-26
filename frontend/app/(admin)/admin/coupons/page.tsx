@@ -1,7 +1,8 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { getAdminToken } from '@/lib/auth';
 import { couponsApi } from '@/lib/api';
+import { PageHeader, Card, Stat, StatGrid, Chips, Pill, Empty } from '@/components/admin/Ui';
 
 interface Coupon {
   id: number; code: string; type: string; value: number; occasion: string;
@@ -11,7 +12,23 @@ interface Coupon {
 
 const empty = { code: '', type: 'flat', value: '', occasion: 'none', minOrder: '0', maxUses: '', expiresAt: '', isActive: true };
 
-const OCCASION_LABEL: Record<string, string> = { none: '—', birthday: '🎂 Birthday', anniversary: '💍 Anniversary' };
+const OCCASION_LABEL: Record<string, string> = { none: 'Anyone', birthday: 'Birthday', anniversary: 'Anniversary' };
+
+/** A coupon is expired the moment its end-of-day has passed, whatever isActive says. */
+const isExpired = (c: Coupon) => Boolean(c.expiresAt && new Date(c.expiresAt) < new Date());
+const isUsedUp = (c: Coupon) => Boolean(c.maxUses && c.usedCount >= c.maxUses);
+
+/** The one sentence that says what a coupon actually does. */
+function inWords(f: typeof empty): string {
+  const v = parseFloat(f.value);
+  if (!f.code.trim() || !v) return 'Fill in a code and a value to see what this coupon will do.';
+  const off = f.type === 'percent' ? `${v}% off` : `₹${v} off`;
+  const min = parseFloat(f.minOrder) > 0 ? ` on orders over ₹${parseFloat(f.minOrder).toLocaleString('en-IN')}` : '';
+  const who = f.occasion === 'none' ? '' : ` — only in the customer's ${f.occasion} month`;
+  const uses = f.maxUses ? `, usable ${f.maxUses} time${Number(f.maxUses) === 1 ? '' : 's'} in total` : '';
+  const till = f.expiresAt ? `, until the end of ${new Date(f.expiresAt + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'long' })}` : ', with no end date';
+  return `${f.code.trim().toUpperCase()} gives ${off}${min}${who}${uses}${till}.`;
+}
 
 export default function CouponsPage() {
   const [coupons, setCoupons] = useState<Coupon[]>([]);
@@ -19,19 +36,18 @@ export default function CouponsPage() {
   const [form, setForm] = useState({ ...empty });
   const [editId, setEditId] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
-  const [msg, setMsg] = useState('');
-  const token = getAdminToken() ?? '';
+  const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
+  const [tab, setTab] = useState('live');
 
   const load = async () => {
     setLoading(true);
-    try { setCoupons((await couponsApi.list(token)) as Coupon[]); }
+    try { setCoupons((await couponsApi.list(getAdminToken() ?? '')) as Coupon[]); }
     catch { /* ignore */ } finally { setLoading(false); }
   };
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { load(); }, []);
 
-  const resetForm = () => { setForm({ ...empty }); setEditId(null); setMsg(''); };
+  const resetForm = () => { setForm({ ...empty }); setEditId(null); setMsg(null); };
 
   const startEdit = (c: Coupon) => {
     setEditId(c.id);
@@ -40,16 +56,16 @@ export default function CouponsPage() {
       minOrder: String(c.minOrder), maxUses: c.maxUses ? String(c.maxUses) : '',
       expiresAt: c.expiresAt ? c.expiresAt.split('T')[0] : '', isActive: c.isActive,
     });
-    setMsg('');
+    setMsg(null);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleSave = async () => {
-    if (!form.code.trim() || !form.value) return setMsg('Code and Value are required.');
+    if (!form.code.trim() || !form.value) { setMsg({ kind: 'err', text: 'A code and a value are needed.' }); return; }
     const val = parseFloat(form.value);
-    if (!val || val <= 0) return setMsg('Value must be greater than 0.');
-    if (form.type === 'percent' && val > 100) return setMsg('Percentage discount cannot be more than 100%.');
-    setSaving(true); setMsg('');
+    if (!val || val <= 0) { setMsg({ kind: 'err', text: 'The value has to be more than zero.' }); return; }
+    if (form.type === 'percent' && val > 100) { setMsg({ kind: 'err', text: 'A percentage discount cannot be more than 100%.' }); return; }
+    setSaving(true); setMsg(null);
     try {
       const payload = {
         code: form.code.trim().toUpperCase(),
@@ -58,136 +74,185 @@ export default function CouponsPage() {
         occasion: form.occasion,
         minOrder: parseFloat(form.minOrder) || 0,
         maxUses: form.maxUses ? parseInt(form.maxUses) : null,
-        // Expire at END of the chosen day (local), not UTC midnight — otherwise a coupon set to
-        // "expires 31 Aug" stopped working at ~5:30 AM IST on the 31st.
+        // End of the chosen day, in local time. Set as UTC midnight, a coupon
+        // marked "expires 31 Aug" stopped working at half past five that morning.
         expiresAt: form.expiresAt ? new Date(form.expiresAt + 'T23:59:59').toISOString() : null,
         isActive: form.isActive,
       };
-      if (editId) { await couponsApi.update(editId, payload, token); setMsg('Updated!'); }
-      else { await couponsApi.create(payload, token); setMsg('Created!'); }
-      resetForm(); await load();
-    } catch (e) { setMsg((e as Error).message); }
+      if (editId) await couponsApi.update(editId, payload, getAdminToken() ?? '');
+      else await couponsApi.create(payload, getAdminToken() ?? '');
+      // resetForm clears the message, so the message is set after it, not before.
+      const said = `${payload.code} ${editId ? 'updated' : 'created'}.`;
+      resetForm();
+      setMsg({ kind: 'ok', text: said });
+      await load();
+    } catch (e) { setMsg({ kind: 'err', text: (e as Error).message }); }
     finally { setSaving(false); }
   };
 
   const handleDelete = async (id: number, code: string) => {
-    if (!confirm(`Delete coupon "${code}"?`)) return;
-    try { await couponsApi.delete(id, token); await load(); }
+    if (!confirm(`Delete coupon "${code}"? Anyone typing it will be told it does not exist.`)) return;
+    try { await couponsApi.delete(id, getAdminToken() ?? ''); await load(); }
     catch (e) { alert((e as Error).message); }
   };
 
+  const groupOf = (c: Coupon) => {
+    if (isExpired(c)) return 'expired';
+    if (isUsedUp(c)) return 'usedup';
+    if (!c.isActive) return 'off';
+    return 'live';
+  };
+
+  const counts: Record<string, number> = { all: coupons.length };
+  coupons.forEach(c => { const k = groupOf(c); counts[k] = (counts[k] ?? 0) + 1; });
+
+  const shown = coupons.filter(c => tab === 'all' || groupOf(c) === tab);
+  const redemptions = coupons.reduce((s, c) => s + c.usedCount, 0);
+
   return (
-    <div style={{ padding: '1.5rem', maxWidth: '900px' }}>
-      <h1 style={{ fontSize: '1.4rem', fontWeight: 700, marginBottom: '1.5rem' }}>🎟️ Coupons & Discounts</h1>
+    <div className="admin-page">
+      <PageHeader
+        title="Coupons"
+        sub="A coupon works the moment it is live. Nothing here is announced to anyone — you still have to tell customers the code."
+        right={editId ? <button className="adm-btn" onClick={resetForm}>Cancel edit</button> : undefined}
+      />
 
-      {/* Form */}
-      <div style={{ background: '#fff', border: '1px solid #eee', borderRadius: '12px', padding: '1.25rem', marginBottom: '2rem' }}>
-        <h2 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '1rem', color: '#a7354d' }}>
-          {editId ? 'Edit Coupon' : 'Create New Coupon'}
-        </h2>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1rem' }}>
-          {[
-            { label: 'Code *', key: 'code', type: 'text', placeholder: 'e.g. SAVE10' },
-            { label: 'Value *', key: 'value', type: 'number', placeholder: 'e.g. 10' },
-            { label: 'Min Order (₹)', key: 'minOrder', type: 'number', placeholder: '0' },
-            { label: 'Max Uses', key: 'maxUses', type: 'number', placeholder: 'Unlimited' },
-            { label: 'Expires On', key: 'expiresAt', type: 'date', placeholder: '' },
-          ].map(({ label, key, type, placeholder }) => (
-            <label key={key} style={{ display: 'block', fontSize: '.85rem', fontWeight: 600 }}>
-              {label}
-              <input type={type} value={(form as Record<string,unknown>)[key] as string}
-                onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
-                placeholder={placeholder}
-                style={{ display: 'block', width: '100%', marginTop: '.3rem', border: '1.5px solid #ddd', borderRadius: '7px', padding: '.5rem .75rem', fontSize: '.9rem', boxSizing: 'border-box' }} />
-            </label>
-          ))}
+      <StatGrid>
+        <Stat label="Working right now" value={counts.live ?? 0} tone="green"
+              action={tab === 'live' ? undefined : 'Show these'} onClick={() => setTab('live')} />
+        <Stat label="Times used" value={redemptions} />
+        <Stat label="Expired" value={counts.expired ?? 0}
+              action={(counts.expired ?? 0) > 0 && tab !== 'expired' ? 'Show these' : undefined}
+              onClick={() => setTab('expired')} />
+        <Stat label="Used up" value={counts.usedup ?? 0}
+              action={(counts.usedup ?? 0) > 0 && tab !== 'usedup' ? 'Show these' : undefined}
+              onClick={() => setTab('usedup')} />
+      </StatGrid>
 
-          <label style={{ display: 'block', fontSize: '.85rem', fontWeight: 600 }}>
-            Type
-            <select value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))}
-              style={{ display: 'block', width: '100%', marginTop: '.3rem', border: '1.5px solid #ddd', borderRadius: '7px', padding: '.5rem .75rem', fontSize: '.9rem', boxSizing: 'border-box' }}>
-              <option value="flat">Flat (₹ off)</option>
-              <option value="percent">Percentage (% off)</option>
+      <Card title={editId ? 'Edit this coupon' : 'New coupon'}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(175px, 1fr))', gap: '.7rem' }}>
+          <label style={{ display: 'block' }}>
+            <span className="adm-stat-l">Code *</span>
+            <input className="adm-input" style={{ width: '100%', marginTop: '.2rem', textTransform: 'uppercase' }}
+                   placeholder="SAVE10" value={form.code}
+                   onChange={e => setForm(f => ({ ...f, code: e.target.value }))} />
+          </label>
+          <label style={{ display: 'block' }}>
+            <span className="adm-stat-l">Flat ₹ or percent</span>
+            <select className="adm-input" style={{ width: '100%', marginTop: '.2rem' }}
+                    value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))}>
+              <option value="flat">₹ off</option>
+              <option value="percent">% off</option>
             </select>
           </label>
-
-          <label style={{ display: 'block', fontSize: '.85rem', fontWeight: 600 }}>
-            Occasion
-            <select value={form.occasion} onChange={e => setForm(f => ({ ...f, occasion: e.target.value }))}
-              style={{ display: 'block', width: '100%', marginTop: '.3rem', border: '1.5px solid #ddd', borderRadius: '7px', padding: '.5rem .75rem', fontSize: '.9rem', boxSizing: 'border-box' }}>
-              <option value="none">None (regular)</option>
-              <option value="birthday">🎂 Birthday</option>
-              <option value="anniversary">💍 Anniversary</option>
-            </select>
-            <span style={{ display: 'block', marginTop: '.25rem', fontSize: '.72rem', color: '#999', fontWeight: 400 }}>
-              Redeeming a birthday/anniversary coupon locks that date on the customer&apos;s profile.
-            </span>
+          <label style={{ display: 'block' }}>
+            <span className="adm-stat-l">Value *</span>
+            <input className="adm-input" type="number" style={{ width: '100%', marginTop: '.2rem' }}
+                   placeholder={form.type === 'percent' ? '10' : '100'} value={form.value}
+                   onChange={e => setForm(f => ({ ...f, value: e.target.value }))} />
           </label>
-
-          <label style={{ display: 'flex', alignItems: 'center', gap: '.5rem', fontSize: '.85rem', fontWeight: 600, marginTop: '1.5rem', cursor: 'pointer' }}>
-            <input type="checkbox" checked={form.isActive} onChange={e => setForm(f => ({ ...f, isActive: e.target.checked }))} />
-            Active
+          <label style={{ display: 'block' }}>
+            <span className="adm-stat-l">Smallest order (₹)</span>
+            <input className="adm-input" type="number" style={{ width: '100%', marginTop: '.2rem' }}
+                   placeholder="0" value={form.minOrder}
+                   onChange={e => setForm(f => ({ ...f, minOrder: e.target.value }))} />
+          </label>
+          <label style={{ display: 'block' }}>
+            <span className="adm-stat-l">Total uses allowed</span>
+            <input className="adm-input" type="number" style={{ width: '100%', marginTop: '.2rem' }}
+                   placeholder="No limit" value={form.maxUses}
+                   onChange={e => setForm(f => ({ ...f, maxUses: e.target.value }))} />
+          </label>
+          <label style={{ display: 'block' }}>
+            <span className="adm-stat-l">Last day</span>
+            <input className="adm-input" type="date" style={{ width: '100%', marginTop: '.2rem' }}
+                   value={form.expiresAt} onChange={e => setForm(f => ({ ...f, expiresAt: e.target.value }))} />
+          </label>
+          <label style={{ display: 'block' }}>
+            <span className="adm-stat-l">Who can use it</span>
+            <select className="adm-input" style={{ width: '100%', marginTop: '.2rem' }}
+                    value={form.occasion} onChange={e => setForm(f => ({ ...f, occasion: e.target.value }))}>
+              <option value="none">Anyone</option>
+              <option value="birthday">Only in their birthday month</option>
+              <option value="anniversary">Only in their anniversary month</option>
+            </select>
+          </label>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '.45rem', fontSize: '.84rem', fontWeight: 700, color: '#463d38', cursor: 'pointer', alignSelf: 'end', paddingBottom: '.5rem' }}>
+            <input type="checkbox" checked={form.isActive}
+                   onChange={e => setForm(f => ({ ...f, isActive: e.target.checked }))} />
+            Live
           </label>
         </div>
 
-        {msg && <p style={{ marginTop: '.75rem', color: msg.includes('!') ? '#27ae60' : '#c0392b', fontSize: '.88rem' }}>{msg}</p>}
+        {/* Six boxes are hard to read back. One sentence is not. */}
+        <p style={{ background: '#fbf9f8', border: '1px solid #f0eae7', borderRadius: 10, padding: '.6rem .8rem',
+                    fontSize: '.84rem', color: '#463d38', margin: '.8rem 0 0', lineHeight: 1.55 }}>
+          {inWords(form)}
+        </p>
+        {form.occasion !== 'none' && (
+          <p style={{ fontSize: '.78rem', color: '#9a908a', margin: '.4rem 0 0' }}>
+            Using a birthday or anniversary coupon locks that date on the customer&apos;s profile, so it cannot be
+            changed afterwards to claim it twice.
+          </p>
+        )}
 
-        <div style={{ display: 'flex', gap: '.75rem', marginTop: '1.25rem' }}>
-          <button onClick={handleSave} disabled={saving}
-            style={{ background: '#a7354d', color: '#fff', border: 'none', borderRadius: '8px', padding: '.6rem 1.5rem', fontWeight: 700, cursor: 'pointer' }}>
-            {saving ? 'Saving…' : editId ? 'Update Coupon' : 'Create Coupon'}
+        {msg && (
+          <p style={{ marginTop: '.7rem', fontSize: '.85rem', fontWeight: 700,
+                      color: msg.kind === 'ok' ? '#2e7d32' : '#c0392b' }}>{msg.text}</p>
+        )}
+
+        <div style={{ display: 'flex', gap: '.55rem', marginTop: '.9rem' }}>
+          <button className="adm-btn adm-btn-primary" onClick={handleSave} disabled={saving}>
+            {saving ? 'Saving…' : editId ? 'Update coupon' : 'Create coupon'}
           </button>
-          {editId && (
-            <button onClick={resetForm}
-              style={{ background: '#f5f5f5', border: '1px solid #ddd', borderRadius: '8px', padding: '.6rem 1rem', cursor: 'pointer' }}>
-              Cancel
-            </button>
-          )}
+          {editId && <button className="adm-btn" onClick={resetForm}>Cancel</button>}
         </div>
-      </div>
+      </Card>
 
-      {/* List */}
-      {loading ? <p>Loading…</p> : coupons.length === 0 ? (
-        <p style={{ color: '#888' }}>No coupons yet. Create your first one above.</p>
-      ) : (
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '.88rem' }}>
-            <thead>
-              <tr style={{ background: '#f8f8f8', textAlign: 'left' }}>
-                {['Code','Type','Value','Occasion','Min Order','Uses','Expires','Status','Actions'].map(h => (
-                  <th key={h} style={{ padding: '.65rem .75rem', fontWeight: 700, borderBottom: '2px solid #eee', whiteSpace: 'nowrap' }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {coupons.map(c => (
-                <tr key={c.id} style={{ borderBottom: '1px solid #f0f0f0' }}>
-                  <td style={{ padding: '.6rem .75rem', fontWeight: 700, color: '#a7354d' }}>{c.code}</td>
-                  <td style={{ padding: '.6rem .75rem' }}>{c.type === 'percent' ? '%' : '₹'}</td>
-                  <td style={{ padding: '.6rem .75rem' }}>{c.type === 'percent' ? `${c.value}%` : `₹${c.value}`}</td>
-                  <td style={{ padding: '.6rem .75rem', whiteSpace: 'nowrap' }}>{OCCASION_LABEL[c.occasion] ?? '—'}</td>
-                  <td style={{ padding: '.6rem .75rem' }}>₹{c.minOrder}</td>
-                  <td style={{ padding: '.6rem .75rem' }}>{c.usedCount}{c.maxUses ? `/${c.maxUses}` : ''}</td>
-                  <td style={{ padding: '.6rem .75rem' }}>{c.expiresAt ? new Date(c.expiresAt).toLocaleDateString('en-IN') : '—'}</td>
-                  <td style={{ padding: '.6rem .75rem' }}>
-                    <span style={{ background: c.isActive ? '#e8f5e9' : '#fce4e4', color: c.isActive ? '#1b5e20' : '#b71c1c', borderRadius: '20px', padding: '.2rem .7rem', fontSize: '.8rem', fontWeight: 600 }}>
-                      {c.isActive ? 'Active' : 'Inactive'}
-                    </span>
-                  </td>
-                  <td style={{ padding: '.6rem .75rem' }}>
-                    <div style={{ display: 'flex', gap: '.5rem' }}>
-                      <button onClick={() => startEdit(c)}
-                        style={{ background: '#f0f0f0', border: 'none', borderRadius: '6px', padding: '.3rem .7rem', cursor: 'pointer', fontSize: '.82rem', fontWeight: 600 }}>Edit</button>
-                      <button onClick={() => handleDelete(c.id, c.code)}
-                        style={{ background: '#fce4e4', color: '#b71c1c', border: 'none', borderRadius: '6px', padding: '.3rem .7rem', cursor: 'pointer', fontSize: '.82rem', fontWeight: 600 }}>Delete</button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      <Card title={`${shown.length} ${shown.length === 1 ? 'coupon' : 'coupons'}`}>
+        <Chips value={tab} onChange={setTab}
+               items={[
+                 { key: 'live', label: 'Working', count: counts.live ?? 0 },
+                 { key: 'off', label: 'Switched off', count: counts.off ?? 0 },
+                 { key: 'expired', label: 'Expired', count: counts.expired ?? 0 },
+                 { key: 'usedup', label: 'Used up', count: counts.usedup ?? 0 },
+                 { key: 'all', label: 'All', count: coupons.length },
+               ]} />
+        {loading ? (
+          <Empty>Loading coupons…</Empty>
+        ) : shown.length === 0 ? (
+          <Empty>{coupons.length === 0 ? 'No coupons yet. Make your first one above.' : 'Nothing in this group.'}</Empty>
+        ) : shown.map(c => {
+          const expired = isExpired(c);
+          const usedUp = isUsedUp(c);
+          const dead = expired || usedUp || !c.isActive;
+          return (
+            <div key={c.id} className="adm-item" style={{ gridTemplateColumns: 'minmax(0,1fr) auto', opacity: dead ? .7 : 1 }}>
+              <div style={{ minWidth: 0 }}>
+                <div className="adm-item-t" style={{ display: 'flex', gap: '.45rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <span style={{ fontFamily: 'monospace', fontWeight: 800, color: '#722f37', letterSpacing: '.03em' }}>{c.code}</span>
+                  {expired ? <Pill tone="grey">Expired</Pill>
+                    : usedUp ? <Pill tone="grey">Used up</Pill>
+                    : !c.isActive ? <Pill tone="amber">Switched off</Pill>
+                    : <Pill tone="green">Working</Pill>}
+                  {c.occasion !== 'none' && <Pill tone="grey">{OCCASION_LABEL[c.occasion] ?? c.occasion}</Pill>}
+                </div>
+                <div className="adm-item-s">
+                  {c.type === 'percent' ? `${c.value}% off` : `₹${c.value} off`}
+                  {c.minOrder > 0 ? ` · over ₹${c.minOrder.toLocaleString('en-IN')}` : ''}
+                  {' · used '}{c.usedCount}{c.maxUses ? ` of ${c.maxUses}` : ' times'}
+                  {c.expiresAt ? ` · till ${new Date(c.expiresAt).toLocaleDateString('en-IN')}` : ' · no end date'}
+                </div>
+                <div className="adm-actions" style={{ marginTop: '.35rem' }}>
+                  <button onClick={() => startEdit(c)}>Edit</button>
+                  <button onClick={() => handleDelete(c.id, c.code)} style={{ color: '#c0392b' }}>Delete</button>
+                </div>
+              </div>
+              <div />
+            </div>
+          );
+        })}
+      </Card>
     </div>
   );
 }
