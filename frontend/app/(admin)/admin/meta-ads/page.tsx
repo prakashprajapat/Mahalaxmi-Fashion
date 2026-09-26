@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { getAdminToken } from '@/lib/auth';
+import { PageHeader, Stat } from '@/components/admin/Ui';
 
 interface Row {
   date: string;
@@ -49,15 +50,6 @@ const RANGES = [7, 30, 90];
 const money = (n: number) => '₹' + n.toLocaleString('en-IN', { maximumFractionDigits: 2 });
 const num = (n: number) => n.toLocaleString('en-IN', { maximumFractionDigits: 2 });
 
-function Stat({ label, value, hint }: { label: string; value: string; hint?: string }) {
-  return (
-    <div style={{ background: '#fff', border: '1px solid #eee', borderRadius: 12, padding: '1rem 1.15rem' }}>
-      <p style={{ margin: 0, fontSize: '.76rem', fontWeight: 700, letterSpacing: '.05em', textTransform: 'uppercase', color: '#888' }}>{label}</p>
-      <p style={{ margin: '.3rem 0 0', fontSize: '1.45rem', fontWeight: 800, color: '#1a1a1a' }}>{value}</p>
-      {hint && <p style={{ margin: '.15rem 0 0', fontSize: '.76rem', color: '#999' }}>{hint}</p>}
-    </div>
-  );
-}
 
 export default function MetaAdsPage() {
   const [status, setStatus] = useState<Status | null>(null);
@@ -173,25 +165,25 @@ export default function MetaAdsPage() {
   };
 
   return (
-    <div style={{ padding: '1.5rem', maxWidth: 1100 }}>
-      <h1 style={{ fontSize: '1.4rem', fontWeight: 800, margin: '0 0 .3rem' }}>Meta Ads</h1>
-      <p style={{ margin: '0 0 1.25rem', color: '#666', fontSize: '.9rem' }}>
-        Facebook and Instagram advertising — what it cost, and what came back.
-      </p>
+    <div className="admin-page" style={{ maxWidth: 1100 }}>
+      <PageHeader
+        title="Meta Ads"
+        sub="Facebook and Instagram advertising — what it cost, and what came back."
+      />
 
       {notice && (
-        <div style={{ background: '#e8f5e9', border: '1px solid #c8e6c9', color: '#1b5e20', borderRadius: 10, padding: '.7rem 1rem', marginBottom: '1rem', fontSize: '.88rem' }}>
+        <div className="adm-card" style={{ background: '#f2faf3', borderColor: '#cbe6cf', color: '#2e7d32', marginBottom: '.85rem', fontSize: '.86rem', fontWeight: 600 }}>
           {notice}
         </div>
       )}
       {error && (
-        <div style={{ background: '#fdecea', border: '1px solid #f5c6c2', color: '#8a1c13', borderRadius: 10, padding: '.7rem 1rem', marginBottom: '1rem', fontSize: '.88rem' }}>
+        <div className="adm-card" style={{ background: '#fdf3f2', borderColor: '#f0cdc9', color: '#c0392b', marginBottom: '.85rem', fontSize: '.86rem', fontWeight: 600 }}>
           {error}
         </div>
       )}
 
       {status && !status.connected && (
-        <div style={{ background: '#fff', border: '1px solid #eee', borderRadius: 12, padding: '1.4rem' }}>
+        <div className="adm-card" style={{ padding: '1.1rem 1.15rem' }}>
           <h2 style={{ margin: '0 0 .5rem', fontSize: '1.05rem', fontWeight: 700 }}>Connect your Meta ad account</h2>
           <p style={{ margin: '0 0 1rem', color: '#555', fontSize: '.9rem', lineHeight: 1.6 }}>
             Meta does not need a sign-in round trip here. You make one <b>System User token</b> in
@@ -243,7 +235,7 @@ export default function MetaAdsPage() {
             ))}
             <span style={{ flex: 1 }} />
             <button onClick={() => { loadStats(days); loadCampaigns(days); }}
-              style={{ border: '1.5px solid #ddd', background: '#fff', borderRadius: 8, padding: '.35rem .8rem', fontSize: '.84rem', fontWeight: 600, cursor: 'pointer' }}>
+              className="adm-btn" style={{ padding: '.35rem .8rem', fontSize: '.8rem' }}>
               Refresh
             </button>
             <button onClick={disconnect}
@@ -259,16 +251,16 @@ export default function MetaAdsPage() {
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '.8rem', marginBottom: '1.25rem' }}>
                 <Stat label="Spend" value={money(totals.spend)} />
                 <Stat label="Sales from ads" value={money(totals.conversionValue)}
-                  hint={`${num(totals.conversions)} purchases`} />
+                  action={`${num(totals.conversions)} purchases`} />
                 <Stat label="Return on spend"
                   value={totals.roas === null ? '—' : `₹${num(totals.roas)}`}
-                  hint={totals.roas === null ? 'nothing spent yet' : 'back for every ₹1 spent'} />
+                  action={totals.roas === null ? 'nothing spent yet' : 'back for every ₹1 spent'} />
                 <Stat label="Clicks" value={num(totals.clicks)}
-                  hint={totals.costPerClick === null ? undefined : `${money(totals.costPerClick)} per click`} />
+                  action={totals.costPerClick === null ? undefined : `${money(totals.costPerClick)} per click`} />
                 <Stat label="Impressions" value={num(totals.impressions)} />
                 <Stat label="Cost per sale"
                   value={totals.costPerConversion === null ? '—' : money(totals.costPerConversion)}
-                  hint={totals.costPerConversion === null ? 'no purchases yet' : undefined} />
+                  action={totals.costPerConversion === null ? 'no purchases yet' : undefined} />
               </div>
 
               {rows.length === 0 ? (
@@ -276,7 +268,7 @@ export default function MetaAdsPage() {
                   No activity in this period. If your campaigns are paused, that is expected.
                 </p>
               ) : (
-                <div style={{ background: '#fff', border: '1px solid #eee', borderRadius: 12, overflowX: 'auto' }}>
+                <div className="adm-card adm-table-wrap" style={{ padding: 0 }}>
                   <table className="adm-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '.86rem' }}>
                     <thead>
                       <tr style={{ background: '#fafafa', textAlign: 'left' }}>
@@ -313,7 +305,7 @@ export default function MetaAdsPage() {
                     Pause or restart a campaign, and change what it may spend in a day. Changes reach Meta straight away.
                   </p>
 
-                  <div style={{ background: '#fff', border: '1px solid #eee', borderRadius: 12, overflowX: 'auto' }}>
+                  <div className="adm-card adm-table-wrap" style={{ padding: 0 }}>
                     <table className="adm-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '.86rem' }}>
                       <thead>
                         <tr style={{ background: '#fafafa', textAlign: 'left' }}>
@@ -350,7 +342,7 @@ export default function MetaAdsPage() {
                                       type="number" min={1} max={maxBudget} step={1}
                                       value={editing.value}
                                       onChange={e => setEditing({ id: c.id, value: e.target.value })}
-                                      style={{ width: 88, padding: '.3rem .45rem', border: '1.5px solid #ddd', borderRadius: 6 }} />
+                                      className="adm-input" style={{ width: 92, padding: '.3rem .45rem' }} />
                                     <button
                                       onClick={() => {
                                         const next = Math.round(Number(editing.value));
@@ -359,7 +351,7 @@ export default function MetaAdsPage() {
                                         if (next === Math.round(c.dailyBudget)) { setEditing(null); return; }
                                         setConfirming({ c, next });
                                       }}
-                                      style={{ border: 'none', background: '#a7354d', color: '#fff', borderRadius: 6, padding: '.3rem .6rem', fontSize: '.78rem', fontWeight: 700, cursor: 'pointer' }}>
+                                      className="adm-btn adm-btn-primary" style={{ padding: '.3rem .6rem', fontSize: '.76rem' }}>
                                       Save
                                     </button>
                                     <button onClick={() => setEditing(null)}
@@ -430,11 +422,11 @@ export default function MetaAdsPage() {
                         Meta may spend up to 25% more on a busy day and balance it out over the week.
                       </p>
                       <button onClick={applyBudget} disabled={busy === confirming.c.id}
-                        style={{ border: 'none', background: '#a7354d', color: '#fff', borderRadius: 8, padding: '.5rem 1.1rem', fontWeight: 700, fontSize: '.86rem', cursor: 'pointer', marginRight: '.5rem' }}>
+                        className="adm-btn adm-btn-primary" style={{ marginRight: '.5rem' }}>
                         {busy === confirming.c.id ? 'Saving…' : 'Yes, change it'}
                       </button>
                       <button onClick={() => setConfirming(null)}
-                        style={{ border: '1.5px solid #ddd', background: '#fff', borderRadius: 8, padding: '.5rem 1rem', fontSize: '.86rem', cursor: 'pointer' }}>
+                        className="adm-btn">
                         Cancel
                       </button>
                     </div>

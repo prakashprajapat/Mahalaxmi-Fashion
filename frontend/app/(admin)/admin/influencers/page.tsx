@@ -2,6 +2,7 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
 import { getAdminToken } from '@/lib/auth';
+import { PageHeader, Stat } from '@/components/admin/Ui';
 const API = process.env.NEXT_PUBLIC_API_URL ?? '';
 const SC = { pending:{bg:'#fff8e1',color:'#e65100'}, approved:{bg:'#e8f5e9',color:'#2e7d32'}, rejected:{bg:'#fce4ec',color:'#c62828'} };
 
@@ -172,47 +173,44 @@ export default function InfluencersAdminPage() {
   const pending = list.filter(i => i.status==='pending').length;
 
   return (
-    <div style={{padding:'1.5rem',maxWidth:'1100px'}}>
-      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:'1rem',marginBottom:'1.5rem'}}>
-        <div>
-          <h2 style={{margin:0,fontWeight:800}}>Influencer Marketing</h2>
-          <p style={{margin:'.25rem 0 0',color:'#777',fontSize:'.85rem'}}>Manage applications, coupon codes & commissions</p>
-        </div>
-        <a href="/influencer" target="_blank" rel="noopener noreferrer" style={{background:'#a7354d',color:'#fff',padding:'.5rem 1rem',borderRadius:'8px',textDecoration:'none',fontSize:'.85rem',fontWeight:600}}>
-          🔗 View Apply Page
-        </a>
-      </div>
+    <div className="admin-page" style={{maxWidth:'1100px'}}>
+      <PageHeader
+        title="Influencer marketing"
+        sub="Applications, their coupon codes, what they have sold, and whether any of it looks like the influencer buying from themselves."
+        right={<a className="adm-btn" href="/influencer" target="_blank" rel="noopener noreferrer">View the apply page</a>}
+      />
 
-      <div style={{display:'flex',gap:'.5rem',marginBottom:'1.25rem'}}>
-        {[['apps','📋 Applications'],['report','📊 Performance Report'],['fraud','📋 Influencer Order Report']].map(([v,label]) => (
-          <button key={v} onClick={()=>setView(v)} style={{padding:'.5rem 1.1rem',borderRadius:'10px',border:'none',cursor:'pointer',fontWeight:700,fontSize:'.85rem',background:view===v?'#a7354d':'#f0f0f0',color:view===v?'#fff':'#555'}}>{label}</button>
+      <div className="adm-toolbar">
+        {[['apps','Applications'],['report','Performance'],['fraud','Order report']].map(([v,label]) => (
+          <button key={v} type="button" onClick={()=>setView(v)}
+            className={`adm-chip${view===v?' on':''}`} style={{fontSize:'.84rem',padding:'7px 16px'}}>{label}</button>
         ))}
       </div>
 
       {view === 'apps' && (<>
-      <div style={{display:'flex',gap:'1rem',marginBottom:'1.5rem',flexWrap:'wrap'}}>
-        {[['Total',list.length,'#6366f1'],['Pending',pending,'#f59e0b'],['Approved',list.filter(i=>i.status==='approved').length,'#22c55e'],['Rejected',list.filter(i=>i.status==='rejected').length,'#ef4444']].map(([label,count,color]) => (
-          <div key={label} style={{flex:'1 1 100px',background:'#fff',borderRadius:'12px',padding:'1rem',boxShadow:'0 1px 6px rgba(0,0,0,.08)',borderLeft:`4px solid ${color}`}}>
-            <div style={{fontSize:'1.5rem',fontWeight:800,color}}>{count}</div>
-            <div style={{fontSize:'.8rem',color:'#888',fontWeight:600}}>{label}</div>
-          </div>
-        ))}
+      <div className="adm-grid" style={{marginBottom:'.85rem'}}>
+        <Stat label="Applications" value={list.length} />
+        <Stat label="Waiting on you" value={pending} tone={pending>0?'red':undefined}
+              action={filter==='pending'?undefined:'Open these'} onClick={()=>setFilter('pending')} />
+        <Stat label="Approved" value={list.filter(i=>i.status==='approved').length} tone="green" />
+        <Stat label="Rejected" value={list.filter(i=>i.status==='rejected').length} />
       </div>
 
-      <div style={{display:'flex',gap:'.5rem',marginBottom:'1rem'}}>
+      <div className="adm-toolbar">
         {['all','pending','approved','rejected'].map(s => (
-          <button key={s} onClick={()=>setFilter(s)} style={{padding:'.35rem .9rem',borderRadius:'20px',border:'none',cursor:'pointer',fontWeight:600,fontSize:'.82rem',textTransform:'capitalize',background:filter===s?'#a7354d':'#f0f0f0',color:filter===s?'#fff':'#555'}}>
-            {s}{s==='pending'&&pending>0?` (${pending})`:''}
+          <button key={s} type="button" onClick={()=>setFilter(s)}
+            className={`adm-chip${filter===s?' on':''}`} style={{textTransform:'capitalize'}}>
+            {s}{s==='pending'&&pending>0?` ${pending}`:''}
           </button>
         ))}
       </div>
 
-      <div style={{background:'#fff',borderRadius:'12px',boxShadow:'0 1px 6px rgba(0,0,0,.08)',overflow:'hidden'}}>
+      <div className="adm-card" style={{padding:0,overflow:'hidden'}}>
         {loading ? <div style={{padding:'3rem',textAlign:'center',color:'#999'}}>Loading...</div>
         : list.length===0 ? <div style={{padding:'3rem',textAlign:'center',color:'#999'}}>No influencers found.</div>
         : (
           <div style={{overflowX:'auto'}}>
-            <table style={{width:'100%',borderCollapse:'collapse',fontSize:'.85rem'}}>
+            <table className="adm-table" style={{width:'100%',borderCollapse:'collapse',fontSize:'.85rem'}}>
               <thead>
                 <tr style={{background:'#fdf0f3',borderBottom:'2px solid #f0d0d8'}}>
                   {['Name','Platform / Handle','Followers','Category','Status','Coupon','Applied','Action'].map(h=>(
@@ -225,22 +223,22 @@ export default function InfluencersAdminPage() {
                   const sc = SC[inf.status] ?? SC.pending;
                   return (
                     <tr key={inf.id} style={{borderBottom:'1px solid #f5f5f5',background:i%2===0?'#fff':'#fafafa'}}>
-                      <td style={{padding:'.7rem 1rem',fontWeight:600}}>
+                      <td data-label="Name" style={{padding:'.7rem 1rem',fontWeight:600}}>
                         <div>{inf.name}</div><div style={{fontSize:'.75rem',color:'#888'}}>{inf.email}</div>
                         {inf.resetRequestedAt && <div style={{marginTop:'.3rem',display:'inline-block',background:'#fff3e0',color:'#e65100',fontSize:'.68rem',fontWeight:700,padding:'.12rem .5rem',borderRadius:'10px'}}>🔔 Password reset requested</div>}
                       </td>
-                      <td style={{padding:'.7rem 1rem'}}><div style={{fontWeight:600}}>{inf.platform}</div><div style={{fontSize:'.75rem',color:'#888'}}>{inf.socialHandle??'—'}</div></td>
-                      <td style={{padding:'.7rem 1rem',color:'#555'}}>{inf.followersCount??'—'}</td>
-                      <td style={{padding:'.7rem 1rem',color:'#555'}}>{inf.category??'—'}</td>
-                      <td style={{padding:'.7rem 1rem'}}>
+                      <td data-label="Platform / Handle" style={{padding:'.7rem 1rem'}}><div style={{fontWeight:600}}>{inf.platform}</div><div style={{fontSize:'.75rem',color:'#888'}}>{inf.socialHandle??'—'}</div></td>
+                      <td data-label="Followers" style={{padding:'.7rem 1rem',color:'#555'}}>{inf.followersCount??'—'}</td>
+                      <td data-label="Category" style={{padding:'.7rem 1rem',color:'#555'}}>{inf.category??'—'}</td>
+                      <td data-label="Status" style={{padding:'.7rem 1rem'}}>
                         <span style={{background:sc.bg,color:sc.color,padding:'.2rem .6rem',borderRadius:'20px',fontWeight:700,fontSize:'.75rem',textTransform:'capitalize'}}>{inf.status}</span>
                       </td>
-                      <td style={{padding:'.7rem 1rem'}}>
+                      <td data-label="Coupon" style={{padding:'.7rem 1rem'}}>
                         {inf.couponCode ? <code style={{background:'#f0f0f0',padding:'.1rem .4rem',borderRadius:'4px',fontSize:'.8rem',fontWeight:700,color:'#a7354d'}}>{inf.couponCode}</code> : <span style={{color:'#bbb'}}>—</span>}
                       </td>
-                      <td style={{padding:'.7rem 1rem',color:'#888',whiteSpace:'nowrap'}}>{new Date(inf.createdAt).toLocaleDateString('en-IN')}</td>
-                      <td style={{padding:'.7rem 1rem'}}>
-                        <button onClick={()=>openDetail(inf)} style={{padding:'.3rem .7rem',borderRadius:'6px',border:'1.5px solid #a7354d',background:'#fff',color:'#a7354d',cursor:'pointer',fontWeight:600,fontSize:'.78rem'}}>Manage</button>
+                      <td data-label="Applied" style={{padding:'.7rem 1rem',color:'#888',whiteSpace:'nowrap'}}>{new Date(inf.createdAt).toLocaleDateString('en-IN')}</td>
+                      <td data-label="Action" style={{padding:'.7rem 1rem'}}>
+                        <button className="adm-btn" onClick={()=>openDetail(inf)} style={{padding:'.3rem .7rem',fontSize:'.78rem'}}>Manage</button>
                       </td>
                     </tr>
                   );
@@ -257,13 +255,14 @@ export default function InfluencersAdminPage() {
         ? <div style={{padding:'3rem',textAlign:'center',color:'#999'}}>Loading report…</div>
         : (
         <div>
-          <div style={{display:'flex',gap:'1rem',marginBottom:'1.25rem',flexWrap:'wrap'}}>
-            {[['Total Orders',report.totals.totalOrders,'#6366f1'],['Revenue (Sales)',`₹${report.totals.totalSales.toLocaleString('en-IN')}`,'#22c55e'],['Commission Owed',`₹${report.totals.netCommission.toLocaleString('en-IN')}`,'#a7354d'],['Returns',`${report.totals.totalReturns} (${report.totals.returnRate}%)`,'#ef4444'],['Active Creators',report.totals.activeWithCode,'#0ea5e9']].map(([label,val,color]) => (
-              <div key={label} style={{flex:'1 1 140px',background:'#fff',borderRadius:'12px',padding:'1rem',boxShadow:'0 1px 6px rgba(0,0,0,.08)',borderLeft:`4px solid ${color}`}}>
-                <div style={{fontSize:'1.4rem',fontWeight:800,color}}>{val}</div>
-                <div style={{fontSize:'.8rem',color:'#888',fontWeight:600}}>{label}</div>
-              </div>
-            ))}
+          <div className="adm-grid" style={{marginBottom:'.85rem'}}>
+            <Stat label="Orders through creators" value={report.totals.totalOrders} />
+            <Stat label="Sales they brought in" value={`₹${report.totals.totalSales.toLocaleString('en-IN')}`} tone="green" />
+            <Stat label="Commission you owe" value={`₹${report.totals.netCommission.toLocaleString('en-IN')}`}
+                  action="after returns" />
+            <Stat label="Returns" value={`${report.totals.totalReturns}`}
+                  tone={report.totals.returnRate > 0 ? 'red' : undefined}
+                  action={`${report.totals.returnRate}% of their orders`} />
           </div>
 
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'.75rem',flexWrap:'wrap',gap:'.5rem'}}>
