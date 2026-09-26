@@ -688,6 +688,58 @@ button { cursor: pointer; font-family: inherit; }
 }
 .admin-nav a:hover, .admin-nav a.active { background: rgba(167,53,77,.3); color: #fff; }
 .admin-content { margin-left: 220px; padding: 2rem; min-height: 100vh; background: #f5f5f5; }
+
+/* ── Admin page shell ──────────────────────────────────────────────────────
+   .admin-page, .admin-page-header and .admin-page-sub were written into twelve
+   admin screens and never given a single rule — twelve pages carrying class
+   names that did nothing, each falling back to whatever the browser does. That
+   is why no two of them lined up. Defining them here is additive: nothing can
+   break, because nothing was happening.
+   Everything below is the same card, the same heading and the same muted grey
+   the Dashboard uses, so a screen converted to these classes looks like it
+   belongs without repeating the styling in its own file. */
+.admin-page { max-width: 1240px; margin: 0 auto; }
+.admin-page-header { margin-bottom: 1.1rem; }
+.admin-page-header h1 {
+  margin: 0; font-size: clamp(1.15rem, 2.2vw, 1.4rem); font-weight: 800;
+  color: #1e1b19; letter-spacing: -.015em;
+}
+.admin-page-sub { margin: .25rem 0 0; font-size: .8rem; color: #8a7f76; line-height: 1.5; }
+
+/* The pieces a converted page builds from. */
+.adm-card { background: #fff; border: 1px solid #eae3e4; border-radius: 13px; padding: .85rem .9rem; }
+.adm-card + .adm-card { margin-top: .85rem; }
+.adm-card-h {
+  margin: 0 0 .65rem; font-size: .74rem; font-weight: 800; letter-spacing: .05em;
+  text-transform: uppercase; color: #8a7f76;
+}
+.adm-grid { display: grid; gap: .75rem; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.adm-grid-3 { display: grid; gap: .75rem; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 1100px) { .adm-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .adm-grid-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 560px)  { .adm-grid, .adm-grid-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+.adm-stat-l { font-size: .74rem; color: #7d736d; font-weight: 600; }
+.adm-stat-n { font-size: 1.6rem; font-weight: 800; color: #1e1b19; margin: .3rem 0 .35rem; letter-spacing: -.02em; }
+.adm-stat-a { font-size: .72rem; color: #722f37; font-weight: 700; }
+
+.adm-row { display: flex; align-items: center; gap: .7rem; padding: .7rem 0; border-bottom: 1px solid #f4efec; color: inherit; }
+.adm-row:last-child { border-bottom: 0; }
+.adm-row-t { font-size: .88rem; font-weight: 600; color: #2d2724; }
+.adm-row-s { font-size: .74rem; color: #9a908a; margin-top: 2px; }
+
+.adm-pill { border-radius: 20px; padding: 3px 10px; font-size: .74rem; font-weight: 800; white-space: nowrap; }
+.adm-pill-red   { background: #fdecea; color: #c0392b; }
+.adm-pill-amber { background: #fff4e2; color: #b26b00; }
+.adm-pill-green { background: #eaf6ec; color: #2e7d32; }
+.adm-pill-grey  { background: #f1edea; color: #7d736d; }
+
+.adm-empty { color: #9a908a; font-size: .88rem; margin: 0; padding: .4rem 0; }
+.adm-toolbar { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin-bottom: .85rem; }
+.adm-chip {
+  border: 1px solid #e5dcdd; background: #fff; color: #6b625c; border-radius: 20px;
+  padding: 6px 13px; font-size: .78rem; font-weight: 700; cursor: pointer; white-space: nowrap;
+}
+.adm-chip.on { background: #722f37; color: #fff; border-color: #722f37; }
 .admin-topbar { background: #fff; border-bottom: 1px solid var(--border); padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center; margin-left: 220px; position: sticky; top: 0; z-index: 40; }
 .admin-topbar h1 { font-size: 1.2rem; font-weight: 700; margin: 0; color: var(--brand); }
 
