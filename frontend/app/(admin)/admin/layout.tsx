@@ -19,6 +19,7 @@ const ALL_NAV: { href?: string; label?: string; exact?: boolean; heading?: strin
   { href: '/admin/products/add',label: '➕ Add / Edit Product' },
   { href: '/admin/products/drafts', label: '📝 Drafts (not on the website)' },
   { href: '/admin/stock',       label: '🔄 Stock Manager' },
+  { href: '/admin/categories',  label: '🗂️ Categories' },
 
   { heading: 'Customers' },
   { href: '/admin/customers',   label: '👥 Customers' },
