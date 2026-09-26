@@ -68,6 +68,31 @@ public static class StockHelper
         }
     }
 
+    /// <summary>The one place the stock thresholds live: nothing left, nearly gone, fine.</summary>
+    public static string StatusForTotal(int total) =>
+        total <= 0 ? "Out of Stock" : total < 5 ? "Limited Stock" : "In Stock";
+
+    /// <summary>
+    /// What a product's stock status should be right now, read from its own
+    /// variantMatrix. Used when something is put back on the website after
+    /// being held as a draft — it should return at the status its quantity
+    /// says, not at "In Stock" regardless.
+    ///
+    /// A product with no variantMatrix is not tracked piece by piece, so there
+    /// is nothing to read and "In Stock" is the only answer available.
+    /// </summary>
+    public static string StatusForStockOnHand(Product prod)
+    {
+        if (string.IsNullOrWhiteSpace(prod.ExtraJson)) return "In Stock";
+
+        JsonObject? root;
+        try { root = JsonNode.Parse(prod.ExtraJson) as JsonObject; }
+        catch { return "In Stock"; }
+
+        if (root?["variantMatrix"] is not JsonObject matrix || matrix.Count == 0) return "In Stock";
+        return StatusForTotal(matrix.Sum(kv => ReadInt(kv.Value)));
+    }
+
     private static Dictionary<string, Product> BySku(List<Product> prods) =>
         prods.Where(p => !string.IsNullOrWhiteSpace(p.Sku))
              .GroupBy(p => p.Sku!.Trim(), StringComparer.OrdinalIgnoreCase)
@@ -108,7 +133,7 @@ public static class StockHelper
         matrix[key] = next;
 
         var total = matrix.Sum(kv => ReadInt(kv.Value));
-        prod.StockStatus = total <= 0 ? "Out of Stock" : total < 5 ? "Limited Stock" : "In Stock";
+        prod.StockStatus = StatusForTotal(total);
         prod.ExtraJson = root.ToJsonString();
         prod.UpdatedAt = DateTimeOffset.UtcNow;
         return true;

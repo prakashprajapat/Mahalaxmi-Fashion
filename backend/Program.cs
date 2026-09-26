@@ -32,6 +32,13 @@ builder.Services.AddMemoryCache(); // PERF-2: for settings caching
 builder.Services.AddHostedService<ReturnMediaCleanupService>();
 builder.Services.AddHostedService<DelhiveryTrackingSyncService>();
 
+// Re-checks every product against the quality gate once an hour: anything on
+// the website that would be refused by Google goes back to draft, anything
+// held as a draft that now passes goes back on the website. The gate already
+// runs at save time; this is what catches products that went live before it
+// existed, and ones that stop passing later.
+builder.Services.AddHostedService<ProductGateSweepService>();
+
 // Emails the database and the day's new photos every night at 11:59 PM IST.
 // Registered as a singleton as well as a hosted service so the admin
 // "Run backup now" button can call exactly the same code path.

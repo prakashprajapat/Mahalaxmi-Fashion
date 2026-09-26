@@ -8,10 +8,11 @@ import { PageHeader, Stat, StatGrid } from '@/components/admin/Ui';
 
 // The catalogue seen through the quality gate.
 //
-// From here the owner can see which products Google would refuse and why,
-// and apply that judgement to the whole catalogue at once. That second part
-// can take most of a shop offline in one press, so the number is shown first
-// and typed back before anything moves.
+// The gate is not advice any more, and this screen no longer asks anyone to
+// press anything to apply it. A product is checked when it is saved, and every
+// product is checked again every hour: fail and it comes off the website, pass
+// and it goes back on. So this page's job is to explain what the sweep has been
+// doing and what is standing in the way of the products it is holding back.
 
 const FIELD_LABEL: Record<string, string> = {
   name: 'Product name',
@@ -31,7 +32,6 @@ export default function ProductQualityPage() {
   const [report, setReport] = useState<QualityReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [confirmText, setConfirmText] = useState('');
   const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
   const [showOnly, setShowOnly] = useState<'failing' | 'all'>('failing');
 
@@ -57,9 +57,16 @@ export default function ProductQualityPage() {
     try {
       const token = getAdminToken();
       if (!token) throw new Error('Sign in again — your session has expired.');
-      const r = await productQualityApi.enforce(report.wouldGoToDraft, token);
-      setMsg({ kind: 'ok', text: `${r.movedToDraft} products moved to draft. ${r.stillLive} are still on the website.` });
-      setConfirmText('');
+      const r = await productQualityApi.enforce(token);
+      const parts: string[] = [];
+      if (r.movedToDraft) parts.push(`${r.movedToDraft} taken off the website`);
+      if (r.putBackOnWebsite) parts.push(`${r.putBackOnWebsite} put back on`);
+      setMsg({
+        kind: 'ok',
+        text: parts.length
+          ? `${parts.join(', ')}. ${r.checkedCount} products checked.`
+          : `Nothing to change — all ${r.checkedCount} products are already on the right side of the line.`,
+      });
       await load();
     } catch (e) {
       setMsg({ kind: 'err', text: e instanceof Error ? e.message : 'The sweep did not run.' });
@@ -76,14 +83,20 @@ export default function ProductQualityPage() {
   }
 
   const rows = report.products.filter(p => (showOnly === 'failing' ? !p.passed : true));
-  const armed = confirmText.trim() === String(report.wouldGoToDraft);
 
   return (
     <div className="admin-page">
       <PageHeader
         title="Product quality"
-        sub="Every product checked against what Google Merchant Center requires. New and edited products are held back on their own — this screen is for the ones already live."
-        right={<button className="adm-btn" onClick={load}>Check again</button>}
+        sub="Every product checked against what Google and Meta require. Nothing goes on the website until it passes, and nothing stays on it once it stops."
+        right={
+          <>
+            <button className="adm-btn" onClick={load}>Refresh</button>
+            <button className="adm-btn adm-btn-primary" onClick={enforce} disabled={busy}>
+              {busy ? 'Checking…' : 'Run the check now'}
+            </button>
+          </>
+        }
       />
 
       {msg && (
@@ -99,7 +112,7 @@ export default function ProductQualityPage() {
         <Stat label="Products" value={report.total} />
         <Stat label="On the website" value={report.live} />
         <Stat label="Google would approve" value={report.passing} tone={report.passing ? 'green' : undefined} />
-        <Stat label="Google would refuse" value={report.failing} tone={report.failing ? 'red' : undefined}
+        <Stat label="Still failing" value={report.failing} tone={report.failing ? 'red' : undefined}
               action={report.failing && showOnly !== 'failing' ? 'Show only these' : undefined}
               onClick={report.failing ? () => setShowOnly('failing') : undefined} />
       </StatGrid>
@@ -122,50 +135,55 @@ export default function ProductQualityPage() {
         </div>
       )}
 
-      {/* The sweep. */}
-      <div style={{
-        background: report.wouldGoToDraft > 0 ? '#fff5e6' : '#eaf6ec',
-        border: `1px solid ${report.wouldGoToDraft > 0 ? '#f0d8b0' : '#c3e3c8'}`,
-        borderRadius: 13, padding: '1.15rem 1.25rem', marginBottom: '1.5rem',
-      }}>
-        <h3 style={{ margin: '0 0 .5rem', fontSize: '1rem', fontWeight: 800, color: report.wouldGoToDraft > 0 ? '#c26a12' : '#2e7d32' }}>
-          Apply the rules to products already on the website
-        </h3>
+      {/* What the sweep is doing, rather than a button asking permission to
+          do it. It runs hourly either way, so the honest thing to show is the
+          state it has left the catalogue in. */}
+      <div className="adm-card" style={{ marginBottom: '.85rem' }}>
+        <h3 className="adm-card-h">The check runs by itself</h3>
+        <p style={{ margin: '0 0 .6rem', fontSize: '.86rem', color: '#463d38', lineHeight: 1.65 }}>
+          Every hour, and again whenever you save a product. A product that fails goes back to
+          <strong> draft</strong> — off the website and out of the Google and Meta feeds, because all three read the
+          same status. A draft that passes goes back on the website by itself, at the stock level its own quantity
+          says. Nothing is ever deleted, and a product you have switched off stays off: that is your decision, not
+          the check&apos;s.
+        </p>
 
-        {report.wouldGoToDraft === 0 ? (
-          <p style={{ margin: 0, fontSize: '.88rem', color: '#2e7d32' }}>
-            Nothing to do — every product currently on the website passes.
+        {report.wouldGoToDraft > 0 && (
+          <p style={{ margin: '0 0 .5rem', fontSize: '.86rem', fontWeight: 700, color: '#c0392b' }}>
+            {report.wouldGoToDraft} {report.wouldGoToDraft === 1 ? 'product is' : 'products are'} on the website
+            right now and would be refused. {report.wouldGoToDraft === 1 ? 'It comes' : 'They come'} off at the next
+            check — fix what is listed below and {report.wouldGoToDraft === 1 ? 'it' : 'they'} never will.
+          </p>
+        )}
+        {report.wouldGoLive > 0 && (
+          <p style={{ margin: '0 0 .5rem', fontSize: '.86rem', fontWeight: 700, color: '#2e7d32' }}>
+            {report.wouldGoLive} draft{report.wouldGoLive === 1 ? '' : 's'} {report.wouldGoLive === 1 ? 'has' : 'have'} been
+            fixed and will go back on the website at the next check.
+          </p>
+        )}
+        {report.wouldGoToDraft === 0 && report.wouldGoLive === 0 && (
+          <p style={{ margin: '0 0 .5rem', fontSize: '.86rem', fontWeight: 700, color: '#2e7d32' }}>
+            Nothing waiting either way — every product is on the side of the line it belongs on.
+          </p>
+        )}
+
+        {report.lastSweep ? (
+          <p style={{ margin: 0, fontSize: '.79rem', color: '#9a908a', lineHeight: 1.6 }}>
+            Last run {new Date(report.lastSweep.ranAt).toLocaleString('en-IN', {
+              day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit',
+            })} — {report.lastSweep.checkedCount} products checked
+            {report.lastSweep.takenDown > 0 || report.lastSweep.putBack > 0
+              ? `, ${report.lastSweep.takenDown} taken off, ${report.lastSweep.putBack} put back on.`
+              : ', nothing needed changing.'}
+            {report.lastSweep.takenDownNames.length > 0 && (
+              <> Taken off: {report.lastSweep.takenDownNames.join('; ')}
+                {report.lastSweep.takenDown > report.lastSweep.takenDownNames.length ? ' …' : ''}.</>
+            )}
           </p>
         ) : (
-          <>
-            <p style={{ margin: '0 0 .8rem', fontSize: '.9rem', color: '#6b4a1e', lineHeight: 1.6 }}>
-              <strong>{report.wouldGoToDraft} of your {report.live} live products would be taken off the website</strong> and
-              kept as drafts until they are fixed. Customers would not be able to find or buy them. Nothing is deleted,
-              and putting one back is a matter of fixing what it is missing and saving it.
-            </p>
-            <p style={{ margin: '0 0 .8rem', fontSize: '.86rem', color: '#6b4a1e' }}>
-              Type <strong>{report.wouldGoToDraft}</strong> below to confirm you have read that number.
-            </p>
-            <div style={{ display: 'flex', gap: '.6rem', alignItems: 'center', flexWrap: 'wrap' }}>
-              <input
-                value={confirmText}
-                onChange={e => setConfirmText(e.target.value)}
-                placeholder="Type the number"
-                style={{ width: 150, border: '1px solid #e5dcdd', borderRadius: 8, padding: '.55rem .7rem', fontSize: '.9rem' }}
-              />
-              <button
-                onClick={enforce}
-                disabled={!armed || busy}
-                style={{
-                  ...btn('primary'),
-                  background: armed && !busy ? '#c0392b' : '#ddd',
-                  cursor: armed && !busy ? 'pointer' : 'not-allowed',
-                }}
-              >
-                {busy ? 'Applying…' : `Take ${report.wouldGoToDraft} products off the website`}
-              </button>
-            </div>
-          </>
+          <p style={{ margin: 0, fontSize: '.79rem', color: '#9a908a' }}>
+            The check has not run yet on this server — it starts a couple of minutes after the site does.
+          </p>
         )}
       </div>
 

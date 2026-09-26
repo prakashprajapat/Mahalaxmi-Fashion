@@ -300,7 +300,8 @@ let _settingsInflight: Promise<SettingsResp> | null = null;
 const SETTINGS_TTL = 30_000;
 
 // The quality gate seen from the admin: which products are fit for the website
-// and which are not, and the one-time sweep that applies that to everything.
+// and which are not. The sweep that acts on it runs by itself every hour; the
+// endpoint below just runs it now instead of waiting.
 export interface QualityIssue { field: string; message: string }
 export interface QualityRow {
   id: number;
@@ -315,6 +316,15 @@ export interface QualityRow {
   errors: QualityIssue[];
   warnings: QualityIssue[];
 }
+/** What the hourly sweep did the last time it ran. Absent until it has run once. */
+export interface QualitySweep {
+  ranAt: string;
+  checkedCount: number;
+  takenDown: number;
+  putBack: number;
+  takenDownNames: string[];
+  putBackNames: string[];
+}
 export interface QualityReport {
   success: boolean;
   total: number;
@@ -322,7 +332,10 @@ export interface QualityReport {
   passing: number;
   failing: number;
   wouldGoToDraft: number;
+  /** Drafts that now pass — the sweep will put these back on the website on its own. */
+  wouldGoLive: number;
   byReason: { field: string; count: number }[];
+  lastSweep?: QualitySweep | null;
   products: QualityRow[];
 }
 
@@ -330,13 +343,16 @@ export const productQualityApi = {
   report: (token: string): Promise<QualityReport> =>
     request<QualityReport>('/product-quality', {}, token),
 
-  /** expectedCount is the number the report just showed — the server refuses if it no longer matches. */
-  enforce: (expectedCount: number, token: string) =>
-    request<{ success: boolean; movedToDraft: number; stillLive: number }>(
-      '/product-quality/enforce',
-      { method: 'POST', body: JSON.stringify({ expectedCount }) },
-      token,
-    ),
+  /** Runs the hourly sweep now rather than waiting for it. Both directions. */
+  enforce: (token: string) =>
+    request<{
+      success: boolean;
+      movedToDraft: number;
+      putBackOnWebsite: number;
+      checkedCount: number;
+      takenDownNames: string[];
+      putBackNames: string[];
+    }>('/product-quality/enforce', { method: 'POST' }, token),
 };
 
 // The SEO writing the owner edits from the admin panel: blog articles, keyword

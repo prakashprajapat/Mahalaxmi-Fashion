@@ -1,3 +1,4 @@
+using System.Text.Json;
 using MahalaxmiApi.Authorization;
 using MahalaxmiApi.Data;
 using MahalaxmiApi.Services;
@@ -67,6 +68,22 @@ public class ProductQualityController : ControllerBase
             .OrderByDescending(x => x.count)
             .ToList();
 
+        // What the hourly sweep last did, so the screen can say when the
+        // catalogue was last acted on rather than only what is wrong with it.
+        var lastSweepRaw = await _db.SiteSettings
+            .Where(x => x.Key == ProductGateSweepService.LastSweepSettingKey)
+            .Select(x => x.Value)
+            .FirstOrDefaultAsync();
+
+        object? lastSweep = null;
+        if (!string.IsNullOrWhiteSpace(lastSweepRaw))
+        {
+            // Written by this application, but a malformed row must not take
+            // the whole report down with it.
+            try { lastSweep = JsonSerializer.Deserialize<JsonElement>(lastSweepRaw); }
+            catch { lastSweep = null; }
+        }
+
         return Ok(new
         {
             success = true,
@@ -75,55 +92,39 @@ public class ProductQualityController : ControllerBase
             passing = rows.Count(r => r.passed),
             failing = rows.Count(r => !r.passed),
             wouldGoToDraft = rows.Count(r => r.wouldGoToDraft),
+            // Drafts that have since been fixed — the sweep will put these back
+            // on the website by itself.
+            wouldGoLive = rows.Count(r => !r.live && r.passed
+                                          && string.Equals(r.status, ProductQualityGate.DraftStatus, StringComparison.OrdinalIgnoreCase)),
             byReason,
+            lastSweep,
             products = rows,
         });
     }
 
     /// <summary>
-    /// Apply the gate to the whole catalogue: everything currently live that
-    /// does not pass becomes a draft.
+    /// Runs the hourly sweep now instead of waiting for it.
     ///
-    /// The caller has to send back the number the report gave it. If the two do
-    /// not match, the catalogue changed since the owner looked and the sweep is
-    /// refused rather than run against numbers nobody has seen. Confirming a
-    /// figure is not a formality here — it is the whole safeguard.
+    /// This used to be the only thing that applied the gate to products already
+    /// on the website, which is why it asked the owner to type a number back:
+    /// taking a seventh of a shop offline deserved a deliberate act. It runs on
+    /// its own every hour now, so asking for a confirmation here would be
+    /// ceremony around something that is going to happen anyway. The button is
+    /// "do it now", and it does exactly what the timer does — both directions.
     /// </summary>
     [HttpPost("enforce")]
-    public async Task<IActionResult> Enforce([FromBody] EnforceRequest req)
+    public async Task<IActionResult> Enforce()
     {
-        var products = await _db.Products.ToListAsync();
-
-        var failing = products
-            .Where(p => !ProductQualityGate.HiddenStatuses.Contains(p.StockStatus, StringComparer.OrdinalIgnoreCase))
-            .Where(p => !ProductQualityGate.Check(p).Passed)
-            .ToList();
-
-        if (req.ExpectedCount != failing.Count)
-            return Conflict(new
-            {
-                success = false,
-                message = $"The catalogue has changed since you looked — {failing.Count} products would now be taken off the website, not {req.ExpectedCount}. Run the report again and check the new number.",
-                actual = failing.Count,
-            });
-
-        foreach (var p in failing)
-            p.StockStatus = ProductQualityGate.DraftStatus;
-
-        await _db.SaveChangesAsync();
-        // Otherwise the storefront keeps serving the cached list and the owner
-        // sees nothing change for up to the cache's lifetime.
-        ProductsController.BustCache();
-        _log.LogWarning("Quality sweep moved {Count} products to draft", failing.Count);
+        var result = await ProductGateSweepService.SweepAsync(_db, _log);
 
         return Ok(new
         {
             success = true,
-            movedToDraft = failing.Count,
-            stillLive = products.Count - failing.Count
-                        - products.Count(p => string.Equals(p.StockStatus, "Inactive", StringComparison.OrdinalIgnoreCase)),
+            movedToDraft = result.TakenDown.Count,
+            putBackOnWebsite = result.PutBack.Count,
+            checkedCount = result.Checked,
+            takenDownNames = result.TakenDown.Take(10).ToList(),
+            putBackNames = result.PutBack.Take(10).ToList(),
         });
     }
-
-    public record EnforceRequest(int ExpectedCount);
 }

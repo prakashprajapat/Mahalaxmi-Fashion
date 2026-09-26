@@ -48,6 +48,10 @@ public class SettingsController : ControllerBase
         "adminRecoveryPhone",   // the owner's private mobile
         "googleAdsOauthState",
 
+        // What the hourly product-gate sweep last did. Nothing secret in it,
+        // but the state of our own catalogue is not the world's business.
+        "productGateLastSweep",
+
         // Public writing, but far too big for this bundle — the navbar and
         // footer read it on every page load. Served by /api/seo-content
         // instead, which is cached separately and fetched only by the pages
