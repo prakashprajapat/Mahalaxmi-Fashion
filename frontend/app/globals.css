@@ -740,6 +740,10 @@ button { cursor: pointer; font-family: inherit; }
   padding: 6px 13px; font-size: .78rem; font-weight: 700; cursor: pointer; white-space: nowrap;
 }
 .adm-chip.on { background: #722f37; color: #fff; border-color: #722f37; }
+/* A chip that is already the answer is disabled so it cannot be clicked twice;
+   it must still look chosen, not switched off. */
+.adm-chip.on:disabled { opacity: 1; }
+.adm-chip:disabled:not(.on) { opacity: .45; cursor: not-allowed; }
 
 /* A row with a picture in it: products, orders, customers all list this shape. */
 .adm-item { display: grid; grid-template-columns: 52px minmax(0, 1fr) auto; gap: .7rem; align-items: center; padding: .7rem 0; border-bottom: 1px solid #f4efec; }
