@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { productQualityApi, type QualityReport } from '@/lib/api';
 import { getAdminToken } from '@/lib/auth';
 import { btn } from '@/components/admin/SeoFields';
+import { PageHeader, Stat, StatGrid } from '@/components/admin/Ui';
 
 // The catalogue seen through the quality gate.
 //
@@ -68,7 +69,7 @@ export default function ProductQualityPage() {
   }
 
   if (loading) {
-    return <div className="admin-page"><div style={{ padding: '3rem', textAlign: 'center', color: '#aaa' }}>Checking every product…</div></div>;
+    return <div className="admin-page"><div style={{ padding: '3rem', textAlign: 'center', color: '#a49a94' }}>Checking every product…</div></div>;
   }
   if (!report) {
     return <div className="admin-page"><div style={{ padding: '3rem', textAlign: 'center', color: '#c0392b' }}>{msg?.text ?? 'No report.'}</div></div>;
@@ -77,50 +78,40 @@ export default function ProductQualityPage() {
   const rows = report.products.filter(p => (showOnly === 'failing' ? !p.passed : true));
   const armed = confirmText.trim() === String(report.wouldGoToDraft);
 
-  const stat = (label: string, value: string | number, colour: string) => (
-    <div key={label} style={{ background: '#fff', border: '1px solid #eee', borderRadius: 12, padding: '.9rem 1.1rem', textAlign: 'center', minWidth: 120 }}>
-      <div style={{ fontSize: '1.5rem', fontWeight: 800, color: colour }}>{value}</div>
-      <div style={{ fontSize: '.73rem', color: '#888', marginTop: '.2rem' }}>{label}</div>
-    </div>
-  );
-
   return (
     <div className="admin-page">
-      <div className="admin-page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', flexWrap: 'wrap' }}>
-        <div>
-          <h1>Product Quality</h1>
-          <p className="admin-page-sub">
-            Every product checked against what Google Merchant Center requires. New and edited products are held back
-            automatically — this screen is for the ones already live.
-          </p>
-        </div>
-        <button onClick={load} style={btn('ghost')}>Check again</button>
-      </div>
+      <PageHeader
+        title="Product quality"
+        sub="Every product checked against what Google Merchant Center requires. New and edited products are held back on their own — this screen is for the ones already live."
+        right={<button className="adm-btn" onClick={load}>Check again</button>}
+      />
 
       {msg && (
-        <div style={{
-          background: msg.kind === 'ok' ? '#eaf6ec' : '#fdecea',
-          border: `1px solid ${msg.kind === 'ok' ? '#c3e3c8' : '#f5c6c2'}`,
+        <div className="adm-card" style={{
+          background: msg.kind === 'ok' ? '#f2faf3' : '#fdf3f2',
+          borderColor: msg.kind === 'ok' ? '#cbe6cf' : '#f0cdc9',
           color: msg.kind === 'ok' ? '#2e7d32' : '#c0392b',
-          borderRadius: 10, padding: '.8rem 1rem', marginBottom: '1rem', fontSize: '.88rem',
+          marginBottom: '.85rem', fontSize: '.86rem', fontWeight: 600,
         }}>{msg.text}</div>
       )}
 
-      <div style={{ display: 'flex', gap: '.75rem', flexWrap: 'wrap', marginBottom: '1.25rem' }}>
-        {stat('Products', report.total, '#666')}
-        {stat('On the website', report.live, '#666')}
-        {stat('Would be approved', report.passing, report.passing ? '#2e7d32' : '#999')}
-        {stat('Would be refused', report.failing, report.failing ? '#c0392b' : '#2e7d32')}
-      </div>
+      <StatGrid>
+        <Stat label="Products" value={report.total} />
+        <Stat label="On the website" value={report.live} />
+        <Stat label="Google would approve" value={report.passing} tone={report.passing ? 'green' : undefined} />
+        <Stat label="Google would refuse" value={report.failing} tone={report.failing ? 'red' : undefined}
+              action={report.failing && showOnly !== 'failing' ? 'Show only these' : undefined}
+              onClick={report.failing ? () => setShowOnly('failing') : undefined} />
+      </StatGrid>
 
       {report.byReason.length > 0 && (
-        <div style={{ background: '#fff', border: '1px solid #eee', borderRadius: 12, padding: '1rem 1.15rem', marginBottom: '1.25rem' }}>
-          <div style={{ fontSize: '.78rem', fontWeight: 800, color: '#999', textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: '.6rem' }}>
+        <div style={{ background: '#fff', border: '1px solid #eae3e4', borderRadius: 13, padding: '1rem 1.15rem', marginBottom: '1.25rem' }}>
+          <div style={{ fontSize: '.78rem', fontWeight: 800, color: '#9a908a', textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: '.6rem' }}>
             What is holding products back
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '.5rem' }}>
             {report.byReason.map(r => (
-              <span key={r.field} style={{ background: '#fdf0f3', color: '#a7354d', borderRadius: 20, padding: '4px 12px', fontSize: '.82rem', fontWeight: 700 }}>
+              <span key={r.field} style={{ background: '#fdf0f3', color: '#722f37', borderRadius: 20, padding: '4px 12px', fontSize: '.82rem', fontWeight: 700 }}>
                 {FIELD_LABEL[r.field] ?? r.field}: {r.count}
               </span>
             ))}
@@ -135,7 +126,7 @@ export default function ProductQualityPage() {
       <div style={{
         background: report.wouldGoToDraft > 0 ? '#fff5e6' : '#eaf6ec',
         border: `1px solid ${report.wouldGoToDraft > 0 ? '#f0d8b0' : '#c3e3c8'}`,
-        borderRadius: 12, padding: '1.15rem 1.25rem', marginBottom: '1.5rem',
+        borderRadius: 13, padding: '1.15rem 1.25rem', marginBottom: '1.5rem',
       }}>
         <h3 style={{ margin: '0 0 .5rem', fontSize: '1rem', fontWeight: 800, color: report.wouldGoToDraft > 0 ? '#c26a12' : '#2e7d32' }}>
           Apply the rules to products already on the website
@@ -160,7 +151,7 @@ export default function ProductQualityPage() {
                 value={confirmText}
                 onChange={e => setConfirmText(e.target.value)}
                 placeholder="Type the number"
-                style={{ width: 150, border: '1px solid #ddd', borderRadius: 8, padding: '.55rem .7rem', fontSize: '.9rem' }}
+                style={{ width: 150, border: '1px solid #e5dcdd', borderRadius: 8, padding: '.55rem .7rem', fontSize: '.9rem' }}
               />
               <button
                 onClick={enforce}
@@ -192,7 +183,7 @@ export default function ProductQualityPage() {
         ))}
       </div>
 
-      <div style={{ background: '#fff', border: '1px solid #eee', borderRadius: 12, overflow: 'hidden' }}>
+      <div style={{ background: '#fff', border: '1px solid #eae3e4', borderRadius: 13, overflow: 'hidden' }}>
         {rows.map(p => (
           <div key={p.id} style={{ padding: '.9rem 1.1rem', borderBottom: '1px solid #f5f5f5' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', alignItems: 'flex-start' }}>
@@ -200,7 +191,7 @@ export default function ProductQualityPage() {
                 <div style={{ fontWeight: 700, fontSize: '.92rem' }}>
                   {p.name || <span style={{ color: '#ccc' }}>(no name)</span>}
                 </div>
-                <div style={{ fontSize: '.74rem', color: '#999', marginTop: '.15rem' }}>
+                <div style={{ fontSize: '.74rem', color: '#9a908a', marginTop: '.15rem' }}>
                   {p.sku ? `${p.sku} · ` : ''}{p.subcategory || p.category || '—'} · {p.status}
                 </div>
               </div>
@@ -224,7 +215,7 @@ export default function ProductQualityPage() {
             {p.warnings.length > 0 && (
               <ul style={{ margin: '.35rem 0 0', paddingLeft: '1.1rem' }}>
                 {p.warnings.map((w, i) => (
-                  <li key={i} style={{ fontSize: '.8rem', color: '#999', lineHeight: 1.5 }}>{w.message}</li>
+                  <li key={i} style={{ fontSize: '.8rem', color: '#9a908a', lineHeight: 1.5 }}>{w.message}</li>
                 ))}
               </ul>
             )}

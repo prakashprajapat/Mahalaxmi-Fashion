@@ -106,7 +106,7 @@ export default function CollectionsEditorPage() {
   }
 
   if (loading) {
-    return <div className="admin-page"><div style={{ padding: '3rem', textAlign: 'center', color: '#aaa' }}>Loading collections and products…</div></div>;
+    return <div className="admin-page"><div style={{ padding: '3rem', textAlign: 'center', color: '#a49a94' }}>Loading collections and products…</div></div>;
   }
 
   const c = editing === null ? null : items[editing];
@@ -144,7 +144,7 @@ export default function CollectionsEditorPage() {
             + New collection page
           </button>
 
-          <div style={{ background: '#fff', border: '1px solid #eee', borderRadius: 12, overflow: 'hidden' }}>
+          <div style={{ background: '#fff', border: '1px solid #eae3e4', borderRadius: 13, overflow: 'hidden' }}>
             {items.map((it, i) => {
               const n = countFor(it);
               return (
@@ -154,7 +154,7 @@ export default function CollectionsEditorPage() {
                       {it.label || it.title || <span style={{ color: '#ccc' }}>Untitled</span>}
                       {!it.published && <span style={{ marginLeft: '.5rem', fontSize: '.7rem', color: '#c26a12', fontWeight: 700 }}>HIDDEN</span>}
                     </div>
-                    <div style={{ fontSize: '.74rem', color: '#999', marginTop: '.15rem' }}>
+                    <div style={{ fontSize: '.74rem', color: '#9a908a', marginTop: '.15rem' }}>
                       /collections/{it.slug || '…'} · {it.subcategory || 'no subcategory'}
                     </div>
                   </div>
@@ -174,15 +174,15 @@ export default function CollectionsEditorPage() {
             })}
           </div>
 
-          <p style={{ fontSize: '.78rem', color: '#999', marginTop: '1rem' }}>
+          <p style={{ fontSize: '.78rem', color: '#9a908a', marginTop: '1rem' }}>
             A page showing <strong>0 products</strong> hides itself from Google automatically, so it does no harm —
             but it does no work either. Either stock it or hide it.
           </p>
         </>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,340px)', gap: '1.25rem', alignItems: 'start' }}>
-          <div style={{ background: '#fff', border: '1px solid #eee', borderRadius: 12, padding: '1.25rem' }}>
-            <h3 style={{ margin: '0 0 .9rem', fontSize: '.8rem', fontWeight: 800, color: '#999', textTransform: 'uppercase', letterSpacing: '.05em' }}>
+          <div style={{ background: '#fff', border: '1px solid #eae3e4', borderRadius: 13, padding: '1.25rem' }}>
+            <h3 style={{ margin: '0 0 .9rem', fontSize: '.8rem', fontWeight: 800, color: '#9a908a', textTransform: 'uppercase', letterSpacing: '.05em' }}>
               Which products appear
             </h3>
 
@@ -191,7 +191,7 @@ export default function CollectionsEditorPage() {
               <select
                 value={c.subcategory}
                 onChange={e => patch(editing!, { subcategory: e.target.value })}
-                style={{ width: '100%', border: '1px solid #ddd', borderRadius: 8, padding: '.55rem .7rem', fontSize: '.88rem', background: '#fff' }}
+                style={{ width: '100%', border: '1px solid #e5dcdd', borderRadius: 8, padding: '.55rem .7rem', fontSize: '.88rem', background: '#fff' }}
               >
                 <option value="">— choose one —</option>
                 {subcategories.map(s => <option key={s} value={s}>{s}</option>)}
@@ -215,7 +215,7 @@ export default function CollectionsEditorPage() {
                 type="number" min={0} value={c.maxPrice ?? ''}
                 placeholder="e.g. 500 for an 'under ₹500' page"
                 onChange={e => patch(editing!, { maxPrice: e.target.value === '' ? undefined : Number(e.target.value) })}
-                style={{ width: '100%', border: '1px solid #ddd', borderRadius: 8, padding: '.55rem .7rem', fontSize: '.88rem' }}
+                style={{ width: '100%', border: '1px solid #e5dcdd', borderRadius: 8, padding: '.55rem .7rem', fontSize: '.88rem' }}
               />
             </div>
 
@@ -230,7 +230,7 @@ export default function CollectionsEditorPage() {
                 : `This filter matches ${count} product${count === 1 ? '' : 's'} right now.`}
             </div>
 
-            <h3 style={{ margin: '0 0 .9rem', fontSize: '.8rem', fontWeight: 800, color: '#999', textTransform: 'uppercase', letterSpacing: '.05em' }}>
+            <h3 style={{ margin: '0 0 .9rem', fontSize: '.8rem', fontWeight: 800, color: '#9a908a', textTransform: 'uppercase', letterSpacing: '.05em' }}>
               What the page says
             </h3>
 

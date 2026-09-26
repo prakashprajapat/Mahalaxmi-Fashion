@@ -105,7 +105,7 @@ export default function BlogEditorPage() {
   }
 
   if (loading) {
-    return <div className="admin-page"><div style={{ padding: '3rem', textAlign: 'center', color: '#aaa' }}>Loading articles…</div></div>;
+    return <div className="admin-page"><div style={{ padding: '3rem', textAlign: 'center', color: '#a49a94' }}>Loading articles…</div></div>;
   }
 
   const p = editing === null ? null : posts[editing];
@@ -147,7 +147,7 @@ export default function BlogEditorPage() {
             + Write a new article
           </button>
 
-          <div style={{ background: '#fff', border: '1px solid #eee', borderRadius: 12, overflow: 'hidden' }}>
+          <div style={{ background: '#fff', border: '1px solid #eae3e4', borderRadius: 13, overflow: 'hidden' }}>
             {posts.map((post, i) => (
               <div key={post.slug || i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', padding: '.85rem 1.1rem', borderBottom: '1px solid #f5f5f5' }}>
                 <div style={{ minWidth: 0 }}>
@@ -155,7 +155,7 @@ export default function BlogEditorPage() {
                     {post.title || <span style={{ color: '#ccc' }}>Untitled</span>}
                     {!post.published && <span style={{ marginLeft: '.5rem', fontSize: '.7rem', color: '#c26a12', fontWeight: 700 }}>HIDDEN</span>}
                   </div>
-                  <div style={{ fontSize: '.74rem', color: '#999', marginTop: '.15rem' }}>
+                  <div style={{ fontSize: '.74rem', color: '#9a908a', marginTop: '.15rem' }}>
                     /blog/{post.slug || '…'} · {post.date} · {post.readMinutes} min read
                   </div>
                 </div>
@@ -167,16 +167,16 @@ export default function BlogEditorPage() {
                 </div>
               </div>
             ))}
-            {posts.length === 0 && <div style={{ padding: '3rem', textAlign: 'center', color: '#aaa' }}>No articles yet.</div>}
+            {posts.length === 0 && <div style={{ padding: '3rem', textAlign: 'center', color: '#a49a94' }}>No articles yet.</div>}
           </div>
 
-          <p style={{ fontSize: '.78rem', color: '#999', marginTop: '1rem' }}>
+          <p style={{ fontSize: '.78rem', color: '#9a908a', marginTop: '1rem' }}>
             Nothing is saved until you press <strong>Save &amp; publish</strong> — that one button saves every article on this screen.
           </p>
         </>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,340px)', gap: '1.25rem', alignItems: 'start' }}>
-          <div style={{ background: '#fff', border: '1px solid #eee', borderRadius: 12, padding: '1.25rem' }}>
+          <div style={{ background: '#fff', border: '1px solid #eae3e4', borderRadius: 13, padding: '1.25rem' }}>
             <Field
               label="Title" value={p.title} limit={TITLE_LIMIT}
               placeholder="Which Nighty Fabric Is Best for Summer?"
@@ -203,13 +203,13 @@ export default function BlogEditorPage() {
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: '.78rem', fontWeight: 700, color: '#555', marginBottom: '.3rem' }}>Date</div>
                 <input type="date" value={p.date.slice(0, 10)} onChange={e => patch(editing!, { date: e.target.value })}
-                  style={{ width: '100%', border: '1px solid #ddd', borderRadius: 8, padding: '.55rem .7rem', fontSize: '.88rem' }} />
+                  style={{ width: '100%', border: '1px solid #e5dcdd', borderRadius: 8, padding: '.55rem .7rem', fontSize: '.88rem' }} />
               </div>
               <div style={{ width: 130 }}>
                 <div style={{ fontSize: '.78rem', fontWeight: 700, color: '#555', marginBottom: '.3rem' }}>Read time</div>
                 <input type="number" min={1} max={90} value={p.readMinutes}
                   onChange={e => patch(editing!, { readMinutes: Number(e.target.value) || 1 })}
-                  style={{ width: '100%', border: '1px solid #ddd', borderRadius: 8, padding: '.55rem .7rem', fontSize: '.88rem' }} />
+                  style={{ width: '100%', border: '1px solid #e5dcdd', borderRadius: 8, padding: '.55rem .7rem', fontSize: '.88rem' }} />
               </div>
             </div>
 
@@ -217,11 +217,11 @@ export default function BlogEditorPage() {
               <span style={{ fontSize: '.78rem', fontWeight: 700, color: '#555' }}>Article</span>
               <span style={{ display: 'flex', gap: '.6rem', alignItems: 'baseline' }}>
                 <button onClick={() => patch(editing!, { readMinutes: estimateMinutes(p.content) })}
-                  style={{ background: 'none', border: 'none', color: '#a7354d', fontSize: '.74rem', fontWeight: 700, cursor: 'pointer', padding: 0 }}>
+                  style={{ background: 'none', border: 'none', color: '#722f37', fontSize: '.74rem', fontWeight: 700, cursor: 'pointer', padding: 0 }}>
                   Set read time from length
                 </button>
                 <button onClick={() => setPreview(v => !v)}
-                  style={{ background: 'none', border: 'none', color: '#a7354d', fontSize: '.74rem', fontWeight: 700, cursor: 'pointer', padding: 0 }}>
+                  style={{ background: 'none', border: 'none', color: '#722f37', fontSize: '.74rem', fontWeight: 700, cursor: 'pointer', padding: 0 }}>
                   {preview ? 'Edit' : 'Preview'}
                 </button>
               </span>
@@ -229,17 +229,17 @@ export default function BlogEditorPage() {
 
             {preview ? (
               <div
-                style={{ border: '1px solid #eee', borderRadius: 8, padding: '1rem', fontSize: '.9rem', lineHeight: 1.6, minHeight: 240 }}
+                style={{ border: '1px solid #eae3e4', borderRadius: 8, padding: '1rem', fontSize: '.9rem', lineHeight: 1.6, minHeight: 240 }}
                 dangerouslySetInnerHTML={{ __html: p.content }}
               />
             ) : (
               <textarea
                 value={p.content} rows={18}
                 onChange={e => patch(editing!, { content: e.target.value })}
-                style={{ width: '100%', border: '1px solid #ddd', borderRadius: 8, padding: '.7rem', fontSize: '.84rem', fontFamily: 'ui-monospace, monospace', lineHeight: 1.6, resize: 'vertical' }}
+                style={{ width: '100%', border: '1px solid #e5dcdd', borderRadius: 8, padding: '.7rem', fontSize: '.84rem', fontFamily: 'ui-monospace, monospace', lineHeight: 1.6, resize: 'vertical' }}
               />
             )}
-            <p style={{ margin: '.3rem 0 0', fontSize: '.74rem', color: '#999' }}>
+            <p style={{ margin: '.3rem 0 0', fontSize: '.74rem', color: '#9a908a' }}>
               Use <code>&lt;p&gt;</code> for paragraphs, <code>&lt;h2&gt;</code> for headings, <code>&lt;ul&gt;&lt;li&gt;</code> for lists,
               <code>&lt;strong&gt;</code> for bold. Anything else is removed when you save, so the website cannot be broken from here.
             </p>
@@ -257,7 +257,7 @@ export default function BlogEditorPage() {
 
           <div style={{ position: 'sticky', top: '1rem', display: 'grid', gap: '1rem' }}>
             <GooglePreview title={p.title} description={p.description} path={`blog/${p.slug}`} />
-            <div style={{ background: '#fff', border: '1px solid #eee', borderRadius: 10, padding: '1rem 1.1rem', fontSize: '.8rem', color: '#666', lineHeight: 1.6 }}>
+            <div style={{ background: '#fff', border: '1px solid #eae3e4', borderRadius: 10, padding: '1rem 1.1rem', fontSize: '.8rem', color: '#666', lineHeight: 1.6 }}>
               <strong style={{ display: 'block', marginBottom: '.4rem', color: '#444' }}>What actually ranks</strong>
               Answer one real question per article — the ones customers ask you on WhatsApp. One honest 600-word
               answer beats five thin ones, and an article you would be happy to send a customer is the same thing

@@ -127,7 +127,7 @@ export default function HomeCategoriesPage() {
   }
 
   if (loading) {
-    return <div className="admin-page"><div style={{ padding: '3rem', textAlign: 'center', color: '#aaa' }}>Loading…</div></div>;
+    return <div className="admin-page"><div style={{ padding: '3rem', textAlign: 'center', color: '#a49a94' }}>Loading…</div></div>;
   }
 
   const visible = rows.filter(r => r.published).length;
@@ -166,7 +166,7 @@ export default function HomeCategoriesPage() {
           const n = countFor(r);
           return (
             <div key={i} style={{
-              background: '#fff', border: '1px solid #eee', borderRadius: 12, padding: '1rem',
+              background: '#fff', border: '1px solid #eae3e4', borderRadius: 13, padding: '1rem',
               display: 'grid', gridTemplateColumns: '132px minmax(0,1fr) auto', gap: '1rem', alignItems: 'start',
               opacity: r.published ? 1 : .55,
             }}>
@@ -182,7 +182,7 @@ export default function HomeCategoriesPage() {
                     // URL can be anything the owner pastes.
                     // eslint-disable-next-line @next/next/no-img-element
                     ? <img src={r.image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    : <span style={{ fontSize: '.72rem', color: '#aaa', textAlign: 'center', padding: '.5rem' }}>
+                    : <span style={{ fontSize: '.72rem', color: '#a49a94', textAlign: 'center', padding: '.5rem' }}>
                         No photo — the newest product’s photo will be used
                       </span>}
                 </div>
@@ -222,7 +222,7 @@ export default function HomeCategoriesPage() {
                     onChange={e => patch(i, { terms: e.target.value.split(',').map(s => s.trim()) })}
                     style={inp}
                   />
-                  <div style={{ fontSize: '.73rem', color: '#999', marginTop: '.25rem' }}>
+                  <div style={{ fontSize: '.73rem', color: '#9a908a', marginTop: '.25rem' }}>
                     Comma separated. Matched against each product’s category and subcategory. This only sets the
                     “12 pieces” line under the tile — the link above is what the tile actually opens.
                   </div>
@@ -257,8 +257,8 @@ export default function HomeCategoriesPage() {
       </button>
 
       {known.length > 0 && (
-        <div style={{ marginTop: '1.5rem', background: '#fff', border: '1px solid #eee', borderRadius: 12, padding: '1rem' }}>
-          <div style={{ fontSize: '.78rem', fontWeight: 800, color: '#999', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: '.6rem' }}>
+        <div style={{ marginTop: '1.5rem', background: '#fff', border: '1px solid #eae3e4', borderRadius: 13, padding: '1rem' }}>
+          <div style={{ fontSize: '.78rem', fontWeight: 800, color: '#9a908a', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: '.6rem' }}>
             Words already in your catalogue
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '.35rem' }}>
@@ -266,7 +266,7 @@ export default function HomeCategoriesPage() {
               <span key={k} style={{ background: '#f6f3f0', borderRadius: 6, padding: '.2rem .55rem', fontSize: '.76rem', color: '#555' }}>{k}</span>
             ))}
           </div>
-          <p style={{ fontSize: '.75rem', color: '#999', margin: '.7rem 0 0' }}>
+          <p style={{ fontSize: '.75rem', color: '#9a908a', margin: '.7rem 0 0' }}>
             A word here counts a product only if it appears in that product’s category or subcategory, so copy from this list rather than inventing one.
           </p>
         </div>
@@ -276,4 +276,4 @@ export default function HomeCategoriesPage() {
 }
 
 const lbl: React.CSSProperties = { fontSize: '.75rem', fontWeight: 700, color: '#555', marginBottom: '.25rem' };
-const inp: React.CSSProperties = { width: '100%', border: '1px solid #ddd', borderRadius: 8, padding: '.5rem .65rem', fontSize: '.86rem' };
+const inp: React.CSSProperties = { width: '100%', border: '1px solid #e5dcdd', borderRadius: 8, padding: '.5rem .65rem', fontSize: '.86rem' };

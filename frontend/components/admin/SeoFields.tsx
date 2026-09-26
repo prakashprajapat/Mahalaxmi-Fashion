@@ -63,12 +63,13 @@ export function Counter({ value, limit }: { value: string; limit: number }) {
 
 const labelStyle: React.CSSProperties = {
   display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
-  fontSize: '.78rem', fontWeight: 700, color: '#555', marginBottom: '.3rem',
+  fontSize: '.74rem', fontWeight: 800, color: '#7d736d', marginBottom: '.3rem',
 };
 
 const boxStyle: React.CSSProperties = {
-  width: '100%', border: '1px solid #ddd', borderRadius: 8,
-  padding: '.55rem .7rem', fontSize: '.88rem', fontFamily: 'inherit',
+  width: '100%', border: '1px solid #e5dcdd', borderRadius: 10,
+  padding: '.55rem .7rem', fontSize: '.85rem', fontFamily: 'inherit',
+  background: '#fff', color: '#2d2724',
 };
 
 export function Field({
@@ -144,7 +145,7 @@ export function Faqs({ value, onChange }: { value: Faq[]; onChange: (v: Faq[]) =
       </p>
 
       {value.map((f, i) => (
-        <div key={i} style={{ border: '1px solid #eee', borderRadius: 8, padding: '.6rem .7rem', marginBottom: '.5rem', background: '#fafafa' }}>
+        <div key={i} style={{ border: '1px solid #f0eae7', borderRadius: 10, padding: '.6rem .7rem', marginBottom: '.5rem', background: '#fbf9f8' }}>
           <input
             value={f.q}
             placeholder="Question"
@@ -168,22 +169,27 @@ export function Faqs({ value, onChange }: { value: Faq[]; onChange: (v: Faq[]) =
       ))}
 
       <button
+        className="adm-btn"
         onClick={() => onChange([...value, { q: '', a: '' }])}
-        style={{ background: '#fff', border: '1px dashed #ccc', borderRadius: 8, padding: '.45rem .9rem', fontSize: '.8rem', fontWeight: 700, color: '#666', cursor: 'pointer' }}
+        style={{ borderStyle: 'dashed' }}
       >
-        + Add a question
+        Add a question
       </button>
     </div>
   );
 }
 
+/** The six SEO screens all reach for this, so it is the one place their buttons
+ *  are decided. It matches .adm-btn from globals.css rather than inventing a
+ *  second maroon. */
 export const btn = (kind: 'primary' | 'ghost' | 'danger' = 'primary'): React.CSSProperties => ({
-  background: kind === 'primary' ? '#a7354d' : '#fff',
-  color: kind === 'primary' ? '#fff' : kind === 'danger' ? '#c0392b' : '#555',
-  border: kind === 'primary' ? 'none' : '1px solid #ddd',
-  borderRadius: 8,
-  padding: '.6rem 1.2rem',
-  fontSize: '.86rem',
+  background: kind === 'primary' ? '#722f37' : '#fff',
+  color: kind === 'primary' ? '#fff' : kind === 'danger' ? '#c0392b' : '#463d38',
+  border: kind === 'primary' ? '1px solid #722f37' : '1px solid #e5dcdd',
+  borderRadius: 10,
+  padding: '.5rem .95rem',
+  fontSize: '.8rem',
   fontWeight: 700,
   cursor: 'pointer',
+  whiteSpace: 'nowrap',
 });

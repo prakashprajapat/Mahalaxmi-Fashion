@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { getAdminToken } from '@/lib/auth';
+import { PageHeader, Stat } from '@/components/admin/Ui';
 
 // The SEO screen. One button, one honest report.
 //
@@ -53,12 +54,12 @@ function FindingCard({ f }: { f: Finding }) {
   const items = f.items ?? [];
 
   return (
-    <div style={{ background: '#fff', border: '1px solid #eee', borderLeft: `4px solid ${s.colour}`, borderRadius: 10, padding: '1rem 1.15rem', marginBottom: '.75rem' }}>
+    <div style={{ background: '#fff', border: '1px solid #eae3e4', borderLeft: `4px solid ${s.colour}`, borderRadius: 10, padding: '1rem 1.15rem', marginBottom: '.75rem' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '.6rem', flexWrap: 'wrap', marginBottom: '.4rem' }}>
         <span style={{ background: s.tint, color: s.colour, borderRadius: 20, padding: '2px 10px', fontSize: '.7rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.03em' }}>
           {s.label}
         </span>
-        <span style={{ fontSize: '.74rem', color: '#999', fontWeight: 600 }}>{f.area}</span>
+        <span style={{ fontSize: '.74rem', color: '#9a908a', fontWeight: 600 }}>{f.area}</span>
       </div>
 
       <h3 style={{ margin: '0 0 .35rem', fontSize: '1rem', fontWeight: 700, color: '#222' }}>{f.title}</h3>
@@ -71,7 +72,7 @@ function FindingCard({ f }: { f: Finding }) {
         <>
           <button
             onClick={() => setOpen(o => !o)}
-            style={{ marginTop: '.7rem', background: 'none', border: '1px solid #ddd', borderRadius: 6, padding: '.3rem .7rem', fontSize: '.78rem', fontWeight: 700, color: '#555', cursor: 'pointer' }}
+            style={{ marginTop: '.7rem', background: 'none', border: '1px solid #e5dcdd', borderRadius: 6, padding: '.3rem .7rem', fontSize: '.78rem', fontWeight: 700, color: '#555', cursor: 'pointer' }}
           >
             {open ? 'Hide' : `Show ${items.length}${(f.count ?? items.length) > items.length ? ` of ${f.count}` : ''}`}
           </button>
@@ -82,16 +83,16 @@ function FindingCard({ f }: { f: Finding }) {
                 <li key={`${it.label}-${i}`} style={{ padding: '.45rem 0', borderBottom: '1px solid #f7f7f7', fontSize: '.84rem', display: 'flex', justifyContent: 'space-between', gap: '1rem', alignItems: 'baseline' }}>
                   <span>
                     {it.href ? (
-                      <Link href={it.href} style={{ color: '#a7354d', fontWeight: 600, textDecoration: 'none' }}>{it.label}</Link>
+                      <Link href={it.href} style={{ color: '#722f37', fontWeight: 600, textDecoration: 'none' }}>{it.label}</Link>
                     ) : (
                       <span style={{ fontWeight: 600 }}>{it.label}</span>
                     )}
                   </span>
-                  {it.note && <span style={{ color: '#999', fontSize: '.78rem', whiteSpace: 'nowrap' }}>{it.note}</span>}
+                  {it.note && <span style={{ color: '#9a908a', fontSize: '.78rem', whiteSpace: 'nowrap' }}>{it.note}</span>}
                 </li>
               ))}
               {(f.count ?? 0) > items.length && (
-                <li style={{ padding: '.5rem 0', fontSize: '.78rem', color: '#999' }}>
+                <li style={{ padding: '.5rem 0', fontSize: '.78rem', color: '#9a908a' }}>
                   …and {(f.count ?? 0) - items.length} more.
                 </li>
               )}
@@ -130,48 +131,32 @@ export default function SeoPage() {
     }
   }
 
-  const stat = (label: string, value: string | number, colour: string) => (
-    <div key={label} style={{ background: '#fff', border: '1px solid #eee', borderRadius: 12, padding: '.9rem 1.1rem', textAlign: 'center', minWidth: 120 }}>
-      <div style={{ fontSize: '1.5rem', fontWeight: 800, color: colour }}>{value}</div>
-      <div style={{ fontSize: '.73rem', color: '#888', marginTop: '.2rem' }}>{label}</div>
-    </div>
-  );
-
   return (
     <div className="admin-page">
-      <div className="admin-page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', flexWrap: 'wrap' }}>
-        <div>
-          <h1>SEO Check</h1>
-          <p className="admin-page-sub">Scans the whole site and lists what is actually broken — nothing is changed.</p>
-        </div>
-        <button
-          onClick={run}
-          disabled={running}
-          style={{
-            background: running ? '#ccc' : '#a7354d',
-            color: '#fff', border: 'none', borderRadius: 8,
-            padding: '.7rem 1.5rem', fontSize: '.92rem', fontWeight: 700,
-            cursor: running ? 'wait' : 'pointer', whiteSpace: 'nowrap',
-          }}
-        >
-          {running ? 'Checking…' : report ? 'Run again' : 'Run Full SEO Check'}
-        </button>
-      </div>
+      <PageHeader
+        title="SEO check"
+        sub="Scans the whole site and lists what is actually broken. Running it changes nothing."
+        right={
+          <button className="adm-btn adm-btn-primary" onClick={run} disabled={running}>
+            {running ? 'Checking…' : report ? 'Run again' : 'Run the full check'}
+          </button>
+        }
+      />
 
       {error && (
-        <div style={{ background: '#fdecea', border: '1px solid #f5c6c2', color: '#c0392b', borderRadius: 10, padding: '.9rem 1.1rem', marginBottom: '1rem', fontSize: '.88rem' }}>
+        <div className="adm-card" style={{ background: '#fdf3f2', borderColor: '#f0cdc9', color: '#c0392b', marginBottom: '.85rem', fontSize: '.86rem', fontWeight: 600 }}>
           {error}
         </div>
       )}
 
       {!report && !running && !error && (
-        <div style={{ background: '#fff', border: '1px solid #eee', borderRadius: 12, padding: '2rem', fontSize: '.9rem', color: '#555', lineHeight: 1.65 }}>
+        <div style={{ background: '#fff', border: '1px solid #eae3e4', borderRadius: 13, padding: '2rem', fontSize: '.9rem', color: '#555', lineHeight: 1.65 }}>
           <p style={{ marginTop: 0 }}>
             Press the button and this will check your homepage title and description, every collection and category
             page, your sitemap and robots.txt, and all your products — then list what is wrong, worst first, with a
             link to the screen where each one is fixed.
           </p>
-          <p style={{ marginBottom: 0, color: '#888' }}>
+          <p style={{ marginBottom: 0, color: '#8a7f76' }}>
             One thing it cannot do, and no tool honestly can: make you rank. Rankings come from backlinks, your
             Google Business Profile and content people want. This finds the mechanical faults that quietly hold the
             shop back — empty pages, missing descriptions, two pages fighting over one keyword — so the rest of your
@@ -181,20 +166,22 @@ export default function SeoPage() {
       )}
 
       {running && (
-        <div style={{ background: '#fff', border: '1px solid #eee', borderRadius: 12, padding: '3rem', textAlign: 'center', color: '#999' }}>
+        <div style={{ background: '#fff', border: '1px solid #eae3e4', borderRadius: 13, padding: '3rem', textAlign: 'center', color: '#9a908a' }}>
           Reading the sitemap, settings, collections and every product…
         </div>
       )}
 
       {report && !running && (
         <>
-          <div style={{ display: 'flex', gap: '.75rem', flexWrap: 'wrap', marginBottom: '1.25rem' }}>
-            {stat('Fix first', report.counts.critical, report.counts.critical ? '#c0392b' : '#2e7d32')}
-            {stat('Worth fixing', report.counts.warning, report.counts.warning ? '#c26a12' : '#2e7d32')}
-            {stat('Nice to have', report.counts.info, '#2b6cb0')}
-            {stat('Checks passed', `${report.checksPassed}/${report.checksRun}`, '#a7354d')}
-            {stat('Products scanned', report.productCount, '#666')}
-            {stat('Pages in sitemap', report.sitemapUrls, '#666')}
+          <div className="adm-grid-3" style={{ marginBottom: '.85rem' }}>
+            <Stat label="Fix first" value={report.counts.critical}
+                  tone={report.counts.critical ? 'red' : 'green'} />
+            <Stat label="Worth fixing" value={report.counts.warning}
+                  tone={report.counts.warning ? 'red' : 'green'} />
+            <Stat label="Nice to have" value={report.counts.info} />
+            <Stat label="Checks passed" value={`${report.checksPassed}/${report.checksRun}`} />
+            <Stat label="Products scanned" value={report.productCount} />
+            <Stat label="Pages in sitemap" value={report.sitemapUrls} />
           </div>
 
           {report.productsError && (
@@ -205,10 +192,10 @@ export default function SeoPage() {
           )}
 
           {report.findings.length === 0 ? (
-            <div style={{ background: '#fff', border: '1px solid #eee', borderRadius: 12, padding: '3rem', textAlign: 'center', color: '#2e7d32' }}>
+            <div style={{ background: '#fff', border: '1px solid #eae3e4', borderRadius: 13, padding: '3rem', textAlign: 'center', color: '#2e7d32' }}>
               <div style={{ fontSize: '2.5rem', marginBottom: '.5rem' }}>✅</div>
               <p style={{ margin: 0, fontWeight: 600 }}>All {report.checksRun} checks passed.</p>
-              <p style={{ margin: '.4rem 0 0', color: '#888', fontSize: '.85rem' }}>
+              <p style={{ margin: '.4rem 0 0', color: '#8a7f76', fontSize: '.85rem' }}>
                 Nothing mechanical is holding the site back. What is left is backlinks, your Google Business
                 Profile, and writing.
               </p>
@@ -217,7 +204,7 @@ export default function SeoPage() {
             report.findings.map(f => <FindingCard key={f.id} f={f} />)
           )}
 
-          <p style={{ fontSize: '.78rem', color: '#aaa', marginTop: '1rem' }}>
+          <p style={{ fontSize: '.78rem', color: '#a49a94', marginTop: '1rem' }}>
             Checked {new Date(report.ranAt).toLocaleString('en-IN')}. Nothing on the site was changed.
           </p>
         </>

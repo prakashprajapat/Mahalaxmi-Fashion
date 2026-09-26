@@ -64,7 +64,7 @@ export default function CategoryCopyPage() {
   }
 
   if (loading) {
-    return <div className="admin-page"><div style={{ padding: '3rem', textAlign: 'center', color: '#aaa' }}>Loading category pages…</div></div>;
+    return <div className="admin-page"><div style={{ padding: '3rem', textAlign: 'center', color: '#a49a94' }}>Loading category pages…</div></div>;
   }
 
   const c = cats[active];
@@ -114,7 +114,7 @@ export default function CategoryCopyPage() {
 
       {c && (
         <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,340px)', gap: '1.25rem', alignItems: 'start' }}>
-          <div style={{ background: '#fff', border: '1px solid #eee', borderRadius: 12, padding: '1.25rem' }}>
+          <div style={{ background: '#fff', border: '1px solid #eae3e4', borderRadius: 13, padding: '1.25rem' }}>
             {n === 0 && (
               <div style={{ background: '#fff5e6', border: '1px solid #f0d8b0', color: '#c26a12', borderRadius: 8, padding: '.7rem .9rem', fontSize: '.84rem', marginBottom: '1rem' }}>
                 This page has no products in it right now. However good the writing is, a shopper who arrives
