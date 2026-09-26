@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { settingsApi } from '@/lib/api';
 import { getAdminToken } from '@/lib/auth';
+import { PageHeader, Empty } from '@/components/admin/Ui';
 
 const SECTIONS = [
   {
@@ -213,6 +214,7 @@ export default function AdminSettingsPage() {
 
   // ── Image upload (hero photos etc.) ──
   const [uploadingKey, setUploadingKey] = useState<string | null>(null);
+  const [query, setQuery] = useState('');
   const handleImageUpload = async (key: string, file: File | undefined) => {
     if (!file) return;
     setUploadingKey(key);
@@ -261,67 +263,90 @@ export default function AdminSettingsPage() {
     e.target.value = '';
   };
 
+  // Fifteen sections is a long scroll when you know the name of the one thing
+  // you came to change. Typing narrows it to the sections that mention it.
+  const q = query.trim().toLowerCase();
+  const shownSections = !q ? SECTIONS : SECTIONS.filter(sec =>
+    sec.title.toLowerCase().includes(q)
+    || (sec.desc ?? '').toLowerCase().includes(q)
+    || sec.fields.some(f => f.label.toLowerCase().includes(q) || f.key.toLowerCase().includes(q)));
+
   return (
-    <div>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
-        <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#1a1a1a' }}>Store Settings</h1>
-        <button onClick={handleSave} disabled={saving || loading}
-          style={{ background: '#a7354d', color: '#fff', border: 'none', borderRadius: '8px', padding: '.65rem 2rem', fontSize: '.95rem', fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? .7 : 1 }}>
-          {saving ? 'Saving…' : 'Save All Settings'}
-        </button>
-      </div>
+    <div className="admin-page">
+      <PageHeader
+        title="Store settings"
+        sub="Everything the website reads at startup. Nothing here takes effect until you press Save."
+        right={
+          <button className="adm-btn adm-btn-primary" onClick={handleSave} disabled={saving || loading}>
+            {saving ? 'Saving…' : 'Save all settings'}
+          </button>
+        }
+      />
 
       {msg && (
-        <div style={{ padding: '.75rem 1rem', borderRadius: '8px', marginBottom: '1.5rem', fontSize: '.9rem', fontWeight: 600,
-          background: msg.startsWith('✅') ? '#e8f5e9' : '#fdecea',
-          color: msg.startsWith('✅') ? '#2e7d32' : '#c62828', border: `1px solid ${msg.startsWith('✅') ? '#c8e6c9' : '#f5c6cb'}` }}>
-          {msg}
+        <div className="adm-card" style={{ marginBottom: '.85rem', fontSize: '.86rem', fontWeight: 600,
+          background: msg.startsWith('✅') ? '#f2faf3' : '#fdf3f2',
+          borderColor: msg.startsWith('✅') ? '#cbe6cf' : '#f0cdc9',
+          color: msg.startsWith('✅') ? '#2e7d32' : '#c0392b' }}>
+          {msg.replace(/^[✅❌]\s*/, '')}
+        </div>
+      )}
+
+      {!loading && (
+        <div className="adm-card" style={{ marginBottom: '.85rem' }}>
+          <input className="adm-input" style={{ width: '100%', maxWidth: 360 }}
+                 placeholder="Find a setting — try “whatsapp”, “pixel”, “COD”"
+                 value={query} onChange={e => setQuery(e.target.value)} />
+          {q && (
+            <p style={{ margin: '.5rem 0 0', fontSize: '.79rem', color: '#7d736d' }}>
+              {shownSections.length} of {SECTIONS.length} sections mention “{query.trim()}”.
+              Saving still saves everything, not only what is shown.
+            </p>
+          )}
         </div>
       )}
 
       {loading ? (
-        <p style={{ color: '#aaa' }}>Loading settings…</p>
+        <Empty>Loading settings…</Empty>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
           {/* Backup Tools */}
-          <div style={{ background: '#fff', borderRadius: '12px', padding: '1.5rem', boxShadow: '0 1px 4px rgba(0,0,0,.07)' }}>
-            <h2 style={{ fontSize: '1.05rem', fontWeight: 700, marginBottom: '.35rem', color: '#333' }}>🗃️ Backup Tools</h2>
-            <p style={{ fontSize: '.85rem', color: '#888', marginBottom: '1rem' }}>Export your settings as JSON, or import a previous backup to restore them.</p>
+          <div className="adm-card" style={{ padding: '1.1rem 1.15rem' }}>
+            <h2 className="adm-card-h">Backup</h2>
+            <p style={{ fontSize: '.82rem', color: '#7d736d', margin: '0 0 .9rem', lineHeight: 1.6 }}>Save every setting to a file, or put a saved file back. Worth doing before you change a key you cannot easily get again.</p>
             {backupMsg && (
-              <div style={{ padding: '.6rem .9rem', borderRadius: '8px', marginBottom: '1rem', fontSize: '.85rem', fontWeight: 600,
-                background: backupMsg.startsWith('✅') ? '#e8f5e9' : '#fdecea',
-                color: backupMsg.startsWith('✅') ? '#2e7d32' : '#c62828' }}>
+              <div style={{ padding: '.55rem .8rem', borderRadius: 10, marginBottom: '.85rem', fontSize: '.83rem', fontWeight: 600,
+                background: backupMsg.startsWith('✅') ? '#f2faf3' : '#fdf3f2',
+                color: backupMsg.startsWith('✅') ? '#2e7d32' : '#c0392b' }}>
                 {backupMsg}
               </div>
             )}
             <div style={{ display: 'flex', gap: '.75rem', flexWrap: 'wrap' }}>
-              <button onClick={handleExport}
-                style={{ background: '#1a1a2e', color: '#fff', border: 'none', borderRadius: '8px', padding: '.6rem 1.25rem', fontSize: '.88rem', fontWeight: 600, cursor: 'pointer' }}>
-                ⬇️ Export Settings JSON
-              </button>
-              <button onClick={() => importRef.current?.click()}
-                style={{ background: '#fff', color: '#333', border: '1.5px solid #ddd', borderRadius: '8px', padding: '.6rem 1.25rem', fontSize: '.88rem', fontWeight: 600, cursor: 'pointer' }}>
-                ⬆️ Import Settings JSON
-              </button>
+              <button className="adm-btn" onClick={handleExport}>Download a backup</button>
+              <button className="adm-btn" onClick={() => importRef.current?.click()}>Restore from a backup</button>
               <input ref={importRef} type="file" accept=".json" style={{ display: 'none' }} onChange={handleImport} />
             </div>
           </div>
 
-          {SECTIONS.map(section => (
-            <div key={section.title} style={{ background: '#fff', borderRadius: '12px', padding: '1.5rem', boxShadow: '0 1px 4px rgba(0,0,0,.07)' }}>
-              <h2 style={{ fontSize: '1.05rem', fontWeight: 700, marginBottom: section.desc ? '.35rem' : '1rem', color: '#333' }}>{section.title}</h2>
-              {section.desc && <p style={{ fontSize: '.85rem', color: '#888', marginBottom: '1rem' }}>{section.desc}</p>}
+          {shownSections.length === 0 && (
+            <div className="adm-card"><Empty>No setting matches that. Clear the search to see them all.</Empty></div>
+          )}
+
+          {shownSections.map(section => (
+            <div key={section.title} className="adm-card" style={{ padding: '1.1rem 1.15rem' }}>
+              <h2 className="adm-card-h" style={{ marginBottom: section.desc ? '.35rem' : '.75rem' }}>{section.title}</h2>
+              {section.desc && <p style={{ fontSize: '.82rem', color: '#7d736d', margin: '0 0 .9rem', lineHeight: 1.6 }}>{section.desc}</p>}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem', alignItems: 'start' }}>
                 {section.fields.map(f => (
                   <div key={f.key} style={{ gridColumn: ['address', 'offerText', 'heroText', 'statHeading', 'statEyebrow'].includes(f.key) ? '1 / -1' : undefined }}>
-                    <label style={{ fontSize: '.82rem', fontWeight: 600, display: 'block', marginBottom: '.3rem', color: '#444' }}>{f.label}</label>
+                    <label className="adm-stat-l" style={{ display: 'block', marginBottom: '.3rem' }}>{f.label}</label>
                     {f.type === 'toggle' ? (
                       <div style={{ display: 'flex', alignItems: 'center', gap: '.75rem' }}>
                         <button
                           onClick={() => set(f.key, form[f.key] === 'true' ? 'false' : 'true')}
                           style={{
                             width: '48px', height: '26px', borderRadius: '13px', border: 'none', cursor: 'pointer',
-                            background: form[f.key] === 'true' ? '#a7354d' : '#ddd',
+                            background: form[f.key] === 'true' ? '#722f37' : '#ddd',
                             position: 'relative', transition: 'background .2s',
                           }}>
                           <span style={{
@@ -331,22 +356,22 @@ export default function AdminSettingsPage() {
                             transition: 'left .2s', boxShadow: '0 1px 3px rgba(0,0,0,.2)',
                           }} />
                         </button>
-                        <span style={{ fontSize: '.88rem', color: form[f.key] === 'true' ? '#a7354d' : '#888', fontWeight: 600 }}>
+                        <span style={{ fontSize: '.85rem', color: form[f.key] === 'true' ? '#722f37' : '#8a7f76', fontWeight: 700 }}>
                           {form[f.key] === 'true' ? 'Enabled' : 'Disabled'}
                         </span>
                       </div>
                     ) : f.type === 'textarea' ? (
-                      <textarea value={form[f.key] ?? ''} onChange={e => set(f.key, e.target.value)}
+                      <textarea className="adm-input" value={form[f.key] ?? ''} onChange={e => set(f.key, e.target.value)}
                         rows={3}
-                        style={{ width: '100%', border: '1.5px solid #ddd', borderRadius: '8px', padding: '.6rem .75rem', fontSize: '.88rem', resize: 'vertical', boxSizing: 'border-box', fontFamily: 'inherit' }} />
+                        style={{ width: '100%', resize: 'vertical', boxSizing: 'border-box' }} />
                     ) : f.type === 'image' ? (
                       <div>
                         <div style={{ display: 'flex', gap: '.5rem', alignItems: 'center' }}>
-                          <input type="text" value={form[f.key] ?? ''} onChange={e => set(f.key, e.target.value)}
-                            placeholder="Paste URL or click Upload"
-                            style={{ flex: 1, border: '1.5px solid #ddd', borderRadius: '8px', padding: '.6rem .75rem', fontSize: '.82rem', boxSizing: 'border-box' }} />
-                          <label style={{ background: '#a7354d', color: '#fff', borderRadius: '8px', padding: '.55rem .9rem', fontSize: '.82rem', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', opacity: uploadingKey === f.key ? .6 : 1 }}>
-                            {uploadingKey === f.key ? 'Uploading…' : '📤 Upload'}
+                          <input className="adm-input" type="text" value={form[f.key] ?? ''} onChange={e => set(f.key, e.target.value)}
+                            placeholder="Paste a URL, or upload a photo"
+                            style={{ flex: 1, boxSizing: 'border-box' }} />
+                          <label className="adm-btn adm-btn-primary" style={{ opacity: uploadingKey === f.key ? .6 : 1 }}>
+                            {uploadingKey === f.key ? 'Uploading…' : 'Upload'}
                             <input type="file" accept="image/*" style={{ display: 'none' }}
                               disabled={uploadingKey === f.key}
                               onChange={e => { handleImageUpload(f.key, e.target.files?.[0]); e.target.value = ''; }} />
@@ -355,16 +380,16 @@ export default function AdminSettingsPage() {
                         {(form[f.key] ?? '').trim() && (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img src={form[f.key]} alt="preview"
-                            style={{ marginTop: '.5rem', width: 90, height: 120, objectFit: 'cover', borderRadius: 8, border: '1px solid #eee', display: 'block' }} />
+                            style={{ marginTop: '.5rem', width: 90, height: 120, objectFit: 'cover', borderRadius: 9, border: '1px solid #f0eae7', display: 'block' }} />
                         )}
                       </div>
                     ) : f.type === 'password' ? (
-                      <input type="text" value={form[f.key] ?? ''} onChange={e => set(f.key, e.target.value)}
-                        placeholder="Paste key here"
-                        style={{ width: '100%', border: '1.5px solid #ddd', borderRadius: '8px', padding: '.6rem .75rem', fontSize: '.88rem', boxSizing: 'border-box', fontFamily: 'monospace' }} />
+                      <input className="adm-input" type="text" value={form[f.key] ?? ''} onChange={e => set(f.key, e.target.value)}
+                        placeholder="Paste the key here"
+                        style={{ width: '100%', boxSizing: 'border-box', fontFamily: 'ui-monospace, monospace' }} />
                     ) : (
-                      <input type={f.type} value={form[f.key] ?? ''} onChange={e => set(f.key, e.target.value)}
-                        style={{ width: '100%', border: '1.5px solid #ddd', borderRadius: '8px', padding: '.6rem .75rem', fontSize: '.88rem', boxSizing: 'border-box' }} />
+                      <input className="adm-input" type={f.type} value={form[f.key] ?? ''} onChange={e => set(f.key, e.target.value)}
+                        style={{ width: '100%', boxSizing: 'border-box' }} />
                     )}
                   </div>
                 ))}
@@ -373,33 +398,32 @@ export default function AdminSettingsPage() {
           ))}
 
           {/* Social Media — dynamic list (add any platform + URL) */}
-          <div style={{ background: '#fff', borderRadius: 12, padding: '1.5rem', boxShadow: '0 1px 4px rgba(0,0,0,.07)' }}>
-            <h2 style={{ fontSize: '1.05rem', fontWeight: 700, marginBottom: '.35rem', color: '#333' }}>Social Media</h2>
-            <p style={{ fontSize: '.85rem', color: '#888', marginBottom: '1rem' }}>Add any social links (Facebook, Instagram, YouTube, X, Pinterest, Telegram…). These appear in the website footer.</p>
+          <div className="adm-card" style={{ padding: '1.1rem 1.15rem' }}>
+            <h2 className="adm-card-h">Social media</h2>
+            <p style={{ fontSize: '.82rem', color: '#7d736d', margin: '0 0 .9rem', lineHeight: 1.6 }}>These appear in the website footer. Any platform works — the name is the label a visitor sees.</p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '.6rem' }}>
               {socialLinks.map((s, i) => (
                 <div key={i} style={{ display: 'flex', gap: '.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
                   <input value={s.name} onChange={e => saveSocial(socialLinks.map((x, idx) => idx === i ? { ...x, name: e.target.value } : x))}
-                    placeholder="Platform (e.g. YouTube)"
-                    style={{ flex: '0 0 170px', border: '1.5px solid #ddd', borderRadius: 8, padding: '.55rem .7rem', fontSize: '.88rem', boxSizing: 'border-box' }} />
+                    placeholder="Platform (e.g. YouTube)" className="adm-input"
+                    style={{ flex: '0 0 170px', boxSizing: 'border-box' }} />
                   <input value={s.url} onChange={e => saveSocial(socialLinks.map((x, idx) => idx === i ? { ...x, url: e.target.value } : x))}
-                    placeholder="https://…"
-                    style={{ flex: '1 1 240px', border: '1.5px solid #ddd', borderRadius: 8, padding: '.55rem .7rem', fontSize: '.88rem', boxSizing: 'border-box' }} />
-                  <button onClick={() => saveSocial(socialLinks.filter((_, idx) => idx !== i))}
-                    style={{ background: '#fce4e4', color: '#b71c1c', border: 'none', borderRadius: 8, padding: '.5rem .8rem', cursor: 'pointer', fontWeight: 700, fontSize: '.82rem' }}>Remove</button>
+                    placeholder="https://…" className="adm-input"
+                    style={{ flex: '1 1 240px', boxSizing: 'border-box' }} />
+                  <button className="adm-btn" style={{ color: '#c0392b' }}
+                    onClick={() => saveSocial(socialLinks.filter((_, idx) => idx !== i))}>Remove</button>
                 </div>
               ))}
-              {socialLinks.length === 0 && <p style={{ fontSize: '.82rem', color: '#aaa' }}>No social links yet — add one below.</p>}
+              {socialLinks.length === 0 && <Empty>No social links yet — add one below and it appears in the footer.</Empty>}
             </div>
-            <button onClick={() => saveSocial([...socialLinks, { name: '', url: '' }])}
-              style={{ marginTop: '.8rem', background: '#a7354d', color: '#fff', border: 'none', borderRadius: 8, padding: '.5rem 1rem', cursor: 'pointer', fontWeight: 700, fontSize: '.85rem' }}>+ Add Social Link</button>
+            <button className="adm-btn adm-btn-primary" style={{ marginTop: '.8rem' }}
+              onClick={() => saveSocial([...socialLinks, { name: '', url: '' }])}>Add a social link</button>
           </div>
 
           {/* Bottom save bar */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '.25rem', flexWrap: 'wrap' }}>
-            <button onClick={handleSave} disabled={saving || loading}
-              style={{ background: '#a7354d', color: '#fff', border: 'none', borderRadius: 8, padding: '.7rem 1.6rem', fontSize: '.95rem', fontWeight: 700, cursor: saving || loading ? 'not-allowed' : 'pointer' }}>
-              {saving ? 'Saving…' : '💾 Save All Settings'}
+            <button className="adm-btn adm-btn-primary" onClick={handleSave} disabled={saving || loading}>
+              {saving ? 'Saving…' : 'Save all settings'}
             </button>
             {msg && <span style={{ fontSize: '.9rem', fontWeight: 600 }}>{msg}</span>}
           </div>
