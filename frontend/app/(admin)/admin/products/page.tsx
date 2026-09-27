@@ -183,6 +183,7 @@ export default function AdminProductsPage() {
             <button className="adm-btn" onClick={() => setShowBulk(v => !v)}>Bulk Import</button>
             <button className="adm-btn" onClick={() => exportProductsCSV(filtered)}>CSV</button>
             <button className="adm-btn" onClick={() => exportProducts(filtered)}>Excel</button>
+            <Link className="adm-btn" href="/admin/products/colour-fix">🎨 Colour Fix</Link>
             <Link className="adm-btn adm-btn-primary" href="/admin/products/add">Add Product</Link>
           </>
         }

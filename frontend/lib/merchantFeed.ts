@@ -1,3 +1,4 @@
+import { isColourValid } from './googleColours';
 // Deliberately a narrow structural type rather than the full Product: the two
 // feed routes fetch their products differently and one of them has its own
 // leaner shape, so asking for only the fields these functions actually read
@@ -55,7 +56,12 @@ export function coloursOf(p: FeedInput): string[] {
   try {
     const e = (p.extraJson ? JSON.parse(p.extraJson) : {}) as Extra;
     const c = names(e.colors);
-    return c.length > 0 ? c : names(e.colours);
+    const list = c.length > 0 ? c : names(e.colours);
+    // Google jis value ko colour maanta hi nahi ("MultiColour", "Design C",
+    // hex code, akela letter) wo bhejne se item disapprove ho jata hai. Aisi
+    // value chhod dete hain — product row phir bhi jati hai, bas colour ke
+    // bina. Asli ilaaj admin me colour theek karna hai (Colour Fix screen).
+    return list.filter(isColourValid);
   } catch { return []; }
 }
 

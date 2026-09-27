@@ -9,6 +9,8 @@ import { getAdminToken } from '@/lib/auth';
 import { checkProduct } from '@/lib/productGate';
 import PublishPanel from '@/components/admin/PublishPanel';
 import { PageHeader } from '@/components/admin/Ui';
+import GoogleColourPicker from '@/components/admin/GoogleColourPicker';
+import { colourProblem, colourNameToHex } from '@/lib/googleColours';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const CATEGORIES = ['Women','Men','Kids','Beauty','Fabrics','More'];
@@ -557,6 +559,10 @@ export default function EditProductPage() {
   const [customSizes, setCustomSizes]   = useState<string[]>([]);
   const [selColors, setSelColors]       = useState<string[]>([]);
   const [customColours, setCustomColours] = useState<CustomColour[]>([]);
+  // Print / multi-colour: jis product ka koi ek fix colour nahi hota (print,
+  // pattern, stripe). Google ko "Navy/White/Red" bhejte hain — primary pehle.
+  const [printColour, setPrintColour] = useState('');
+  const [printShades, setPrintShades] = useState<string[]>([]);
   // Reusable catalog saved in the DB (so custom colours/sizes appear on every product).
   const [savedSizes, setSavedSizes]     = useState<string[]>([]);
   const [savedColours, setSavedColours] = useState<{ name: string; code: string }[]>([]);
@@ -643,6 +649,10 @@ export default function EditProductPage() {
           setSelColors(exColors.filter((c: string) => presetColSet.has(c)));
           setCustomColours(ex.customColors ?? []);
           setAvailColours(ex.availColours ?? '');
+          // Print wala colour wahi hai jisme "/" ho — Navy/White/Red.
+          const printed = (exColors as string[]).find((c: string) => c.includes('/')) ?? '';
+          setPrintColour(printed);
+          setPrintShades(printed ? ((ex.colorShades ?? {})[printed] ?? []) : []);
 
           // Variant stock
           const matrix = ex.variantMatrix ?? {};
@@ -800,6 +810,17 @@ export default function EditProductPage() {
         level: 'warn',
         message: 'Size/colour stock table khaali hai — is product ka size-wise stock track NAHI hoga, sirf upar ka Total Qty chalega. Size-wise stock chahiye to table bhar dein.',
       });
+
+      // ── Google ke colour rules ──
+      // Apparel ke liye colour free listings me zaruri hai, aur Google generic
+      // values ("MultiColour", "Design C", hex code, akela letter) reject kar
+      // deta hai. Aise product ka Shopping listing disapprove ho jata hai,
+      // isliye save yahin rok dete hain.
+      // Spec: https://support.google.com/merchants/answer/6324487
+      for (const c of selectedColours) {
+        const colourIssue = colourProblem(c);
+        if (colourIssue) qc.push({ level: 'fail', message: `Colour "${c}" — ${colourIssue}` });
+      }
       const fails = qc.filter(i => i.level === 'fail');
       const warns = qc.filter(i => i.level === 'warn');
       if (fails.length > 0 || (warns.length > 0 && !force)) {
@@ -828,6 +849,8 @@ export default function EditProductPage() {
         // the admin had de-selected, advertising a size with no matching stock entry.
         sizes:            [...new Set(selSizes)],
         colors:           selectedColours,
+        colorCodes:       Object.keys(colourCodeMap).length ? colourCodeMap : undefined,
+        colorShades:      printColour && printShades.length > 1 ? { [printColour]: printShades } : undefined,
         customColors:     customColours,
         images:           galleryImages,
         productPhotos:    mainPhotos,
@@ -884,7 +907,14 @@ export default function EditProductPage() {
   const packValue = getPackOfNumber(packOf);
   const selectedColours = packValue >= 2
     ? []
-    : [...new Set([...selColors, ...customColours.map(c => c.name), ...splitList(availColours)])];
+    : [...new Set([...selColors, ...customColours.map(c => c.name),
+                   ...(printColour ? [printColour] : []), ...splitList(availColours)])];
+  // Colour ka naam → hex, taaki storefront ka swatch circle sahi rang se bhare.
+  // Print wale colour ke liye saare shades bhi jaate hain (multi-colour circle).
+  const colourCodeMap: Record<string, string> = {};
+  for (const c of customColours) if (c.name && c.code) colourCodeMap[c.name] = c.code;
+  for (const n of selColors) { const h = colourNameToHex(n); if (h) colourCodeMap[n] = h; }
+  if (printColour && printShades[0]) colourCodeMap[printColour] = printShades[0];
   // Options + toggle for the colour multi-select filter (presets + saved custom colours).
   const colourFilterOptions = [
     ...COLORS_PRESET.map(c => ({ value: c, label: c, code: c.toLowerCase() })),
@@ -1287,6 +1317,16 @@ export default function EditProductPage() {
             </button>
             <PickFilter label="Select colours" options={colourFilterOptions}
               selectedValues={colourSelectedValues} onToggle={toggleColourValue} />
+          </div>
+
+          {/* Print / multi-colour — jis chiz ka ek fix colour nahi hota */}
+          <div style={{ paddingLeft:'100px', marginBottom:'.6rem', maxWidth:'540px' }}>
+            <GoogleColourPicker
+              value={printColour}
+              shades={printShades}
+              photo={mainPhotos.front || undefined}
+              onChange={(v, s) => { setPrintColour(v); setPrintShades(s); }}
+            />
           </div>
 
           {/* Custom colour chips */}

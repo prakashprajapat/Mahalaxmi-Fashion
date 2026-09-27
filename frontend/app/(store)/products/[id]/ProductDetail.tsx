@@ -10,7 +10,7 @@ import { addToWishlist, isInWishlist, removeFromWishlist } from '@/lib/wishlist'
 import { getCustomer, getToken } from '@/lib/auth';
 import { productImageSrc, productImageThumb } from '@/lib/productImages';
 import { parseProductId } from '@/lib/productSlug';
-import { presetColourCode } from '@/lib/presetColours';
+import { presetColourCode, swatchBackground } from '@/lib/presetColours';
 import RelatedProducts from '@/components/product/RelatedProducts';
 import RecentlyViewed from '@/components/product/RecentlyViewed';
 import DeliveryEstimate from '@/components/product/DeliveryEstimate';
@@ -24,6 +24,8 @@ interface ExtraJson {
   sizes?: string[];
   colors?: string[];
   colorCodes?: Record<string, string>;
+  /** Print colour ke saare shades — "Navy/White/Red" → 3 hex. */
+  colorShades?: Record<string, string[]>;
   variantMatrix?: Record<string, number>;
   images?: string[];
   productPhotos?: Record<string, string>;
@@ -303,8 +305,16 @@ export default function ProductDetail({ params, initialProduct = null }: { param
   // colours show, even if they share a name, and without a text label.
   const customNames = new Set((extra.customColors ?? []).map(c => c.name));
   const swatchList: { key: string; name: string; photo?: string; code: string }[] = isPackProduct ? [] : [
-    ...normalColors.filter((n: string) => !customNames.has(n)).map((name: string, i: number) => ({ key: 'p' + i, name, code: colorCodes[name] || presetColourCode(name) || '#ddd' })),
-    ...((extra.customColors ?? []).map((cc, i) => ({ key: 'c' + i, name: cc.name ?? '', photo: cc.photo, code: cc.code || '#ddd' }))),
+    // Print colour ("Navy/White/Red") ka circle hisson me banta hai, ek flat
+    // rang me nahi — customer ko dikhna chahiye ki kapda multi-colour hai.
+    ...normalColors.filter((n: string) => !customNames.has(n)).map((name: string, i: number) => ({
+      key: 'p' + i, name,
+      code: swatchBackground(name, extra.colorShades?.[name]) || colorCodes[name] || '#ddd',
+    })),
+    ...((extra.customColors ?? []).map((cc, i) => ({
+      key: 'c' + i, name: cc.name ?? '', photo: cc.photo,
+      code: swatchBackground(cc.name, extra.colorShades?.[cc.name ?? '']) || cc.code || '#ddd',
+    }))),
   ];
 
   const variantKey = colors.length > 0 ? `${size}|${color}` : size;

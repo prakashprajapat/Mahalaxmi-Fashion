@@ -6,13 +6,14 @@ import { addToCart, finalUnitPrice } from '@/lib/cart';
 import { addToWishlist, removeFromWishlist, isInWishlist } from '@/lib/wishlist';
 import { productImageSrc } from '@/lib/productImages';
 import { productSlug } from '@/lib/productSlug';
-import { presetColourCode } from '@/lib/presetColours';
+import { presetColourCode, swatchBackground } from '@/lib/presetColours';
 import { variantStockFor } from '@/lib/variantStock';
 
 interface ExtraJson {
   sizes?: string[];
   colors?: string[];
   colorCodes?: Record<string, string>;
+  colorShades?: Record<string, string[]>;
   variantMatrix?: Record<string, number>;
   images?: string[];
   productPhotos?: Record<string, string>;
@@ -67,7 +68,10 @@ export default function QuickViewModal({ product, onClose }: Props) {
     // the — isliye customer ko sirf custom colours dikhte the.
     ...((extra.colors ?? [])
         .filter(name => name && name.trim() && !customColourNames.has(name) && (extra.colorCodes?.[name] || presetColourCode(name)))
-        .map((name, i) => ({ key: 'p' + i, name, code: extra.colorCodes?.[name] || presetColourCode(name)! }))),
+        .map((name, i) => ({
+          key: 'p' + i, name,
+          code: swatchBackground(name, extra.colorShades?.[name]) || extra.colorCodes?.[name] || presetColourCode(name)!,
+        }))),
     // Custom colours: show if they have a photo OR a real colour code.
     ...((extra.customColors ?? [])
         .filter(cc => cc.photo || cc.code)
