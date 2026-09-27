@@ -7,6 +7,7 @@ import { addToWishlist, removeFromWishlist, isInWishlist } from '@/lib/wishlist'
 import { productImageSrc } from '@/lib/productImages';
 import { productSlug } from '@/lib/productSlug';
 import { presetColourCode } from '@/lib/presetColours';
+import { variantStockFor } from '@/lib/variantStock';
 
 interface ExtraJson {
   sizes?: string[];
@@ -134,7 +135,9 @@ export default function QuickViewModal({ product, onClose }: Props) {
   const price = finalUnitPrice(product);
   const saving = product.price > price ? Math.round(((product.price - price) / product.price) * 100) : 0;
   const selectedVariantKey = colours.length > 0 ? `${size}|${colour}` : size;
-  const selectedVariantStock = extra.variantMatrix ? (extra.variantMatrix[selectedVariantKey] ?? null) : null;
+  // A stock table of all zeros on a product that is not marked sold out is an
+  // empty table, not "nothing left" — see lib/variantStock.
+  const selectedVariantStock = variantStockFor(extra.variantMatrix, selectedVariantKey, product.stock);
   const inStock = (product as any).stockQty !== 0
     && product.stock !== 'Out of Stock'
     && product.stock !== 'out_of_stock'
@@ -358,7 +361,7 @@ export default function QuickViewModal({ product, onClose }: Props) {
                 <div style={{ display: 'flex', gap: '.4rem', flexWrap: 'wrap' }}>
                   {sizes.map(s => {
                     const key = colours.length > 0 ? `${s}|${colour}` : s;
-                    const variantQty = extra.variantMatrix ? (extra.variantMatrix[key] ?? null) : null;
+                    const variantQty = variantStockFor(extra.variantMatrix, key, product.stock);
                     const disabled = variantQty === 0;
                     return (
                       <button key={s} onClick={() => !disabled && setSize(s)} disabled={disabled}

@@ -766,6 +766,19 @@ export default function AddProductPage() {
         const imgIssues = await deepImageDuplicateCheck(allPhotos, existingProducts);
         qc.push(...imgIssues);
       } catch { /* image load fail — baaki QC chalta rahe */ }
+      // ── Blank size/colour stock table ──
+      // This table is what checkout deducts from. If sizes/colours are selected
+      // but every cell is left empty, the old code still saved a table of zeros:
+      // the website showed "In Stock" (that status comes from Total Qty) while
+      // every COD order was rejected with "just went out of stock". So warn here,
+      // and below save the product as untracked instead of with a zero table.
+      const blankStockTable = stockKeys.length > 0
+        && stockKeys.every(key => !(Number(variantStock[key]) > 0))
+        && (Number(totalQty) || 0) > 0;
+      if (blankStockTable) qc.push({
+        level: 'warn',
+        message: 'Size/colour stock table khaali hai — is product ka size-wise stock track NAHI hoga, sirf upar ka Total Qty chalega. Size-wise stock chahiye to table bhar dein.',
+      });
       const fails = qc.filter(i => i.level === 'fail');
       const warns = qc.filter(i => i.level === 'warn');
       // Any fail, or warnings-not-yet-acknowledged → show the inline QC panel and stop.
@@ -778,6 +791,8 @@ export default function AddProductPage() {
       }
       setQcOpen(false);
       const stockMatrix = Object.fromEntries(stockKeys.map(key => [key, Number(variantStock[key]) || 0]));
+      // An all-zero table is not stock data — save as untracked (see blankStockTable above).
+      const trackVariants = stockKeys.length > 0 && Object.values(stockMatrix).some(n => n > 0);
       const saveQty = stockKeys.length > 0
         ? (Number(totalQty) || stockKeys.reduce((sum, key) => sum + (Number(variantStock[key]) || 0), 0))
         : (Number(totalQty) || 0);
@@ -808,8 +823,8 @@ export default function AddProductPage() {
         packColumnPhotos: packValue >= 2 ? normalizedPackCols : undefined,
         packImages: packImages.length ? packImages : undefined,
         variantColumns: packImages.length ? packImages : undefined,
-        variantMatrix: stockKeys.length ? stockMatrix : undefined,
-        stockMode: stockKeys.length ? (selectedColours.length ? 'size_colour' : 'size') : undefined,
+        variantMatrix: trackVariants ? stockMatrix : undefined,
+        stockMode: trackVariants ? (selectedColours.length ? 'size_colour' : 'size') : undefined,
         productPhotos: mainPhotos,
         addOns: addOns.filter(a => a.name.trim()),
         variants: variants.filter(v => v.name.trim()),

@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { getCart, saveCart, removeFromCart, updateQuantity, cartTotal, finalUnitPrice } from '@/lib/cart';
 import { productsApi } from '@/lib/api';
 import type { CartItem } from '@/types';
+import { trackedVariantMatrix } from '@/lib/variantStock';
 
 export default function CartPage() {
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -36,8 +37,10 @@ export default function CartPage() {
         if (!p) return item;
         let extra: any = {};
         try { extra = JSON.parse((p as any).extraJson ?? '{}'); } catch { return item; }
-        const vm = extra.variantMatrix;
-        if (!vm || typeof vm !== 'object') return item;
+        // An all-zero table on a product that is not sold out is an empty table,
+        // not "nothing left" — see lib/variantStock.
+        const vm = trackedVariantMatrix(extra.variantMatrix, (p as any).stock);
+        if (!vm) return item;
         const size = item.selectedSize ?? '';
         const color = item.selectedColor ?? '';
         let stock: any = color ? vm[`${size}|${color}`] : vm[size];

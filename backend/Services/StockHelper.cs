@@ -93,6 +93,15 @@ public static class StockHelper
         return StatusForTotal(matrix.Sum(kv => ReadInt(kv.Value)));
     }
 
+    /// <summary>
+    /// Is this variantMatrix real per-piece tracking? An all-zero table counts
+    /// only when the product is actually marked sold out; otherwise it is an
+    /// empty table that was saved by mistake and must be ignored.
+    /// </summary>
+    private static bool IsRealTracking(JsonObject matrix, Product prod) =>
+        matrix.Sum(kv => ReadInt(kv.Value)) > 0
+        || string.Equals(prod.StockStatus, "Out of Stock", StringComparison.OrdinalIgnoreCase);
+
     private static Dictionary<string, Product> BySku(List<Product> prods) =>
         prods.Where(p => !string.IsNullOrWhiteSpace(p.Sku))
              .GroupBy(p => p.Sku!.Trim(), StringComparer.OrdinalIgnoreCase)
@@ -110,6 +119,14 @@ public static class StockHelper
         try { root = JsonNode.Parse(prod.ExtraJson) as JsonObject; }
         catch { return false; }
         if (root?["variantMatrix"] is not JsonObject matrix || matrix.Count == 0) return false;
+        // A table where EVERY cell is zero, on a product that is not marked sold
+        // out, is not stock data at all — it is what the admin form used to save
+        // when sizes were selected but the stock table was left blank. Deducting
+        // from it rejected every COD order while the site said "In Stock". Such a
+        // product is not tracked piece by piece, so leave it alone.
+        // A genuinely sold-out product has StockStatus "Out of Stock" and so is
+        // still tracked here, and still blocked.
+        if (!IsRealTracking(matrix, prod)) return false;
 
         var s = (size ?? "").Trim();
         var c = (color ?? "").Trim();

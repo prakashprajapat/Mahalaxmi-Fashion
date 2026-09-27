@@ -18,6 +18,7 @@ import SizeGuideButton from '@/components/product/SizeGuideButton';
 import { addRecentlyViewed } from '@/lib/recentlyViewed';
 import { trackEvent } from '@/lib/analytics';
 import type { Product, Review } from '@/types';
+import { variantStockFor } from '@/lib/variantStock';
 
 interface ExtraJson {
   sizes?: string[];
@@ -307,7 +308,9 @@ export default function ProductDetail({ params, initialProduct = null }: { param
   ];
 
   const variantKey = colors.length > 0 ? `${size}|${color}` : size;
-  const variantStock = extra.variantMatrix ? (extra.variantMatrix[variantKey] ?? null) : null;
+  // A stock table of all zeros on a product that is not marked sold out is an
+  // empty table, not "nothing left" — see lib/variantStock.
+  const variantStock = variantStockFor(extra.variantMatrix, variantKey, product.stock);
   const outOfStock = product.stock === 'Out of Stock' || (variantStock !== null && variantStock === 0);
 
   // Never let the add-to-cart quantity exceed the available stock for this variant.
@@ -589,7 +592,7 @@ export default function ProductDetail({ params, initialProduct = null }: { param
                 <div style={{ display: 'flex', gap: '.5rem', flexWrap: 'wrap' }}>
                   {sizes.map(s => {
                     const vKey = colors.length > 0 ? `${s}|${color}` : s;
-                    const stock = extra.variantMatrix ? (extra.variantMatrix[vKey] ?? null) : null;
+                    const stock = variantStockFor(extra.variantMatrix, vKey, product.stock);
                     const oos = stock !== null && stock === 0;
                     return (
                       <button key={s} onClick={() => !oos && setSize(s)} disabled={oos} style={{
