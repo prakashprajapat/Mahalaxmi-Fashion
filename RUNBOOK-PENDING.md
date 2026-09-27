@@ -20,6 +20,23 @@ nahi. Koi stock number invent nahi hota.
 (dobara aisa na ho + storefront/backend dono ka safety net) agle normal deploy me
 chala jayega.
 
+## 0b. Google: 46 products ka colour reject ho raha hai (deploy ke baad)
+Google `color` ko apparel ke liye zaruri maanta hai, aur "MultiColour" (42 products)
+aur "Design C" (4 products) ko colour maanta hi nahi — ye items Shopping/free
+listing me disapprove hain.
+
+Frontend deploy ke baad:
+1. Admin → **Products → 🎨 Colour Fix**. Sirf kharab wale 46 products dikhenge,
+   photo ke saath.
+2. Har product par **📷 Photo se colour bharo** dabayein — photo me se asli rang
+   utha kar 3 circle bhar dega (Navy Blue/Red/Off White jaise).
+3. Naam theek lage to **Save**, ya upar se **"Tayyar N save karo"** se sab ek saath.
+
+Iske baad naye/edit hone wale products me galat colour save hi nahi hoga —
+Add/Edit Product save rok kar wajah bata dega.
+
+Spec: https://support.google.com/merchants/answer/6324487
+
 ## 1. SECURITY: JWT key (VPS pe)
 ```bash
 ssh <vps>
