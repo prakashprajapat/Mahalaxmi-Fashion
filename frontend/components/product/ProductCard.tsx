@@ -91,12 +91,9 @@ export default function ProductCard({ product, priority = false }: { product: Pr
                 />
               )
             ) : null}
-            <div className="product-card-placeholder" style={{ display: (!image || imgError) ? 'flex' : 'none' }}>
-              {product.category?.toLowerCase().includes('saree') ? '🥻'
-                : product.category?.toLowerCase().includes('nighty') ? '🌙'
-                : product.category?.toLowerCase().includes('men') ? '👔'
-                : '👗'}
-            </div>
+            {/* Photo na ho to saada khaali jagah — koi emoji nahi. */}
+            <div className="product-card-placeholder" aria-hidden="true"
+              style={{ display: (!image || imgError) ? 'block' : 'none' }} />
           </div>
 
           {/* Only a real best seller gets a badge. Labelling every other card

@@ -70,6 +70,24 @@ function Stars({ n, onClick }: { n: number; onClick?: (v: number) => void }) {
 // refreshes everything, so if the server copy is missing or stale the browser
 // corrects it exactly as before — this only decides what is on screen for the
 // first few hundred milliseconds.
+/**
+ * Wahi photo jo neeche wala effect chunega.
+ *
+ * activeImg khali se shuru hota tha, isliye product khulte hi ek badi halki
+ * 👗 emoji jhalakti thi aur uske baad photo aati thi — har baar. Server product
+ * pehle hi bhej chuka hota hai, to photo pehle hi render me daal dete hain:
+ * emoji khatam, aur photo HTML me hi aa jati hai (page bhi jaldi dikhta hai).
+ */
+function firstPhotoOf(p: Product | null): string {
+  if (!p) return '';
+  let ex: ExtraJson = {};
+  try { ex = JSON.parse((p as unknown as { extraJson?: string }).extraJson ?? '{}'); } catch { ex = {}; }
+  const isPack = Boolean(p.packOf && p.packOf > 1);
+  const firstColour = isPack ? '' : ((ex.colors ?? [])[0] ?? '');
+  const custom = (ex.customColors ?? []).find(c => c.name === firstColour);
+  return custom?.photo ? (productImageSrc(custom.photo) || custom.photo) : productImageSrc(p.image);
+}
+
 export default function ProductDetail({ params, initialProduct = null }: { params: { id: string }; initialProduct?: Product | null }) {
   const router = useRouter();
   const [product, setProduct] = useState<Product | null>(initialProduct);
@@ -78,7 +96,7 @@ export default function ProductDetail({ params, initialProduct = null }: { param
   const [qty, setQty] = useState(1);
   const [size, setSize] = useState('');
   const [color, setColor] = useState('');
-  const [activeImg, setActiveImg] = useState('');
+  const [activeImg, setActiveImg] = useState(() => firstPhotoOf(initialProduct));
   const [added, setAdded] = useState(false);
   // Is this exact size/colour already in the cart? Drives Add to Cart → Go to Cart.
   const [inCart, setInCart] = useState(false);
@@ -457,7 +475,7 @@ export default function ProductDetail({ params, initialProduct = null }: { param
                       width={900} height={1200} priority fetchPriority="high"
                       sizes="(max-width: 768px) 100vw, 520px"
                       style={{ position: 'relative', zIndex: 1, width: '100%', height: '100%', objectFit: 'contain' }} />
-                  : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '5rem', color: '#ddd' }}>👗</div>}
+                  : <div className="product-card-placeholder" aria-hidden="true" />}
                 {product.bestSeller && <span className="badge badge-yellow" style={{ position: 'absolute', zIndex: 2, top: 12, left: 12 }}>Best Seller</span>}
                 {saving > 0 && <span className="badge badge-red" style={{ position: 'absolute', zIndex: 2, top: product.bestSeller ? 44 : 12, left: 12 }}>{saving}% off</span>}
               </div>

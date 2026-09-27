@@ -247,7 +247,7 @@ export default function QuickViewModal({ product, onClose }: Props) {
             >
               {activeImg
                 ? <img src={activeImg} alt={product.name} style={{ maxWidth: '100%', maxHeight: 'clamp(300px, 60vh, 540px)', width: 'auto', height: 'auto', objectFit: 'contain', display: 'block' }} />
-                : <div style={{ width: '100%', aspectRatio: '1/1', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '3rem', color: '#ddd', background: '#f8f8f8' }}>👗</div>
+                : <div className="product-card-placeholder" style={{ aspectRatio: '1/1' }} aria-hidden="true" />
               }
               {/* Circular magnifier — fixed so no parent overflow can clip it */}
               {imgHovered && activeImg && (

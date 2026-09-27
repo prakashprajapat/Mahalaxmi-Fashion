@@ -126,7 +126,7 @@ function NightyClothCard({ product }: { product: Product }) {
         {image ? (
           <img src={image} alt={product.name} />
         ) : (
-          <div className="product-card-placeholder">🧶</div>
+          <div className="product-card-placeholder" aria-hidden="true" />
         )}
         {saving > 0 && (
           <div className="product-card-top-left">
