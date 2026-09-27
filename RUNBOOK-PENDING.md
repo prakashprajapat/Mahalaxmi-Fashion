@@ -1,6 +1,25 @@
 # Mahalaxmi — Pending Kaam Runbook
 (Is file me koi secret nahi — repo public hai. Secrets sirf VPS appsettings.json / site_settings me.)
 
+## 0. URGENT: 63 products "Out of Stock" dikha rahe hain — SQL chalao
+Product page par har size grey, "OUT OF STOCK", BUY NOW band — 97 me se 63 products
+par. Wajah: unke size/colour stock table me har cell 0 hai, jabki Total Qty 500 aur
+status "In Stock" hai (Add/Edit form khaali table bhi save kar deta tha).
+
+VPS par repo folder me (jahan docker-compose.yml hai):
+```bash
+git pull
+docker exec -i mfh_postgres psql -U postgres -d mahalaxmi_fashionhub \
+  < backend/Scripts/fix-blank-variant-stock.sql
+```
+Script pehle list print karta hai ki kaun se products theek honge, phir khaali table
+hata deta hai. Jo products sach me sold out hain (status "Out of Stock") unhe chhuta
+nahi. Koi stock number invent nahi hota.
+
+**Ye SQL chalte hi live site theek — deploy/rebuild ki zarurat nahi.** Code ka fix
+(dobara aisa na ho + storefront/backend dono ka safety net) agle normal deploy me
+chala jayega.
+
 ## 1. SECURITY: JWT key (VPS pe)
 ```bash
 ssh <vps>
