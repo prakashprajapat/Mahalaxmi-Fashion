@@ -82,11 +82,14 @@ export default async function CategoryTiles({ products }: { products: Product[] 
               }}>
                 {t.label}
               </div>
-              {t.count > 0 && (
-                <div style={{ marginTop: '.2rem', fontSize: '.8rem', color: '#6b625c' }}>
-                  {t.count} {t.count === 1 ? 'piece' : 'pieces'}
-                </div>
-              )}
+              {/* Yahan pehle "24 pieces" likha aata tha. Wo gintii tile ke apne
+                  shabdon se banti hai, jabki tile jis collection panne par
+                  kholti hai uske apne niyam hain — isliye dono ke number kabhi
+                  mel nahi khate the (Nightwear par 24, aur khulne par 34).
+                  Galat number se behtar koi number na ho. */}
+              <div style={{ marginTop: '.2rem', fontSize: '.8rem', color: '#6b625c' }}>
+                Explore Collection
+              </div>
             </Link>
           ))}
         </div>
