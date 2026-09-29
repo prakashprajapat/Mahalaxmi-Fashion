@@ -107,6 +107,35 @@ export default function HomeCategoriesPage() {
     }
     setSaving(true);
     setMsg(null);
+
+    // Tile ka pata sach me khulta hai ya nahi — save se PEHLE.
+    //
+    // "Kurti Sets" wali tile /collections/kurti-set par bhejti thi, jo banaya hi
+    // nahi gaya tha. Gintii ("9 pieces") sahi dikhti thi kyunki wo alag hisaab
+    // se banti hai, isliye galti pakdi nahi gayi — aur grahak ko homepage se
+    // seedha 404 milta raha. Gintii aur link do alag cheezein hain.
+    try {
+      const broken: string[] = [];
+      for (const r of kept) {
+        const href = r.href.trim();
+        // eslint-disable-next-line no-await-in-loop
+        const ok = await fetch(href, { method: 'GET', redirect: 'follow' })
+          .then(res => res.status !== 404)
+          // Network hi na chale to rokna galat hoga — save hone dete hain.
+          .catch(() => true);
+        if (!ok) broken.push(`${r.label.trim() || '(bina naam)'} → ${href}`);
+      }
+      if (broken.length > 0) {
+        setMsg({
+          kind: 'err',
+          text: `Ye link kholne par 404 aata hai, isliye save nahi kiya: ${broken.join(', ')}. `
+              + 'Pehle wo panna banaiye (SEO → Collection Pages), ya tile ka pata badal kar koi chalta hua panna dijiye.',
+        });
+        setSaving(false);
+        return;
+      }
+    } catch { /* jaanch hi na ho paye to save rokna nahi hai */ }
+
     try {
       const token = getAdminToken();
       if (!token) throw new Error('Sign in again — your session has expired.');
