@@ -19,6 +19,7 @@ import { addRecentlyViewed } from '@/lib/recentlyViewed';
 import { trackEvent } from '@/lib/analytics';
 import type { Product, Review } from '@/types';
 import { variantStockFor } from '@/lib/variantStock';
+import { formatDateIst } from '@/lib/formatDate';
 
 interface ExtraJson {
   sizes?: string[];
@@ -731,7 +732,7 @@ export default function ProductDetail({ params, initialProduct = null }: { param
                         </div>
                         {r.createdAt && (
                           <span style={{ fontSize: '.75rem', color: '#aaa' }}>
-                            {new Date(r.createdAt).toLocaleDateString('en-IN')}
+                            {formatDateIst(r.createdAt)}
                           </span>
                         )}
                       </div>

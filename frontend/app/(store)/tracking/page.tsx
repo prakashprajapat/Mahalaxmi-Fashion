@@ -2,6 +2,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { ordersApi } from '@/lib/api';
 import type { Order } from '@/types';
+import { formatDateIst, formatDayMonthIst, formatDateTimeIst } from '@/lib/formatDate';
 
 type LiveTrack = {
   success: boolean; live: boolean; orderId: string; siteStatus: string;
@@ -39,7 +40,7 @@ function scanStage(text: string): number {
 
 function fmtScanTime(raw: string): string {
   const d = new Date(raw);
-  return isNaN(d.getTime()) ? raw : d.toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
+  return isNaN(d.getTime()) ? raw : formatDateTimeIst(d);
 }
 
 export default function TrackingPage() {
@@ -128,12 +129,12 @@ export default function TrackingPage() {
                 <strong>Order #{order.id}</strong>
                 {live?.expectedDate && (
                   <span style={{ color: '#2e7d32', fontWeight: 700, fontSize: '.9rem' }}>
-                    Expected: {new Date(live.expectedDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                    Expected: {formatDayMonthIst(live.expectedDate)}
                   </span>
                 )}
               </div>
-              {order.awb && <p style={{ margin: '.35rem 0', color: '#555', fontSize: '.9rem' }}>AWB: <strong>{order.awb}</strong> · Placed: {new Date(order.placedAt ?? order.createdAt).toLocaleDateString('en-IN')}</p>}
-              {!order.awb && <p style={{ margin: '.35rem 0', color: '#555' }}>Status: <strong>{order.status}</strong> · Placed: {new Date(order.placedAt ?? order.createdAt).toLocaleDateString('en-IN')}</p>}
+              {order.awb && <p style={{ margin: '.35rem 0', color: '#555', fontSize: '.9rem' }}>AWB: <strong>{order.awb}</strong> · Placed: {formatDateIst(order.placedAt ?? order.createdAt)}</p>}
+              {!order.awb && <p style={{ margin: '.35rem 0', color: '#555' }}>Status: <strong>{order.status}</strong> · Placed: {formatDateIst(order.placedAt ?? order.createdAt)}</p>}
 
               {/* ── Live milestone timeline ── */}
               {liveMissing && (
@@ -211,7 +212,7 @@ export default function TrackingPage() {
               } else {
                 const d1 = new Date(); d1.setDate(d1.getDate() + r.etaMinDays);
                 const d2 = new Date(); d2.setDate(d2.getDate() + r.etaMaxDays);
-                const f = (d: Date) => d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+                const f = (d: Date) => formatDayMonthIst(d);
                 setPinResult({ kind: 'ok', text: `✓ Yes, we deliver here! Estimated delivery by ${f(d1)} – ${f(d2)}${r.cod ? ' · COD available' : ' · Prepaid only'}` });
               }
             } catch {

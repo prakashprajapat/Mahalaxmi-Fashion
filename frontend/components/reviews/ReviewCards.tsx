@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import type { PublicReview } from '@/lib/api';
+import { formatDateIst } from '@/lib/formatDate';
 
 // One customer's review, as a card.
 //
@@ -41,7 +42,7 @@ export function ReviewCard({ r }: { r: PublicReview }) {
   const photos = photosOf(r);
   const lead = photos[0] || r.productImage || '';
   const rest = photos.slice(1);
-  const when = new Date(r.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+  const when = formatDateIst(r.createdAt);
 
   return (
     <article style={{

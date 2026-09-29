@@ -7,6 +7,7 @@ import { ordersApi } from '@/lib/api';
 import { productImageSrc } from '@/lib/productImages';
 import { productSlug } from '@/lib/productSlug';
 import type { Order, Customer } from '@/types';
+import { formatDateIst } from '@/lib/formatDate';
 
 const HOURS_12 = 12 * 60 * 60 * 1000;
 const DAYS_7 = 7 * 24 * 60 * 60 * 1000;
@@ -282,7 +283,7 @@ export default function OrdersPage() {
                       <div>
                         <strong>Order #{order.id}</strong>
                         <span style={{ display: 'block', fontSize: '.8rem', color: '#888' }}>
-                          {new Date(order.placedAt ?? order.createdAt).toLocaleDateString('en-IN')}
+                          {formatDateIst(order.placedAt ?? order.createdAt)}
                         </span>
                       </div>
                       <span className="badge badge-yellow">{(order as any).returnStatus ?? 'Return Requested'}</span>
@@ -333,7 +334,7 @@ export default function OrdersPage() {
                       <div>
                         <strong style={{ fontSize: '1rem' }}>Order #{order.id}</strong>
                         <span style={{ display: 'block', fontSize: '.8rem', color: '#888', marginTop: '.1rem' }}>
-                          Placed: {new Date(order.placedAt ?? order.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                          Placed: {formatDateIst(order.placedAt ?? order.createdAt)}
                         </span>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '.75rem' }}>
@@ -567,7 +568,7 @@ export default function OrdersPage() {
               <div>
                 <h3 style={{ fontWeight: 800, fontSize: '1.1rem', margin: 0 }}>Order #{detailOrder.id}</h3>
                 <span style={{ fontSize: '.8rem', color: '#888' }}>
-                  Placed: {new Date(detailOrder.placedAt ?? detailOrder.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  Placed: {formatDateIst(detailOrder.placedAt ?? detailOrder.createdAt)}
                 </span>
               </div>
               <button onClick={() => setDetailOrder(null)} aria-label="Close"

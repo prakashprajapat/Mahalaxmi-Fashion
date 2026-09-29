@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { getToken, getCustomer } from '@/lib/auth';
 import { walletApi, paymentsApi, type WalletTxn } from '@/lib/api';
+import { formatDateIst, formatDateTimeIst } from '@/lib/formatDate';
 
 // Load the Razorpay checkout script once.
 function loadRazorpay(): Promise<boolean> {
@@ -20,7 +21,7 @@ function loadRazorpay(): Promise<boolean> {
 
 function fmtDate(raw: string) {
   const d = new Date(raw);
-  return d.toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  return formatDateTimeIst(d);
 }
 
 // Friendly label + icon for each ledger entry type.
