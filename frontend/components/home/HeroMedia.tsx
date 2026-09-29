@@ -28,7 +28,8 @@ export default function HeroMedia({
   // Swipe. The banner moved on its own every 3.5s and answered nothing else —
   // on a phone the first thing a thumb does to a picture that slides is push
   // it, and nothing happened.
-  const swipe = useRef<{ x: number; y: number; t: number } | null>(null);
+  // `done` marks the swipe as already acted on, so one drag moves one slide.
+  const swipe = useRef<{ x: number; y: number; done: boolean } | null>(null);
 
   // Only when the page did not pass them — the admin preview renders this
   // component on its own, and a stale deploy should still fill itself in.
@@ -105,23 +106,32 @@ export default function HeroMedia({
       onMouseEnter={() => { paused.current = true; }}
       onMouseLeave={() => { paused.current = false; }}
       onPointerDown={e => {
-        swipe.current = { x: e.clientX, y: e.clientY, t: Date.now() };
+        swipe.current = { x: e.clientX, y: e.clientY, done: false };
         paused.current = true;      // do not slide out from under a finger
+        // Keep every later event for this finger, even once it has left the
+        // banner. Without this a swipe that ends outside — and a right-to-left
+        // one usually does, because it finishes at the edge of the screen —
+        // sends its pointerup somewhere else and never arrives. That is why
+        // one direction worked and the other did not.
+        try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* older browser */ }
       }}
-      onPointerUp={e => {
+      onPointerMove={e => {
         const s0 = swipe.current;
-        swipe.current = null;
-        paused.current = false;
-        if (!s0 || slideCount <= 1) return;
+        if (!s0 || s0.done || slideCount <= 1) return;
         const dx = e.clientX - s0.x;
         const dy = e.clientY - s0.y;
-        // A scroll down the page starts as a small sideways wobble too, so a
-        // swipe counts only when it is clearly sideways: past 40px across, and
-        // further across than down. Otherwise the banner would jump every time
+        // A page scroll starts as a small sideways wobble too, so a swipe
+        // counts only when it is clearly sideways: past 40px across, and
+        // further across than down. Otherwise the banner would jump whenever
         // someone scrolled past it.
         if (Math.abs(dx) < 40 || Math.abs(dx) <= Math.abs(dy)) return;
+        // Acted on here rather than on release, so the slide moves the moment
+        // the gesture is unmistakable — and a release that never reaches us
+        // cannot swallow it.
+        s0.done = true;
         setIdx(i => (i + (dx < 0 ? 1 : -1) + slideCount) % slideCount);
       }}
+      onPointerUp={() => { swipe.current = null; paused.current = false; }}
       onPointerCancel={() => { swipe.current = null; paused.current = false; }}
       style={{
         width: '100%', aspectRatio: '4 / 3', borderRadius: 16, overflow: 'hidden',

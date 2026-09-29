@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore;
 namespace MahalaxmiApi.Services;
 
 /// <summary>
-/// Emails a copy of the shop every night at 11:59 PM IST.
+/// Emails a copy of the shop twice a day — midnight and midday, India time.
 ///
 /// Two things would be painful to lose and are kept in two different places:
 /// the database (orders, customers, products, settings) and the product
@@ -58,13 +58,29 @@ public class BackupService : BackgroundService
 
     private static DateTimeOffset NowIst() => DateTimeOffset.UtcNow.ToOffset(TimeSpan.FromHours(5.5));
 
-    /// <summary>The next 23:59 India time, as a UTC instant.</summary>
+    /// <summary>
+    /// The next backup time, as a UTC instant. Twice a day, India time: 00:00
+    /// and 12:00.
+    ///
+    /// It used to be one run at 23:59, which meant a day's orders could be
+    /// twenty-three hours old before a copy of them existed anywhere else. A
+    /// midday run halves the most that can ever be lost.
+    ///
+    /// Written as "whichever of today's slots is still ahead, else the first of
+    /// tomorrow" rather than by adding twelve hours to the last run — a restart
+    /// or a clock change would otherwise leave the schedule drifting, and this
+    /// one always lands on the hour it says.
+    /// </summary>
     internal static DateTimeOffset NextRunUtc(DateTimeOffset nowIst)
     {
-        var todayAt2359 = new DateTimeOffset(
-            nowIst.Year, nowIst.Month, nowIst.Day, 23, 59, 0, TimeSpan.FromHours(5.5));
-        var next = nowIst < todayAt2359 ? todayAt2359 : todayAt2359.AddDays(1);
-        return next.ToUniversalTime();
+        var ist = TimeSpan.FromHours(5.5);
+        foreach (var hour in new[] { 0, 12 })
+        {
+            var slot = new DateTimeOffset(nowIst.Year, nowIst.Month, nowIst.Day, hour, 0, 0, ist);
+            if (nowIst < slot) return slot.ToUniversalTime();
+        }
+        return new DateTimeOffset(nowIst.Year, nowIst.Month, nowIst.Day, 0, 0, 0, ist)
+            .AddDays(1).ToUniversalTime();
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -83,9 +99,9 @@ public class BackupService : BackgroundService
             catch (OperationCanceledException) { break; }
 
             try { await RunAsync(stoppingToken); }
-            catch (Exception ex) { _log.LogError(ex, "Nightly backup failed."); }
+            catch (Exception ex) { _log.LogError(ex, "Scheduled backup failed."); }
 
-            // A tick past the hour so a fast run cannot fire twice for one night.
+            // A tick past the hour so a fast run cannot fire twice for one slot.
             try { await Task.Delay(TimeSpan.FromMinutes(2), stoppingToken); }
             catch (OperationCanceledException) { break; }
         }
