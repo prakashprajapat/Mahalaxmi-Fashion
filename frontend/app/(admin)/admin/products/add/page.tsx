@@ -13,6 +13,7 @@ import TaxonomyCombo from '@/components/admin/TaxonomyCombo';
 import { PageHeader } from '@/components/admin/Ui';
 import GoogleColourPicker from '@/components/admin/GoogleColourPicker';
 import { colourProblem, colourNameToHex } from '@/lib/googleColours';
+import { fetchAllProducts } from '@/lib/adminPaged';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const CATEGORIES = ['Women','Men','Kids','Beauty','Fabrics','More'];
@@ -759,8 +760,9 @@ export default function AddProductPage() {
       ];
       let existingProducts: import('@/lib/productQC').ExistingProduct[] = [];
       try {
-        const r = await productsApi.getAll({ pageSize: 2000 } as any);
-        existingProducts = ((r as any).products ?? []).map((p: any) => ({ id: p.dbId, name: p.name, image: p.image, extraJson: p.extraJson }));
+        existingProducts = (await fetchAllProducts()).map((p) => ({
+          id: p.dbId, name: p.name, image: p.image, extraJson: p.extraJson,
+        }));
       } catch { /* offline — QC still runs on this product's own fields */ }
 
       const qc = runProductQC(

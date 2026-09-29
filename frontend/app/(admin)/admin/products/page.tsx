@@ -6,6 +6,7 @@ import { getAdminToken } from '@/lib/auth';
 import { exportProducts } from '@/lib/exportExcel';
 import type { Product } from '@/types';
 import { PageHeader, Card, Stat, StatGrid, Chips, Empty, Pill } from '@/components/admin/Ui';
+import { fetchAllProducts } from '@/lib/adminPaged';
 
 const CATEGORIES = ['Women','Men','Kids','Beauty','Fabrics','More'];
 
@@ -75,8 +76,8 @@ export default function AdminProductsPage() {
   const dropRef = useRef<HTMLLabelElement>(null);
 
   const fetchProducts = () =>
-    productsApi.getAll({ pageSize: 500 })
-      .then(r => setProducts(r.products))
+    fetchAllProducts()
+      .then(setProducts)
       .finally(() => setLoading(false));
 
   useEffect(() => { fetchProducts(); }, []);

@@ -21,6 +21,7 @@ import { colourProblem } from '@/lib/googleColours';
 import GoogleColourPicker from '@/components/admin/GoogleColourPicker';
 import { PageHeader, Card, Empty, Pill } from '@/components/admin/Ui';
 import type { Product } from '@/types';
+import { fetchAllProducts } from '@/lib/adminPaged';
 
 type Row = {
   p: Product;
@@ -100,8 +101,7 @@ export default function ColourFixPage() {
   useEffect(() => {
     (async () => {
       try {
-        const r = await productsApi.getAll({ pageSize: 500 } as Record<string, unknown>);
-        const all = ((r as { products?: Product[] }).products ?? []) as Product[];
+        const all = await fetchAllProducts();
         const found: Row[] = [];
         for (const p of all) {
           const ex = parseExtra(p);

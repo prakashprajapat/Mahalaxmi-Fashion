@@ -60,3 +60,29 @@ export function downloadCsv(rows: string[][], filename: string) {
   a.click();
   URL.revokeObjectURL(url);
 }
+
+/**
+ * Har product — sirf pehla page nahi.
+ *
+ * `/api/products` bina admin token ke ek page me zyada se zyada 100 hi deta hai
+ * (server par clamp lagi hai). Isliye `pageSize: 500` maangne par bhi chupchaap
+ * 100 hi aate the aur baaki chhoot jaate the — aur jo chhoot te the wo sabse
+ * PURANE products the. 103 products ki dukaan me 3 products admin me dikhte hi
+ * nahi the: na search me milte, na edit ho paate, jabki website par unka page
+ * theek chal raha tha.
+ */
+export async function fetchAllProducts(): Promise<import('@/types').Product[]> {
+  const { productsApi } = await import('./api');
+  const first = await productsApi.getAll({ page: 1, pageSize: 100 });
+  const all = [...(first.products ?? [])];
+  const total = first.total ?? all.length;
+  // 60 pages = 6000 products. Aage kabhi list bahut badi ho to bhi browser
+  // hamesha ke liye latka na rahe.
+  for (let page = 2; all.length < total && page <= 60; page++) {
+    // eslint-disable-next-line no-await-in-loop
+    const r = await productsApi.getAll({ page, pageSize: 100 });
+    if (!r.products?.length) break;
+    all.push(...r.products);
+  }
+  return all;
+}
