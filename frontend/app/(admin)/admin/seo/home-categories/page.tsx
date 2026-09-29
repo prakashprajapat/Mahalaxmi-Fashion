@@ -18,10 +18,36 @@ import { btn } from '@/components/admin/SeoFields';
 // The live count beside each row is the honest part. A tile pointing at a
 // filter that matches nothing is a door into an empty room, and the number
 // says so before it is saved rather than after a shopper finds it.
+//
+// A category is now BUILT, not typed: pick two or more real subcategories out of
+// the catalogue and the link writes itself. Typing both the words and the link
+// by hand is what produced the two faults this screen kept repeating — "Kurti
+// Sets" pointing at a collection page nobody had created (a 404 straight off the
+// homepage), and "Nightwear" counting 34 products while opening onto 14, because
+// the count matched loosely and the page matched exactly. Neither is reachable
+// from a list of checkboxes.
 
 interface Row extends HomeTile { published: boolean; }
 
 const blank = (): Row => ({ label: '', href: '', image: '', terms: [], published: true });
+
+const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9 ]/g, '').replace(/\s+/g, ' ').trim();
+
+// A tile built here opens the listing narrowed to exactly the subcategories
+// chosen for it. That is the whole point of choosing more than one: "Nightwear"
+// is Cotton Nighty and Hosiery Nighty together, and neither one alone deserves a
+// tile. One subcategory is not a category — it is a subcategory, and the tile
+// would just be a slower way to reach a filter the shopper already has.
+const hrefFor = (terms: string[]) =>
+  `/products?subcategory=${encodeURIComponent(terms.map(t => t.trim()).filter(Boolean).join(','))}`;
+
+// Rows saved before this screen existed point at their own curated pages
+// (/collections/cotton-nighty and such). Those pages are indexed by Google and
+// must keep working, so they are left alone and shown as they are; everything
+// new is built from subcategories.
+const usesPicker = (href: string) => !href.trim() || href.trim().startsWith('/products?subcategory=');
+
+const MIN_SUBS = 2;
 
 export default function HomeCategoriesPage() {
   const [rows, setRows] = useState<Row[]>([]);
@@ -48,25 +74,58 @@ export default function HomeCategoriesPage() {
     });
   }, []);
 
-  /** How many products this row's words match right now — the same rule the homepage uses. */
+  /**
+   * How many products this row opens — counted the same way the listing filters,
+   * so the number here and the page a shopper lands on can never disagree.
+   *
+   * They used to. The count matched any product whose category OR subcategory
+   * merely CONTAINED the word, while the page matched the subcategory exactly:
+   * "Nightwear" counted 34 and opened onto 14. Picking real subcategories from
+   * the catalogue removes the guesswork on both sides.
+   */
   const countFor = useMemo(() => (r: Row) => {
-    const terms = (r.terms ?? []).map(t => t.trim().toLowerCase()).filter(Boolean);
+    const terms = (r.terms ?? []).map(t => t.trim()).filter(Boolean);
     if (terms.length === 0) return 0;
+    if (usesPicker(r.href)) {
+      const wanted = new Set(terms.map(norm));
+      return products.filter(p => wanted.has(norm(p.subcategory ?? ''))).length;
+    }
+    // Legacy rows with their own page: the old loose rule, so their number does
+    // not change under him without his asking.
+    const low = terms.map(t => t.toLowerCase());
     return products.filter(p => {
       const hay = `${p.subcategory ?? ''} ${p.category ?? ''}`.toLowerCase();
-      return terms.some(w => hay.includes(w));
+      return low.some(w => hay.includes(w));
     }).length;
   }, [products]);
 
-  /** Every word already in the catalogue, so he picks from what exists instead of guessing. */
-  const known = useMemo(() => {
-    const s = new Set<string>();
+  /**
+   * Every subcategory that actually exists in the catalogue, with how many
+   * products sit in it. He picks from this instead of typing a word, so a tile
+   * can no longer point at a group that does not exist.
+   */
+  const knownSubs = useMemo(() => {
+    const counts = new Map<string, { name: string; n: number }>();
     products.forEach(p => {
-      if (p.subcategory?.trim()) s.add(p.subcategory.trim());
-      if (p.category?.trim()) s.add(p.category.trim());
+      const name = p.subcategory?.trim();
+      if (!name) return;
+      const key = norm(name);
+      const row = counts.get(key);
+      if (row) row.n += 1;
+      else counts.set(key, { name, n: 1 });
     });
-    return [...s].sort((a, b) => a.localeCompare(b));
+    return [...counts.values()].sort((a, b) => a.name.localeCompare(b.name));
   }, [products]);
+
+  const toggleTerm = (i: number, name: string) =>
+    setRows(xs => xs.map((x, k) => {
+      if (k !== i) return x;
+      const cur = (x.terms ?? []).filter(Boolean);
+      const has = cur.some(t => norm(t) === norm(name));
+      const terms = has ? cur.filter(t => norm(t) !== norm(name)) : [...cur, name];
+      // The link is not typed, it is what the choice means.
+      return { ...x, terms, href: usesPicker(x.href) ? hrefFor(terms) : x.href };
+    }));
 
   const patch = (i: number, p: Partial<Row>) =>
     setRows(xs => xs.map((x, k) => (k === i ? { ...x, ...p } : x)));
@@ -99,10 +158,33 @@ export default function HomeCategoriesPage() {
   async function save() {
     // A row the server would reject: it validates every row, hidden ones too,
     // so an empty row left behind after a delete would block the whole save.
-    const kept = rows.filter(r => r.label.trim() || r.href.trim() || (r.image ?? '').trim());
-    const bad = kept.find(r => !r.label.trim() || !r.href.trim().startsWith('/'));
-    if (bad) {
-      setMsg({ kind: 'err', text: 'Every row needs a name and a link that starts with "/" — for example /men.' });
+    const kept = rows
+      .filter(r => r.label.trim() || r.href.trim() || (r.image ?? '').trim() || (r.terms ?? []).length > 0)
+      // A picker row's link is derived, never typed, so it is rebuilt here from
+      // the choice rather than trusted from state.
+      .map(r => (usesPicker(r.href) ? { ...r, href: hrefFor(r.terms ?? []) } : r));
+
+    const unnamed = kept.find(r => !r.label.trim());
+    if (unnamed) {
+      setMsg({ kind: 'err', text: 'हर tile को एक नाम चाहिए।' });
+      return;
+    }
+
+    // The rule he asked for: a category is a group of subcategories. One is not
+    // a group, none is not a category.
+    const thin = kept.find(r => usesPicker(r.href) && (r.terms ?? []).filter(Boolean).length < MIN_SUBS);
+    if (thin) {
+      setMsg({
+        kind: 'err',
+        text: `“${thin.label.trim() || 'बिना नाम'}” में कम से कम ${MIN_SUBS} subcategory चुननी ज़रूरी हैं। `
+            + 'एक ही subcategory है तो वो category नहीं, subcategory ही है — उसके लिए tile मत बनाइए।',
+      });
+      return;
+    }
+
+    const brokenLink = kept.find(r => !r.href.trim().startsWith('/'));
+    if (brokenLink) {
+      setMsg({ kind: 'err', text: 'एक पुराने tile का link "/" से शुरू नहीं होता — उसे ठीक कीजिए।' });
       return;
     }
     setSaving(true);
@@ -167,7 +249,8 @@ export default function HomeCategoriesPage() {
         <div>
           <h1>Home Categories</h1>
           <p className="admin-page-sub">
-            The “Shop by category” row on the homepage. Add a category here and it appears on the site — no code, no deploy.
+            Homepage ki “Shop by category” row. Ek category kam se kam {MIN_SUBS} subcategory milakar banti hai —
+            naam dijiye, subcategory chuniye, photo lagaiye. Link apne aap ban jata hai, isliye wo 404 nahi ja sakta.
           </p>
         </div>
         <button onClick={save} disabled={saving} style={{ ...btn('primary'), opacity: saving ? .6 : 1 }}>
@@ -193,9 +276,12 @@ export default function HomeCategoriesPage() {
       <div style={{ display: 'grid', gap: '1rem' }}>
         {rows.map((r, i) => {
           const n = countFor(r);
+          const picker = usesPicker(r.href);
+          const chosen = (r.terms ?? []).filter(Boolean);
+          const short = picker && chosen.length < MIN_SUBS;
           return (
             <div key={i} style={{
-              background: '#fff', border: '1px solid #eae3e4', borderRadius: 13, padding: '1rem',
+              background: '#fff', border: `1px solid ${short ? '#f5c6c2' : '#eae3e4'}`, borderRadius: 13, padding: '1rem',
               display: 'grid', gridTemplateColumns: '132px minmax(0,1fr) auto', gap: '1rem', alignItems: 'start',
               opacity: r.published ? 1 : .55,
             }}>
@@ -230,39 +316,72 @@ export default function HomeCategoriesPage() {
 
               {/* Fields */}
               <div style={{ display: 'grid', gap: '.6rem' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: '.6rem' }}>
-                  <div>
-                    <div style={lbl}>Name shown on the tile</div>
-                    <input value={r.label} maxLength={40} placeholder="Kurti Sets"
-                      onChange={e => patch(i, { label: e.target.value })} style={inp} />
-                  </div>
-                  <div>
-                    <div style={lbl}>Where it goes when tapped</div>
-                    <input value={r.href} placeholder="/collections/kurti-set"
-                      onChange={e => patch(i, { href: e.target.value })} style={{ ...inp, fontFamily: 'ui-monospace, monospace', fontSize: '.82rem' }} />
-                  </div>
+                <div>
+                  <div style={lbl}>Tile ka naam</div>
+                  <input value={r.label} maxLength={40} placeholder="Nightwear"
+                    onChange={e => patch(i, { label: e.target.value })} style={{ ...inp, maxWidth: 320 }} />
                 </div>
 
-                <div>
-                  <div style={lbl}>Words that decide which products it counts</div>
-                  <input
-                    value={(r.terms ?? []).join(', ')}
-                    placeholder="kurti, kurta set"
-                    onChange={e => patch(i, { terms: e.target.value.split(',').map(s => s.trim()) })}
-                    style={inp}
-                  />
-                  <div style={{ fontSize: '.73rem', color: '#9a908a', marginTop: '.25rem' }}>
-                    Comma separated. Matched against each product’s category and subcategory. This only sets the
-                    “12 pieces” line under the tile — the link above is what the tile actually opens.
+                {picker ? (
+                  <div>
+                    <div style={lbl}>
+                      Isme kaun si subcategory aayengi — kam se kam {MIN_SUBS} chuniye
+                    </div>
+                    {knownSubs.length === 0 ? (
+                      <div style={{ fontSize: '.8rem', color: '#9a908a' }}>
+                        Catalogue me abhi koi subcategory nahi hai.
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '.35rem' }}>
+                        {knownSubs.map(k => {
+                          const on = chosen.some(t => norm(t) === norm(k.name));
+                          return (
+                            <button key={k.name} type="button" onClick={() => toggleTerm(i, k.name)}
+                              style={{
+                                border: `1px solid ${on ? '#722f37' : '#e5dcdd'}`,
+                                background: on ? '#722f37' : '#fff',
+                                color: on ? '#fff' : '#555',
+                                borderRadius: 20, padding: '.28rem .7rem',
+                                fontSize: '.78rem', fontWeight: on ? 700 : 500, cursor: 'pointer',
+                              }}>
+                              {on ? '✓ ' : ''}{k.name} <span style={{ opacity: .65 }}>({k.n})</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                    <div style={{ fontSize: '.73rem', color: short ? '#c0392b' : '#9a908a', marginTop: '.4rem', fontWeight: short ? 700 : 400 }}>
+                      {short
+                        ? `${chosen.length} chuni hai — kam se kam ${MIN_SUBS} chahiye. Ek hi subcategory hai to wo category nahi hai.`
+                        : `${chosen.length} subcategory chuni hai.`}
+                    </div>
+                    <div style={{ fontSize: '.73rem', color: '#9a908a', marginTop: '.3rem', fontFamily: 'ui-monospace, monospace', wordBreak: 'break-all' }}>
+                      Khulega: {chosen.length > 0 ? hrefFor(chosen) : '—'}
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  <div>
+                    <div style={lbl}>Iska apna panna hai</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '.6rem', flexWrap: 'wrap' }}>
+                      <code style={{ background: '#f6f3f0', borderRadius: 6, padding: '.3rem .6rem', fontSize: '.8rem' }}>{r.href}</code>
+                      <button type="button" onClick={() => patch(i, { href: '', terms: [] })}
+                        style={{ ...btn('ghost'), padding: '.3rem .7rem', fontSize: '.76rem' }}>
+                        Subcategory se banaiye
+                      </button>
+                    </div>
+                    <div style={{ fontSize: '.73rem', color: '#9a908a', marginTop: '.3rem' }}>
+                      Ye tile pehle se apne collection panne par bhejti hai, jo Google me chadh chuka hai. Isliye
+                      chhedi nahi gayi. Badalna ho to upar wala button dabaiye.
+                    </div>
+                  </div>
+                )}
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
                   <span style={{
                     background: n === 0 ? '#fdecea' : '#eaf6ec',
                     color: n === 0 ? '#c0392b' : '#2e7d32',
                     borderRadius: 20, padding: '2px 10px', fontSize: '.74rem', fontWeight: 700,
-                  }}>{n} product{n === 1 ? '' : 's'} match</span>
+                  }}>{n} product{n === 1 ? '' : 's'} khulenge</span>
                   <label style={{ display: 'flex', alignItems: 'center', gap: '.4rem', fontSize: '.84rem', fontWeight: 600, color: '#444', cursor: 'pointer' }}>
                     <input type="checkbox" checked={r.published} onChange={e => patch(i, { published: e.target.checked })} />
                     Show on the homepage
@@ -282,24 +401,9 @@ export default function HomeCategoriesPage() {
       </div>
 
       <button onClick={() => setRows(xs => [...xs, blank()])} style={{ ...btn('primary'), marginTop: '1rem' }}>
-        + Add a category
+        + Nayi category
       </button>
 
-      {known.length > 0 && (
-        <div style={{ marginTop: '1.5rem', background: '#fff', border: '1px solid #eae3e4', borderRadius: 13, padding: '1rem' }}>
-          <div style={{ fontSize: '.78rem', fontWeight: 800, color: '#9a908a', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: '.6rem' }}>
-            Words already in your catalogue
-          </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '.35rem' }}>
-            {known.map(k => (
-              <span key={k} style={{ background: '#f6f3f0', borderRadius: 6, padding: '.2rem .55rem', fontSize: '.76rem', color: '#555' }}>{k}</span>
-            ))}
-          </div>
-          <p style={{ fontSize: '.75rem', color: '#9a908a', margin: '.7rem 0 0' }}>
-            A word here counts a product only if it appears in that product’s category or subcategory, so copy from this list rather than inventing one.
-          </p>
-        </div>
-      )}
     </div>
   );
 }
