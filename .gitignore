@@ -55,3 +55,8 @@ frontend/public/product-images/
 # Stray clones / scratch repos accidentally created inside the project
 /Mahalaxmi-Fashion/
 /mahalaxmi-nextjs/
+
+# TypeScript's incremental build cache. It is rewritten by every typecheck, so
+# tracking it makes a changed file appear after every build.
+frontend/tsconfig.tsbuildinfo
+*.tsbuildinfo
