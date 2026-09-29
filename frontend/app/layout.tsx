@@ -130,63 +130,20 @@ export async function generateMetadata(): Promise<Metadata> {
 const HYDEBUG = `(function(){
   try {
     if (String(location.search).indexOf('hydebug') < 0) return;
-    var log = { muts: [], errors: [], ready: [], pre: null, post: null };
+    var log = { errors: [], ready: [], preHtml: null, postHtml: null };
     window.__hydebug = log;
-    var name = function (n) {
-      if (!n) return '(null)';
-      if (n.nodeType === 3) return '#"' + String(n.nodeValue).replace(/\s+/g, ' ').slice(0, 40) + '"';
-      if (n.nodeType !== 1) return '(node' + n.nodeType + ')';
-      var c = (typeof n.className === 'string' && n.className) ? '.' + n.className.split(/\s+/)[0] : '';
-      var id = n.id ? '#' + n.id : '';
-      return n.nodeName.toLowerCase() + id + c;
-    };
-    // Poore per ki ek lambi list: tag, class, aur text. Isi ko do baar lekar
-    // milaya jata hai, aur jahan pehla farq aata hai wahi asli jagah hai.
-    var sig = function (root) {
-      var out = [];
-      var walk = function (n, depth) {
-        for (var c = n.firstChild; c; c = c.nextSibling) {
-          if (c.nodeType === 1) {
-            var t = c.nodeName;
-            if (t === 'SCRIPT' || t === 'STYLE' || t === 'LINK' || t === 'TEMPLATE' || t === 'NOSCRIPT') continue;
-            out.push(depth + '|' + name(c) + '|' + (c.getAttribute('style') || '').slice(0, 40) + '|' + (c.getAttribute('src') || c.getAttribute('href') || '').slice(-40));
-            if (depth < 40) walk(c, depth + 1);
-          } else if (c.nodeType === 3) {
-            var v = String(c.nodeValue).replace(/\s+/g, ' ').trim();
-            if (v) out.push(depth + '|#text|' + v.slice(0, 50));
-          }
-        }
-      };
-      walk(root, 0);
-      return out;
-    };
-    var path = function (n) {
-      var out = [], guard = 0;
-      while (n && n !== document.body && guard++ < 25) {
-        var p = n.parentNode; if (!p) break;
-        out.unshift(name(n) + '[' + Array.prototype.indexOf.call(p.childNodes, n) + ']');
-        n = p;
-      }
-      return out.join(' > ');
-    };
-    var grabbedPost = false;
+    var grabbed = false;
     var obs = new MutationObserver(function (recs) {
       for (var i = 0; i < recs.length; i++) {
         var r = recs[i];
-        if (log.muts.length < 40) {
-          log.muts.push({
-            ms: Math.round(performance.now()), state: document.readyState, type: r.type,
-            at: path(r.target), attr: r.attributeName || null,
-            old: r.oldValue == null ? null : String(r.oldValue).slice(0, 60),
-            added: Array.prototype.slice.call(r.addedNodes, 0, 4).map(name),
-            removed: Array.prototype.slice.call(r.removedNodes, 0, 4).map(name)
-          });
-        }
         // React ne jab poora dhancha badalna shuru kiya — uske turant baad ka
         // roop chahiye, effects ke naya data laane se PEHLE.
-        if (!grabbedPost && document.readyState !== 'loading' && r.target === document.body && r.removedNodes.length) {
-          grabbedPost = true;
-          setTimeout(function () { log.post = sig(document.body); }, 0);
+        if (!grabbed && document.readyState !== 'loading' && r.target === document.body && r.removedNodes.length) {
+          grabbed = true;
+          setTimeout(function () {
+            log.postHtml = document.documentElement.outerHTML;
+            log.postAt = Math.round(performance.now());
+          }, 0);
         }
       }
     });
@@ -196,19 +153,48 @@ const HYDEBUG = `(function(){
     document.addEventListener('readystatechange', function () {
       log.ready.push({ ms: Math.round(performance.now()), state: document.readyState });
       // 'interactive' = server ka HTML poora padh liya gaya, hydration se pehle.
-      if (document.readyState === 'interactive' && !log.pre) log.pre = sig(document.body);
+      if (document.readyState === 'interactive' && !log.preHtml) {
+        log.preHtml = document.documentElement.outerHTML;
+        log.preAt = Math.round(performance.now());
+      }
     });
     var start = function () {
       if (!document.body) { setTimeout(start, 0); return; }
-      obs.observe(document.body, { subtree: true, childList: true, attributes: true, characterData: true, attributeOldValue: true, characterDataOldValue: true });
+      obs.observe(document.body, { subtree: true, childList: true });
     };
     start();
-    // Dono lists ka pehla farq — yahi jawab hai.
-    window.__hydiff = function () {
-      var a = log.pre || [], b = log.post || [], i = 0;
+
+    // Dono roopon ki tulna — HAR node, jaisa hai waisa: script, style, khaali
+    // jagah, sab. Pichhli baar inhi ko chhod diya tha, isliye farq nahi mila.
+    window.__hydiff = function (opts) {
+      opts = opts || {};
+      var doc = new DOMParser().parseFromString(log.preHtml || '', 'text/html');
+      var A = doc.documentElement, B = document.documentElement;
+      var flat = function (root) {
+        var out = [];
+        var walk = function (n, d) {
+          for (var c = n.firstChild; c; c = c.nextSibling) {
+            if (c.nodeType === 1) {
+              var at = [];
+              for (var j = 0; j < c.attributes.length; j++) at.push(c.attributes[j].name);
+              at.sort();
+              out.push(d + '|<' + c.nodeName.toLowerCase() + '> ' + at.join(',').slice(0, 120));
+              if (d < 45) walk(c, d + 1);
+            } else if (c.nodeType === 3) {
+              out.push(d + '|text:' + JSON.stringify(String(c.nodeValue).slice(0, 60)));
+            } else if (c.nodeType === 8) {
+              out.push(d + '|comment:' + JSON.stringify(String(c.nodeValue).slice(0, 40)));
+            }
+          }
+        };
+        walk(root, 0);
+        return out;
+      };
+      var a = flat(A), b = flat(B), i = 0;
       while (i < a.length && i < b.length && a[i] === b[i]) i++;
-      return { preLen: a.length, postLen: b.length, at: i,
-               server: a.slice(Math.max(0, i - 4), i + 6), client: b.slice(Math.max(0, i - 4), i + 6) };
+      var w = opts.window || 6;
+      return { preLen: a.length, postLen: b.length, at: i, preAt: log.preAt, postAt: log.postAt,
+               server: a.slice(Math.max(0, i - 3), i + w), client: b.slice(Math.max(0, i - 3), i + w) };
     };
   } catch (e) { /* jaanch ki script kabhi page na rokey */ }
 })();`;
