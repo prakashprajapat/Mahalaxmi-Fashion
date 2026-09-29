@@ -6,6 +6,7 @@ using System.Text;
 using System.Text.Json;
 using MahalaxmiApi.Data;
 using MahalaxmiApi.Models;
+using MahalaxmiApi.Services;
 
 using MahalaxmiApi.Authorization;
 
@@ -146,12 +147,22 @@ public class PaymentsController : ControllerBase
             var eventName = evt.TryGetProperty("event", out var en) ? en.GetString() : "";
 
             string? rpOrderId = null, rpPaymentId = null;
+            // What Razorpay says it actually took. Read here, where the payment
+            // entity is known to exist, rather than further down — an out
+            // variable from an if-condition is in scope afterwards but not
+            // definitely assigned, and reading it there would not compile.
+            int? capturedPaiseFromEvent = null;
             if (evt.TryGetProperty("payload", out var payload)
                 && payload.TryGetProperty("payment", out var pay)
                 && pay.TryGetProperty("entity", out var ent))
             {
                 rpOrderId   = ent.TryGetProperty("order_id", out var oid) ? oid.GetString() : null;
                 rpPaymentId = ent.TryGetProperty("id", out var pid) ? pid.GetString() : null;
+                // ValueKind first: TryGetInt32 throws on a non-number element.
+                if (ent.TryGetProperty("amount", out var amtEl)
+                    && amtEl.ValueKind == JsonValueKind.Number
+                    && amtEl.TryGetInt32(out var amtPaise))
+                    capturedPaiseFromEvent = amtPaise;
             }
 
             if ((eventName == "payment.captured" || eventName == "order.paid") && !string.IsNullOrEmpty(rpOrderId))
@@ -181,23 +192,73 @@ public class PaymentsController : ControllerBase
                         || (rpPaymentId != null && o.PaymentId == rpPaymentId));
                     if (!alreadyExists)
                     {
-                        _db.SiteOrders.Add(new SiteOrder
+                        // What Razorpay says it took, not what the browser asked
+                        // for. They are normally the same; when they are not,
+                        // this is the one that moved money.
+                        var capturedPaise = capturedPaiseFromEvent ?? order.AmountPaise;
+
+                        // PlaceOrder prices every cart line from our own
+                        // catalogue and refuses a prepaid order whose payment
+                        // falls short. This path never ran that check: it built
+                        // the order from the amount the browser had named, so
+                        // tampering it, paying it and closing the tab produced a
+                        // finished order holding a full cart. Closing a window is
+                        // not a hard thing to do on purpose.
+                        var itemValue = await CartPricing.ItemValueAsync(_db, order.CartJson);
+                        var shortfall = itemValue.HasValue
+                            ? Math.Round(itemValue.Value * 100m, MidpointRounding.AwayFromZero) - capturedPaise
+                            : 0m;
+
+                        if (!itemValue.HasValue || shortfall > 100)
                         {
-                            OrderId      = localId,
-                            Method       = "online",
-                            Status       = "Paid",
-                            PaymentId    = rpPaymentId,
-                            Subtotal     = order.AmountPaise / 100m,
-                            ShippingCost = 0m,
-                            CodFee       = 0m,
-                            Total        = order.AmountPaise / 100m,
-                            CartJson     = order.CartJson,
-                            CustomerJson = order.CustomerJson,
-                            ShippingJson = order.ShippingJson,
-                            RawJson      = "{\"source\":\"webhook_recovery\"}",
-                            PlacedAt     = DateTimeOffset.UtcNow,
-                        });
-                        await _db.SaveChangesAsync();
+                            // No order is invented. The money is captured and
+                            // stays visible — /payments/reconcile lists a payment
+                            // with no order against it, which is exactly what
+                            // this is, and the owner refunds it or asks the
+                            // customer. A coupon or wallet order recovered this
+                            // way lands here too: someone looks at it, which is
+                            // the right cost for never shipping goods that were
+                            // not paid for.
+                            // Status stays "paid", because it was paid. Moving it
+                            // would make PlaceOrder refuse the customer's own call
+                            // when they come back — its gate reads exactly this
+                            // field — and a coupon order withheld here is one that
+                            // should still be completable by its owner.
+                            order.RawVerifyJson = JsonSerializer.Serialize(new
+                            {
+                                webhook = body,
+                                recoveryWithheld = new
+                                {
+                                    capturedPaise,
+                                    quotedPaise = order.AmountPaise,
+                                    cartItemValue = itemValue,
+                                    reason = itemValue.HasValue
+                                        ? "captured amount does not cover the catalogue value of the cart"
+                                        : "the stored cart could not be priced from the catalogue",
+                                },
+                            });
+                            await _db.SaveChangesAsync();
+                        }
+                        else
+                        {
+                            _db.SiteOrders.Add(new SiteOrder
+                            {
+                                OrderId      = localId,
+                                Method       = "online",
+                                Status       = "Paid",
+                                PaymentId    = rpPaymentId,
+                                Subtotal     = capturedPaise / 100m,
+                                ShippingCost = 0m,
+                                CodFee       = 0m,
+                                Total        = capturedPaise / 100m,
+                                CartJson     = order.CartJson,
+                                CustomerJson = order.CustomerJson,
+                                ShippingJson = order.ShippingJson,
+                                RawJson      = "{\"source\":\"webhook_recovery\"}",
+                                PlacedAt     = DateTimeOffset.UtcNow,
+                            });
+                            await _db.SaveChangesAsync();
+                        }
                     }
                 }
             }
