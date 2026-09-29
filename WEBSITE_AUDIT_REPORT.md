@@ -86,7 +86,7 @@ Scope: Next.js frontend, .NET 8 API, PostgreSQL schema, deployment scripts, and 
 
 | Area | Pending Item |
 |---|---|
-| Performance | Convert remaining JPG uploads to WebP/AVIF; largest public assets found: `hero-banner1.webp` ~380 KB, `hero-banner3.webp` ~373 KB, email logos ~275-317 KB |
+| Performance | Convert remaining JPG uploads to WebP/AVIF. (The asset sizes once listed here are stale: `hero-banner1.webp` is 104 KB and `hero-banner3.webp` 90 KB today, and neither is referenced by any page — the hero photos come from Settings → Homepage Hero.) |
 | Performance | Replace above-the-fold `<img>` on customer-facing pages with `next/image` where dimensions are stable |
 | Performance | Add LCP hero/image preload/fetch priority for actual homepage hero asset |
 | Performance | Run Lighthouse/PageSpeed/GTmetrix/WebPageTest after deploy; not fully measured locally |

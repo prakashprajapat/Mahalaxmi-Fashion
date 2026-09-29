@@ -17,7 +17,10 @@ import TrustStrip from '@/components/home/TrustStrip';
 
 const SERIF = 'var(--font-playfair), Georgia, serif';
 
-export default function HomeHero() {
+export default function HomeHero({
+  heroVideo = null,
+  heroImgs = [],
+}: { heroVideo?: string | null; heroImgs?: string[] } = {}) {
   return (
     <>
       {/* The gutter belongs to the section, not to the column inside it.
@@ -72,7 +75,7 @@ export default function HomeHero() {
           </div>
 
           <div className="hero-media-col" style={{ display: 'flex' }}>
-            <HeroMedia />
+            <HeroMedia initialVideo={heroVideo} initialImgs={heroImgs} />
           </div>
         </div>
       </section>

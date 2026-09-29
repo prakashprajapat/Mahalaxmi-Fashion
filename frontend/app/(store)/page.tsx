@@ -40,6 +40,17 @@ export default async function HomePage() {
   const { products } = await productsApi.getAll({ pageSize: 200 }).catch(() => ({ products: [] as any[] }));
   const all = toListingProducts(products as any[]);
 
+  // The hero photos are read here, on the server, so the first and biggest
+  // picture on the site is in the HTML the browser receives. HeroMedia used to
+  // fetch them itself after hydrating, which put the page's largest image
+  // behind the whole JavaScript bundle. Same call generateMetadata already
+  // makes, so Next's data cache answers it without a second round trip.
+  const heroSettings = await settingsApi.getAll().catch(() => ({ settings: {} as Record<string, string> }));
+  const hs = heroSettings.settings ?? {};
+  const validMedia = (v?: string) => /^(https?:\/\/|\/)/.test((v || '').trim());
+  const heroVideo = validMedia(hs.heroVideoUrl) ? hs.heroVideoUrl.trim() : null;
+  const heroImgs = [hs.heroImg1, hs.heroImg2, hs.heroImg3].filter(validMedia) as string[];
+
   // The homepage used to be the whole catalogue with a filter sidebar, which is
   // what a category page is for. It is a shop front now: where things are, then
   // two short runs of products, with the full filterable grid one tap away from
@@ -54,7 +65,7 @@ export default async function HomePage() {
   return (
     <>
       {/* Hero + offer strip — shown on every device */}
-      <HomeHero />
+      <HomeHero heroVideo={heroVideo} heroImgs={heroImgs} />
       <OfferBanner />
 
       <CategoryTiles products={all} />

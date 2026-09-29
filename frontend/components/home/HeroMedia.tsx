@@ -8,13 +8,29 @@ import { settingsApi } from '@/lib/api';
 // photos (Settings → Homepage Hero → Hero Photo 1/2/3) slides ban ke aati hain.
 // Koi photo set nahi → bilkul pehle jaisa static video/logo. Photos aate hi
 // har 3.5s me apne aap slide hota hai.
-export default function HeroMedia() {
-  const [video, setVideo] = useState<string | null>(null);
-  const [imgs, setImgs] = useState<string[]>([]);
+//
+// The photos arrive as props, read on the server by the page. They used to be
+// fetched here, in an effect, which meant the biggest picture on the site was
+// not in the HTML at all: the browser had to parse the page, download and run
+// the JavaScript, hydrate, call /settings, and only then learn there was a
+// photo to fetch. `priority` and fetchPriority="high" were on that <Image> the
+// whole time and could do nothing, because a browser cannot hurry a URL it has
+// not been told about. Rendered on the server, Next puts a <link rel=preload>
+// for that first photo in the <head>, and it starts downloading with the page.
+export default function HeroMedia({
+  initialVideo = null,
+  initialImgs = [],
+}: { initialVideo?: string | null; initialImgs?: string[] } = {}) {
+  const [video, setVideo] = useState<string | null>(initialVideo);
+  const [imgs, setImgs] = useState<string[]>(initialImgs);
   const [idx, setIdx] = useState(0);
   const paused = useRef(false);
 
+  // Only when the page did not pass them — the admin preview renders this
+  // component on its own, and a stale deploy should still fill itself in.
+  const havePropsAlready = initialVideo !== null || initialImgs.length > 0;
   useEffect(() => {
+    if (havePropsAlready) return;
     settingsApi.getAll()
       .then(r => {
         const s = r.settings ?? {};
@@ -24,7 +40,7 @@ export default function HeroMedia() {
         setImgs([s.heroImg1, s.heroImg2, s.heroImg3].filter(valid) as string[]);
       })
       .catch(() => {});
-  }, []);
+  }, [havePropsAlready]);
 
   // The logo card used to be slide 0 whenever there was no video, so the first
   // thing anyone saw of the shop was the logo on a cream card — a logo that is
@@ -94,10 +110,18 @@ export default function HeroMedia() {
         {showFirst && <div style={{ flex: '0 0 100%', height: '100%' }}>{firstSlide}</div>}
         {imgs.map((src, i) => (
           <div key={i} style={{ flex: '0 0 100%', height: '100%' }}>
+            {/* 1200x900, because the box is 4:3 and the uploads are 1206x905.
+                It said 1200x520 — a 2.3:1 shape Next then sized its candidates
+                to, for a frame that is nothing like it.
+
+                sizes said 100vw. Above 860px this column is half the page (the
+                grid is 1fr 1fr, capped at --shell 1760px), so the browser was
+                choosing a file about twice as wide as the space it had — on a
+                1440 screen, a 1440px-wide photo poured into a ~700px box. */}
             <Image src={src} alt={`Mahalaxmi Fashion Hub collection ${i + 1}`}
-              width={1200} height={520}
+              width={1200} height={900}
               priority={!showFirst && i === 0} fetchPriority={!showFirst && i === 0 ? 'high' : undefined}
-              sizes="100vw"
+              sizes="(max-width: 860px) 100vw, (max-width: 1760px) 50vw, 880px"
               style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
           </div>
         ))}
