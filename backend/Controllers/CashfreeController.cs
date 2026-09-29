@@ -5,6 +5,7 @@ using System.Text;
 using System.Text.Json;
 using MahalaxmiApi.Data;
 using MahalaxmiApi.Models;
+using MahalaxmiApi.Services;
 
 namespace MahalaxmiApi.Controllers;
 
@@ -104,7 +105,7 @@ public class CashfreeController : ControllerBase
 
         if (!response.IsSuccessStatusCode)
         {
-            _logger.LogError("Cashfree create-order failed ({Status}): {Body}", (int)response.StatusCode, rawJson);
+            _logger.LogError("Cashfree create-order failed ({Status}): {Body}", (int)response.StatusCode, LogSafe.Body(rawJson));
             return StatusCode(502, new { success = false, message = "Payment gateway error. Please try again." });
         }
 
@@ -156,7 +157,7 @@ public class CashfreeController : ControllerBase
         var rawJson = await response.Content.ReadAsStringAsync();
         if (!response.IsSuccessStatusCode)
         {
-            _logger.LogError("Cashfree verify failed ({Status}): {Body}", (int)response.StatusCode, rawJson);
+            _logger.LogError("Cashfree verify failed ({Status}): {Body}", (int)response.StatusCode, LogSafe.Body(rawJson));
             return StatusCode(502, new { success = false, message = "Could not verify payment. Please contact support." });
         }
 

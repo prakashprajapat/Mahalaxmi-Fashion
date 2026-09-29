@@ -93,12 +93,12 @@ public class EmailService
             };
 
             await client.SendMailAsync(msg);
-            _logger.LogInformation("Email sent to {Email} (subject: {Subject}).", string.Join(", ", to), subject);
+            _logger.LogInformation("Email sent to {Email} (subject: {Subject}).", LogSafe.Email(string.Join(", ", to)), subject);
             return true;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to send email to {Email}.", string.Join(", ", to));
+            _logger.LogError(ex, "Failed to send email to {Email}.", LogSafe.Email(string.Join(", ", to)));
             return false;
         }
         finally

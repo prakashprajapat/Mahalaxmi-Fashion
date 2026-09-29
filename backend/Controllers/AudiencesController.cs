@@ -7,6 +7,7 @@ using MahalaxmiApi.Data;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using MahalaxmiApi.Services;
 
 namespace MahalaxmiApi.Controllers;
 
@@ -405,7 +406,7 @@ public class AudiencesController : ControllerBase
             var body = await res.Content.ReadAsStringAsync();
             if (res.IsSuccessStatusCode) return (true, body, null);
 
-            _log.LogError("Meta audience call {Path} failed ({Status}): {Body}", path, (int)res.StatusCode, body);
+            _log.LogError("Meta audience call {Path} failed ({Status}): {Body}", path, (int)res.StatusCode, LogSafe.Body(body));
             var msg = "Meta refused the request.";
             try
             {
@@ -521,7 +522,7 @@ public class AudiencesController : ControllerBase
         var body = await res.Content.ReadAsStringAsync();
         if (!res.IsSuccessStatusCode)
         {
-            _log.LogError("Google token refresh failed ({Status}): {Body}", (int)res.StatusCode, body);
+            _log.LogError("Google token refresh failed ({Status}): {Body}", (int)res.StatusCode, LogSafe.Body(body));
             return (null, "Could not refresh the Google access token. Press Connect Google Ads again.");
         }
 
@@ -543,7 +544,7 @@ public class AudiencesController : ControllerBase
             var body = await res.Content.ReadAsStringAsync();
             if (res.IsSuccessStatusCode) return (true, body, null);
 
-            _log.LogError("Data Manager call failed ({Status}) {Url}: {Body}", (int)res.StatusCode, url, body);
+            _log.LogError("Data Manager call failed ({Status}) {Url}: {Body}", (int)res.StatusCode, url, LogSafe.Body(body));
             var msg = $"Google refused the request (HTTP {(int)res.StatusCode}).";
             try
             {

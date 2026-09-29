@@ -6,6 +6,7 @@ using MahalaxmiApi.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using MahalaxmiApi.Services;
 
 namespace MahalaxmiApi.Controllers;
 
@@ -83,7 +84,7 @@ public class MetaAdsController : ControllerBase
             var body = await res.Content.ReadAsStringAsync();
             if (!res.IsSuccessStatusCode)
             {
-                _log.LogError("Meta Ads {Path} failed ({Status}): {Body}", path, (int)res.StatusCode, body);
+                _log.LogError("Meta Ads {Path} failed ({Status}): {Body}", path, (int)res.StatusCode, LogSafe.Body(body));
                 return (false, body, FriendlyError(body, (int)res.StatusCode));
             }
             return (true, body, null);

@@ -361,7 +361,7 @@ public class CustomersController : ControllerBase
                      && !resBody.Contains("\"type\":\"error\"", StringComparison.OrdinalIgnoreCase);
             if (!ok)
             {
-                _log.LogError("Celebration SMS rejected by MSG91 ({Status}): {Body}", (int)res.StatusCode, resBody);
+                _log.LogError("Celebration SMS rejected by MSG91 ({Status}): {Body}", (int)res.StatusCode, LogSafe.Body(resBody));
                 return BadRequest(new { success = false, couponCode = coupon.Code, response = resBody,
                     message = "MSG91 did not accept the message. The coupon " + coupon.Code
                         + " is created and still valid, so this can be retried. MSG91 said: " + Trim200(resBody) });

@@ -7,6 +7,7 @@ using MahalaxmiApi.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using MahalaxmiApi.Services;
 
 namespace MahalaxmiApi.Controllers;
 
@@ -134,7 +135,7 @@ public class GoogleAdsController : ControllerBase
             var body = await res.Content.ReadAsStringAsync();
             if (!res.IsSuccessStatusCode)
             {
-                _log.LogError("Google Ads token exchange failed ({Status}): {Body}", (int)res.StatusCode, body);
+                _log.LogError("Google Ads token exchange failed ({Status}): {Body}", (int)res.StatusCode, LogSafe.Body(body));
                 return Redirect($"{AdminPage}?error=token_exchange_failed");
             }
 
@@ -178,7 +179,7 @@ public class GoogleAdsController : ControllerBase
         var body = await res.Content.ReadAsStringAsync();
         if (!res.IsSuccessStatusCode)
         {
-            _log.LogError("Google Ads token refresh failed ({Status}): {Body}", (int)res.StatusCode, body);
+            _log.LogError("Google Ads token refresh failed ({Status}): {Body}", (int)res.StatusCode, LogSafe.Body(body));
             // A revoked or expired grant is the one the admin can actually fix.
             if (body.Contains("invalid_grant", StringComparison.OrdinalIgnoreCase))
                 return (null, "Google has revoked the connection. Press Connect Google Ads again.");
@@ -339,7 +340,7 @@ public class GoogleAdsController : ControllerBase
             var body = await res.Content.ReadAsStringAsync();
             if (!res.IsSuccessStatusCode)
             {
-                _log.LogError("Google Ads {Path} failed ({Status}): {Body}", path, (int)res.StatusCode, body);
+                _log.LogError("Google Ads {Path} failed ({Status}): {Body}", path, (int)res.StatusCode, LogSafe.Body(body));
                 return (false, body, FriendlyApiError(body, (int)res.StatusCode));
             }
             return (true, body, null);

@@ -147,7 +147,8 @@ public class PushController : ControllerBase
             catch (Exception ex)
             {
                 failed++;
-                _log.LogWarning(ex, "Push send failed for endpoint {Endpoint}", s.Endpoint);
+                _log.LogWarning(ex, "Push send failed for subscription {Id} ({Host})", s.Id,
+                    Uri.TryCreate(s.Endpoint, UriKind.Absolute, out var pushUri) ? pushUri.Host : "unknown");
             }
         }
 

@@ -6,6 +6,7 @@ using MahalaxmiApi.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using MahalaxmiApi.Services;
 
 namespace MahalaxmiApi.Controllers;
 
@@ -114,7 +115,7 @@ public class GoogleLeadsController : ControllerBase
         var body = await res.Content.ReadAsStringAsync();
         if (!res.IsSuccessStatusCode)
         {
-            _log.LogError("Google token refresh failed ({Status}): {Body}", (int)res.StatusCode, body);
+            _log.LogError("Google token refresh failed ({Status}): {Body}", (int)res.StatusCode, LogSafe.Body(body));
             return (null, "Could not refresh the Google access token. Press Connect Google Ads again.");
         }
 
@@ -187,7 +188,7 @@ public class GoogleLeadsController : ControllerBase
             body = await res.Content.ReadAsStringAsync();
             if (!res.IsSuccessStatusCode)
             {
-                _log.LogError("Google lead sync failed ({Status}): {Body}", (int)res.StatusCode, body);
+                _log.LogError("Google lead sync failed ({Status}): {Body}", (int)res.StatusCode, LogSafe.Body(body));
                 return BadRequest(new { success = false, message = FriendlyError(body, (int)res.StatusCode) });
             }
         }

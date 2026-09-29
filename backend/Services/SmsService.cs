@@ -89,16 +89,25 @@ public class SmsService
             var res      = await http.SendAsync(reqMsg);
             var bodyText = await res.Content.ReadAsStringAsync();
 
-            _logger.LogInformation("MSG91 OTP response ({Status}) for {Phone}: {Body}",
-                (int)res.StatusCode, phone, bodyText);
-
             // MSG91 returns {"type":"success", ...} when the message is accepted.
-            return res.IsSuccessStatusCode
+            var ok = res.IsSuccessStatusCode
                 && bodyText.Contains("success", StringComparison.OrdinalIgnoreCase);
+
+            // The number is masked, and the provider's reply is kept only when
+            // something went wrong: on a good send the status says everything,
+            // and MSG91 echoes the request — numbers included — when it rejects.
+            if (ok)
+                _logger.LogInformation("MSG91 OTP accepted ({Status}) for {Phone}.",
+                    (int)res.StatusCode, LogSafe.Phone(phone));
+            else
+                _logger.LogWarning("MSG91 OTP rejected ({Status}) for {Phone}: {Body}",
+                    (int)res.StatusCode, LogSafe.Phone(phone), LogSafe.Body(bodyText));
+
+            return ok;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to send SMS OTP to {Mobile}.", mobile);
+            _logger.LogError(ex, "Failed to send SMS OTP to {Mobile}.", LogSafe.Phone(mobile));
             return false;
         }
     }
@@ -166,15 +175,21 @@ public class SmsService
             var res      = await http.SendAsync(reqMsg);
             var bodyText = await res.Content.ReadAsStringAsync();
 
-            _logger.LogInformation("MSG91 order SMS response ({Status}) for {OrderId} → {Phone}: {Body}",
-                (int)res.StatusCode, orderId, phone, bodyText);
-
-            return res.IsSuccessStatusCode
+            var ok = res.IsSuccessStatusCode
                 && bodyText.Contains("success", StringComparison.OrdinalIgnoreCase);
+
+            if (ok)
+                _logger.LogInformation("MSG91 order SMS accepted ({Status}) for {OrderId} to {Phone}.",
+                    (int)res.StatusCode, orderId, LogSafe.Phone(phone));
+            else
+                _logger.LogWarning("MSG91 order SMS rejected ({Status}) for {OrderId} to {Phone}: {Body}",
+                    (int)res.StatusCode, orderId, LogSafe.Phone(phone), LogSafe.Body(bodyText));
+
+            return ok;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to send order SMS for {OrderId} to {Mobile}.", orderId, mobile);
+            _logger.LogError(ex, "Failed to send order SMS for {OrderId} to {Mobile}.", orderId, LogSafe.Phone(mobile));
             return false;
         }
     }
@@ -241,7 +256,7 @@ public class SmsService
                 else
                 {
                     failed += batch.Length;
-                    _logger.LogError("Bulk campaign batch failed ({Status}): {Body}", (int)res.StatusCode, body);
+                    _logger.LogError("Bulk campaign batch failed ({Status}): {Body}", (int)res.StatusCode, LogSafe.Body(body));
                 }
             }
             catch (Exception ex)
