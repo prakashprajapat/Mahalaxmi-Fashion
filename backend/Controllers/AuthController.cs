@@ -156,7 +156,8 @@ public class AuthController : ControllerBase
         if (!string.Equals(req.Email.Trim(), adminEmail, StringComparison.OrdinalIgnoreCase))
             return BadRequest(new { success = false, message = "Email not recognised." });
 
-        var otp = Random.Shared.Next(100000, 999999).ToString();
+        var otp = System.Security.Cryptography.RandomNumberGenerator
+            .GetInt32(100000, 1000000).ToString();
         var (hash, _) = _auth.HashPassword(otp);
 
         var old = _db.OtpTokens.Where(t => t.Email == req.Email.Trim() && t.Purpose == "admin-recovery");
@@ -220,17 +221,21 @@ public class AuthController : ControllerBase
         if (token is null)
             return BadRequest(new { success = false, message = "Invalid or expired session. Please start over." });
 
-        // SEC: lock the OTP after 5 wrong guesses so the 6-digit code can't be brute-forced
-        // within the 15-minute window (matches the customer reset flow).
-        if (token.Attempts >= 5)
+        // SEC: lock the OTP after 5 wrong guesses so the 6-digit code can't be
+        // brute-forced within the 15-minute window.
+        //
+        // The count is taken by the database, before the guess is checked, in one
+        // statement that only succeeds while it is under the limit. Read-then-
+        // increment let a burst of requests all read 4, all pass, and all
+        // increment — the limit held against a person typing and not against a
+        // script, which is the only thing it was there to stop.
+        var attemptRows = await _db.Database.ExecuteSqlInterpolatedAsync(
+            $"UPDATE otp_tokens SET attempts = attempts + 1 WHERE id = {token.Id} AND attempts < 5");
+        if (attemptRows == 0)
             return BadRequest(new { success = false, message = "Too many incorrect attempts. Please start over." });
 
         if (!BCrypt.Net.BCrypt.Verify(req.Otp, token.OtpHash))
-        {
-            token.Attempts++;
-            await _db.SaveChangesAsync();
             return BadRequest(new { success = false, message = "Incorrect OTP." });
-        }
 
         token.Used = true;
         var newHash = BCrypt.Net.BCrypt.HashPassword(req.NewPassword, workFactor: 12);

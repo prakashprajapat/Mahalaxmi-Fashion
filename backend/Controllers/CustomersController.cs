@@ -532,7 +532,8 @@ public class CustomersController : ControllerBase
             return BadRequest(new { success = false, message = "Phone or email is required." });
 
         // Generate 6-digit OTP
-        var otp = Random.Shared.Next(100000, 999999).ToString();
+        var otp = System.Security.Cryptography.RandomNumberGenerator
+            .GetInt32(100000, 1000000).ToString();
         var (hash, _) = _auth.HashPassword(otp);
 
         // Remove old OTPs for this destination (CQ-9: also purge expired tokens)
@@ -648,7 +649,8 @@ public class CustomersController : ControllerBase
         if (string.IsNullOrWhiteSpace(accEmail) && string.IsNullOrWhiteSpace(accPhone))
             return BadRequest(new { success = false, message = "This account has no email or mobile on file to send an OTP to." });
 
-        var otp = Random.Shared.Next(100000, 999999).ToString();
+        var otp = System.Security.Cryptography.RandomNumberGenerator
+            .GetInt32(100000, 1000000).ToString();
         var (hash, _) = _auth.HashPassword(otp);
 
         // Purge old reset OTPs for this account's contacts.
@@ -1045,7 +1047,13 @@ public class CustomersController : ControllerBase
         } // end try
         catch (Exception ex)
         {
-            return StatusCode(500, new { success = false, message = $"Social login error: {ex.Message}" });
+            // The exception text names our libraries, our provider calls and
+            // sometimes the URL a token was posted to. That is a map of the
+            // inside of the server, handed to whoever made the request fail.
+            // It goes to the log, where it is useful; the caller gets nothing
+            // it can build on.
+            _log.LogError(ex, "Social login failed");
+            return StatusCode(500, new { success = false, message = "Sign-in could not be completed. Please try again." });
         }
     }
 
@@ -1072,6 +1080,22 @@ public class CustomersController : ControllerBase
     private string CustomerPhotosRoot() =>
         Path.GetFullPath(Path.Combine(_env.ContentRootPath, "..", "mahalaxmi-uploads", "customers"));
 
+    // The first bytes of the four image formats a browser will actually show.
+    // Returns the extension they belong to, or null when the bytes are something
+    // else wearing an image's name.
+    private static string? ImageExtension(byte[] h)
+    {
+        if (h.Length < 12) return null;
+        if (h[0] == 0xFF && h[1] == 0xD8 && h[2] == 0xFF) return ".jpg";
+        if (h[0] == 0x89 && h[1] == 0x50 && h[2] == 0x4E && h[3] == 0x47
+            && h[4] == 0x0D && h[5] == 0x0A && h[6] == 0x1A && h[7] == 0x0A) return ".png";
+        if (h[0] == (byte)'G' && h[1] == (byte)'I' && h[2] == (byte)'F'
+            && h[3] == (byte)'8' && (h[4] == (byte)'7' || h[4] == (byte)'9') && h[5] == (byte)'a') return ".gif";
+        if (h[0] == (byte)'R' && h[1] == (byte)'I' && h[2] == (byte)'F' && h[3] == (byte)'F'
+            && h[8] == (byte)'W' && h[9] == (byte)'E' && h[10] == (byte)'B' && h[11] == (byte)'P') return ".webp";
+        return null;
+    }
+
     // POST /api/customers/{id}/photo — customer uploads their profile photo (self or admin).
     [HttpPost("{id:int}/photo")]
     [Authorize]
@@ -1094,14 +1118,35 @@ public class CustomersController : ControllerBase
         if (file.Length > 8L * 1024 * 1024)
             return BadRequest(new { success = false, message = "Image too large (max 8 MB)." });
 
-        var ext = Path.GetExtension(file.FileName ?? "");
-        ext = new string(ext.Where(ch => char.IsLetterOrDigit(ch) || ch == '.').ToArray()).ToLowerInvariant();
-        if (string.IsNullOrWhiteSpace(ext) || ext.Length > 6) ext = ".jpg";
+        // The content type and the file name are both written by whoever is
+        // uploading. Calling a file photo.jpg and saying image/jpeg costs
+        // nothing and was the whole of the check. The file's own first bytes
+        // are the one part of it the uploader cannot rename.
+        byte[] head;
+        await using (var probe = file.OpenReadStream())
+        {
+            head = new byte[12];
+            var read = 0;
+            while (read < head.Length)
+            {
+                var n = await probe.ReadAsync(head.AsMemory(read, head.Length - read));
+                if (n == 0) break;
+                read += n;
+            }
+            if (read < head.Length) return BadRequest(new { success = false, message = "That file is not an image." });
+        }
+
+        // The extension comes from what the bytes say it is, never from the
+        // name — so nothing can be stored under an extension it is not.
+        var ext = ImageExtension(head);
+        if (ext is null)
+            return BadRequest(new { success = false, message = "Only JPEG, PNG, GIF and WebP images are allowed." });
 
         Directory.CreateDirectory(CustomerPhotosRoot());
         var name = $"cust_{Guid.NewGuid():N}{ext}";
         await using (var fs = System.IO.File.Create(Path.Combine(CustomerPhotosRoot(), name)))
-            await file.CopyToAsync(fs);
+        await using (var src = file.OpenReadStream())
+            await src.CopyToAsync(fs);
 
         c.PhotoUrl = $"/api/customers/photo/{name}";
         c.UpdatedAt = DateTimeOffset.UtcNow;

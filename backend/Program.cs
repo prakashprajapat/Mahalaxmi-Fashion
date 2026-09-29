@@ -57,18 +57,58 @@ builder.WebHost.ConfigureKestrel(o => o.Limits.MaxRequestBodySize = 85L * 1024 *
 // The caller's real address. The site sits behind Cloudflare and nginx, so
 // RemoteIpAddress is the proxy, not the shopper — without this every customer
 // in India would count as one caller and share one budget.
+// Who a request is from, for the purpose of counting it.
+//
+// This is the name every rate limit is kept under, so whoever gets to choose it
+// gets to decide how many times they may try. It used to be chosen by the
+// caller: CF-Connecting-IP was believed whatever it said and wherever it came
+// from, so a fresh value on each request meant a fresh allowance, and the limit
+// on password guesses and OTP sends counted nothing.
+//
+// A forwarded header is worth something only when the machine that set it can
+// be trusted, and only the machine on the other end of the socket can be
+// checked. Here that is nginx, on this same host. So: a header is read only
+// when the connection came from the loopback address, and is ignored entirely
+// otherwise — a request that reaches this port directly is counted under the
+// address it actually came from, which it cannot rewrite.
+//
+// For the value to be true and not merely trusted, nginx has to set it from the
+// connection rather than pass the client's copy through. See RUNBOOK-PENDING.md
+// ("Real client IP") for the Cloudflare ranges and the two nginx lines; until
+// that is in place this function is honest about the hop it can see, which is
+// the most it can be.
+static bool FromTrustedProxy(HttpContext http)
+{
+    var peer = http.Connection.RemoteIpAddress;
+    if (peer is null) return false;
+    if (System.Net.IPAddress.IsLoopback(peer)) return true;
+    // ::ffff:127.0.0.1 — a v4 loopback arriving on a dual-stack socket.
+    if (peer.IsIPv4MappedToIPv6 && System.Net.IPAddress.IsLoopback(peer.MapToIPv4())) return true;
+    return false;
+}
+
 static string CallerIp(HttpContext http)
 {
+    var direct = http.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+    if (!FromTrustedProxy(http)) return direct;
+
     var cf = http.Request.Headers["CF-Connecting-IP"].ToString();
     if (!string.IsNullOrWhiteSpace(cf)) return cf.Trim();
 
+    var real = http.Request.Headers["X-Real-IP"].ToString();
+    if (!string.IsNullOrWhiteSpace(real)) return real.Trim();
+
+    // X-Forwarded-For grows left to right, and everything to the left of our own
+    // proxy's entry was written by someone we have no reason to believe. The
+    // LAST entry is the one our proxy added; the first is the one an attacker
+    // would have put there, and the first is what this used to take.
     var fwd = http.Request.Headers["X-Forwarded-For"].ToString();
     if (!string.IsNullOrWhiteSpace(fwd))
     {
-        var first = fwd.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).FirstOrDefault();
-        if (!string.IsNullOrWhiteSpace(first)) return first;
+        var parts = fwd.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (parts.Length > 0) return parts[^1];
     }
-    return http.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+    return direct;
 }
 
 builder.Services.AddRateLimiter(opts =>

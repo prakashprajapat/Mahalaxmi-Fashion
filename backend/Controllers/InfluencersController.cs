@@ -124,7 +124,8 @@ public class InfluencersController : ControllerBase
         if (string.IsNullOrWhiteSpace(accEmail) && string.IsNullOrWhiteSpace(accPhone))
             return BadRequest(new { success = false, message = "This account has no email or mobile on file." });
 
-        var otp  = Random.Shared.Next(100000, 999999).ToString();
+        var otp = System.Security.Cryptography.RandomNumberGenerator
+            .GetInt32(100000, 1000000).ToString();
         var hash = BCrypt.Net.BCrypt.HashPassword(otp, workFactor: 10);
 
         var old = _db.OtpTokens.Where(t =>
