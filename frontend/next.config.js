@@ -124,10 +124,15 @@ const nextConfig = {
                 + "https://*.cashfree.com "
                 + "https://res.cloudinary.com https://*.cloudinary.com https://*.amazonaws.com",
               "connect-src 'self' https://www.google-analytics.com https://region1.google-analytics.com https://analytics.google.com https://www.googletagmanager.com https://api.razorpay.com https://lumberjack.razorpay.com https://connect.facebook.net https://*.facebook.com https://static.cloudflareinsights.com https://*.merchant-center-analytics.goog https://*.google.com https://*.cashfree.com https://sdk.cashfree.com https://stats.g.doubleclick.net https://*.g.doubleclick.net https://www.googleadservices.com https://ad.doubleclick.net",
-              "frame-src https://checkout.razorpay.com https://api.razorpay.com https://*.razorpay.com https://*.cashfree.com https://sdk.cashfree.com https://www.google.com https://maps.google.com",
+              // www.facebook.com: when a browser blocks third-party cookies the
+              // Pixel stops using an image beacon and falls back to a hidden
+              // iframe plus a form POST to facebook.com/tr. Both were blocked
+              // here, so the Pixel initialised, fired, and delivered nothing —
+              // which is why not one beacon was leaving a product page.
+              "frame-src https://checkout.razorpay.com https://api.razorpay.com https://*.razorpay.com https://*.cashfree.com https://sdk.cashfree.com https://www.google.com https://maps.google.com https://www.facebook.com",
               "object-src 'none'",
               "base-uri 'self'",
-              "form-action 'self' https://*.cashfree.com https://payments.cashfree.com https://sandbox.cashfree.com https://*.razorpay.com https://api.razorpay.com",
+              "form-action 'self' https://*.cashfree.com https://payments.cashfree.com https://sandbox.cashfree.com https://*.razorpay.com https://api.razorpay.com https://www.facebook.com",
               "frame-ancestors 'none'",
               "upgrade-insecure-requests",
             ].join('; '),
