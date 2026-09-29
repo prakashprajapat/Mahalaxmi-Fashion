@@ -11,6 +11,11 @@ import { productSlug } from '@/lib/productSlug';
 export default function ProductCard({ product, priority = false }: { product: Product; priority?: boolean }) {
   const [wishlisted, setWishlisted] = useState(isInWishlist(product.dbId));
   const [imgError, setImgError] = useState(false);
+  // Next ka image optimiser kabhi-kabhi photo ko padh nahi pata (uska apna
+  // public folder us photo tak nahi pahunchta — nayi upload ki hui photos par
+  // /_next/image 400 deta hai, jabki photo khud theek kholti hai). Aise me
+  // seedha asli file dikha dete hain: photo kam se kam dikhti to hai.
+  const [rawFallback, setRawFallback] = useState(false);
   // A photo that is not roughly portrait leaves grey bands inside the 3:4 tile.
   // Rather than crop it — a two-model combo photo loses both models that way —
   // a blurred copy of the same photo fills the gap. Only the odd-shaped ones
@@ -70,7 +75,7 @@ export default function ProductCard({ product, priority = false }: { product: Pr
           )}
           <div>
             {image && !imgError ? (
-              !inlineSrc ? (
+              !inlineSrc && !rawFallback ? (
                 <Image src={image} alt={product.name}
                   width={600}
                   height={800}
@@ -79,7 +84,7 @@ export default function ProductCard({ product, priority = false }: { product: Pr
                   sizes="(max-width: 640px) 46vw, (max-width: 1024px) 30vw, 240px"
                   style={{ width: '100%', height: '100%', objectFit: 'contain' }}
                   onLoad={e => measure(e.currentTarget)}
-                  onError={() => setImgError(true)}
+                  onError={() => setRawFallback(true)}
                 />
               ) : (
                 <img src={image} alt={product.name}

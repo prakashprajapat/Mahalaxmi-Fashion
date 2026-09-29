@@ -97,6 +97,10 @@ export default function ProductDetail({ params, initialProduct = null }: { param
   const [size, setSize] = useState('');
   const [color, setColor] = useState('');
   const [activeImg, setActiveImg] = useState(() => firstPhotoOf(initialProduct));
+  // Optimiser photo na padh paye to asli file dikhao — dekhiye ProductCard.
+  const [heroRaw, setHeroRaw] = useState(false);
+  // Nayi photo chunte hi dobara optimiser ko mauka do.
+  useEffect(() => { setHeroRaw(false); }, [activeImg]);
   const [added, setAdded] = useState(false);
   // Is this exact size/colour already in the cart? Drives Add to Cart → Go to Cart.
   const [inCart, setInCart] = useState(false);
@@ -470,12 +474,17 @@ export default function ProductDetail({ params, initialProduct = null }: { param
                   <div className="product-card-blurfill" aria-hidden="true"
                     style={{ backgroundImage: `url("${productImageThumb(activeImg).replace(/"/g, '%22')}")` }} />
                 )}
-                {activeImg
-                  ? <Image src={activeImg} alt={product.name}
-                      width={900} height={1200} priority fetchPriority="high"
-                      sizes="(max-width: 768px) 100vw, 520px"
-                      style={{ position: 'relative', zIndex: 1, width: '100%', height: '100%', objectFit: 'contain' }} />
-                  : <div className="product-card-placeholder" aria-hidden="true" />}
+                {!activeImg
+                  ? <div className="product-card-placeholder" aria-hidden="true" />
+                  : heroRaw
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    ? <img src={activeImg} alt={product.name}
+                        style={{ position: 'relative', zIndex: 1, width: '100%', height: '100%', objectFit: 'contain' }} />
+                    : <Image src={activeImg} alt={product.name}
+                        width={900} height={1200} priority fetchPriority="high"
+                        sizes="(max-width: 768px) 100vw, 520px"
+                        onError={() => setHeroRaw(true)}
+                        style={{ position: 'relative', zIndex: 1, width: '100%', height: '100%', objectFit: 'contain' }} />}
                 {product.bestSeller && <span className="badge badge-yellow" style={{ position: 'absolute', zIndex: 2, top: 12, left: 12 }}>Best Seller</span>}
                 {saving > 0 && <span className="badge badge-red" style={{ position: 'absolute', zIndex: 2, top: product.bestSeller ? 44 : 12, left: 12 }}>{saving}% off</span>}
               </div>
