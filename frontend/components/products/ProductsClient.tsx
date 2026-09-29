@@ -1,5 +1,5 @@
 'use client';
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import ProductCard from '@/components/product/ProductCard';
 import { finalUnitPrice } from '@/lib/price';
 import { fuzzyScore, productHaystack } from '@/lib/fuzzy';
@@ -202,6 +202,12 @@ export default function ProductsClient({ products, title, initialQ = '', initial
   const [selectedSizes, setSelectedSizes] = useState<string[]>([]);
   const [selectedColors, setSelectedColors] = useState<string[]>([]);
   const [q, setQ] = useState(initialQ);
+  // Poori dukaan ek saath render karne se phone par 100 cards ka DOM ban jata
+  // tha aur 100 photo ki request lag jati thi. Pehle itne dikhate hain jitne
+  // do-teen screen bhar de, baaki tab jab shopper wahan tak pahunche.
+  const PAGE = 24;
+  const [shown, setShown] = useState(PAGE);
+  const moreRef = useRef<HTMLDivElement | null>(null);
 
   // Compute global price range from actual products
   const { globalMin, globalMax } = useMemo(() => {
@@ -233,8 +239,22 @@ export default function ProductsClient({ products, title, initialQ = '', initial
     setSelectedColors([]);
     setSort('position');
     setQ(initialQ);
+    setShown(PAGE);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [products, initialQ, initialSubcat]);
+
+  // Sentinel nazar me aate hi agla batch. Button dabane ki zarurat nahi, aur
+  // ek saath sab render bhi nahi hota.
+  useEffect(() => {
+    const el = moreRef.current;
+    if (!el || typeof IntersectionObserver === 'undefined') return;
+    const io = new IntersectionObserver(
+      entries => { if (entries.some(e => e.isIntersecting)) setShown(n => n + PAGE); },
+      { rootMargin: '600px' },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [shown, PAGE]);
 
   const subcatMap = useMemo(() => {
     const map = new Map<string, string>();
@@ -446,11 +466,18 @@ export default function ProductsClient({ products, title, initialQ = '', initial
               <button onClick={clearAll} style={{ padding: '.6rem 1.5rem', background: '#722f37', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 700 }}>Clear Filters</button>
             </div>
           ) : (
-            <div className="products-grid">
-              {/* First screen-full loads eagerly so the top of the grid is never blank;
-                  the rest lazy-load as the shopper scrolls (keeps a big catalogue fast). */}
-              {filtered.map((p: any, i: number) => <ProductCard key={p.dbId} product={p} priority={i < 8} />)}
-            </div>
+            <>
+              <div className="products-grid">
+                {/* First screen-full loads eagerly so the top of the grid is never blank;
+                    the rest lazy-load as the shopper scrolls (keeps a big catalogue fast). */}
+                {filtered.slice(0, shown).map((p: any, i: number) => (
+                  <ProductCard key={p.dbId} product={p} priority={i < 8} />
+                ))}
+              </div>
+              {shown < filtered.length && (
+                <div ref={moreRef} style={{ height: 1 }} aria-hidden="true" />
+              )}
+            </>
           )}
         </div>
       </div>
