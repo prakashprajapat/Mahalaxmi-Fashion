@@ -50,12 +50,20 @@ export default async function CategoryTiles({ products }: { products: Product[] 
         <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '1rem', marginBottom: '1.6rem' }}>
           <h2 style={{
             margin: 0, fontFamily: 'var(--font-playfair), Georgia, serif',
-            fontSize: 'clamp(1.5rem, 3vw, 2.3rem)', fontWeight: 500, color: '#1e1b19',
+            // Uppercase is wider than the same words in mixed case, so at the
+            // old 1.5rem floor "SHOP BY CATEGORY" no longer fitted beside
+            // "VIEW EVERYTHING" on a phone and broke onto a second line. The
+            // floor drops to 1.15rem, and on the narrowest phones the link
+            // beside it gives up a little width too — a 360px Android is where
+            // the two of them ran out of room. The desktop size is unchanged:
+            // the cap and the growth rate still reach 2.3rem well before a
+            // laptop.
+            fontSize: 'clamp(1.15rem, 4vw, 2.3rem)', fontWeight: 500, color: '#1e1b19',
             textTransform: 'uppercase',
           }}>
             Shop by category
           </h2>
-          <Link href="/products" style={{
+          <Link href="/products" className="cat-see-all" style={{
             fontSize: '.74rem', letterSpacing: '.14em', textTransform: 'uppercase',
             color: '#722f37', fontWeight: 600, whiteSpace: 'nowrap',
           }}>
@@ -99,6 +107,9 @@ export default async function CategoryTiles({ products }: { products: Product[] 
         .cat-tiles { grid-template-columns: repeat(${Math.min(tiles.length, 5)}, minmax(0, 1fr)); }
         @media (max-width: 1024px) { .cat-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
         @media (max-width: 600px)  { .cat-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+        /* On a 360px phone the heading and this link together were a few pixels
+           over, which is all it takes to push the heading onto a second line. */
+        @media (max-width: 430px)  { .cat-see-all { font-size: .68rem; letter-spacing: .08em; } }
       `}</style>
     </section>
   );
