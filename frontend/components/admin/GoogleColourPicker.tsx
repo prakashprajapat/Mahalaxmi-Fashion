@@ -10,12 +10,18 @@
 //   • "Photo se colour" → product ki apni photo me se sabse zyada dikhne wale
 //                         colours utha leta hai (background hata kar)
 //   • "Screen se colour"→ eyedropper, screen me kahin se bhi (Chrome/Edge)
+//   • "Photo ka hissa"  → tasveer par chaukor kheench kar, sirf usi hisse ke
+//                         rang. Print wali nighty par yahi sahi hai: poori
+//                         tasveer me zameen ka rang jeet jata hai aur phoolon
+//                         ke rang — jo grahak sabse pehle dekhta hai — ginti
+//                         me peeche reh jate hain.
 
 import { useEffect, useRef, useState } from 'react';
 import {
   colourProblem, joinColourValue, nearestColourName, splitColourValue,
   colourNameToHex, colourDistance, hexToRgb, rgbToHex,
 } from '@/lib/googleColours';
+import PhotoColourRegion from '@/components/admin/PhotoColourRegion';
 
 type Slot = { hex: string; name: string };
 
@@ -100,6 +106,7 @@ export default function GoogleColourPicker({
 
   const [slots, setSlots] = useState<Slot[]>(fromProps);
   const [busy, setBusy] = useState(false);
+  const [regionOpen, setRegionOpen] = useState(false);
   const [note, setNote] = useState('');
   const emitted = useRef(value);
 
@@ -141,6 +148,11 @@ export default function GoogleColourPicker({
     } catch {
       setNote('Ye photo padhi nahi ja saki. Circle par click karke colour khud chun lein.');
     } finally { setBusy(false); }
+  };
+
+  const fromRegion = (hexes: string[]) => {
+    push(hexes.map(hex => ({ hex, name: nearestColourName(hex) })));
+    setNote('Chune hue hisse se bhar diya — naam theek na lage to badal lein.');
   };
 
   const fromScreen = async (i: number) => {
@@ -228,7 +240,20 @@ export default function GoogleColourPicker({
             }}
           >{busy ? '⏳ dekh raha hoon…' : '📷 Photo se colour bharo'}</button>
         )}
+        {photo && (
+          <button
+            type="button" onClick={() => setRegionOpen(true)}
+            style={{
+              border: '1px solid #c9a9b0', background: '#fff', color: '#722f37', borderRadius: 6,
+              padding: '.28rem .6rem', fontSize: '.73rem', fontWeight: 700, cursor: 'pointer',
+            }}
+          >🎯 Photo ka hissa chuniye</button>
+        )}
       </div>
+
+      {regionOpen && photo && (
+        <PhotoColourRegion src={photo} onPick={fromRegion} onClose={() => setRegionOpen(false)} />
+      )}
 
       {slots.length > 0 && (
         <div style={{ display: 'flex', alignItems: 'center', gap: '.55rem', marginTop: '.6rem' }}>
