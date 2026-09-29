@@ -113,7 +113,7 @@ export default function PhotoColourRegion({
     const img = imgRef.current;
     const b = boxRef.current?.getBoundingClientRect();
     if (!img || !b || !sel || sel.w < 6 || sel.h < 6) {
-      setErr('Thoda bada chaukor kheenchiye — design wale hisse par.');
+      setErr('Drag a slightly bigger box, over the printed part.');
       return;
     }
     setBusy(true);
@@ -127,14 +127,14 @@ export default function PhotoColourRegion({
         x: sel.x * scaleX, y: sel.y * scaleY, w: sel.w * scaleX, h: sel.h * scaleY,
       });
       if (hexes.length === 0) {
-        setErr('Is hisse se rang nahi nikle. Doosra hissa chun kar dekhiye.');
+        setErr('No colours came out of that area. Try another part.');
         setBusy(false);
         return;
       }
       onPick(hexes);
       onClose();
     } catch {
-      setErr('Tasveer padhi nahi ja saki.');
+      setErr('That photo could not be read.');
     } finally {
       setBusy(false);
     }
@@ -142,7 +142,7 @@ export default function PhotoColourRegion({
 
   return (
     <div
-      role="dialog" aria-modal="true" aria-label="Photo ka hissa chuniye"
+      role="dialog" aria-modal="true" aria-label="Pick part of the photo"
       style={{
         position: 'fixed', inset: 0, zIndex: 3000, background: 'rgba(20,14,16,.62)',
         display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem',
@@ -154,11 +154,11 @@ export default function PhotoColourRegion({
         maxHeight: '92vh', overflowY: 'auto', boxShadow: '0 18px 50px rgba(0,0,0,.3)',
       }}>
         <div style={{ fontWeight: 800, fontSize: '.95rem', color: '#1e1b19', marginBottom: '.2rem' }}>
-          Design wale hisse par chaukor kheenchiye
+          Drag a box over the printed part
         </div>
         <div style={{ fontSize: '.78rem', color: '#7d736d', marginBottom: '.7rem', lineHeight: 1.5 }}>
-          Jahan asli print hai wahan — poori tasveer me zameen ka rang aur khaali
-          hisse ginti jeet jate hain, isliye phoolon ke rang chhut jate hain.
+          Over the pattern itself. Across the whole photo the background colour wins
+          the count, so the colours in the print get left out.
         </div>
 
         <div
@@ -192,11 +192,11 @@ export default function PhotoColourRegion({
         <div style={{ display: 'flex', gap: '.5rem', marginTop: '.8rem', justifyContent: 'flex-end' }}>
           <button type="button" onClick={onClose}
             style={{ border: '1px solid #e5dcdd', background: '#fff', color: '#555', borderRadius: 8, padding: '.45rem .9rem', fontSize: '.82rem', fontWeight: 600, cursor: 'pointer' }}>
-            Rehne dijiye
+            Cancel
           </button>
           <button type="button" onClick={use} disabled={busy}
             style={{ border: 'none', background: '#722f37', color: '#fff', borderRadius: 8, padding: '.45rem 1rem', fontSize: '.82rem', fontWeight: 700, cursor: busy ? 'wait' : 'pointer', opacity: busy ? .7 : 1 }}>
-            {busy ? 'dekh raha hoon…' : 'Yahi rang bhar dijiye'}
+            {busy ? 'Reading…' : 'Use these colours'}
           </button>
         </div>
       </div>

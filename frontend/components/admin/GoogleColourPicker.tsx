@@ -142,22 +142,22 @@ export default function GoogleColourPicker({
     setBusy(true); setNote('');
     try {
       const hexes = await dominantColours(photo, MAX);
-      if (hexes.length === 0) { setNote('Photo me se colour nahi mila — circle par click karke khud bhar dein.'); return; }
+      if (hexes.length === 0) { setNote('No colours found in the photo — click a circle and set them yourself.'); return; }
       push(hexes.map(hex => ({ hex, name: nearestColourName(hex) })));
-      setNote('Photo se bhar diya — naam theek na lage to badal lein.');
+      setNote('Filled in from the photo — change a name if it does not look right.');
     } catch {
-      setNote('Ye photo padhi nahi ja saki. Circle par click karke colour khud chun lein.');
+      setNote('That photo could not be read. Click a circle and pick the colours yourself.');
     } finally { setBusy(false); }
   };
 
   const fromRegion = (hexes: string[]) => {
     push(hexes.map(hex => ({ hex, name: nearestColourName(hex) })));
-    setNote('Chune hue hisse se bhar diya — naam theek na lage to badal lein.');
+    setNote('Filled in from the area you picked — change a name if it does not look right.');
   };
 
   const fromScreen = async (i: number) => {
     const ED = (window as unknown as { EyeDropper?: new () => { open: () => Promise<{ sRGBHex: string }> } }).EyeDropper;
-    if (!ED) { setNote('Ye browser eyedropper support nahi karta — Chrome ya Edge me chalta hai.'); return; }
+    if (!ED) { setNote('This browser has no eyedropper — it works in Chrome and Edge.'); return; }
     try {
       const res = await new ED().open();
       if (res?.sRGBHex) setHex(i, res.sRGBHex);
@@ -238,7 +238,7 @@ export default function GoogleColourPicker({
               border: '1px solid #c9a9b0', background: '#fff', color: '#722f37', borderRadius: 6,
               padding: '.28rem .6rem', fontSize: '.73rem', fontWeight: 700, cursor: busy ? 'wait' : 'pointer',
             }}
-          >{busy ? '⏳ dekh raha hoon…' : '📷 Photo se colour bharo'}</button>
+          >{busy ? '⏳ Reading…' : '📷 Fill colours from the photo'}</button>
         )}
         {photo && (
           <button
@@ -247,7 +247,7 @@ export default function GoogleColourPicker({
               border: '1px solid #c9a9b0', background: '#fff', color: '#722f37', borderRadius: 6,
               padding: '.28rem .6rem', fontSize: '.73rem', fontWeight: 700, cursor: 'pointer',
             }}
-          >🎯 Photo ka hissa chuniye</button>
+          >🎯 Pick part of the photo</button>
         )}
       </div>
 
@@ -263,7 +263,7 @@ export default function GoogleColourPicker({
               Google ko jayega: <strong style={{ color: '#222' }}>{joined || '—'}</strong>
             </div>
             <div style={{ color: problem ? '#c0392b' : '#1e7a3c', fontWeight: 600 }}>
-              {problem ? `✗ ${problem}` : '✓ Google ke niyam pure — primary colour pehle'}
+              {problem ? `✗ ${problem}` : '✓ Meets Google\'s rules — primary colour first'}
             </div>
           </div>
         </div>

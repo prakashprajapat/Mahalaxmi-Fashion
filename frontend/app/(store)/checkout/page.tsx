@@ -751,8 +751,8 @@ export default function CheckoutPage() {
     return (
       <div style={{ minHeight: '55vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem', textAlign: 'center' }}>
         <div>
-          <div style={{ fontSize: '1.05rem', fontWeight: 700, color: '#1e1b19' }}>Aapka item basket me daala ja raha hai…</div>
-          <div style={{ fontSize: '.85rem', color: '#7d736d', marginTop: '.35rem' }}>Ek pal — phir seedha payment.</div>
+          <div style={{ fontSize: '1.05rem', fontWeight: 700, color: '#1e1b19' }}>Adding your item to the basket…</div>
+          <div style={{ fontSize: '.85rem', color: '#7d736d', marginTop: '.35rem' }}>One moment, then straight to payment.</div>
         </div>
       </div>
     );

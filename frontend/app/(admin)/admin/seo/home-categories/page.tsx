@@ -166,7 +166,7 @@ export default function HomeCategoriesPage() {
 
     const unnamed = kept.find(r => !r.label.trim());
     if (unnamed) {
-      setMsg({ kind: 'err', text: 'हर tile को एक नाम चाहिए।' });
+      setMsg({ kind: 'err', text: 'Every tile needs a name.' });
       return;
     }
 
@@ -176,15 +176,15 @@ export default function HomeCategoriesPage() {
     if (thin) {
       setMsg({
         kind: 'err',
-        text: `“${thin.label.trim() || 'बिना नाम'}” में कम से कम ${MIN_SUBS} subcategory चुननी ज़रूरी हैं। `
-            + 'एक ही subcategory है तो वो category नहीं, subcategory ही है — उसके लिए tile मत बनाइए।',
+        text: `“${thin.label.trim() || 'Unnamed'}” needs at least ${MIN_SUBS} subcategories. `
+            + 'One subcategory on its own is not a category — it is a subcategory, and it does not need a tile.',
       });
       return;
     }
 
     const brokenLink = kept.find(r => !r.href.trim().startsWith('/'));
     if (brokenLink) {
-      setMsg({ kind: 'err', text: 'एक पुराने tile का link "/" से शुरू नहीं होता — उसे ठीक कीजिए।' });
+      setMsg({ kind: 'err', text: 'An older tile has a link that does not start with "/" — please fix it.' });
       return;
     }
     setSaving(true);
@@ -210,8 +210,8 @@ export default function HomeCategoriesPage() {
       if (broken.length > 0) {
         setMsg({
           kind: 'err',
-          text: `Ye link kholne par 404 aata hai, isliye save nahi kiya: ${broken.join(', ')}. `
-              + 'Pehle wo panna banaiye (SEO → Collection Pages), ya tile ka pata badal kar koi chalta hua panna dijiye.',
+          text: `These links open a 404, so nothing was saved: ${broken.join(', ')}. `
+              + 'Create that page first (SEO → Collection Pages), or point the tile at a page that works.',
         });
         setSaving(false);
         return;
@@ -249,8 +249,9 @@ export default function HomeCategoriesPage() {
         <div>
           <h1>Home Categories</h1>
           <p className="admin-page-sub">
-            Homepage ki “Shop by category” row. Ek category kam se kam {MIN_SUBS} subcategory milakar banti hai —
-            naam dijiye, subcategory chuniye, photo lagaiye. Link apne aap ban jata hai, isliye wo 404 nahi ja sakta.
+            The “Shop by category” row on the homepage. A category is made of at least {MIN_SUBS}
+            subcategories — give it a name, pick the subcategories, add a photo. The link writes
+            itself, so it cannot point at a page that does not exist.
           </p>
         </div>
         <button onClick={save} disabled={saving} style={{ ...btn('primary'), opacity: saving ? .6 : 1 }}>
@@ -317,7 +318,7 @@ export default function HomeCategoriesPage() {
               {/* Fields */}
               <div style={{ display: 'grid', gap: '.6rem' }}>
                 <div>
-                  <div style={lbl}>Tile ka naam</div>
+                  <div style={lbl}>Name on the tile</div>
                   <input value={r.label} maxLength={40} placeholder="Nightwear"
                     onChange={e => patch(i, { label: e.target.value })} style={{ ...inp, maxWidth: 320 }} />
                 </div>
@@ -325,11 +326,11 @@ export default function HomeCategoriesPage() {
                 {picker ? (
                   <div>
                     <div style={lbl}>
-                      Isme kaun si subcategory aayengi — kam se kam {MIN_SUBS} chuniye
+                      Which subcategories go in it — pick at least {MIN_SUBS}
                     </div>
                     {knownSubs.length === 0 ? (
                       <div style={{ fontSize: '.8rem', color: '#9a908a' }}>
-                        Catalogue me abhi koi subcategory nahi hai.
+                        There are no subcategories in the catalogue yet.
                       </div>
                     ) : (
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '.35rem' }}>
@@ -352,26 +353,26 @@ export default function HomeCategoriesPage() {
                     )}
                     <div style={{ fontSize: '.73rem', color: short ? '#c0392b' : '#9a908a', marginTop: '.4rem', fontWeight: short ? 700 : 400 }}>
                       {short
-                        ? `${chosen.length} chuni hai — kam se kam ${MIN_SUBS} chahiye. Ek hi subcategory hai to wo category nahi hai.`
-                        : `${chosen.length} subcategory chuni hai.`}
+                        ? `${chosen.length} picked — at least ${MIN_SUBS} are needed. One subcategory on its own is not a category.`
+                        : `${chosen.length} subcategories picked.`}
                     </div>
                     <div style={{ fontSize: '.73rem', color: '#9a908a', marginTop: '.3rem', fontFamily: 'ui-monospace, monospace', wordBreak: 'break-all' }}>
-                      Khulega: {chosen.length > 0 ? hrefFor(chosen) : '—'}
+                      Opens: {chosen.length > 0 ? hrefFor(chosen) : '—'}
                     </div>
                   </div>
                 ) : (
                   <div>
-                    <div style={lbl}>Iska apna panna hai</div>
+                    <div style={lbl}>This one has its own page</div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '.6rem', flexWrap: 'wrap' }}>
                       <code style={{ background: '#f6f3f0', borderRadius: 6, padding: '.3rem .6rem', fontSize: '.8rem' }}>{r.href}</code>
                       <button type="button" onClick={() => patch(i, { href: '', terms: [] })}
                         style={{ ...btn('ghost'), padding: '.3rem .7rem', fontSize: '.76rem' }}>
-                        Subcategory se banaiye
+                        Build it from subcategories
                       </button>
                     </div>
                     <div style={{ fontSize: '.73rem', color: '#9a908a', marginTop: '.3rem' }}>
-                      Ye tile pehle se apne collection panne par bhejti hai, jo Google me chadh chuka hai. Isliye
-                      chhedi nahi gayi. Badalna ho to upar wala button dabaiye.
+                      This tile already points at its own collection page, which Google has indexed,
+                      so it was left alone. Use the button above to rebuild it from subcategories.
                     </div>
                   </div>
                 )}
@@ -381,7 +382,7 @@ export default function HomeCategoriesPage() {
                     background: n === 0 ? '#fdecea' : '#eaf6ec',
                     color: n === 0 ? '#c0392b' : '#2e7d32',
                     borderRadius: 20, padding: '2px 10px', fontSize: '.74rem', fontWeight: 700,
-                  }}>{n} product{n === 1 ? '' : 's'} khulenge</span>
+                  }}>{n} product{n === 1 ? '' : 's'} will open</span>
                   <label style={{ display: 'flex', alignItems: 'center', gap: '.4rem', fontSize: '.84rem', fontWeight: 600, color: '#444', cursor: 'pointer' }}>
                     <input type="checkbox" checked={r.published} onChange={e => patch(i, { published: e.target.checked })} />
                     Show on the homepage
@@ -401,7 +402,7 @@ export default function HomeCategoriesPage() {
       </div>
 
       <button onClick={() => setRows(xs => [...xs, blank()])} style={{ ...btn('primary'), marginTop: '1rem' }}>
-        + Nayi category
+        + New category
       </button>
 
     </div>

@@ -113,7 +113,7 @@ export default function ColourFixPage() {
         }
         setRows(found);
       } catch {
-        setErr('Products load nahi ho paye. Page refresh karke dobara dekhein.');
+        setErr('Products could not be loaded. Refresh the page and try again.');
       } finally { setLoading(false); }
     })();
   }, []);
@@ -154,7 +154,7 @@ export default function ColourFixPage() {
       }, getAdminToken() ?? '');
       setRow(i, { state: 'done' });
     } catch (e) {
-      setRow(i, { state: 'error', msg: e instanceof Error ? e.message : 'Save nahi hua.' });
+      setRow(i, { state: 'error', msg: e instanceof Error ? e.message : 'Could not save.' });
     }
   };
 
@@ -181,16 +181,16 @@ export default function ColourFixPage() {
 
       <Card>
         <p style={{ fontSize: '.85rem', color: '#555', lineHeight: 1.6, margin: 0 }}>
-          Google apparel ke liye colour maangta hai, lekin <strong>&quot;MultiColour&quot;</strong>,
-          {' '}<strong>&quot;Design C&quot;</strong>, hex code ya akela ek letter ko colour maanta hi nahi —
-          aisa product Shopping listing me <strong>disapprove</strong> ho jata hai.
+          Google needs a colour for clothing, but it does not accept{' '}
+          <strong>&quot;MultiColour&quot;</strong>, <strong>&quot;Design C&quot;</strong>, a hex code or a
+          single letter — a product with one of those is <strong>disapproved</strong> in Shopping.
           <br />
-          Jis kapde ka ek fix rang nahi hai, uske liye sahi tarika hai print ke{' '}
-          <strong>1 se 3 asli colours</strong>, sabse zyada dikhne wala pehle:{' '}
+          For fabric with no one fixed colour, the right answer is{' '}
+          <strong>1 to 3 real colours</strong> from the print, the most visible one first:{' '}
           <code style={{ background: '#f4f4f4', padding: '0 .3rem', borderRadius: 3 }}>Navy/White/Red</code>.
           <br />
-          Har product par <strong>📷 Photo se colour bharo</strong> dabayein — photo me se rang khud
-          utha lega. Naam theek na lage to badal lein, phir Save.
+          Press <strong>📷 Fill colours from the photo</strong> on each product — it takes the colours
+          from the photo itself. Change a name if it does not look right, then Save.
         </p>
       </Card>
 
@@ -198,7 +198,7 @@ export default function ColourFixPage() {
       {err && <Card><Empty>{err}</Empty></Card>}
 
       {!loading && !err && rows.length === 0 && (
-        <Card><Empty>✓ Ek bhi product ka colour kharab nahi hai. Sab Google ke niyam par hain.</Empty></Card>
+        <Card><Empty>✓ No product has a colour Google would reject.</Empty></Card>
       )}
 
       {rows.length > 0 && (

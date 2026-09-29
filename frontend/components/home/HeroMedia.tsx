@@ -25,6 +25,10 @@ export default function HeroMedia({
   const [imgs, setImgs] = useState<string[]>(initialImgs);
   const [idx, setIdx] = useState(0);
   const paused = useRef(false);
+  // Swipe. The banner moved on its own every 3.5s and answered nothing else —
+  // on a phone the first thing a thumb does to a picture that slides is push
+  // it, and nothing happened.
+  const swipe = useRef<{ x: number; y: number; t: number } | null>(null);
 
   // Only when the page did not pass them — the admin preview renders this
   // component on its own, and a stale deploy should still fill itself in.
@@ -99,7 +103,33 @@ export default function HeroMedia({
     <div
       onMouseEnter={() => { paused.current = true; }}
       onMouseLeave={() => { paused.current = false; }}
-      style={{ width: '100%', aspectRatio: '4 / 3', borderRadius: 16, overflow: 'hidden', position: 'relative', boxShadow: '0 12px 34px rgba(92,26,40,.15)' }}>
+      onPointerDown={e => {
+        swipe.current = { x: e.clientX, y: e.clientY, t: Date.now() };
+        paused.current = true;      // do not slide out from under a finger
+      }}
+      onPointerUp={e => {
+        const s0 = swipe.current;
+        swipe.current = null;
+        paused.current = false;
+        if (!s0 || slideCount <= 1) return;
+        const dx = e.clientX - s0.x;
+        const dy = e.clientY - s0.y;
+        // A scroll down the page starts as a small sideways wobble too, so a
+        // swipe counts only when it is clearly sideways: past 40px across, and
+        // further across than down. Otherwise the banner would jump every time
+        // someone scrolled past it.
+        if (Math.abs(dx) < 40 || Math.abs(dx) <= Math.abs(dy)) return;
+        setIdx(i => (i + (dx < 0 ? 1 : -1) + slideCount) % slideCount);
+      }}
+      onPointerCancel={() => { swipe.current = null; paused.current = false; }}
+      style={{
+        width: '100%', aspectRatio: '4 / 3', borderRadius: 16, overflow: 'hidden',
+        position: 'relative', boxShadow: '0 12px 34px rgba(92,26,40,.15)',
+        // pan-y: a swipe across belongs to the banner, a swipe down still
+        // scrolls the page. userSelect stops a drag turning into a text or
+        // image drag halfway through.
+        touchAction: 'pan-y', userSelect: 'none',
+      }}>
 
       {/* sliding track */}
       <div style={{
