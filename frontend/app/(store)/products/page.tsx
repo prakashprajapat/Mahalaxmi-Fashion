@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
-import { productsApi } from '@/lib/api';
 import ProductsClient from '@/components/products/ProductsClient';
 import { toListingProducts } from '@/lib/listingProduct';
+import { fetchAllProducts } from '@/lib/adminPaged';
 
 export const revalidate = 300;
 
@@ -36,11 +36,13 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
 }
 
 export default async function ProductsPage({ searchParams }: Props) {
-  const { products } = await productsApi.getAll({
+  // Server ek page me 100 se zyada nahi deta, isliye pageSize: 500 maangne par
+  // bhi 103 me se sirf 100 aate the — listing par teen products kabhi dikhte hi
+  // nahi the. Ab saare page padhe jaate hain.
+  const products = await fetchAllProducts({
     category: searchParams.category,
     bestSeller: searchParams.bestSeller === 'true' ? true : undefined,
-    pageSize: 500,
-  }).catch(() => ({ products: [] as any[] }));
+  }).catch(() => [] as any[]);
 
   const title = searchParams.subcategory
     ? searchParams.subcategory
@@ -57,6 +59,7 @@ export default async function ProductsPage({ searchParams }: Props) {
       products={toListingProducts(products as any[])}
       title={title}
       initialQ={searchParams.q ?? ''}
+      initialSubcat={searchParams.subcategory ?? ''}
     />
   );
 }

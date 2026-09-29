@@ -71,16 +71,18 @@ export function downloadCsv(rows: string[][], filename: string) {
  * nahi the: na search me milte, na edit ho paate, jabki website par unka page
  * theek chal raha tha.
  */
-export async function fetchAllProducts(): Promise<import('@/types').Product[]> {
+export async function fetchAllProducts(
+  params: { category?: string; subcategory?: string; bestSeller?: boolean } = {},
+): Promise<import('@/types').Product[]> {
   const { productsApi } = await import('./api');
-  const first = await productsApi.getAll({ page: 1, pageSize: 100 });
+  const first = await productsApi.getAll({ ...params, page: 1, pageSize: 100 });
   const all = [...(first.products ?? [])];
   const total = first.total ?? all.length;
   // 60 pages = 6000 products. Aage kabhi list bahut badi ho to bhi browser
   // hamesha ke liye latka na rahe.
   for (let page = 2; all.length < total && page <= 60; page++) {
     // eslint-disable-next-line no-await-in-loop
-    const r = await productsApi.getAll({ page, pageSize: 100 });
+    const r = await productsApi.getAll({ ...params, page, pageSize: 100 });
     if (!r.products?.length) break;
     all.push(...r.products);
   }

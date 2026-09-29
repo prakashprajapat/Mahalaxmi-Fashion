@@ -8,6 +8,8 @@ interface Props {
   products: any[];
   title: string;
   initialQ?: string;
+  /** URL ka ?subcategory= — page khulte hi wahi filter laga hona chahiye. */
+  initialSubcat?: string;
   banner?: React.ReactNode;
 }
 
@@ -189,13 +191,13 @@ function FilterContent({
   );
 }
 
-export default function ProductsClient({ products, title, initialQ = '', banner }: Props) {
+export default function ProductsClient({ products, title, initialQ = '', initialSubcat = '', banner }: Props) {
   const [filterOpen, setFilterOpen] = useState(false);
   const [sortOpen, setSortOpen] = useState(false);
   const [genderOpen, setGenderOpen] = useState(false);
   const [catSheetOpen, setCatSheetOpen] = useState(false);
   const [sort, setSort] = useState('position');
-  const [selectedSubcat, setSelectedSubcat] = useState('');
+  const [selectedSubcat, setSelectedSubcat] = useState(initialSubcat);
   const [selectedVariant, setSelectedVariant] = useState('');
   const [selectedSizes, setSelectedSizes] = useState<string[]>([]);
   const [selectedColors, setSelectedColors] = useState<string[]>([]);
@@ -222,14 +224,17 @@ export default function ProductsClient({ products, title, initialQ = '', banner 
   useEffect(() => {
     setPriceMin(globalMin);
     setPriceMax(globalMax);
-    setSelectedSubcat('');
+    // Naye page par bhi URL ka subcategory bana rehna chahiye, warna
+    // /products?subcategory=Kurtis sirf heading badalta tha aur saare
+    // products dikhata rehta tha.
+    setSelectedSubcat(initialSubcat);
     setSelectedVariant('');
     setSelectedSizes([]);
     setSelectedColors([]);
     setSort('position');
     setQ(initialQ);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [products, initialQ]);
+  }, [products, initialQ, initialSubcat]);
 
   const subcatMap = useMemo(() => {
     const map = new Map<string, string>();
