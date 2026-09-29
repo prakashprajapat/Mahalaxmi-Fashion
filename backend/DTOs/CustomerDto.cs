@@ -47,7 +47,9 @@ public record RegisterRequest(
     string? State,
     string? District,
     bool    MarketingConsent,
-    string? Otp
+    string? Otp,
+    // A friend's Refer & Earn code, typed in or carried by the ?ref= link.
+    string? ReferralCode = null
 );
 
 public record LoginRequest(

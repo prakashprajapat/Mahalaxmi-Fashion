@@ -447,6 +447,16 @@ using (var scope = app.Services.CreateScope())
         db.SiteSettings.Add(new MahalaxmiApi.Models.SiteSetting { Key = "referralMinOrder", Value = "499" });   // min order for the discount
     if (!db.SiteSettings.Any(x => x.Key == "referralReferrerReward"))
         db.SiteSettings.Add(new MahalaxmiApi.Models.SiteSetting { Key = "referralReferrerReward", Value = "100" }); // ₹ wallet to the referrer on delivery
+    // Paid the moment a friend's account is created with the code, so the money
+    // is in the wallet while the referrer is still thinking about the shop.
+    if (!db.SiteSettings.Any(x => x.Key == "referralRewardOnSignup"))
+        db.SiteSettings.Add(new MahalaxmiApi.Models.SiteSetting { Key = "referralRewardOnSignup", Value = "true" });
+    if (!db.SiteSettings.Any(x => x.Key == "referralSignupReward"))
+        db.SiteSettings.Add(new MahalaxmiApi.Models.SiteSetting { Key = "referralSignupReward", Value = "100" });
+    // A reward with no ceiling is a price list for making accounts. Per referrer,
+    // over a rolling 30 days.
+    if (!db.SiteSettings.Any(x => x.Key == "referralSignupRewardMonthlyCap"))
+        db.SiteSettings.Add(new MahalaxmiApi.Models.SiteSetting { Key = "referralSignupRewardMonthlyCap", Value = "20" });
     db.SaveChanges();
 }
 

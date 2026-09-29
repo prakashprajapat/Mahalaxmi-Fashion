@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { customersApi } from '@/lib/api';
@@ -32,8 +32,19 @@ export default function RegisterPage() {
     addrLine1: '', addrLine2: '', pincode: '', postOffice: '',
     state: '', district: '',
     consent: false,
+    referralCode: '',
   });
   const districts = getDistrictsForState(form.state);
+
+  // A shared referral link carries ?ref=CODE. Filling it in for them is the
+  // difference between a reward that gets claimed and one that gets forgotten
+  // by whoever pasted the link into WhatsApp.
+  useEffect(() => {
+    try {
+      const fromLink = new URLSearchParams(window.location.search).get('ref');
+      if (fromLink) setForm(f => (f.referralCode ? f : { ...f, referralCode: fromLink.trim() }));
+    } catch { /* no window/search — nothing to prefill */ }
+  }, []);
 
   const setField = (field: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm(f => ({ ...f, [field]: (e.target as HTMLInputElement).type === 'checkbox' ? (e.target as HTMLInputElement).checked : e.target.value }));
@@ -107,6 +118,7 @@ export default function RegisterPage() {
         district: form.district,
         marketingConsent: form.consent,
         otp,
+        referralCode: form.referralCode.trim() || undefined,
       });
       if (res.token) { setToken(res.token); setCustomer(res.customer); }
       trackEvent('sign_up', { method: 'mobile_otp' });   // GA4
@@ -253,6 +265,24 @@ export default function RegisterPage() {
                     </select>
                   </label>
                 </div>
+
+                {/* Optional, and last, because nobody should have to find a code
+                    before they can open an account. A shared link fills it in. */}
+                <label className="full-field">
+                  <span style={{ display: 'block', fontSize: '.82rem', fontWeight: 600, marginBottom: '.3rem' }}>
+                    Referral code <span style={{ fontWeight: 400, color: '#8a7f76' }}>(optional)</span>
+                  </span>
+                  <input
+                    value={form.referralCode}
+                    onChange={e => setForm(f => ({ ...f, referralCode: e.target.value.toUpperCase() }))}
+                    placeholder="A friend's code"
+                    autoComplete="off"
+                    style={{ textTransform: 'uppercase' }}
+                  />
+                  <span style={{ display: 'block', fontSize: '.76rem', color: '#8a7f76', marginTop: '.25rem' }}>
+                    Got a code from a friend? Put it here — you get money off your first order, and they get ₹100 in their wallet.
+                  </span>
+                </label>
 
                 <label className="full-field consent-check">
                   <input type="checkbox" checked={form.consent}

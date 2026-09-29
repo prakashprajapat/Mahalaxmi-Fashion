@@ -23,8 +23,9 @@ public class CustomersController : ControllerBase
     private readonly SmsService _sms;
     private readonly AdminNotifier _notify;
     private readonly ILogger<CustomersController> _log;
+    private readonly WalletService _wallet;
 
-    public CustomersController(AppDbContext db, AuthService auth, IWebHostEnvironment env, EmailService email, SmsService sms, AdminNotifier notify, ILogger<CustomersController> log)
+    public CustomersController(AppDbContext db, AuthService auth, IWebHostEnvironment env, EmailService email, SmsService sms, AdminNotifier notify, ILogger<CustomersController> log, WalletService wallet)
     {
         _db = db;
         _auth = auth;
@@ -33,6 +34,7 @@ public class CustomersController : ControllerBase
         _sms = sms;
         _notify = notify;
         _log = log;
+        _wallet = wallet;
     }
 
     // Generates the next sequential customer code: MFHCUS1005, MFHCUS1006, ...
@@ -486,6 +488,21 @@ public class CustomersController : ControllerBase
         _db.Customers.Add(customer);
         await _db.SaveChangesAsync();
 
+        // REFER & EARN — the reward lands the moment the friend's account exists,
+        // not when their parcel does. The point of the money is to bring the
+        // referrer back to the shop, and four days later it is not doing that.
+        //
+        // Paying on a signup rather than on a delivery means paying before
+        // anything has been sold, so the guards are not optional:
+        //   • the account has to be real — Register only gets this far after the
+        //     OTP on the phone has been checked;
+        //   • once per referred account, ever (the ledger key is the new
+        //     customer, so a second run of this code pays nothing);
+        //   • never to yourself;
+        //   • and a ceiling per referrer, because a reward with no ceiling is a
+        //     price list for making accounts.
+        await TryPayReferralSignupRewardAsync(req.ReferralCode, customer.Id);
+
         // Notify admin of the new customer registration (email — fire-and-forget).
         await _notify.NotifyAsync($"New customer - {customer.FirstName} {customer.LastName}".Trim(),
             AdminNotifier.Wrap("New Customer Registered", $@"
@@ -893,6 +910,58 @@ public class CustomersController : ControllerBase
         var digits = new string(phone.Where(char.IsDigit).ToArray());
         if (digits.Length <= 4) return new string('*', digits.Length);
         return new string('*', digits.Length - 4) + digits.Substring(digits.Length - 4);
+    }
+
+    /// <summary>
+    /// Credit a referrer the signup reward for bringing this new customer in.
+    /// Silent and best-effort: a referral that cannot be paid must never stop
+    /// someone from finishing their registration.
+    /// </summary>
+    private async Task TryPayReferralSignupRewardAsync(string? referralCode, int newCustomerId)
+    {
+        try
+        {
+            var code = (referralCode ?? "").Trim();
+            if (code.Length == 0) return;
+
+            async Task<string?> Setting(string key) =>
+                await _db.SiteSettings.Where(s => s.Key == key).Select(s => s.Value).FirstOrDefaultAsync();
+
+            var enabled = ((await Setting("referralEnabled")) ?? "true").Trim().ToLowerInvariant();
+            if (enabled != "true" && enabled != "1") return;
+            var onSignup = ((await Setting("referralRewardOnSignup")) ?? "true").Trim().ToLowerInvariant();
+            if (onSignup != "true" && onSignup != "1") return;
+
+            var coupon = await _db.Coupons.FirstOrDefaultAsync(
+                c => c.Code.ToLower() == code.ToLower() && c.Occasion == "referral" && c.IsActive);
+            if (coupon?.ReferrerCustomerId is not int referrerId || referrerId <= 0) return;
+            if (referrerId == newCustomerId) return;                      // never to yourself
+
+            // The ledger row IS the record that this account has been counted —
+            // no second table to keep in step, and a retry cannot pay twice.
+            var ledgerKey = $"signup:{newCustomerId}";
+            if (await _db.WalletTransactions.AnyAsync(t => t.Type == "referral" && t.OrderId == ledgerKey))
+                return;
+
+            decimal.TryParse(await Setting("referralSignupReward"), out var reward);
+            if (reward <= 0) reward = 100m;
+
+            // The ceiling. Counted over the last 30 days so an honest referrer
+            // is slowed, not stopped, while someone making accounts in an
+            // evening runs out.
+            int.TryParse(await Setting("referralSignupRewardMonthlyCap"), out var cap);
+            if (cap <= 0) cap = 20;
+            var since = DateTimeOffset.UtcNow.AddDays(-30);
+            var paidRecently = await _db.WalletTransactions.CountAsync(t =>
+                t.CustomerId == referrerId && t.Type == "referral"
+                && t.OrderId != null && t.OrderId.StartsWith("signup:")
+                && t.CreatedAt >= since);
+            if (paidRecently >= cap) return;
+
+            await _wallet.MoveAsync(referrerId, reward, "referral", ledgerKey,
+                "Referral reward — a friend joined with your code");
+        }
+        catch { /* best-effort: a referral must never fail a registration */ }
     }
 
     // A code is issued FOR something — signing in, resetting a password,
