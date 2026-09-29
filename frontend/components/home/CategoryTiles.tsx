@@ -50,14 +50,14 @@ export default async function CategoryTiles({ products }: { products: Product[] 
         <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '1rem', marginBottom: '1.6rem' }}>
           <h2 style={{
             margin: 0, fontFamily: 'var(--font-playfair), Georgia, serif',
-            fontSize: 'clamp(1.9rem, 5vw, 2.6rem)', fontWeight: 500, color: '#1e1b19',
-            lineHeight: 1.15,
+            fontSize: 'clamp(1.5rem, 3vw, 2.3rem)', fontWeight: 500, color: '#1e1b19',
+            textTransform: 'uppercase',
           }}>
             Shop by category
           </h2>
           <Link href="/products" style={{
-            fontSize: '.86rem', letterSpacing: '.1em', textTransform: 'uppercase',
-            color: '#722f37', fontWeight: 700, whiteSpace: 'nowrap',
+            fontSize: '.74rem', letterSpacing: '.14em', textTransform: 'uppercase',
+            color: '#722f37', fontWeight: 600, whiteSpace: 'nowrap',
           }}>
             View everything
           </Link>
@@ -78,9 +78,8 @@ export default async function CategoryTiles({ products }: { products: Product[] 
                 )}
               </div>
               <div style={{
-                marginTop: '.7rem', fontSize: '.95rem', letterSpacing: '.06em',
-                textTransform: 'uppercase', color: '#1e1b19', fontWeight: 700,
-                lineHeight: 1.25,
+                marginTop: '.7rem', fontSize: '.78rem', letterSpacing: '.12em',
+                textTransform: 'uppercase', color: '#1e1b19', fontWeight: 600,
               }}>
                 {t.label}
               </div>
@@ -88,7 +87,7 @@ export default async function CategoryTiles({ products }: { products: Product[] 
                   tile's own words, while the collection page it opens has rules
                   of its own, so the two never agreed — 24 on the tile, 34 once
                   you were there. No number beats a wrong one. */}
-              <div style={{ marginTop: '.25rem', fontSize: '.88rem', color: '#6b625c' }}>
+              <div style={{ marginTop: '.2rem', fontSize: '.8rem', color: '#6b625c' }}>
                 Explore Collection
               </div>
             </Link>
@@ -100,7 +99,6 @@ export default async function CategoryTiles({ products }: { products: Product[] 
         .cat-tiles { grid-template-columns: repeat(${Math.min(tiles.length, 5)}, minmax(0, 1fr)); }
         @media (max-width: 1024px) { .cat-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
         @media (max-width: 600px)  { .cat-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-        @media (max-width: 430px)  { .cat-tiles { grid-template-columns: 1fr; gap: 1.1rem; } }
       `}</style>
     </section>
   );

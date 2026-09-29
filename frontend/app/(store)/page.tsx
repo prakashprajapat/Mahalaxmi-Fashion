@@ -49,7 +49,10 @@ export default async function HomePage() {
   const hs = heroSettings.settings ?? {};
   const validMedia = (v?: string) => /^(https?:\/\/|\/)/.test((v || '').trim());
   const heroVideo = validMedia(hs.heroVideoUrl) ? hs.heroVideoUrl.trim() : null;
-  const heroImgs = [hs.heroImg1, hs.heroImg2, hs.heroImg3].filter(validMedia) as string[];
+  // Six slots. Blanks are dropped, so a shop using three still shows three —
+  // the slider is as long as the photos actually set, not as long as the form.
+  const heroImgs = Array.from({ length: 6 }, (_, i) => hs[`heroImg${i + 1}`])
+    .filter(validMedia) as string[];
 
   // The homepage used to be the whole catalogue with a filter sidebar, which is
   // what a category page is for. It is a shop front now: where things are, then

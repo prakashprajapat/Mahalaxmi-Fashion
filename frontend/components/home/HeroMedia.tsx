@@ -41,7 +41,8 @@ export default function HeroMedia({
         const valid = (v?: string) => /^(https?:\/\/|\/)/.test((v || '').trim());
         const v = (s.heroVideoUrl || '').trim();
         setVideo(valid(v) ? v : null);
-        setImgs([s.heroImg1, s.heroImg2, s.heroImg3].filter(valid) as string[]);
+        setImgs(Array.from({ length: 6 }, (_, i) => s[`heroImg${i + 1}`])
+          .filter(valid) as string[]);
       })
       .catch(() => {});
   }, [havePropsAlready]);

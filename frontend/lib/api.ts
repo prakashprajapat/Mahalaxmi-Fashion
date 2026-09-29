@@ -1,3 +1,5 @@
+import { compressImage } from '@/lib/imageCompress';
+
 const API_BASE = process.env.NEXT_PUBLIC_API_URL
   ?? (typeof window === 'undefined' ? 'http://localhost:5000/api' : '/api');
 
@@ -198,7 +200,9 @@ export const ordersApi = {
   // Upload ONE return photo/video (called per file). kind ∈ openingVideo|closingVideo|openingPhoto|closingPhoto
   uploadReturnMedia: async (orderId: string, file: File, kind: string, token: string) => {
     const fd = new FormData();
-    fd.append('file', file);
+    // Shrunk here so a 5 MB phone photo never crosses the wire; a video or
+    // anything already small is handed back untouched.
+    fd.append('file', await compressImage(file));
     fd.append('kind', kind);
     const res = await fetch(`${API_BASE}/orders/${orderId}/return-media`, {
       method: 'POST',
@@ -282,7 +286,9 @@ export const customersApi = {
   // Upload the customer's profile photo (multipart). Returns the updated customer.
   uploadPhoto: async (id: number, file: File, token: string) => {
     const fd = new FormData();
-    fd.append('file', file);
+    // Shrunk here so a 5 MB phone photo never crosses the wire; a video or
+    // anything already small is handed back untouched.
+    fd.append('file', await compressImage(file));
     const res = await fetch(`${API_BASE}/customers/${id}/photo`, {
       method: 'POST',
       headers: token ? { Authorization: `Bearer ${token}` } : undefined,
@@ -457,7 +463,9 @@ export const settingsApi = {
   // Upload a site image (hero photos etc.) — admin only; returns its URL.
   uploadImage: async (file: File, token: string): Promise<string> => {
     const fd = new FormData();
-    fd.append('file', file);
+    // Shrunk here so a 5 MB phone photo never crosses the wire; a video or
+    // anything already small is handed back untouched.
+    fd.append('file', await compressImage(file));
     const res = await fetch(`${API_BASE}/settings/upload-image`, {
       method: 'POST',
       headers: token ? { Authorization: `Bearer ${token}` } : undefined,
@@ -590,7 +598,9 @@ export const reviewsApi = {
   // Upload ONE review photo (called per file); returns its URL to include in submit().
   uploadImage: async (file: File, token: string): Promise<string> => {
     const fd = new FormData();
-    fd.append('file', file);
+    // Shrunk here so a 5 MB phone photo never crosses the wire; a video or
+    // anything already small is handed back untouched.
+    fd.append('file', await compressImage(file));
     const res = await fetch(`${API_BASE}/reviews/upload`, {
       method: 'POST',
       headers: token ? { Authorization: `Bearer ${token}` } : undefined,

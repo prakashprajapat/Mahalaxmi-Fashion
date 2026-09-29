@@ -23,6 +23,9 @@ const SECTIONS = [
       { key: 'heroImg1', label: 'Slider Photo 1 (1200×900, 4:3)', type: 'image' },
       { key: 'heroImg2', label: 'Slider Photo 2 (1200×900, 4:3)', type: 'image' },
       { key: 'heroImg3', label: 'Slider Photo 3 (1200×900, 4:3)', type: 'image' },
+      { key: 'heroImg4', label: 'Slider Photo 4 (1200×900, 4:3)', type: 'image' },
+      { key: 'heroImg5', label: 'Slider Photo 5 (1200×900, 4:3)', type: 'image' },
+      { key: 'heroImg6', label: 'Slider Photo 6 (1200×900, 4:3)', type: 'image' },
       { key: 'heroVideoUrl', label: 'Hero Video URL (.mp4 / .webm — becomes slide 1; blank = logo)', type: 'text' },
     ]
   },
