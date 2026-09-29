@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { getCart, cartTotal, clearCart, cartShipping, finalUnitPrice, unitBase, updateQuantity, removeFromCart } from '@/lib/cart';
+import { getCart, cartTotal, clearCart, cartShipping, finalUnitPrice, unitBase, updateQuantity, removeFromCart, addToCart } from '@/lib/cart';
 import { productImageSrc } from '@/lib/productImages';
 import PincodeChecker from '@/components/checkout/PincodeChecker';
 import { getCustomer, getToken } from '@/lib/auth';
@@ -78,6 +78,14 @@ async function ensureCashfreeSdk(): Promise<void> {
 export default function CheckoutPage() {
   const router = useRouter();
   const [cart, setCart] = useState<CartItem[]>([]);
+  // ?add=<feed row id> — Google's own "Checkout" button. While this is being
+  // looked up the basket is legitimately empty, and the effect below must not
+  // read that as "nothing to buy" and send the shopper away from the very page
+  // they were trying to pay on.
+  const [addingFromFeed, setAddingFromFeed] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    try { return !!new URLSearchParams(window.location.search).get('add'); } catch { return false; }
+  });
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [step, setStep] = useState<Step>('shipping');
   const [loading, setLoading] = useState(false);
@@ -214,6 +222,7 @@ export default function CheckoutPage() {
       .finally(() => { setLoading(false); try { window.history.replaceState({}, '', '/checkout'); } catch {} });
       return cleanup;
     }
+    if (addingFromFeed) return cleanup;   // still fetching the Google row
     const c = getCart();
     if (c.length === 0) { router.push('/cart'); return cleanup; }
     setCart(c);
@@ -225,7 +234,41 @@ export default function CheckoutPage() {
       if (saved.panNumber) setPanData({ panNumber: saved.panNumber, panName: saved.panName ?? '' });
     } catch {}
     return cleanup;
-  }, [router]);
+  }, [router, addingFromFeed]);
+
+  // Google Shopping's "Checkout" button lands here with the id of the exact row
+  // the shopper was looking at. Put that size in that colour into the basket,
+  // then carry on as an ordinary checkout.
+  useEffect(() => {
+    if (!addingFromFeed) return;
+    let cancelled = false;
+
+    (async () => {
+      let feedId = '';
+      try { feedId = new URLSearchParams(window.location.search).get('add') ?? ''; } catch { /* no search */ }
+
+      try {
+        const { resolveFeedVariant } = await import('@/lib/feedVariantId');
+        const hit = await resolveFeedVariant(feedId);
+        if (cancelled) return;
+        if (hit) {
+          addToCart(hit.product as never, 1, hit.size, hit.colour);
+        } else {
+          // The row is gone — sold out and removed, or renamed since Google last
+          // read the feed. Sending them to the catalogue beats an empty basket
+          // with no explanation.
+          router.push('/products');
+          return;
+        }
+      } catch { /* fall through: the empty-basket path below will take over */ }
+
+      // Drop ?add= so a refresh does not add the item a second time.
+      try { window.history.replaceState({}, '', '/checkout'); } catch { /* ignore */ }
+      if (!cancelled) setAddingFromFeed(false);
+    })();
+
+    return () => { cancelled = true; };
+  }, [addingFromFeed, router]);
 
   // Load loyalty settings + the signed-in customer's wallet balance.
   useEffect(() => {
@@ -700,6 +743,20 @@ export default function CheckoutPage() {
       </div>
     </div>
   );
+
+  // Straight off a Google "Checkout" button: the catalogue has to be read before
+  // we know which size and colour that row meant. Say so, rather than showing a
+  // checkout with nothing in it for a second and a half.
+  if (addingFromFeed) {
+    return (
+      <div style={{ minHeight: '55vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem', textAlign: 'center' }}>
+        <div>
+          <div style={{ fontSize: '1.05rem', fontWeight: 700, color: '#1e1b19' }}>Aapka item basket me daala ja raha hai…</div>
+          <div style={{ fontSize: '.85rem', color: '#7d736d', marginTop: '.35rem' }}>Ek pal — phir seedha payment.</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '2.5rem 1.5rem' }}>
