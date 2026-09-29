@@ -309,24 +309,29 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         {/* Facebook Pixel — admin-configurable (Settings → SEO).
             Silent while tagsViaGtm is on: the container fires it instead.
 
-            A plain <script>, not next/script. It was strategy="lazyOnload",
-            which means React injects it after the load event — so it only ever
-            runs if React is still alive by then. On product pages React dies
-            during hydration (error #329 in the console) and the Pixel was
-            simply never inserted: fbq was undefined there, no ViewContent, no
-            AddToCart, nothing for Meta to retarget with. GA4 survived only
-            because afterInteractive fires before the crash.
+            Do baat alag-alag hain, aur dono ki wajah naapi gayi hai.
 
-            Written straight into the HTML it runs while the page is parsed,
-            before React has an opinion, and a hydration fault — this one or the
-            next — cannot take the shop's tracking down with it. The hydration
-            error is still worth finding; the Pixel should not have depended on
-            it in the first place. */}
+            1. Snippet seedha HTML me likha hai, next/script se nahi. Pehle
+               strategy="lazyOnload" thi — matlab React use load ke baad daalta
+               hai, to wo chalti hi tab thi jab React zinda bacha ho. Product
+               page par hydration girti thi aur Pixel kabhi inject hi nahi
+               hota: fbq undefined, na ViewContent, na AddToCart. Ab queue page
+               parse hote hi ban jati hai, React ki sehat se bilkul alag.
+
+            2. Lekin fbevents.js ko head ke shuru me nahi thoosa jata. Meta ka
+               apna snippet insertBefore(pehli script) karta hai — yani head ke
+               sabse aage. App Router me React poore document ko hydrate karta
+               hai, isliye head ke aage jud gaya koi bhi node uska pehla expected
+               node (meta charset) hata deta hai aur hydration wahin fail ho jati
+               hai: yahi #418 x3 aur #329 ki asli jagah thi, naap kar nikali gayi.
+               Isliye script ab window load ke baad judti hai — hydration ke baad.
+               Kuch nahi chhootta: fbq bina script ke bhi call queue karta hai,
+               aur script aate hi poori queue chali jati hai. */}
         {directPixel && (
           <script
             id="fb-pixel"
             dangerouslySetInnerHTML={{
-              __html: `!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');fbq('init','${fbPixelId}');fbq('track','PageView');`,
+              __html: `!function(f,b,e,v){if(f.fbq)return;var n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];var t=b.createElement(e);t.async=!0;t.src=v;var add=function(){if(!t.parentNode)b.head.appendChild(t)};if(b.readyState==='complete')add();else f.addEventListener('load',add)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');fbq('init','${fbPixelId}');fbq('track','PageView');`,
             }}
           />
         )}
