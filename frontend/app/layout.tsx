@@ -113,6 +113,82 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
+// Hydration ki jaanch — chalti hai sirf tab jab URL me ?hydebug=1 ho.
+//
+// Production me React sirf itna kehta hai: "Minified React error #418 / #329".
+// Kahan match nahi hua, kaun sa element, kaun sa text — kuch nahi. Uska stack
+// bhi React ke andar ka hota hai, apne code ka naam usme nahi aata. Isi wajah
+// se do baar galat jagah par shak gaya.
+//
+// Ye script parse poora hone ke baad React jo pehla DOM badlaav karta hai, wahi
+// likh deti hai. Server ne jo HTML bheja aur browser ne jo banaya — farq wahin
+// pehle dikhta hai, isliye pehla badlaav hi asli jagah hai. Saath me har error
+// ka waqt bhi, taki kram saaf rahe.
+//
+// Grahak ke liye ye kabhi nahi chalti: bina ?hydebug=1 ke pehli line par hi
+// wapas laut jati hai.
+const HYDEBUG = `(function(){
+  try {
+    if (String(location.search).indexOf('hydebug') < 0) return;
+    var log = { muts: [], errors: [], ready: [] };
+    window.__hydebug = log;
+    var name = function (n) {
+      if (!n) return '(null)';
+      if (n.nodeType === 3) return '#text "' + String(n.nodeValue).slice(0, 40) + '"';
+      if (n.nodeType !== 1) return '(node' + n.nodeType + ')';
+      var c = (typeof n.className === 'string' && n.className) ? '.' + n.className.split(/\s+/)[0] : '';
+      return n.nodeName.toLowerCase() + c;
+    };
+    var path = function (n) {
+      var out = [], guard = 0;
+      while (n && n !== document.body && guard++ < 25) {
+        var p = n.parentNode; if (!p) break;
+        var i = Array.prototype.indexOf.call(p.childNodes, n);
+        out.unshift(name(n) + '[' + i + ']');
+        n = p;
+      }
+      return out.join(' > ');
+    };
+    var list = function (nl) {
+      return Array.prototype.slice.call(nl, 0, 6).map(name);
+    };
+    var obs = new MutationObserver(function (recs) {
+      for (var i = 0; i < recs.length; i++) {
+        if (log.muts.length >= 80) return;
+        var r = recs[i];
+        log.muts.push({
+          ms: Math.round(performance.now()),
+          state: document.readyState,
+          type: r.type,
+          at: path(r.target),
+          attr: r.attributeName || null,
+          old: r.oldValue == null ? null : String(r.oldValue).slice(0, 60),
+          now: r.type === 'attributes' && r.attributeName
+                ? String(r.target.getAttribute(r.attributeName)).slice(0, 60)
+                : (r.type === 'characterData' ? String(r.target.nodeValue).slice(0, 60) : null),
+          added: list(r.addedNodes),
+          removed: list(r.removedNodes)
+        });
+      }
+    });
+    window.addEventListener('error', function (e) {
+      log.errors.push({ ms: Math.round(performance.now()), msg: String(e && e.message).slice(0, 120) });
+    });
+    document.addEventListener('readystatechange', function () {
+      log.ready.push({ ms: Math.round(performance.now()), state: document.readyState });
+    });
+    var start = function () {
+      if (!document.body) { setTimeout(start, 0); return; }
+      log.ready.push({ ms: Math.round(performance.now()), state: 'observe-start' });
+      obs.observe(document.body, {
+        subtree: true, childList: true, attributes: true, characterData: true,
+        attributeOldValue: true, characterDataOldValue: true
+      });
+    };
+    start();
+  } catch (e) { /* jaanch ki script kabhi page na rokey */ }
+})();`;
+
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const s = await getSeoSettings();
   const gtmId = s.gtmId?.trim();
@@ -143,6 +219,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang="en">
       <head>
+        {/* eslint-disable-next-line react/no-danger */}
+        <script dangerouslySetInnerHTML={{ __html: HYDEBUG }} />
         {/* Preconnect to external image/asset hosts for faster product images */}
         <link rel="preconnect" href="https://res.cloudinary.com" />
         <link rel="dns-prefetch" href="https://res.cloudinary.com" />
