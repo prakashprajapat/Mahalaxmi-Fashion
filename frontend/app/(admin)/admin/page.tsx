@@ -1,7 +1,8 @@
 'use client';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ordersApi, productsApi } from '@/lib/api';
+import { ordersApi } from '@/lib/api';
+import { fetchAllProducts } from '@/lib/adminPaged';
 import { getAdminToken } from '@/lib/auth';
 import type { Order, Product } from '@/types';
 
@@ -54,11 +55,14 @@ export default function AdminDashboard() {
     // 403 must not blank the whole screen.
     Promise.allSettled([
       ordersApi.getAll(undefined, token),
-      productsApi.getAll({ pageSize: 1000 }),
+      // Not productsApi.getAll: the public API caps a page at 100, so a single
+      // call quietly reported 100 while the catalogue held more. fetchAllProducts
+      // reads the server's own `total` and walks the pages until it has them all.
+      fetchAllProducts(),
     ]).then(([o, p]) => {
       if (o.status !== 'fulfilled' || p.status !== 'fulfilled') setFailed(true);
       setOrders(o.status === 'fulfilled' ? o.value.orders : []);
-      setProducts(p.status === 'fulfilled' ? (p.value.products as Product[]) : []);
+      setProducts(p.status === 'fulfilled' ? (p.value as Product[]) : []);
     });
   }, []);
 

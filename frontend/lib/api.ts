@@ -30,21 +30,49 @@ async function request<T>(
 
 // ── Products ─────────────────────────────────────────────────────────────────
 export const productsApi = {
-  getAll: (params?: {
+  // The server caps an unauthenticated page at 100 rows (DoS guard) but still
+  // reports the true `total`. Asking for ?pageSize=1000 therefore used to return
+  // 100 products and no error at all — which is how the dashboard showed 100,
+  // and how the Google/Facebook feeds and the sitemap silently stopped at the
+  // 100th product once the catalogue grew past it.
+  //
+  // So: when a caller asks for more than the server hands back in one page, and
+  // `total` says there are more, keep asking for the next page until we have
+  // what was asked for. A caller that passes an explicit `page` is paging on
+  // purpose (see lib/adminPaged) and is left alone; a caller that asks for 12
+  // gets 12. The 60-page ceiling is there so a runaway `total` cannot loop.
+  getAll: async (params?: {
     category?: string;
     subcategory?: string;
     bestSeller?: boolean;
     page?: number;
     pageSize?: number;
   }) => {
-    const qs = new URLSearchParams(
-      Object.entries(params ?? {})
-        .filter(([, v]) => v !== undefined)
-        .map(([k, v]) => [k, String(v)])
-    ).toString();
-    return request<{ success: boolean; products: import('@/types').Product[]; total: number }>(
-      `/products${qs ? '?' + qs : ''}`
-    );
+    type Res = { success: boolean; products: import('@/types').Product[]; total: number };
+    const ask = (over: { page?: number; pageSize?: number } = {}) => {
+      const qs = new URLSearchParams(
+        Object.entries({ ...(params ?? {}), ...over })
+          .filter(([, v]) => v !== undefined)
+          .map(([k, v]) => [k, String(v)])
+      ).toString();
+      return request<Res>(`/products${qs ? '?' + qs : ''}`);
+    };
+
+    const first = await ask();
+    const wanted = params?.pageSize;
+    if (params?.page !== undefined || wanted === undefined) return first;
+
+    const all = [...(first.products ?? [])];
+    const target = Math.min(wanted, first.total ?? all.length);
+    const per = all.length;
+    if (per === 0 || all.length >= target) return first;
+
+    for (let page = 2; all.length < target && page <= 60; page++) {
+      const r = await ask({ page, pageSize: per });
+      if (!r.products?.length) break;
+      all.push(...r.products);
+    }
+    return { ...first, products: all.slice(0, target) } as Res;
   },
   getById: (id: number) =>
     request<{ success: boolean; product: import('@/types').Product }>(`/products/${id}`),
