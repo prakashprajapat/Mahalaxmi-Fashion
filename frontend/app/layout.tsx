@@ -218,12 +218,29 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           </Script>
         )}
 
-        {/* Facebook Pixel — admin-configurable (Settings → SEO). Lazy-loaded.
-            Silent while tagsViaGtm is on: the container fires it instead. */}
+        {/* Facebook Pixel — admin-configurable (Settings → SEO).
+            Silent while tagsViaGtm is on: the container fires it instead.
+
+            A plain <script>, not next/script. It was strategy="lazyOnload",
+            which means React injects it after the load event — so it only ever
+            runs if React is still alive by then. On product pages React dies
+            during hydration (error #329 in the console) and the Pixel was
+            simply never inserted: fbq was undefined there, no ViewContent, no
+            AddToCart, nothing for Meta to retarget with. GA4 survived only
+            because afterInteractive fires before the crash.
+
+            Written straight into the HTML it runs while the page is parsed,
+            before React has an opinion, and a hydration fault — this one or the
+            next — cannot take the shop's tracking down with it. The hydration
+            error is still worth finding; the Pixel should not have depended on
+            it in the first place. */}
         {directPixel && (
-          <Script id="fb-pixel" strategy="lazyOnload">
-            {`!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');fbq('init','${fbPixelId}');fbq('track','PageView');`}
-          </Script>
+          <script
+            id="fb-pixel"
+            dangerouslySetInnerHTML={{
+              __html: `!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');fbq('init','${fbPixelId}');fbq('track','PageView');`,
+            }}
+          />
         )}
 
         {/* LocalBusiness JSON-LD */}
