@@ -31,16 +31,34 @@ export async function generateMetadata({ params }: { params: { id: string } }): 
     const canonical = `/products/${productSlug(product.name, product.dbId)}`;
     const fullTitle = `${name} | Mahalaxmi Fashion Hub`;
 
+    // Meta (Instagram/Facebook) ek product link ko tabhi pehchanta hai jab panne
+    // par Open Graph ke PRODUCT tags hon — og:type=product aur daam. Ab tak yahan
+    // og:type "website" tha aur daam kahin nahi, isliye Instagram ke "Add a
+    // product URL" me sahi link par bhi "Invalid URL" aata tha.
+    //
+    // Ye tags `other` se bheje jaate hain kyunki Next ke openGraph.type me
+    // 'product' hai hi nahi; isliye openGraph block hata kar saare og tags yahin
+    // se jaate hain — warna og:type do baar nikalta.
+    const price = finalUnitPrice(product);
+    const soldOut = String(product.stock ?? '').trim().toLowerCase() === 'out of stock';
+
     return {
       title: name,
       description,
       alternates: { canonical },
-      openGraph: {
-        title: fullTitle,
-        description,
-        url: `${BASE}${canonical}`,
-        images: [{ url: ogImage }],
-        type: 'website',
+      other: {
+        'og:type': 'product',
+        'og:title': fullTitle,
+        'og:description': description,
+        'og:url': `${BASE}${canonical}`,
+        'og:image': ogImage,
+        'og:site_name': 'Mahalaxmi Fashion Hub',
+        'product:price:amount': String(price),
+        'product:price:currency': 'INR',
+        'product:availability': soldOut ? 'out of stock' : 'in stock',
+        'product:condition': 'new',
+        'product:brand': 'Mahalaxmi Fashion Hub',
+        ...(product.sku ? { 'product:retailer_item_id': product.sku } : {}),
       },
       twitter: {
         card: 'summary_large_image',
