@@ -9,6 +9,10 @@ outputs/
 
 # Next.js
 frontend/.next/
+# The deploy builds into .next-build and parks the outgoing build in
+# .next-previous so a failed deploy has something to put back.
+frontend/.next-build/
+frontend/.next-previous/
 frontend/out/
 frontend/.pnpm-store/
 

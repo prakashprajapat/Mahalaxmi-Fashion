@@ -2,6 +2,17 @@ const path = require('path');
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   poweredByHeader: false,
+  // Where the build is written. The deploy sets NEXT_DIST_DIR so a build lands
+  // in a folder the live site is not reading, and only the finished result is
+  // swapped in; `next start` runs without it and serves .next as always.
+  //
+  // It used to build straight into .next while the running server served from
+  // that same folder. For the two or three minutes a build takes, the live
+  // site's JavaScript chunks were being deleted and rewritten underneath it,
+  // and a shopper who loaded a page in that window got a blank screen — the
+  // deploy comment promised "no downtime", which was true of the backend
+  // (it publishes elsewhere) and never true of the frontend.
+  distDir: process.env.NEXT_DIST_DIR || '.next',
   ...(process.env.NEXT_OUTPUT_STANDALONE === 'true' ? { output: 'standalone' } : {}),
   // CQ-1: Build errors should surface — removed ignoreBuildErrors and ignoreDuringBuilds
   typescript: { ignoreBuildErrors: false },
