@@ -87,6 +87,14 @@ export async function GET() {
         if (v.colour) s += `<g:color>${esc(v.colour)}</g:color>`;
         s += `<g:gender>${genderOf(p)}</g:gender>`;
         s += `<g:age_group>${ageGroupOf(p)}</g:age_group>`;
+        // This shop sells online. Google switches the two local destinations on
+        // for every product once the account has them, then reports "Missing
+        // local inventory data" for each one and holds it at "Limited" — 398
+        // products stuck behind a shelf count nobody asked for. Saying so here,
+        // on every row, settles it in the feed itself, so it stays settled even
+        // if the local marketing method is ever switched back on by accident.
+        s += '<g:excluded_destination>local_inventory_ads</g:excluded_destination>';
+        s += '<g:excluded_destination>free_local_listings</g:excluded_destination>';
         s += '</item>';
         return s;
       });
