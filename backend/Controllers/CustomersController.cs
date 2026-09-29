@@ -411,11 +411,22 @@ public class CustomersController : ControllerBase
         return (thisYear.ToDateTime(TimeOnly.MinValue) - today.ToDateTime(TimeOnly.MinValue)).Days;
     }
 
-    // GET /api/customers/{id}
+    // GET /api/customers/{id}  (Self or Admin)
     [HttpGet("{id:int}")]
     [Authorize]
     public async Task<IActionResult> GetById(int id)
     {
+        // SEC-3 IDOR: only the customer themselves or an admin may read a
+        // profile. Update, delete, deactivate and photo upload all carry this
+        // check; the plain read was left open, so any signed-in shopper could
+        // walk the ids and collect every customer's name, phone, email,
+        // birthday and address one number at a time. Reading is the cheapest
+        // way to take the data and was the only door left unlocked.
+        var callerId = User.FindFirstValue("sub");
+        var isAdmin = User.HasSectionAccess("customers");
+        if (!isAdmin && callerId != id.ToString())
+            return Forbid();
+
         var c = await _db.Customers.FindAsync(id);
         if (c is null) return NotFound();
         return Ok(new { success = true, customer = ToDto(c) });
