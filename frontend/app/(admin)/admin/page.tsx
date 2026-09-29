@@ -58,7 +58,7 @@ export default function AdminDashboard() {
       // Not productsApi.getAll: the public API caps a page at 100, so a single
       // call quietly reported 100 while the catalogue held more. fetchAllProducts
       // reads the server's own `total` and walks the pages until it has them all.
-      fetchAllProducts(),
+      fetchAllProducts({}, token),
     ]).then(([o, p]) => {
       if (o.status !== 'fulfilled' || p.status !== 'fulfilled') setFailed(true);
       setOrders(o.status === 'fulfilled' ? o.value.orders : []);

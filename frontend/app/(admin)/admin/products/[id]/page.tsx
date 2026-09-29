@@ -579,7 +579,7 @@ export default function EditProductPage() {
   // Subcategory autocomplete
   const [allSubcats, setAllSubcats] = useState<{ cat: string; sub: string }[]>([]);
   useEffect(() => {
-    productsApi.getAll({ pageSize: 1000 })
+    productsApi.getAll({ pageSize: 1000 }, getAdminToken() ?? undefined)
       .then(r => {
         const seen = new Set<string>();
         const pairs = (r.products as any[])
@@ -598,7 +598,7 @@ export default function EditProductPage() {
   useEffect(() => {
     if (!productId) { setNotFound(true); setLoadingProduct(false); return; }
     const token = getAdminToken() ?? '';
-    productsApi.getById(productId)
+    productsApi.getById(productId, getAdminToken() ?? undefined)
       .then((res: any) => {
         const p = res.product ?? res;
         setSku(p.sku ?? '');

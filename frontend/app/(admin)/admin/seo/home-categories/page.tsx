@@ -60,7 +60,7 @@ export default function HomeCategoriesPage() {
   useEffect(() => {
     Promise.all([
       seoContentApi.get().catch(() => ({ homeTiles: [] as any[] })),
-      productsApi.getAll({ pageSize: 1000 }).catch(() => ({ products: [] as Product[] })),
+      productsApi.getAll({ pageSize: 1000 }, getAdminToken() ?? undefined).catch(() => ({ products: [] as Product[] })),
     ]).then(([content, prods]) => {
       const stored = ((content as any).homeTiles ?? []) as HomeTile[];
       const source = stored.length > 0 ? stored : DEFAULT_HOME_TILES;

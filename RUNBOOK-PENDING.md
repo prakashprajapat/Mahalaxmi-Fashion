@@ -172,3 +172,44 @@ directly. Either allow only Cloudflare ranges in the firewall on 80/443, or run
 Check it afterwards: `pm2 logs mahalaxmi-api` while failing a login from a phone
 on mobile data — the address it counts should be the phone's, not 127.0.0.1 and
 not one you can change by sending a header.
+
+## Rotate the push keys (the old private key is public)
+
+`Program.cs` seeded the Web Push VAPID **private** key as a literal, and that
+file is in a repository anyone can read. A VAPID private key is what proves a
+notification came from this shop: whoever holds it can send push notifications
+that land on our customers' phones wearing our name. It has been committed, so
+it is burnt — changing the code does not un-publish it.
+
+The code no longer carries any key. Push notifications stay off until the server
+supplies a pair, which is the right way for a secret to be missing: visibly.
+
+1. Generate a new pair on the server:
+
+   ```bash
+   npx web-push generate-vapid-keys
+   ```
+
+2. Put them in `/var/www/mahalaxmi-nextjs/backend/appsettings.json` (this file is
+   NOT in git and the deploy script backs it up and restores it):
+
+   ```json
+   "Push": {
+     "VapidPublicKey":  "<new public key>",
+     "VapidPrivateKey": "<new private key>"
+   }
+   ```
+
+3. Replace the rows that hold the old ones, so the running site picks the new
+   pair up rather than the seeded values already in the database:
+
+   ```sql
+   UPDATE site_settings SET value = '<new public key>'  WHERE key = 'vapidPublicKey';
+   UPDATE site_settings SET value = '<new private key>' WHERE key = 'vapidPrivateKey';
+   ```
+
+4. Restart: `pm2 restart mahalaxmi-api`.
+
+Every phone that subscribed under the old public key stops receiving
+notifications and has to allow them again — that is unavoidable, and it is the
+smaller cost.

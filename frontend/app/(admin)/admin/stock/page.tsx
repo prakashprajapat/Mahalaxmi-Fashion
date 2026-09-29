@@ -28,7 +28,7 @@ export default function AdminStockPage() {
 
   useEffect(() => {
     setLoading(true);
-    productsApi.getAll({ pageSize: 1000 })
+    productsApi.getAll({ pageSize: 1000 }, getAdminToken() ?? undefined)
       .then(r => setProducts(r.products as Product[]))
       .catch(console.error)
       .finally(() => setLoading(false));

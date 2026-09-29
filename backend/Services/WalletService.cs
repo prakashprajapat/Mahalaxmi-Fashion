@@ -25,15 +25,35 @@ public class WalletService
             await _db.WalletTransactions.AnyAsync(t => t.Type == "earn" && t.OrderId == orderId))
             return customer.WalletBalance;
 
-        // Never let a debit push the balance below zero.
-        if (amount < 0 && customer.WalletBalance + amount < 0)
-            return customer.WalletBalance;
-
         amount = Math.Round(amount, 2);
         if (amount == 0) return customer.WalletBalance;
 
-        customer.WalletBalance = Math.Round(customer.WalletBalance + amount, 2);
-        customer.UpdatedAt = DateTimeOffset.UtcNow;
+        // The balance is changed by the database, in one statement, with the
+        // "never below zero" rule inside the same WHERE that does the changing.
+        //
+        // Reading the balance and then writing balance + amount lets two
+        // requests read ₹1,000 at the same moment, both find ₹700 affordable,
+        // and both write ₹300 — ₹1,400 spent from ₹1,000, and a ledger that no
+        // longer adds up to the balance beside it. Two taps on a slow phone are
+        // enough; nobody has to be trying.
+        var rows = await _db.Database.ExecuteSqlInterpolatedAsync($@"
+            UPDATE customers
+               SET wallet_balance = ROUND(wallet_balance + {amount}, 2),
+                   updated_at     = NOW()
+             WHERE id = {customerId}
+               AND wallet_balance + {amount} >= 0");
+
+        // Nothing changed means the rule stopped it: the balance would have gone
+        // below zero. The caller is told the balance is unchanged, as before.
+        if (rows == 0)
+        {
+            await _db.Entry(customer).ReloadAsync();
+            return customer.WalletBalance;
+        }
+
+        // Read back what the database settled on, so the ledger row records the
+        // balance that actually exists rather than the one this request expected.
+        await _db.Entry(customer).ReloadAsync();
 
         _db.WalletTransactions.Add(new WalletTransaction
         {

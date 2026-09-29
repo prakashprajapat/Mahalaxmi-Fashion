@@ -81,7 +81,7 @@ export default function AdminReportsPage() {
       .catch(console.error)
       .finally(() => setLoading(false));
     // SKU → pack-of, so report quantities can be counted in pieces.
-    productsApi.getAll({ pageSize: 10000 })
+    productsApi.getAll({ pageSize: 10000 }, getAdminToken() ?? undefined)
       .then(r => {
         const m: Record<string, number> = {};
         (r.products ?? []).forEach((p: any) => { if (p.sku) m[p.sku] = Number(p.packOf ?? 1) || 1; });

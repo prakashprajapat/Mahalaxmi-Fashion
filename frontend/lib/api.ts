@@ -41,13 +41,18 @@ export const productsApi = {
   // what was asked for. A caller that passes an explicit `page` is paging on
   // purpose (see lib/adminPaged) and is left alone; a caller that asks for 12
   // gets 12. The 60-page ceiling is there so a runaway `total` cannot loop.
+  // `token` is what makes a request an ADMIN one. The server used to treat any
+  // signed-in caller as staff — which is how a shopper could ask for drafts —
+  // and now asks for the products permission instead. So every admin screen has
+  // to say who it is, or it gets the shop's own view: no drafts, no inactive
+  // products, 100 to a page.
   getAll: async (params?: {
     category?: string;
     subcategory?: string;
     bestSeller?: boolean;
     page?: number;
     pageSize?: number;
-  }) => {
+  }, token?: string) => {
     type Res = { success: boolean; products: import('@/types').Product[]; total: number };
     const ask = (over: { page?: number; pageSize?: number } = {}) => {
       const qs = new URLSearchParams(
@@ -55,7 +60,7 @@ export const productsApi = {
           .filter(([, v]) => v !== undefined)
           .map(([k, v]) => [k, String(v)])
       ).toString();
-      return request<Res>(`/products${qs ? '?' + qs : ''}`);
+      return request<Res>(`/products${qs ? '?' + qs : ''}`, undefined, token);
     };
 
     const first = await ask();
@@ -74,8 +79,11 @@ export const productsApi = {
     }
     return { ...first, products: all.slice(0, target) } as Res;
   },
-  getById: (id: number) =>
-    request<{ success: boolean; product: import('@/types').Product }>(`/products/${id}`),
+  // Without the token the server now answers "not found" for a draft or an
+  // inactive product, exactly as it does for a shopper — so the admin edit
+  // screen must pass one or it cannot open the products it most needs to.
+  getById: (id: number, token?: string) =>
+    request<{ success: boolean; product: import('@/types').Product }>(`/products/${id}`, undefined, token),
   // Typo-tolerant fuzzy search (backend Levenshtein + synonyms). Covers the whole catalogue.
   search: (q: string, limit = 24) =>
     request<{ success: boolean; products: import('@/types').Product[]; total: number; query: string }>(

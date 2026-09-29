@@ -73,16 +73,21 @@ export function downloadCsv(rows: string[][], filename: string) {
  */
 export async function fetchAllProducts(
   params: { category?: string; subcategory?: string; bestSeller?: boolean } = {},
+  token?: string,
 ): Promise<import('@/types').Product[]> {
   const { productsApi } = await import('./api');
-  const first = await productsApi.getAll({ ...params, page: 1, pageSize: 100 });
+  // With a token the server returns drafts and inactive products and allows a
+  // bigger page; without one this is the shop's own view, which is what the
+  // storefront wants. That is why the token is a parameter and not assumed.
+  const size = token ? 500 : 100;
+  const first = await productsApi.getAll({ ...params, page: 1, pageSize: size }, token);
   const all = [...(first.products ?? [])];
   const total = first.total ?? all.length;
-  // 60 pages = 6000 products. Aage kabhi list bahut badi ho to bhi browser
-  // hamesha ke liye latka na rahe.
+  // 60 pages. Aage kabhi list bahut badi ho to bhi browser hamesha ke liye
+  // latka na rahe.
   for (let page = 2; all.length < total && page <= 60; page++) {
     // eslint-disable-next-line no-await-in-loop
-    const r = await productsApi.getAll({ ...params, page, pageSize: 100 });
+    const r = await productsApi.getAll({ ...params, page, pageSize: size }, token);
     if (!r.products?.length) break;
     all.push(...r.products);
   }

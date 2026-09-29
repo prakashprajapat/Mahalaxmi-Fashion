@@ -76,7 +76,7 @@ export default function AdminProductsPage() {
   const dropRef = useRef<HTMLLabelElement>(null);
 
   const fetchProducts = () =>
-    fetchAllProducts()
+    fetchAllProducts({}, getAdminToken() ?? undefined)
       .then(setProducts)
       .finally(() => setLoading(false));
 

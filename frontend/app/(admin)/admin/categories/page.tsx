@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { productsApi } from '@/lib/api';
 import type { Product } from '@/types';
 import { PageHeader, Card, Stat, StatGrid, Row, Pill, Empty } from '@/components/admin/Ui';
+import { getAdminToken } from '@/lib/auth';
 
 // What this page used to be, and why it is not that any more.
 //
@@ -28,7 +29,7 @@ export default function AdminCategoriesPage() {
   const [open, setOpen] = useState<string>('');
 
   useEffect(() => {
-    productsApi.getAll({ pageSize: 1000 })
+    productsApi.getAll({ pageSize: 1000 }, getAdminToken() ?? undefined)
       .then(r => setProducts((r.products ?? []) as Product[]))
       .catch(() => setProducts([]))
       .finally(() => setLoading(false));

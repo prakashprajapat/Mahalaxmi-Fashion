@@ -452,7 +452,7 @@ public class CustomersController : ControllerBase
         var isAdminCreate = User.HasSectionAccess("customers");
         if (!isAdminCreate)
         {
-            var otpOk = await VerifyOtpToken(phone, email, req.Otp ?? "");
+            var otpOk = await VerifyOtpToken(phone, email, req.Otp ?? "", "register");
             if (!otpOk)
                 return BadRequest(new { success = false, message = "Please verify the OTP sent to your mobile number before creating the account." });
         }
@@ -580,7 +580,10 @@ public class CustomersController : ControllerBase
         var phone = req.Phone.Trim();
         var isEmail = phone.Contains('@');
         var otpRecord = await _db.OtpTokens
-            .Where(t => (isEmail ? t.Email == phone : t.Phone == phone) && !t.Used && t.ExpiresAt > DateTimeOffset.UtcNow)
+            .Where(t => (isEmail ? t.Email == phone : t.Phone == phone)
+                        && !t.Used
+                        && t.Purpose == "login"
+                        && t.ExpiresAt > DateTimeOffset.UtcNow)
             .OrderByDescending(t => t.CreatedAt)
             .FirstOrDefaultAsync();
 
@@ -623,6 +626,13 @@ public class CustomersController : ControllerBase
             };
             _db.Customers.Add(customer);
             await _db.SaveChangesAsync();
+        }
+        // An account the shop has closed stays closed. Signing in with a password
+        // checks this and so does social sign-in; the OTP door did not, so a
+        // deactivated customer only had to ask for a code to walk back in.
+        else if (customer.AccountStatus != "active")
+        {
+            return Unauthorized(new { success = false, message = "This account is not active. Please contact us." });
         }
 
         var token = _auth.GenerateJwt(customer.Id.ToString(), customer.Email ?? "", "customer");
@@ -713,7 +723,7 @@ public class CustomersController : ControllerBase
         // verify against whichever contacts the account actually has.
         var accEmail = (customer.Email ?? "").Trim().ToLower();
         var accPhone = (customer.Phone ?? "").Trim();
-        var otpOk = await VerifyOtpToken(accPhone, accEmail, req.Otp);
+        var otpOk = await VerifyOtpToken(accPhone, accEmail, req.Otp, "reset");
         if (!otpOk)
             return BadRequest(new { success = false, message = "Invalid or expired OTP." });
 
@@ -885,13 +895,19 @@ public class CustomersController : ControllerBase
         return new string('*', digits.Length - 4) + digits.Substring(digits.Length - 4);
     }
 
-    private async Task<bool> VerifyOtpToken(string phone, string email, string otp)
+    // A code is issued FOR something — signing in, resetting a password,
+    // creating an account — and the row records which. Nothing read that field,
+    // so a code sent to sign in would also reset the password, and one sent to
+    // reset the password would create an account. Whatever a person was talked
+    // into reading out over the phone, it opened whichever door was tried.
+    private async Task<bool> VerifyOtpToken(string phone, string email, string otp, string purpose)
     {
         var cleanPhone = phone?.Trim() ?? "";
         var cleanEmail = email?.Trim().ToLower() ?? "";
         var record = await _db.OtpTokens
             .Where(t =>
                 !t.Used &&
+                t.Purpose == purpose &&
                 t.ExpiresAt > DateTimeOffset.UtcNow &&
                 ((!string.IsNullOrWhiteSpace(cleanPhone) && t.Phone == cleanPhone) ||
                  (!string.IsNullOrWhiteSpace(cleanEmail) && t.Email == cleanEmail)))

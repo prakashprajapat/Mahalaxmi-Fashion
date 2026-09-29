@@ -79,7 +79,7 @@ async function fetchNextSku(): Promise<string> {
 
   // Fallback: compute from public products list (no auth needed)
   try {
-    const res = await productsApi.getAll({ pageSize: 500 });
+    const res = await productsApi.getAll({ pageSize: 500 }, getAdminToken() ?? undefined);
     const nums = (res.products ?? [])
       .map((p: any) => (p.sku ?? '') as string)
       .filter((s: string) => /^MFH\d{4,5}$/.test(s))
@@ -650,7 +650,7 @@ export default function AddProductPage() {
       setTaxVariant(localStorage.getItem('mfh_lastVariant') ?? '');
     }
     // Fetch all products to build subcategory suggestions
-    productsApi.getAll({ pageSize: 1000 })
+    productsApi.getAll({ pageSize: 1000 }, getAdminToken() ?? undefined)
       .then(r => {
         const pairs = (r.products as any[])
           .filter(p => p.subcategory?.trim())
@@ -755,7 +755,7 @@ export default function AddProductPage() {
       ];
       let existingProducts: import('@/lib/productQC').ExistingProduct[] = [];
       try {
-        existingProducts = (await fetchAllProducts()).map((p) => ({
+        existingProducts = (await fetchAllProducts({}, getAdminToken() ?? undefined)).map((p) => ({
           id: p.dbId, name: p.name, image: p.image, extraJson: p.extraJson,
         }));
       } catch { /* offline — QC still runs on this product's own fields */ }

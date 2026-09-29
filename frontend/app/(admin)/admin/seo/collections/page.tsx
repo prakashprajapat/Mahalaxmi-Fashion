@@ -46,7 +46,7 @@ export default function CollectionsEditorPage() {
   useEffect(() => {
     Promise.all([
       seoContentApi.get().catch(() => ({ collections: [] as any[] })),
-      productsApi.getAll({ pageSize: 1000 }).catch(() => ({ products: [] as Product[] })),
+      productsApi.getAll({ pageSize: 1000 }, getAdminToken() ?? undefined).catch(() => ({ products: [] as Product[] })),
     ]).then(([content, prods]) => {
       const stored = new Map<string, any>(((content as any).collections ?? []).map((c: any) => [c.slug, c]));
       const merged: Coll[] = Object.values(COLLECTIONS).map(c => {

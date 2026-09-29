@@ -404,11 +404,24 @@ using (var scope = app.Services.CreateScope())
         ALTER TABLE site_orders ADD COLUMN IF NOT EXISTS advance_paid NUMERIC(12,2) NOT NULL DEFAULT 0;
     ");
 
-    // Seed Web Push VAPID keys once so push notifications work out of the box.
-    if (!db.SiteSettings.Any(x => x.Key == "vapidPublicKey"))
-        db.SiteSettings.Add(new MahalaxmiApi.Models.SiteSetting { Key = "vapidPublicKey", Value = "BCo-85lQ2ng-FCpfH3RGxkA6vgVC34zaT6wRSGN_WU7k-pVytCRpd1vRMXnlq7S9RpXQXR9leRHqsoh_sAvjfoI" });
-    if (!db.SiteSettings.Any(x => x.Key == "vapidPrivateKey"))
-        db.SiteSettings.Add(new MahalaxmiApi.Models.SiteSetting { Key = "vapidPrivateKey", Value = "8R3Upr3bCiDIlMXf5U7YNu7wXxMOFclG8fgaL1rbTns" });
+    // Web Push VAPID keys.
+    //
+    // The private key used to be written here, in the file, in a repository
+    // anyone can read. A VAPID private key is what proves a notification came
+    // from this shop; whoever holds it can send push notifications that arrive
+    // on our customers' phones wearing our name. It was committed, so it is
+    // burnt — see RUNBOOK-PENDING.md ("Rotate the push keys"): generate a new
+    // pair, put it in appsettings.json on the server, and update the row.
+    //
+    // Nothing is seeded now unless the server supplies it. Push notifications
+    // simply stay off until someone configures them, which is the right way for
+    // a secret to be missing: visibly, not silently.
+    var vapidPublic  = app.Configuration["Push:VapidPublicKey"];
+    var vapidPrivate = app.Configuration["Push:VapidPrivateKey"];
+    if (!string.IsNullOrWhiteSpace(vapidPublic) && !db.SiteSettings.Any(x => x.Key == "vapidPublicKey"))
+        db.SiteSettings.Add(new MahalaxmiApi.Models.SiteSetting { Key = "vapidPublicKey", Value = vapidPublic });
+    if (!string.IsNullOrWhiteSpace(vapidPrivate) && !db.SiteSettings.Any(x => x.Key == "vapidPrivateKey"))
+        db.SiteSettings.Add(new MahalaxmiApi.Models.SiteSetting { Key = "vapidPrivateKey", Value = vapidPrivate });
     // Cash on Delivery money rules — editable from admin Settings.
     if (!db.SiteSettings.Any(x => x.Key == "codAdvanceAmount"))
         db.SiteSettings.Add(new MahalaxmiApi.Models.SiteSetting { Key = "codAdvanceAmount", Value = "0" });

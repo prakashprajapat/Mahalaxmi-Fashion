@@ -41,7 +41,14 @@ public class ProductsController : ControllerBase
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 50)
     {
-        var isAdmin = HttpContext.User.Identity?.IsAuthenticated == true;
+        // Being signed in is not the same as working here. This read
+        // "IsAuthenticated", which every shopper with an account is — so a
+        // shopper got the staff branch: the page cap raised from 100 to 5000,
+        // the public cache stepped over, and the Draft and Inactive filter
+        // never applied. Products held back because they are not ready were
+        // one ordinary login and a query string away, and every such request
+        // went straight to the database.
+        var isAdmin = User.HasSectionAccess("products");
 
         // SEC/DoS: clamp paging so a hostile ?pageSize=99999999 can't force a huge query/response.
         // Admin needs larger pages (catalogue/QC tools); the public catalogue is capped tighter.
@@ -167,6 +174,15 @@ public class ProductsController : ControllerBase
     {
         var p = await _db.Products.FindAsync(id);
         if (p is null) return NotFound(new { success = false, message = "Product not found." });
+
+        // The listing hides Draft and Inactive products; this did not, so the
+        // same product the catalogue refuses to show was readable by anyone who
+        // knew its number — and the numbers run 1, 2, 3. Not being listed was
+        // the whole of the protection.
+        if (!User.HasSectionAccess("products")
+            && ProductQualityGate.HiddenStatuses.Contains(p.StockStatus, StringComparer.OrdinalIgnoreCase))
+            return NotFound(new { success = false, message = "Product not found." });
+
         return Ok(new { success = true, product = ToDto(p) });
     }
 

@@ -24,7 +24,7 @@ export default function CategoryCopyPage() {
   useEffect(() => {
     Promise.all([
       seoContentApi.get().catch(() => ({ categories: {} as Record<string, CategorySeo> })),
-      productsApi.getAll({ pageSize: 1000 }).catch(() => ({ products: [] as Product[] })),
+      productsApi.getAll({ pageSize: 1000 }, getAdminToken() ?? undefined).catch(() => ({ products: [] as Product[] })),
     ]).then(([content, prods]) => {
       // The code copy is the starting point; whatever has been saved wins.
       const merged: Record<string, CategorySeo> = { ...CATEGORY_SEO, ...((content as any).categories ?? {}) };

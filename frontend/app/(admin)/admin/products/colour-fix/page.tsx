@@ -101,7 +101,7 @@ export default function ColourFixPage() {
   useEffect(() => {
     (async () => {
       try {
-        const all = await fetchAllProducts();
+        const all = await fetchAllProducts({}, getAdminToken() ?? undefined);
         const found: Row[] = [];
         for (const p of all) {
           const ex = parseExtra(p);
