@@ -114,6 +114,10 @@ const nextConfig = {
                 + "https://www.google-analytics.com https://*.google-analytics.com "
                 + "https://www.googletagmanager.com "
                 + "https://www.googleadservices.com https://googleads.g.doubleclick.net "
+                // ad.doubleclick.net is Google Ads' conversion linker, and it was
+                // being blocked: *.g.doubleclick.net does not cover it. It is in
+                // connect-src already; the pixel it also draws needs this too.
+                + "https://ad.doubleclick.net "
                 + "https://stats.g.doubleclick.net https://*.g.doubleclick.net "
                 + "https://www.google.com https://www.google.co.in "
                 + "https://cdn.razorpay.com https://*.razorpay.com "

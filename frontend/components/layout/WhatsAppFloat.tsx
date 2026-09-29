@@ -1,6 +1,6 @@
 'use client';
-import { usePathname, useSearchParams } from 'next/navigation';
-import { Suspense, useEffect, useState } from 'react';
+import { usePathname } from 'next/navigation';
+import { useEffect, useState } from 'react';
 import { settingsApi } from '@/lib/api';
 import { trackEvent } from '@/lib/analytics';
 
@@ -13,6 +13,9 @@ function normalizeWa(raw?: string): string {
   return digits.length === 10 ? '91' + digits : digits;
 }
 
+// Built only in the browser, after mount. The server has no query string and no
+// document.title, so working any of that into the first render guaranteed the
+// server's HTML and the browser's first render would disagree.
 function buildMessage(pathname: string, sp: URLSearchParams): string {
   // Product detail page
   if (/^\/products\/\d+/.test(pathname)) {
@@ -47,17 +50,44 @@ function buildMessage(pathname: string, sp: URLSearchParams): string {
   return `Hello! I'm on the Mahalaxmi Fashion Hub website. Please help. 🙏`;
 }
 
-function FloatButton() {
+// The WhatsApp button.
+//
+// This used to read useSearchParams(), which suspends while a page is still
+// working out its query string, so it sat inside a <Suspense> whose fallback
+// was a SECOND copy of this button — a different <a> from the real one. The
+// server rendered the fallback and the browser rendered the real thing, and
+// React, finding a Suspense boundary whose server content does not match what
+// the client produced, gave up on the whole root: Minified React error #329 on
+// every page of the shop. It then rebuilt the page from scratch in the browser,
+// which is why the site still worked, only slower — and why every script
+// scheduled for after the load event, the Meta Pixel among them, was never run.
+//
+// It does not need any of that. The message is a nicety; the button works
+// without it. The query string and the page title are read after mount, so the
+// server's HTML and the browser's first render are the same markup, there is no
+// boundary to mismatch, and the message fills itself in a moment later.
+export default function WhatsAppFloat() {
   const pathname = usePathname();
-  const sp = useSearchParams();
   const [wa, setWa] = useState(WA_NUMBER);
+  const [msg, setMsg] = useState<string | null>(null);
+
   useEffect(() => {
     settingsApi.getAll()
       .then(r => setWa(normalizeWa(r.settings?.whatsapp || r.settings?.phone)))
       .catch(() => {});
   }, []);
-  const msg = buildMessage(pathname, sp);
-  const href = `https://wa.me/${wa}?text=${encodeURIComponent(msg)}`;
+
+  useEffect(() => {
+    try {
+      setMsg(buildMessage(pathname ?? '/', new URLSearchParams(window.location.search)));
+    } catch {
+      setMsg(null);
+    }
+  }, [pathname]);
+
+  const href = msg
+    ? `https://wa.me/${wa}?text=${encodeURIComponent(msg)}`
+    : `https://wa.me/${wa}`;
 
   return (
     <a
@@ -72,18 +102,5 @@ function FloatButton() {
         <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
       </svg>
     </a>
-  );
-}
-
-export default function WhatsAppFloat() {
-  return (
-    <Suspense fallback={
-      <a href={`https://wa.me/${WA_NUMBER}`} className="whatsapp-float" target="_blank" rel="noopener noreferrer"
-        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '.75rem' }}>
-        <svg width="28" height="28" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-      </a>
-    }>
-      <FloatButton />
-    </Suspense>
   );
 }
