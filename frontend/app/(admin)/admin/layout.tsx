@@ -125,6 +125,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const pathname = usePathname();
   const isPublicAdminRoute = pathname === '/admin/login' || pathname.startsWith('/admin/login/');
   const [authed, setAuthed] = useState(false);
+  // Told apart from "still checking". The check itself is instant — it reads a
+  // token out of localStorage — so the screen that says "Checking
+  // authentication…" was almost never doing that. It was sitting through the
+  // navigation to the sign-in page, which on a slow line means downloading that
+  // route before anything can change, and it read as a site that had hung.
+  const [redirecting, setRedirecting] = useState(false);
   const [role, setRole] = useState<'admin' | 'staff'>('admin');
   const [perms, setPerms] = useState<string[]>([]);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -136,7 +142,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   useEffect(() => {
     if (isPublicAdminRoute) { setAuthed(true); return; }
     const token = getAdminToken();
-    if (!token) { router.replace('/admin/login'); return; }
+    if (!token) { setRedirecting(true); router.replace('/admin/login'); return; }
     const isAdmin = getTokenRole(token) === 'admin';   // anything else = staff (least privilege)
     setRole(isAdmin ? 'admin' : 'staff');
     setPerms(isAdmin ? [] : getTokenPerms(token));
@@ -169,8 +175,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   if (isPublicAdminRoute) return <>{children}</>;
 
   if (!authed) return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f5f5f5' }}>
-      <p style={{ color: '#999' }}>Checking authentication…</p>
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f5f5f5', padding: '1.5rem', textAlign: 'center' }}>
+      <div>
+        <p style={{ color: '#666', margin: 0, fontWeight: 600 }}>
+          {redirecting ? 'Taking you to the sign-in page…' : 'Checking your sign-in…'}
+        </p>
+        {redirecting && (
+          <p style={{ color: '#999', margin: '.4rem 0 0', fontSize: '.84rem' }}>
+            If this stays on screen, open <a href="/admin/login" style={{ color: '#722f37', fontWeight: 600 }}>the sign-in page</a> directly.
+          </p>
+        )}
+      </div>
     </div>
   );
 
