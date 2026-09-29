@@ -113,92 +113,6 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-// Hydration ki jaanch — chalti hai sirf tab jab URL me ?hydebug=1 ho.
-//
-// Production me React sirf itna kehta hai: "Minified React error #418 / #329".
-// Kahan match nahi hua, kaun sa element, kaun sa text — kuch nahi. Uska stack
-// bhi React ke andar ka hota hai, apne code ka naam usme nahi aata. Isi wajah
-// se do baar galat jagah par shak gaya.
-//
-// Ye script parse poora hone ke baad React jo pehla DOM badlaav karta hai, wahi
-// likh deti hai. Server ne jo HTML bheja aur browser ne jo banaya — farq wahin
-// pehle dikhta hai, isliye pehla badlaav hi asli jagah hai. Saath me har error
-// ka waqt bhi, taki kram saaf rahe.
-//
-// Grahak ke liye ye kabhi nahi chalti: bina ?hydebug=1 ke pehli line par hi
-// wapas laut jati hai.
-const HYDEBUG = `(function(){
-  try {
-    if (String(location.search).indexOf('hydebug') < 0) return;
-    var log = { errors: [], ready: [], preHtml: null, postHtml: null };
-    window.__hydebug = log;
-    var grabbed = false;
-    var obs = new MutationObserver(function (recs) {
-      for (var i = 0; i < recs.length; i++) {
-        var r = recs[i];
-        // React ne jab poora dhancha badalna shuru kiya — uske turant baad ka
-        // roop chahiye, effects ke naya data laane se PEHLE.
-        if (!grabbed && document.readyState !== 'loading' && r.target === document.body && r.removedNodes.length) {
-          grabbed = true;
-          setTimeout(function () {
-            log.postHtml = document.documentElement.outerHTML;
-            log.postAt = Math.round(performance.now());
-          }, 0);
-        }
-      }
-    });
-    window.addEventListener('error', function (e) {
-      log.errors.push({ ms: Math.round(performance.now()), msg: String(e && e.message).slice(0, 90) });
-    });
-    document.addEventListener('readystatechange', function () {
-      log.ready.push({ ms: Math.round(performance.now()), state: document.readyState });
-      // 'interactive' = server ka HTML poora padh liya gaya, hydration se pehle.
-      if (document.readyState === 'interactive' && !log.preHtml) {
-        log.preHtml = document.documentElement.outerHTML;
-        log.preAt = Math.round(performance.now());
-      }
-    });
-    var start = function () {
-      if (!document.body) { setTimeout(start, 0); return; }
-      obs.observe(document.body, { subtree: true, childList: true });
-    };
-    start();
-
-    // Dono roopon ki tulna — HAR node, jaisa hai waisa: script, style, khaali
-    // jagah, sab. Pichhli baar inhi ko chhod diya tha, isliye farq nahi mila.
-    window.__hydiff = function (opts) {
-      opts = opts || {};
-      var doc = new DOMParser().parseFromString(log.preHtml || '', 'text/html');
-      var A = doc.documentElement, B = document.documentElement;
-      var flat = function (root) {
-        var out = [];
-        var walk = function (n, d) {
-          for (var c = n.firstChild; c; c = c.nextSibling) {
-            if (c.nodeType === 1) {
-              var at = [];
-              for (var j = 0; j < c.attributes.length; j++) at.push(c.attributes[j].name);
-              at.sort();
-              out.push(d + '|<' + c.nodeName.toLowerCase() + '> ' + at.join(',').slice(0, 120));
-              if (d < 45) walk(c, d + 1);
-            } else if (c.nodeType === 3) {
-              out.push(d + '|text:' + JSON.stringify(String(c.nodeValue).slice(0, 60)));
-            } else if (c.nodeType === 8) {
-              out.push(d + '|comment:' + JSON.stringify(String(c.nodeValue).slice(0, 40)));
-            }
-          }
-        };
-        walk(root, 0);
-        return out;
-      };
-      var a = flat(A), b = flat(B), i = 0;
-      while (i < a.length && i < b.length && a[i] === b[i]) i++;
-      var w = opts.window || 6;
-      return { preLen: a.length, postLen: b.length, at: i, preAt: log.preAt, postAt: log.postAt,
-               server: a.slice(Math.max(0, i - 3), i + w), client: b.slice(Math.max(0, i - 3), i + w) };
-    };
-  } catch (e) { /* jaanch ki script kabhi page na rokey */ }
-})();`;
-
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const s = await getSeoSettings();
   const gtmId = s.gtmId?.trim();
@@ -229,8 +143,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang="en">
       <head>
-        {/* eslint-disable-next-line react/no-danger */}
-        <script dangerouslySetInnerHTML={{ __html: HYDEBUG }} />
         {/* Preconnect to external image/asset hosts for faster product images */}
         <link rel="preconnect" href="https://res.cloudinary.com" />
         <link rel="dns-prefetch" href="https://res.cloudinary.com" />
