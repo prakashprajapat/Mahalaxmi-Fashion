@@ -17,6 +17,7 @@ import DeliveryEstimate from '@/components/product/DeliveryEstimate';
 import SizeGuideButton from '@/components/product/SizeGuideButton';
 import { addRecentlyViewed } from '@/lib/recentlyViewed';
 import { trackEvent } from '@/lib/analytics';
+import { feedIdFor } from '@/lib/merchantFeed';
 import type { Product, Review } from '@/types';
 import { variantStockFor } from '@/lib/variantStock';
 import { formatDateIst } from '@/lib/formatDate';
@@ -219,6 +220,9 @@ export default function ProductDetail({ params, initialProduct = null }: { param
       value: finalUnitPrice(product),
       items: [{
         item_id: (product as any).sku || String(product.dbId),
+        // Page khulte waqt size chuna nahi hota, isliye group ka id — Meta ise
+        // catalogue ke item_group_id se milata hai.
+        item_group_id: (product as any).sku || String(product.dbId),
         item_name: product.name,
         item_category: product.category ?? '',
         price: finalUnitPrice(product),
@@ -359,6 +363,9 @@ export default function ProductDetail({ params, initialProduct = null }: { param
       value: finalUnitPrice(product) * cappedQty,
       items: [{
         item_id: (product as any).sku || String(product.dbId),
+        item_group_id: (product as any).sku || String(product.dbId),
+        // Yahan size aur rang dono maloom hain, to feed ki poori row ka id.
+        item_variant_id: feedIdFor((product as any).sku, product.dbId, size || undefined, color || undefined),
         item_name: product.name,
         item_category: product.category ?? '',
         price: finalUnitPrice(product),

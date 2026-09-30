@@ -50,6 +50,8 @@ export function trackEvent(name: string, params: Params = {}): void {
 // otherwise happen.
 
 /** GA4's name for a thing → Meta's name for the same thing. */
+import { feedIdFor } from '@/lib/merchantFeed';
+
 const META_EVENTS: Record<string, string> = {
   view_item: 'ViewContent',
   add_to_cart: 'AddToCart',
@@ -61,7 +63,13 @@ const META_EVENTS: Record<string, string> = {
   search: 'Search',
 };
 
-interface Ga4Item { item_id?: unknown; item_name?: unknown; quantity?: unknown; price?: unknown }
+interface Ga4Item {
+  item_id?: unknown; item_name?: unknown; quantity?: unknown; price?: unknown;
+  /** Feed ki us row ka id jisme size aur rang dono tay hain. */
+  item_variant_id?: unknown;
+  /** Feed ka item_group_id — yani SKU, poore product ka. */
+  item_group_id?: unknown;
+}
 
 function trackMeta(name: string, params: Params): void {
   const metaName = META_EVENTS[name];
@@ -81,10 +89,22 @@ function trackMeta(name: string, params: Params): void {
     value: Number(params.value ?? 0),
   };
   if (items.length > 0) {
-    payload.content_type = 'product';
-    payload.content_ids = items.map(i => String(i.item_id ?? ''));
+    // Meta content_ids ko catalogue ke id se milata hai. Catalogue me ek row
+    // har size aur rang ki hai (MFH1143-free-size-black), aur SKU sirf unka
+    // item_group_id hai. Akela SKU bhejne par kuch nahi milta — match rate 0%.
+    //
+    // Product khulte waqt size chuna hi nahi hota, isliye tab group bheja jata
+    // hai aur content_type 'product_group' — Meta ko yahi batana padta hai ki
+    // ye id group ka hai. Cart aur kharid ke waqt size aur rang dono maloom
+    // hote hain, to wahan feed wali poori row ka id jata hai.
+    const asVariant = items.every(i => String(i.item_variant_id ?? '').trim() !== '');
+    const idOf = (i: Ga4Item) => String(
+      (asVariant ? i.item_variant_id : (i.item_group_id ?? i.item_id)) ?? ''
+    );
+    payload.content_type = asVariant ? 'product' : 'product_group';
+    payload.content_ids = items.map(idOf);
     payload.contents = items.map(i => ({
-      id: String(i.item_id ?? ''),
+      id: idOf(i),
       quantity: Number(i.quantity ?? 1),
       item_price: Number(i.price ?? 0),
     }));
@@ -108,7 +128,10 @@ function trackMeta(name: string, params: Params): void {
 
 // Build a GA4 ecommerce "items" array from cart-like objects.
 export function toGa4Items(
-  lines: Array<{ dbId?: number; sku?: string; name?: string; category?: string; quantity?: number; price?: number }>,
+  lines: Array<{
+    dbId?: number; sku?: string; name?: string; category?: string; quantity?: number; price?: number;
+    selectedSize?: string; selectedColor?: string;
+  }>,
 ): Array<Record<string, unknown>> {
   return lines.map(l => ({
     item_id: l.sku || String(l.dbId ?? ''),
@@ -116,6 +139,8 @@ export function toGa4Items(
     item_category: l.category ?? '',
     price: l.price ?? 0,
     quantity: l.quantity ?? 1,
+    item_group_id: l.sku || String(l.dbId ?? ''),
+    item_variant_id: feedIdFor(l.sku, l.dbId, l.selectedSize, l.selectedColor),
   }));
 }
 

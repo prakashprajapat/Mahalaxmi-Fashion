@@ -86,6 +86,23 @@ export interface Variant {
  * Capped at 40 rows per product so an unusual size grid cannot inflate the
  * whole feed.
  */
+/**
+ * Wahi id jo feed us size aur us rang wali row ko deta hai.
+ *
+ * Pixel jo bhejta hai aur catalogue me jo likha hai — dono ek na hon to Meta
+ * dono ko jod nahi pata, aur "catalog match rate" 0% reh jata hai. Tab kisi ne
+ * kya dekha, kya cart me dala, kuch bhi ads ke kaam nahi aata.
+ *
+ * Isliye id yahan ek hi jagah banti hai aur variantsOf bhi yahi niyam use karta
+ * hai. Sirf takrav wala hissa (do product ka SKU ek hona) yahan nahi hai — wo
+ * poori feed dekhe bina pata hi nahi chalta, aur woh giney-chuney hain.
+ */
+export function feedIdFor(sku: string | undefined, dbId: number | undefined, size?: string, colour?: string): string {
+  const base = (sku ?? '').trim() || `MFH-${dbId}`;
+  const slug = (x: string) => x.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  return [base, size && slug(size), colour && slug(colour)].filter(Boolean).join('-');
+}
+
 export function variantsOf(p: FeedInput, seen?: Set<string>): Variant[] {
   const base = (p.sku ?? '').trim() || `MFH-${p.dbId}`;
 
