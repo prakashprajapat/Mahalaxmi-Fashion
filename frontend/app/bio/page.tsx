@@ -25,7 +25,9 @@ import type { Product } from '@/types';
 export const revalidate = 300;
 
 export const metadata: Metadata = {
-  title: 'Shop Mahalaxmi Fashion Hub',
+  // Layout naam dobara jod deta hai, aur 'Shop Mahalaxmi Fashion Hub |
+  // Mahalaxmi Fashion Hub' Instagram ke browser me upar aisa hi dikhta hai.
+  title: { absolute: 'Shop Mahalaxmi Fashion Hub' },
   description: 'Sarees, nighties, kurtis, footwear and more — order on WhatsApp or shop online. Free delivery, easy returns, cash on delivery.',
   alternates: { canonical: '/bio' },
   // Patla panna hai aur iski har cheez kahin aur bhi hai — khoj me ise dikhane
@@ -34,6 +36,13 @@ export const metadata: Metadata = {
 };
 
 const WHATSAPP = 'https://wa.me/919429429880';
+
+// Play Store ka seedha link. referrer bhi saath jata hai, isliye Play Console
+// me dikh jayega ki app kis rah se install hua — bina iske har install
+// "organic" gin liya jata hai aur reel ka hisaab kabhi nahi milta.
+const PLAY_APP =
+  'https://play.google.com/store/apps/details?id=com.mahalaxmifashionhub.www.twa'
+  + '&referrer=utm_source%3Dinstagram%26utm_medium%3Dbio';
 const UTM = 'utm_source=instagram&utm_medium=bio&utm_campaign=link_in_bio';
 
 const CATEGORIES: Array<{ label: string; href: string }> = [
@@ -71,6 +80,7 @@ export default async function BioPage() {
         }
         .bio-btn.primary { background: #722f37; border-color: #722f37; color: #fff; }
         .bio-btn.whatsapp { background: #128c7e; border-color: #128c7e; color: #fff; }
+        .bio-btn.app { background: #1f2a37; border-color: #1f2a37; color: #fff; }
         .bio-cats { display: grid; grid-template-columns: repeat(3, 1fr); gap: .5rem; margin-top: .6rem; }
         .bio-cat {
           padding: .7rem .4rem; border-radius: 10px; border: 1.5px solid #ecdfe2; background: #fff;
@@ -98,6 +108,9 @@ export default async function BioPage() {
           Order on WhatsApp
         </a>
         <Link className="bio-btn primary" href={track('/products')}>Shop All Products</Link>
+        <a className="bio-btn app" href={PLAY_APP} target="_blank" rel="noopener noreferrer">
+          Get the Android App
+        </a>
         <Link className="bio-btn" href={track('/tracking')}>Track Your Order</Link>
       </div>
 
