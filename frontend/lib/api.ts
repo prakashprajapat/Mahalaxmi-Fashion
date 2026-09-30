@@ -434,6 +434,27 @@ export const seoContentApi = {
   },
 };
 
+// Roz do baar jane wala backup — chalane ka aur haal poochhne ka rasta.
+// Panel me iske bina koi bata hi nahi sakta tha ki backup chala ya nahi;
+// intezar karke inbox dekhna hi ek tarika tha, jo jawab dene me 12 ghante leta
+// hai aur galat jawab bhi de sakta hai.
+export const backupApi = {
+  status: (token: string) =>
+    request<{
+      success: boolean; nowIst: string;
+      lastRunIst: string | null; hoursSinceLastRun: number | null;
+      nextRunIst: string; hoursAway: number;
+    }>('/backup/status', undefined, token),
+
+  runNow: (token: string) =>
+    request<{
+      success: boolean; sent: boolean; recipients: string[];
+      databaseKb: number; databaseError: string | null;
+      photoCount: number; photoKb: number; photosWaiting: number; photoError: string | null;
+      message: string;
+    }>('/backup/run', { method: 'POST' }, token),
+};
+
 export const settingsApi = {
   getAll: (): Promise<SettingsResp> => {
     if (typeof window === 'undefined')

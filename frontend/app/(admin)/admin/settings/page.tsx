@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
-import { settingsApi } from '@/lib/api';
+import { settingsApi, backupApi } from '@/lib/api';
 import { getAdminToken } from '@/lib/auth';
 import { PageHeader, Empty } from '@/components/admin/Ui';
 
@@ -194,6 +194,43 @@ export default function AdminSettingsPage() {
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState('');
   const [backupMsg, setBackupMsg] = useState('');
+
+  // Email wala backup — settings ki file wale backup se alag cheez hai.
+  const [mailStatus, setMailStatus] = useState<{ lastRunIst: string | null; nextRunIst: string; hoursSinceLastRun: number | null } | null>(null);
+  const [mailBusy, setMailBusy] = useState(false);
+  const [mailMsg, setMailMsg] = useState('');
+
+  useEffect(() => {
+    const token = getAdminToken();
+    if (!token) return;
+    backupApi.status(token)
+      .then(r => setMailStatus({ lastRunIst: r.lastRunIst, nextRunIst: r.nextRunIst, hoursSinceLastRun: r.hoursSinceLastRun }))
+      .catch(() => setMailStatus(null));
+  }, []);
+
+  const sendBackupNow = async () => {
+    const token = getAdminToken();
+    if (!token) { setMailMsg('❌ Sign in again and retry.'); return; }
+    setMailBusy(true);
+    setMailMsg('');
+    try {
+      const r = await backupApi.runNow(token);
+      setMailMsg(
+        (r.success ? '✅ ' : '❌ ') + r.message +
+        (r.recipients?.length ? ` Sent to: ${r.recipients.join(', ')}.` : '') +
+        ` Database ${r.databaseKb} KB, ${r.photoCount} photos (${r.photoKb} KB)` +
+        (r.photosWaiting > 0 ? `, ${r.photosWaiting} photos left for the next run.` : '.') +
+        (r.databaseError ? ` Database error: ${r.databaseError}` : '') +
+        (r.photoError ? ` Photo error: ${r.photoError}` : '')
+      );
+      const st = await backupApi.status(token).catch(() => null);
+      if (st) setMailStatus({ lastRunIst: st.lastRunIst, nextRunIst: st.nextRunIst, hoursSinceLastRun: st.hoursSinceLastRun });
+    } catch (e) {
+      setMailMsg('❌ ' + ((e as Error)?.message || 'The request did not go through.'));
+    } finally {
+      setMailBusy(false);
+    }
+  };
   const importRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -329,6 +366,38 @@ export default function AdminSettingsPage() {
               <button className="adm-btn" onClick={() => importRef.current?.click()}>Restore from a backup</button>
               <input ref={importRef} type="file" accept=".json" style={{ display: 'none' }} onChange={handleImport} />
             </div>
+          </div>
+
+          {/* Email backup — har roz 12 AM aur 12 PM (IST) */}
+          <div className="adm-card" style={{ padding: '1.1rem 1.15rem' }}>
+            <h2 className="adm-card-h">Email backup</h2>
+            <p style={{ fontSize: '.82rem', color: '#7d736d', margin: '0 0 .9rem', lineHeight: 1.6 }}>
+              The database and any new product photos are emailed twice a day, at 12 AM and 12 PM.
+              Send one now to check it works — waiting for midnight to find out is a poor way to learn that something is broken.
+            </p>
+
+            <div style={{ fontSize: '.83rem', color: '#4a4440', marginBottom: '.85rem', lineHeight: 1.8 }}>
+              <div>
+                <b>Last backup:</b>{' '}
+                {mailStatus === null ? '—'
+                  : mailStatus.lastRunIst
+                    ? `${mailStatus.lastRunIst}${mailStatus.hoursSinceLastRun !== null ? ` (${mailStatus.hoursSinceLastRun} h ago)` : ''}`
+                    : 'never run yet'}
+              </div>
+              <div><b>Next backup:</b> {mailStatus?.nextRunIst ?? '—'}</div>
+            </div>
+
+            {mailMsg && (
+              <div style={{ padding: '.55rem .8rem', borderRadius: 10, marginBottom: '.85rem', fontSize: '.83rem', fontWeight: 600, lineHeight: 1.6,
+                background: mailMsg.startsWith('✅') ? '#f2faf3' : '#fdf3f2',
+                color: mailMsg.startsWith('✅') ? '#2e7d32' : '#c0392b' }}>
+                {mailMsg}
+              </div>
+            )}
+
+            <button className="adm-btn" onClick={sendBackupNow} disabled={mailBusy}>
+              {mailBusy ? 'Sending…' : 'Send backup now'}
+            </button>
           </div>
 
           {shownSections.length === 0 && (

@@ -318,6 +318,18 @@ public class BackupService : BackgroundService
         return list.Count > 0 ? list : DefaultRecipients.ToList();
     }
 
+    /// <summary>
+    /// Backup aakhri baar kab chala. Panel ko yahi batana sabse zaroori hai:
+    /// "kabhi nahi chala" aur "chala par mail nahi gaya" — dono ka natija ek
+    /// jaisa dikhta hai (inbox khali), par ilaaj bilkul alag hai.
+    /// </summary>
+    public async Task<DateTimeOffset?> LastRunUtcAsync()
+    {
+        using var scope = _scopeFactory.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        return await ReadStampAsync(db, LastRunKey);
+    }
+
     private static async Task<DateTimeOffset?> ReadStampAsync(AppDbContext db, string key)
     {
         var raw = await db.SiteSettings.Where(s => s.Key == key).Select(s => s.Value).FirstOrDefaultAsync();

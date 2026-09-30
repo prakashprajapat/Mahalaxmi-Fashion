@@ -49,15 +49,24 @@ public class BackupController : ControllerBase
 
     /// <summary>When the backup last ran, and when it runs next.</summary>
     [HttpGet("status")]
-    public IActionResult Status()
+    public async Task<IActionResult> Status()
     {
-        var nowIst = DateTimeOffset.UtcNow.ToOffset(TimeSpan.FromHours(5.5));
+        var ist = TimeSpan.FromHours(5.5);
+        var nowIst = DateTimeOffset.UtcNow.ToOffset(ist);
         var next = BackupService.NextRunUtc(nowIst);
+
+        // Agli baar kab chalega, ye to ginti hai — usse kuch sabit nahi hota.
+        // Asli sawal hamesha yahi hota hai ki pichhli baar chala tha ya nahi.
+        var last = await _backup.LastRunUtcAsync();
+
         return Ok(new
         {
             success = true,
             nowIst = nowIst.ToString("yyyy-MM-dd HH:mm"),
-            nextRunIst = next.ToOffset(TimeSpan.FromHours(5.5)).ToString("yyyy-MM-dd HH:mm"),
+            lastRunIst = last?.ToOffset(ist).ToString("yyyy-MM-dd HH:mm"),
+            hoursSinceLastRun = last is null ? (double?)null
+                : Math.Round((DateTimeOffset.UtcNow - last.Value).TotalHours, 1),
+            nextRunIst = next.ToOffset(ist).ToString("yyyy-MM-dd HH:mm"),
             hoursAway = Math.Round((next - DateTimeOffset.UtcNow).TotalHours, 1),
         });
     }
