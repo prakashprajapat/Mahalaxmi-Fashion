@@ -130,7 +130,9 @@ function fitToCardShape(img: HTMLImageElement, maxPx: number): { canvas: HTMLCan
   return { canvas, padded: true };
 }
 
-async function convertToAvif(file: File, maxPx = 1200, quality = 0.82): Promise<ConvResult> {
+// force = true: Compress wala batan. Tab chhoti photo rakhi hi jati hai, chahe
+// original usse bhi chhota ho - batan dabane ka matlab hi yahi hai.
+async function convertToAvif(file: File, maxPx = 1200, quality = 0.82, force = false): Promise<ConvResult> {
   const origKB = Math.round(file.size / 1024);
 
   // Load image
@@ -191,7 +193,7 @@ async function convertToAvif(file: File, maxPx = 1200, quality = 0.82): Promise<
   // reshaped photo must be kept whatever it weighs — handing back the original
   // would quietly undo the reshaping this function just did.
   const sorted = candidates.sort((a, b) => a.blob.size - b.blob.size);
-  const best = padded ? sorted[0] : sorted.filter(c => c.blob.size < file.size)[0];
+  const best = (padded || force) ? sorted[0] : sorted.filter(c => c.blob.size < file.size)[0];
 
   if (best) {
     const dataUrl = await blobToDataUrl(best.blob);
@@ -228,6 +230,33 @@ function PhotoSlot({
       .finally(() => setConverting(false));
   };
 
+  // Jo photo pehle se chadh chuki hai use chhota karna.
+  //
+  // Phone se chadhi photo aksar badi reh jati hai: Safari canvas se WebP nahi
+  // likh pata aur JPEG 0.82 par wo original jitni hi bani rehti hai, to purana
+  // niyam (chhoti ho tabhi rakho) use chhod deta hai. Ab wo photo yahin se
+  // dobara nichodi ja sakti hai - jo bhi roop sabse chhota nikle, wahi rakha
+  // jata hai, chahe original usse bhi chhota ho.
+  //
+  // value data: URL bhi ho sakta hai (abhi chuni hui) aur /product-images/...
+  // ka pata bhi (pehle se chadhi hui) - fetch dono padh leta hai, aur dono apne
+  // hi domain se aate hain.
+  const compressNow = async () => {
+    if (!value || converting) return;
+    setConverting(true); setReport(null);
+    try {
+      const blob = await (await fetch(value)).blob();
+      const file = new File([blob], 'photo', { type: blob.type || 'image/jpeg' });
+      const r = await convertToAvif(file, 1200, 0.72, true);
+      onChange(r.dataUrl);
+      setReport(r);
+    } catch {
+      alert('Could not read this photo to compress it. If it was added by URL from another website, download it first and upload the file.');
+    } finally {
+      setConverting(false);
+    }
+  };
+
   const icon = label.includes('SIDE') ? '↔️' : label.includes('BACK') ? '🔄' : label.includes('ZOOM') ? '🔍' : '📷';
 
   return (
@@ -250,6 +279,14 @@ function PhotoSlot({
         </button>
         <button onClick={() => setShowUrl(v => !v)}
           style={{ fontSize: '.68rem', background: '#f0f0f0', border: 'none', cursor: 'pointer', padding: '.15rem .4rem', borderRadius: '4px', fontWeight: 600 }}>URL</button>
+        {value && (
+          <button onClick={compressNow} disabled={converting}
+            title="Make this photo smaller without changing how it looks"
+            style={{ fontSize: '.68rem', background: '#e8f5e9', color: '#2e7d32', border: 'none',
+                     cursor: converting ? 'wait' : 'pointer', padding: '.15rem .4rem', borderRadius: '4px', fontWeight: 700 }}>
+            {converting ? '⏳' : 'Compress'}
+          </button>
+        )}
         {value && (
           <button onClick={() => { onChange(''); setReport(null); }}
             style={{ fontSize: '.72rem', background: 'none', border: 'none', cursor: 'pointer', color: '#c62828', marginLeft: 'auto' }}>✕</button>
