@@ -2,7 +2,6 @@ import type { Metadata, Viewport } from 'next';
 import Script from 'next/script';
 import { settingsApi } from '@/lib/api';
 import PWARegister from '@/components/pwa/PWARegister';
-import LogoPreload from '@/components/LogoPreload';
 import './globals.css';
 
 export const viewport: Viewport = {
@@ -148,12 +147,14 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <link rel="dns-prefetch" href="https://res.cloudinary.com" />
         <link rel="dns-prefetch" href="https://www.googletagmanager.com" />
 
-        {/* Preload the hero logo (the LCP element on the home page) so the browser
-            discovers it immediately instead of after HTML parse — fixes "LCP request discovery".
-            Rendered only on storefront pages (skipped on /admin, where the logo isn't used —
-            that avoids the "preloaded but not used" console warning on admin pages). */}
-        <LogoPreload />
-
+        {/* Logo ka apna preload hata diya gaya.
+            Navbar ka logo next/image se aata hai aur uspar priority laga hai, to
+            Next khud uske liye preload daal deta hai — par wo /_next/image?url=…
+            wala pata hai, /logo.webp?v=5 nahi. Dono alag file hain. Yani hamara
+            apna preload har panne par 45 KB utarta tha jo kabhi istemal hi nahi
+            hota, aur console me "preloaded but not used" ki chetawni deta tha.
+            Home ka hero logo sirf tab dikhta hai jab na video ho na photo — us
+            halat me browser use HTML padhte hi utha lega. */}
         {/* Hero heading font (Playfair Display) — loaded NON-render-blocking:
             fetched with media="print" (so it doesn't block first paint), then a tiny
             script flips it to "all". display=swap keeps text visible meanwhile. */}
