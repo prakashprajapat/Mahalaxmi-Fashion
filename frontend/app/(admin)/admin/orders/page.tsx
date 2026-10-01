@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState, type CSSProperties } from 'react';
+import { Fragment, useEffect, useState, type CSSProperties } from 'react';
 import { ordersApi } from '@/lib/api';
 import { getAdminToken } from '@/lib/auth';
 import { exportOrders } from '@/lib/exportExcel';
@@ -117,6 +117,13 @@ export default function AdminOrdersPage() {
   const [filterSize, setFilterSize] = useState('');
   const [filterColour, setFilterColour] = useState('');
   const [dateFilter, setDateFilter] = useState('');
+  const [filterPay, setFilterPay] = useState('');
+  // Kis khaane me dhoondhna hai. "Sab" purani aadat hai aur wahi default hai;
+  // ek khaana chun lene par 1786 jaisa number sirf Order ID me khojega,
+  // pincode ya AWB me nahin — Meesho panel me bhi yahi tareeka hai.
+  const [searchIn, setSearchIn] = useState('all');
+  const [sortBy, setSortBy] = useState<'date' | 'amount' | ''>('');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [awbModal, setAwbModal] = useState(false);
   const [newStatus, setNewStatus] = useState('');           // holds the chosen courier
   const [awbMap, setAwbMap] = useState<Record<string, string>>({}); // per-order AWB
@@ -260,13 +267,18 @@ export default function AdminOrdersPage() {
 
   const filtered = tabFiltered.filter(o => {
     const q = search.toLowerCase();
+    const hit: Record<string, boolean> = {
+      id:       o.id.toLowerCase().includes(q),
+      customer: (o.customerName ?? '').toLowerCase().includes(q),
+      phone:    (o.customerPhone ?? '').includes(search),
+      pincode:  (o.shippingPincode ?? '').includes(search),
+      awb:      (o.awb ?? '').toLowerCase().includes(q),
+      sku:      (o.cart ?? []).some(c => (c.sku ?? '').toLowerCase().includes(q)),
+      product:  (o.cart ?? []).some(c => (c.name ?? '').toLowerCase().includes(q)),
+    };
     const matchSearch = !search ||
-      o.id.toLowerCase().includes(q) ||
-      (o.customerName ?? '').toLowerCase().includes(q) ||
-      (o.customerPhone ?? '').includes(search) ||
-      (o.shippingPincode ?? '').includes(search) ||
-      (o.awb ?? '').toLowerCase().includes(q) ||
-      (o.cart ?? []).some(c => (c.sku ?? '').toLowerCase().includes(q) || (c.name ?? '').toLowerCase().includes(q));
+      (searchIn === 'all' ? Object.values(hit).some(Boolean) : !!hit[searchIn]);
+    const matchPay = !filterPay || (o.method ?? '') === filterPay;
     // Compare against the order's LOCAL date (same as what the table shows), not the raw
     // UTC string — otherwise an order placed near midnight lands in the wrong day.
     const matchDate = !dateFilter || (() => {
@@ -281,7 +293,7 @@ export default function AdminOrdersPage() {
         (c.color ?? '').toLowerCase().includes(filterColour.toLowerCase()) ||
         (c.colorCode ?? '').toLowerCase().includes(filterColour.toLowerCase()) ||
         (c.colorColumn ?? '').toLowerCase().includes(filterColour.toLowerCase()));
-    return matchSearch && matchDate && matchSize && matchColour;
+    return matchSearch && matchPay && matchDate && matchSize && matchColour;
   });
 
   const countFor = (key: string) =>
@@ -399,9 +411,22 @@ export default function AdminOrdersPage() {
 
   const downloadShippingLabel = (order: Order) => openOrderLabels([order]);
 
-  const anyFilter = Boolean(dateFilter || filterSize || filterColour || search);
-  const clearFilters = () => { setDateFilter(''); setFilterSize(''); setFilterColour(''); setSearch(''); };
+  const anyFilter = Boolean(dateFilter || filterSize || filterColour || search || filterPay);
+  const clearFilters = () => { setDateFilter(''); setFilterSize(''); setFilterColour(''); setSearch(''); setFilterPay(''); };
   const allShownSelected = filtered.length > 0 && selectedIds.size === filtered.length;
+
+  // Khaane ke naam par click karke tartib badalna. Sirf do khaane me iska matlab
+  // hai — tareekh aur rakam; baki naam ke hain, unme tartib se kuch nahi milta.
+  const toggleSort = (k: 'date' | 'amount') => {
+    if (sortBy === k) setSortDir(d => (d === 'asc' ? 'desc' : 'asc'));
+    else { setSortBy(k); setSortDir('desc'); }
+  };
+  const arrow = (k: string) => (sortBy === k ? (sortDir === 'asc' ? ' \u25b2' : ' \u25bc') : '');
+  const shown = !sortBy ? filtered : [...filtered].sort((a, b) => {
+    const va = sortBy === 'amount' ? a.total : new Date(a.placedAt ?? a.createdAt).getTime();
+    const vb = sortBy === 'amount' ? b.total : new Date(b.placedAt ?? b.createdAt).getTime();
+    return sortDir === 'asc' ? va - vb : vb - va;
+  });
 
   return (
     <div className="admin-page">
@@ -459,12 +484,31 @@ export default function AdminOrdersPage() {
 
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '.5rem', alignItems: 'center',
                       borderTop: '1px solid #f4efec', paddingTop: '.7rem' }}>
-          <input className="adm-input" style={{ flex: '1 1 200px' }}
-                 placeholder="Search ID, name, phone, AWB or SKU"
+          <span style={{ fontSize: '.72rem', fontWeight: 800, textTransform: 'uppercase',
+                         letterSpacing: '.04em', color: '#8a7f76' }}>Filter by</span>
+          <select className="adm-input" style={{ width: '122px' }} value={searchIn}
+                  onChange={e => setSearchIn(e.target.value)}>
+            <option value="all">All fields</option>
+            <option value="id">Order ID</option>
+            <option value="customer">Customer</option>
+            <option value="phone">Phone</option>
+            <option value="pincode">Pincode</option>
+            <option value="awb">AWB</option>
+            <option value="sku">SKU</option>
+            <option value="product">Product</option>
+          </select>
+          <input className="adm-input" style={{ flex: '1 1 170px' }}
+                 placeholder={searchIn === 'all' ? 'Search ID, name, phone, AWB or SKU' : 'Search'}
                  value={search} onChange={e => setSearch(e.target.value)} />
-          <input className="adm-input" style={{ width: '110px' }} placeholder="Size"
+          <select className="adm-input" style={{ width: '118px' }} value={filterPay}
+                  onChange={e => setFilterPay(e.target.value)}>
+            <option value="">Payment: all</option>
+            <option value="cod">COD</option>
+            <option value="razorpay">Prepaid</option>
+          </select>
+          <input className="adm-input" style={{ width: '96px' }} placeholder="Size"
                  value={filterSize} onChange={e => setFilterSize(e.target.value)} />
-          <input className="adm-input" style={{ width: '130px' }} placeholder="Colour"
+          <input className="adm-input" style={{ width: '116px' }} placeholder="Colour"
                  value={filterColour} onChange={e => setFilterColour(e.target.value)} />
           <input className="adm-input" type="date" value={dateFilter} onChange={e => setDateFilter(e.target.value)} />
           {anyFilter && <button className="adm-btn" onClick={clearFilters}>Clear</button>}
@@ -526,119 +570,181 @@ export default function AdminOrdersPage() {
                 ? 'No order matches this search. Clear the filters to see them all.'
                 : 'No orders in this queue.'}
           </Empty>
-        ) : filtered.map(o => {
-          const picked = selectedIds.has(o.id);
-          const isOpen = openIds.has(o.id);
-          const lines = o.cart ?? [];
-          const pieces = lines.reduce((n, c) => n + (c.quantity ?? 1), 0);
-          const placed = new Date(o.placedAt ?? o.createdAt);
-          const tone = o.status === 'Delivered' ? 'green'
-            : o.status === 'Cancelled' ? 'grey'
-            : o.status === 'Pending' || o.status === 'Return Requested' || o.status === 'Cancel Requested' ? 'red'
-            : 'amber';
-          return (
-            <div key={o.id} style={{ borderBottom: '1px solid #f4efec', padding: '.8rem 0',
-                                     background: picked ? '#fdf7f8' : undefined }}>
-              <div style={{ display: 'flex', gap: '.6rem', alignItems: 'flex-start' }}>
-                <input type="checkbox" checked={picked} onChange={() => toggleSelect(o.id)}
-                       style={{ marginTop: '.2rem', flexShrink: 0 }} />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: 'flex', gap: '.6rem', alignItems: 'baseline', flexWrap: 'wrap' }}>
-                    <span style={{ fontFamily: 'monospace', fontSize: '.8rem', fontWeight: 700, color: '#2d2724' }}>{o.id}</span>
-                    <Pill tone={tone}>{o.status}</Pill>
-                    <span className="adm-money" style={{ marginLeft: 'auto' }}>₹{o.total.toLocaleString('en-IN')}</span>
-                  </div>
-                  <div className="adm-item-s">
-                    {placed.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
-                    {' · '}{o.customerName || 'no name'}
-                    {o.shippingPincode ? ` · ${o.shippingPincode}` : ''}
-                    {' · '}<span style={{ textTransform: 'capitalize' }}>{o.method}</span>
-                    {o.awb && <> · <button onClick={() => openLiveTrack(o.awb!)} title="Live Delhivery tracking"
-                      style={{ background: 'none', border: 0, padding: 0, cursor: 'pointer', fontFamily: 'monospace',
-                               fontSize: '.74rem', color: '#1565c0', textDecoration: 'underline' }}>{o.awb}</button></>}
-                  </div>
-
-                  {/* Size and colour used to be their own columns as well as being
-                      written on every item. Once is enough, and it is the line
-                      the packer actually reads. */}
-                  {/* Band halat me ek hi pankti: kya gaya aur kitna. Naam
-                      pehle saman ka, kyunki pehchan wahi hai. */}
-                  {!isOpen && lines.length > 0 && (
-                    <button type="button" onClick={() => toggleOpen(o.id)}
-                            style={{ background: 'none', border: 0, padding: '.3rem 0 0', cursor: 'pointer',
-                                     font: 'inherit', fontSize: '.76rem', color: '#7d736d', textAlign: 'left',
-                                     display: 'flex', gap: '.35rem', alignItems: 'center', maxWidth: '100%' }}>
-                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {lines[0].name}{lines.length > 1 ? ` +${lines.length - 1} more` : ''}
-                      </span>
-                      <span style={{ flexShrink: 0, color: '#9a908a' }}>· {pieces} pc{pieces === 1 ? '' : 's'}</span>
-                      <span style={{ flexShrink: 0, color: '#722f37', fontWeight: 700 }}>Details ▾</span>
-                    </button>
-                  )}
-
-                  {isOpen && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '.4rem', marginTop: '.5rem' }}>
-                    {(o.cart ?? []).map((c, ci) => {
-                      const thumb = productImageSrc(c.colorPhoto || c.image);
-                      const sizeOnly = c.color ? (c.size || '').split(' / ').filter(p => p && p !== c.color).join(' / ') : (c.size || '');
-                      return (
-                        <div key={ci} style={{ display: 'flex', gap: '.5rem', alignItems: 'center' }}>
-                          {thumb
-                            ? <img src={thumb} alt="" style={{ width: 38, height: 38, borderRadius: 7, objectFit: 'cover', flexShrink: 0, border: '1px solid #f0eae7' }} />
-                            : <div className="adm-item-thumb" style={{ width: 38, height: 38, fontSize: '.9rem' }}>—</div>}
-                          <div style={{ fontSize: '.74rem', lineHeight: 1.45, minWidth: 0 }}>
-                            <div style={{ fontWeight: 650, color: '#2d2724', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 260 }}>{c.name}</div>
-                            <div style={{ color: '#9a908a', display: 'flex', gap: '.3rem', flexWrap: 'wrap', alignItems: 'center' }}>
-                              <span style={{ fontFamily: 'monospace' }}>{c.sku || 'no SKU'}</span>
-                              {c.colorColumn ? <span>· Col {c.colorColumn}</span> : null}
-                              {c.color && (
-                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '.25rem' }}>
-                                  · {c.colorCode && <span style={{ width: 10, height: 10, borderRadius: '50%', background: c.colorCode, border: '1px solid #ddd', display: 'inline-block' }} />}
-                                  {c.color}
-                                </span>
-                              )}
-                              {sizeOnly && <span>· Size {sizeOnly}</span>}
-                              <span>· ×{c.quantity}</span>
+        ) : (
+          /* Orders ki list asal me ek table hai — har order ki ek pankti, aur
+             har khaana apni jagah par. Pehle har order ek chaukor dabba tha
+             jisme sab kuch neeche-upar likha rehta tha, isliye do order me hi
+             screen bhar jati thi aur aankh ko har baar naya rasta dhoondhna
+             padta tha. Khaane me likha ho to aankh seedhi neeche utarti hai.
+             Byora chhupa nahi hai: Order ID par click kijiye, usi pankti ke
+             neeche saman ki poori tafseel khul jati hai. */
+          <div className="adm-table-wrap">
+            <table className="adm-table adm-orders-table">
+              <thead>
+                <tr>
+                  <th style={{ width: 26 }}>
+                    <input type="checkbox" checked={allShownSelected} title="Select all shown"
+                           onChange={e => setSelectedIds(e.target.checked ? new Set(filtered.map(o => o.id)) : new Set())} />
+                  </th>
+                  <th>Order</th>
+                  <th className="num">Qty</th>
+                  <th>Size / Colour</th>
+                  <th className="num">
+                    <button type="button" className="adm-sort" onClick={() => toggleSort('amount')}>Amount{arrow('amount')}</button>
+                  </th>
+                  <th>Customer</th>
+                  <th>Payment</th>
+                  <th>Tracking</th>
+                  <th>Status</th>
+                  <th>
+                    <button type="button" className="adm-sort" onClick={() => toggleSort('date')}>Date{arrow('date')}</button>
+                  </th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {shown.map(o => {
+                  const picked = selectedIds.has(o.id);
+                  const isOpen = openIds.has(o.id);
+                  const lines = o.cart ?? [];
+                  const pieces = lines.reduce((n, c) => n + (c.quantity ?? 1), 0);
+                  const placed = new Date(o.placedAt ?? o.createdAt);
+                  const tone = o.status === 'Delivered' ? 'green'
+                    : o.status === 'Cancelled' ? 'grey'
+                    : o.status === 'Pending' || o.status === 'Return Requested' || o.status === 'Cancel Requested' ? 'red'
+                    : 'amber';
+                  // Size ke andar rang bhi likha aata hai ("M / Red") — packer ko
+                  // naap chahiye, isliye rang alag kar dete hain.
+                  const sizeOf = (c: typeof lines[number]) =>
+                    c.color ? (c.size || '').split(' / ').filter(p => p && p !== c.color).join(' / ') : (c.size || '');
+                  const sizes = Array.from(new Set(lines.map(sizeOf).filter(Boolean)));
+                  const colours = Array.from(new Set(lines.map(c => c.color).filter(Boolean)));
+                  const first = lines[0];
+                  const thumb = first ? productImageSrc(first.colorPhoto || first.image) : '';
+                  return (
+                    <Fragment key={o.id}>
+                      <tr style={{ background: picked ? '#fdf7f8' : undefined }}>
+                        <td data-label="">
+                          <input type="checkbox" checked={picked} onChange={() => toggleSelect(o.id)} />
+                        </td>
+                        <td data-label="Order">
+                          <div style={{ display: 'flex', gap: '.5rem', alignItems: 'center' }}>
+                            {thumb
+                              ? <img src={thumb} alt="" style={{ width: 34, height: 34, borderRadius: 6, objectFit: 'cover', flexShrink: 0, border: '1px solid #f0eae7' }} />
+                              : <div className="adm-item-thumb" style={{ width: 34, height: 34, fontSize: '.85rem', flexShrink: 0 }}>&mdash;</div>}
+                            <div style={{ minWidth: 0 }}>
+                              <div title={lines.map(c => c.name).join(', ')}
+                                   style={{ fontWeight: 650, color: '#2d2724', maxWidth: 210,
+                                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {first ? first.name : 'no items'}{lines.length > 1 ? ` +${lines.length - 1}` : ''}
+                              </div>
+                              <button type="button" className="adm-oid" onClick={() => toggleOpen(o.id)}
+                                      title="Open the full details of this order">
+                                {o.id} {isOpen ? '\u25b4' : '\u25be'}
+                              </button>
                             </div>
                           </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  )}
+                        </td>
+                        <td data-label="Qty" className="num">{pieces}</td>
+                        <td data-label="Size / Colour">
+                          <div style={{ fontWeight: 600 }}>{sizes.join(', ') || '\u2014'}</div>
+                          {colours.length > 0 && <div style={{ color: '#9a908a', fontSize: '.72rem' }}>{colours.join(', ')}</div>}
+                        </td>
+                        <td data-label="Amount" className="num adm-money">&#8377;{o.total.toLocaleString('en-IN')}</td>
+                        <td data-label="Customer">
+                          <div style={{ fontWeight: 600, maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {o.customerName || 'no name'}
+                          </div>
+                          <div style={{ color: '#9a908a', fontSize: '.72rem' }}>
+                            {o.customerPhone || ''}{o.shippingPincode ? ` \u00b7 ${o.shippingPincode}` : ''}
+                          </div>
+                        </td>
+                        <td data-label="Payment">{o.method === 'cod' ? 'COD' : 'Prepaid'}</td>
+                        <td data-label="Tracking">
+                          {o.awb
+                            ? <button onClick={() => openLiveTrack(o.awb!)} title="Live Delhivery tracking"
+                                      style={{ background: 'none', border: 0, padding: 0, cursor: 'pointer', fontFamily: 'monospace',
+                                               fontSize: '.74rem', color: '#1565c0', textDecoration: 'underline' }}>{o.awb}</button>
+                            : <span style={{ color: '#c4bab5' }}>&mdash;</span>}
+                        </td>
+                        <td data-label="Status"><Pill tone={tone}>{o.status}</Pill></td>
+                        <td data-label="Date" style={{ whiteSpace: 'nowrap' }}>
+                          {placed.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                        </td>
+                        <td data-label="Action">
+                          <div className="adm-actions" style={{ flexWrap: 'wrap', alignItems: 'center', margin: 0 }}>
+                            <button onClick={() => downloadShippingLabel(o)}>Label</button>
+                            <button onClick={() => ordersApi.downloadInvoice(o.id, getAdminToken() ?? '').catch(() => {})}>Invoice</button>
+                            {o.customerPhone && (
+                              <details>
+                                <summary style={{ cursor: 'pointer', color: '#128C7E', fontWeight: 700, fontSize: '.76rem', listStyle: 'none', userSelect: 'none' }}>
+                                  WhatsApp &#9662;
+                                </summary>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '.1rem', marginTop: '.3rem',
+                                              background: '#f0fbf4', border: '1px solid #cdeede', borderRadius: 8, padding: '.4rem .55rem' }}>
+                                  <a href={waCustomerLink(o.customerPhone, o.customerName, o.id, o.total, o.awb, 'confirm')} target="_blank" rel="noopener noreferrer" style={waItemStyle}>Confirm</a>
+                                  <a href={waCustomerLink(o.customerPhone, o.customerName, o.id, o.total, o.awb, 'shipped')} target="_blank" rel="noopener noreferrer" style={waItemStyle}>Shipped</a>
+                                  <a href={waCustomerLink(o.customerPhone, o.customerName, o.id, o.total, o.awb, 'delivered')} target="_blank" rel="noopener noreferrer" style={waItemStyle}>Delivered</a>
+                                  <a href={waCustomerLink(o.customerPhone, o.customerName, o.id, o.total, o.awb, 'chat')} target="_blank" rel="noopener noreferrer" style={waItemStyle}>Open chat</a>
+                                </div>
+                              </details>
+                            )}
+                            {RETURN_STATUSES.includes(o.status) && (
+                              <button onClick={() => { setShowReject(false); setRejectReason(''); setReturnModalId(o.id); }}
+                                      style={{ color: o.returnDecision === 'rejected' ? '#c0392b' : o.returnDecision === 'approved' ? '#2e7d32' : '#722f37' }}>
+                                Return{o.returnDecision === 'approved' ? ' \u2713' : o.returnDecision === 'rejected' ? ' \u2715' : ''}
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
 
-                  {isOpen && (
-                  <div className="adm-actions" style={{ marginTop: '.55rem', flexWrap: 'wrap', alignItems: 'center' }}>
-                    <button onClick={() => toggleOpen(o.id)} style={{ color: '#7d736d' }}>Close ▴</button>
-                    <button onClick={() => downloadShippingLabel(o)}>Label</button>
-                    <button onClick={() => ordersApi.downloadInvoice(o.id, getAdminToken() ?? '').catch(() => {})}>Invoice</button>
-                    {o.customerPhone && (
-                      <details>
-                        <summary style={{ cursor: 'pointer', color: '#128C7E', fontWeight: 700, fontSize: '.76rem', listStyle: 'none', userSelect: 'none' }}>
-                          WhatsApp ▾
-                        </summary>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '.1rem', marginTop: '.3rem',
-                                      background: '#f0fbf4', border: '1px solid #cdeede', borderRadius: 8, padding: '.4rem .55rem' }}>
-                          <a href={waCustomerLink(o.customerPhone, o.customerName, o.id, o.total, o.awb, 'confirm')} target="_blank" rel="noopener noreferrer" style={waItemStyle}>Confirm</a>
-                          <a href={waCustomerLink(o.customerPhone, o.customerName, o.id, o.total, o.awb, 'shipped')} target="_blank" rel="noopener noreferrer" style={waItemStyle}>Shipped</a>
-                          <a href={waCustomerLink(o.customerPhone, o.customerName, o.id, o.total, o.awb, 'delivered')} target="_blank" rel="noopener noreferrer" style={waItemStyle}>Delivered</a>
-                          <a href={waCustomerLink(o.customerPhone, o.customerName, o.id, o.total, o.awb, 'chat')} target="_blank" rel="noopener noreferrer" style={waItemStyle}>Open chat</a>
-                        </div>
-                      </details>
-                    )}
-                    {RETURN_STATUSES.includes(o.status) && (
-                      <button onClick={() => { setShowReject(false); setRejectReason(''); setReturnModalId(o.id); }}
-                              style={{ color: o.returnDecision === 'rejected' ? '#c0392b' : o.returnDecision === 'approved' ? '#2e7d32' : '#722f37' }}>
-                        Return{o.returnDecision === 'approved' ? ' ✓' : o.returnDecision === 'rejected' ? ' ✕' : ''}
-                      </button>
-                    )}
-                  </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          );
-        })}
+                      {/* Khula hua byora — usi order ke neeche, poori chaudai me. */}
+                      {isOpen && (
+                        <tr className="adm-row-detail">
+                          <td data-label="" colSpan={11}>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '.9rem 1.6rem' }}>
+                              {lines.map((c, ci) => {
+                                const t = productImageSrc(c.colorPhoto || c.image);
+                                const sz = sizeOf(c);
+                                return (
+                                  <div key={ci} style={{ display: 'flex', gap: '.5rem', alignItems: 'center' }}>
+                                    {t
+                                      ? <img src={t} alt="" style={{ width: 38, height: 38, borderRadius: 7, objectFit: 'cover', flexShrink: 0, border: '1px solid #f0eae7' }} />
+                                      : <div className="adm-item-thumb" style={{ width: 38, height: 38, fontSize: '.9rem' }}>&mdash;</div>}
+                                    <div style={{ fontSize: '.74rem', lineHeight: 1.45, minWidth: 0 }}>
+                                      <div style={{ fontWeight: 650, color: '#2d2724', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 260 }}>{c.name}</div>
+                                      <div style={{ color: '#9a908a', display: 'flex', gap: '.3rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                                        <span style={{ fontFamily: 'monospace' }}>{c.sku || 'no SKU'}</span>
+                                        {c.colorColumn ? <span>&middot; Col {c.colorColumn}</span> : null}
+                                        {c.color && (
+                                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '.25rem' }}>
+                                            &middot; {c.colorCode && <span style={{ width: 10, height: 10, borderRadius: '50%', background: c.colorCode, border: '1px solid #ddd', display: 'inline-block' }} />}
+                                            {c.color}
+                                          </span>
+                                        )}
+                                        {sz && <span>&middot; Size {sz}</span>}
+                                        <span>&middot; &times;{c.quantity}</span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                            <div style={{ marginTop: '.6rem', fontSize: '.74rem', color: '#7d736d' }}>
+                              {[o.shippingName || o.customerName, o.shippingAddress, o.shippingCity, o.shippingState, o.shippingPincode]
+                                .filter(Boolean).join(', ') || 'No address on this order'}
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </Card>
 
       {/* Live Delhivery tracking modal — AWB pe click karne par */}

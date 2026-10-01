@@ -2189,6 +2189,45 @@ a.footer-app-btn.footer-app-live:hover{ background:rgba(255,255,255,.16); transf
 .adm-table .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .76rem; }
 .adm-table .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 
+/* ─── Orders table ───
+   Orders din bhar padhi jati hai, isliye yahan khaane ke naam chipke rehte
+   hain — do sau pankti neeche jaakar bhi pata rehta hai kaun sa khaana kaun
+   hai. Order ID khud hi woh batan hai jo usi pankti ke neeche poora byora
+   khol deta hai. */
+.adm-orders-table thead th {
+  position: sticky; top: 0; z-index: 2; background: #fff;
+  box-shadow: 0 1px 0 #eee3e4;
+}
+.adm-orders-table tbody td { vertical-align: middle; }
+.adm-orders-table tbody tr:not(.adm-row-detail):hover > td { background: #fdfbfa; }
+.adm-row-detail > td { background: #fbf8f7; }
+
+/* Tartib badalne wala khaane ka naam — dikhta waisa hi hai, par dabta hai. */
+.adm-sort {
+  background: none; border: 0; padding: 0; cursor: pointer; font: inherit;
+  color: inherit; text-transform: inherit; letter-spacing: inherit; white-space: nowrap;
+}
+.adm-sort:hover { color: #722f37; }
+
+/* Order ID: pehchan bhi hai, byora kholne ka batan bhi. */
+.adm-oid {
+  background: none; border: 0; padding: 0; cursor: pointer; text-align: left;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: .72rem; font-weight: 700; color: #722f37;
+}
+.adm-oid:hover { text-decoration: underline; }
+
+@media (max-width: 900px) {
+  /* Phone par pankti card ban jati hai, to chipakna bemani hai. Byora ka card
+     apne order wale card se juda rahe, alag na dikhe. */
+  .adm-orders-table thead th { position: static; box-shadow: none; }
+  .adm-orders-table tr.adm-row-detail {
+    margin-top: -.75rem !important;
+    border-top-left-radius: 0 !important;
+    border-top-right-radius: 0 !important;
+  }
+}
+
 /* ─── Admin tables become cards on a phone ───
    Each row is one card and each cell prints its column name, so nothing has to
    be scrolled sideways to be read. Buttons and menus inside the cells keep
