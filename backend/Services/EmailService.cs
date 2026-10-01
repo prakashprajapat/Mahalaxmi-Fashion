@@ -126,4 +126,73 @@ public class EmailService
   </div>
 </div>";
     }
+
+    // Birthday / anniversary offer email.
+    //
+    // Ye SMS ki naqal nahi hai. SMS me 160 akshar ki seema hai aur har shabd
+    // DLT par manzoor hona padta hai, isliye wahan sirf itna likha ja sakta
+    // hai: tareekh, chhoot, code. Email par na seema hai na manzoori, to
+    // yahan code bada dikhta hai, kab tak chalega saaf likha hai, aur "Shop
+    // now" ka batan seedha dukaan par le jata hai.
+    //
+    // isTheDay == true matlab aaj wahi din hai - tab "Happy Birthday" likha
+    // jata hai. Usse pehle wahi baat jhooth hogi, isliye tab sirf itna kehte
+    // hain ki din aa raha hai.
+    public static string BuildCelebrationEmail(
+        string firstName,
+        string occasion,
+        bool isTheDay,
+        string? occasionOn,
+        string percent,
+        string code,
+        string? validTill)
+    {
+        var who = string.IsNullOrWhiteSpace(firstName) ? "" : ", " + firstName.Trim();
+        var isAnniversary = occasion == "anniversary";
+        var word = isAnniversary ? "anniversary" : "birthday";
+
+        var heading = isTheDay
+            ? (isAnniversary ? $"Happy Anniversary{who}!" : $"Happy Birthday{who}!")
+            : (isAnniversary ? $"Your anniversary is coming up{who}" : $"Your birthday is coming up{who}");
+
+        var line = isTheDay
+            ? "Wishing you a wonderful day from all of us at Mahalaxmi Fashion Hub. Here is a little something from us."
+            : (string.IsNullOrWhiteSpace(occasionOn)
+                ? $"Your {word} is almost here, and we did not want to turn up empty-handed."
+                : $"Your {word} is on <strong>{occasionOn}</strong>, and we did not want to turn up empty-handed.");
+
+        var valid = string.IsNullOrWhiteSpace(validTill)
+            ? "Use it on your next order."
+            : $"Use it any time before <strong>{validTill}</strong>.";
+
+        var shopUrl = "https://www.mahalaxmifashionhub.com/?utm_source=email&utm_medium=celebration&utm_campaign="
+                      + word + "_offer";
+
+        return $@"
+<div style=""font-family:Arial,Helvetica,sans-serif;max-width:480px;margin:0 auto;border:1px solid #eee;border-radius:12px;overflow:hidden"">
+  <div style=""background:#ffffff;padding:22px 24px;text-align:center;border-bottom:3px solid #a7354d"">
+    <img src=""https://mahalaxmifashionhub.com/email-logo.png"" alt=""Mahalaxmi Fashion Hub"" width=""230"" style=""max-width:230px;width:230px;height:auto;display:inline-block"" />
+  </div>
+  <div style=""padding:24px"">
+    <p style=""color:#a7354d;font-size:20px;font-weight:800;margin:0 0 10px"">{heading}</p>
+    <p style=""color:#333;font-size:15px;line-height:1.6;margin:0 0 18px"">{line}</p>
+
+    <div style=""background:#fbf1f3;border:1px dashed #d8a8b4;border-radius:10px;padding:18px;text-align:center"">
+      <p style=""color:#7a6b6f;font-size:13px;margin:0 0 4px;text-transform:uppercase;letter-spacing:.08em"">Your personal offer</p>
+      <p style=""color:#a7354d;font-size:30px;font-weight:800;margin:0 0 10px"">{percent}% OFF</p>
+      <p style=""color:#333;font-size:14px;margin:0 0 6px"">Use code</p>
+      <p style=""font-size:22px;font-weight:800;letter-spacing:.14em;color:#2d2724;margin:0"">{code}</p>
+    </div>
+
+    <p style=""color:#555;font-size:13px;line-height:1.6;margin:16px 0 20px"">{valid} This code is yours alone and works once.</p>
+
+    <p style=""text-align:center;margin:0 0 6px"">
+      <a href=""{shopUrl}"" style=""background:#a7354d;color:#ffffff;text-decoration:none;font-size:15px;font-weight:700;padding:12px 28px;border-radius:8px;display:inline-block"">Shop now</a>
+    </p>
+    <p style=""color:#999;font-size:12px;text-align:center;margin:14px 0 0"">
+      Mahalaxmi Fashion Hub &middot; www.mahalaxmifashionhub.com
+    </p>
+  </div>
+</div>";
+    }
 }

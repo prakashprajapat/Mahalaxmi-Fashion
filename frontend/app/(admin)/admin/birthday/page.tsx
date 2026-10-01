@@ -75,15 +75,22 @@ export default function BirthdayPage() {
         body: JSON.stringify({ phone: c.phone, occasion: type, slab: slabDays }),
       });
       const json = await res.json();
+      // Ab do raaste hain — SMS aur email — aur dono alag chalte hain. Ek chal
+      // jaye to offer pahunch gayi, par kaunsa chala ye likha jata hai, warna
+      // "Sent" dikhta rehta aur asal me aadha kaam hota.
+      //
       // MSG91 ka request id saath me. "Sent" sirf itna kehta hai ki MSG91 ne
       // sandesh le liya — pahuncha ya nahi, ye uski report batati hai, aur
       // wahan ki pankti isi id se milti hai. Bina iske nambar se chhanna padta
       // tha.
+      const went = [json.smsSent ? 'SMS' : null, json.emailSent ? 'Email' : null].filter(Boolean).join(' + ');
       setResult(r => ({
         ...r,
         [key]: res.ok
-          ? `Sent — code ${json.couponCode ?? '—'}`
+          ? `${went || 'Sent'} — code ${json.couponCode ?? '—'}`
+            + (json.emailSent && json.emailTo ? ` · ${json.emailTo}` : '')
             + (json.requestId ? ` · MSG91 ref ${json.requestId}` : '')
+            + (json.smsSent && json.emailSent ? '' : ` · ${json.message}`)
           : json.message,
       }));
       if (res.ok) {
@@ -129,7 +136,7 @@ export default function BirthdayPage() {
   const bulkSend = async (occasion: OccType) => {
     const targets = selectableRows.filter(r => r.type === occasion && selected.has(rowKey(r.c.id, r.type)));
     if (targets.length === 0) return;
-    if (!confirm(`Send a real SMS to ${targets.length} customer${targets.length === 1 ? '' : 's'} now?`)) return;
+    if (!confirm(`Send a real SMS and email to ${targets.length} customer${targets.length === 1 ? '' : 's'} now?`)) return;
     setBulkBusy(true);
     for (const r of targets) {
       // eslint-disable-next-line no-await-in-loop
@@ -156,7 +163,7 @@ export default function BirthdayPage() {
     <div className="admin-page">
       <PageHeader
         title="Birthday &amp; anniversary offers"
-        sub="One offer per slab, as the date gets closer: 30 days, 15, 7, then the day itself. Each one sends a real SMS with its own coupon code."
+        sub="One offer per slab, as the date gets closer: 30 days, 15, 7, then the day itself. Each one sends a real SMS and an email, both carrying the same coupon code."
         right={<button className="adm-btn" onClick={load}>Refresh</button>}
       />
 
@@ -266,7 +273,7 @@ export default function BirthdayPage() {
                     <span style={{ fontSize: '.74rem', color: '#7d736d' }} title={`Sent on ${wasSent}`}>{wasSent}</span>
                     <button className="adm-btn" style={{ padding: '.35rem .8rem', fontSize: '.78rem' }}
                             onClick={() => sendSms(c, type, active.days)} disabled={sending[k]}
-                            title="Send the same offer again — the same coupon code goes out, not a new one">
+                            title="Send the same offer again, by SMS and email — the same coupon code goes out, not a new one">
                       {sending[k] ? 'Sending…' : 'Resend'}
                     </button>
                   </div>

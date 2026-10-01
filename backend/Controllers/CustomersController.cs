@@ -212,9 +212,10 @@ public class CustomersController : ControllerBase
         var occasion = (req.Occasion ?? "birthday").Trim().ToLowerInvariant();
         occasion = occasion == "anniversary" ? "anniversary" : "birthday";
 
-        if (string.IsNullOrWhiteSpace(authKey))
-            return BadRequest(new { success = false, message = "Offer SMS not configured. Set 'msg91AuthKey' in Settings → MSG91 Configuration." });
-
+        // MSG91 ka authkey na ho to pehle yahin se laut jate the. Ab nahi:
+        // email ka MSG91 se koi rishta nahi, aur usi ke na hone par offer
+        // bhejna band ho jata tha. Iski shikayat niche SMS wale hisse me hoti
+        // hai, jahan se email ka raasta alag hai.
         if (string.IsNullOrWhiteSpace(req.Phone))
             return BadRequest(new { success = false, message = "Phone number is required." });
 
@@ -286,148 +287,224 @@ public class CustomersController : ControllerBase
         var dateText = occasionOn is null ? ""
             : (occasion == "anniversary" ? "" : " ") + occasionOn.Value.ToString("dd MMM yyyy");
 
-        // Today has its own template; everything earlier shares the "upcoming"
-        // one and says how many days are left. Each step falls back to the next
-        // so a shop that has registered only one template still sends something.
-        string SettingName(string suffix) =>
-            (occasion == "anniversary" ? "msg91Anniversary" : "msg91Birthday") + suffix;
-
-        var candidates = isTheDay
-            ? new[] { SettingName("TodayTemplateId"), SettingName("TemplateId"), "msg91CelebrationTemplateId" }
-            : new[] { SettingName("TemplateId"), SettingName("TodayTemplateId"), "msg91CelebrationTemplateId" };
-
-        string? templateId = null;
-        foreach (var key in candidates)
-        {
-            templateId = await _db.SiteSettings.Where(x => x.Key == key).Select(x => x.Value).FirstOrDefaultAsync();
-            if (!string.IsNullOrWhiteSpace(templateId)) break;
-        }
-        if (string.IsNullOrWhiteSpace(templateId))
-            return BadRequest(new { success = false, message = $"No {(isTheDay ? "on-the-day" : "upcoming")} {occasion} template is set. Add it in Settings → MSG91 Configuration." });
-
         // The discount comes from the coupon, never typed into the template by
         // hand — change the percent in Settings and a hardcoded template would
         // go on promising the old one, which is a promise we would not keep.
         var percentText = coupon.Value.ToString("0.##");
+        var validTill   = coupon.ExpiresAt?.ToString("dd MMM yyyy");
 
-        using var http = new System.Net.Http.HttpClient();
+        // ── SMS ──
+        //
+        // Apne alag function me, kyunki ab ye akela raasta nahi hai. Pehle
+        // MSG91 ki koi bhi gadbad — authkey nahi, template nahi, DLT ne rok
+        // diya — poore request ko wahin rok deti thi, aur email bhi uske saath
+        // ruk jati. Ab dono raaste alag chalte hain, aur jawab me dono ka haal
+        // likha hota hai.
+        async Task<(bool ok, string? error, string? requestId, string? raw)> SendOfferSmsAsync()
+        {
+            if (string.IsNullOrWhiteSpace(authKey))
+                return (false, "MSG91 is not configured — set 'msg91AuthKey' in Settings → MSG91 Configuration.", null, null);
 
-        // The four templates registered on DLT against header 523611, and the
-        // variables each one takes, in order:
-        //
-        //   Combirthday       1077395740079927133   date, percent, code
-        //     "Your birthday is on{#alp#}. Get {#num#}% off at Mahalaxmi
-        //      Fashion Hub with code {#alp#}, valid till your birdhday.
-        //      Shop now www.mahalaxmifashionhub.com"
-        //   ComAnni           1077432270080599648   date, percent, code
-        //   HappyBirthday     1077454970079944897   percent, code
-        //   HappyAnniversary  1077490780079969170   percent, code
-        //
-        // Name these three variables date / percent / code in MSG91 and they
-        // fill themselves. Anything else sent here is ignored, so the two
-        // on-the-day templates simply do not use date.
-        // Ek hi value, kai naamon se.
-        //
-        // MSG91 variable ko NAAM se bharta hai, kram se nahi — aur naam wo lagta
-        // hai jo uske apne template me likha ho. Humne date / percent / code
-        // bheje, par un templates me naam VAR1, VAR2, VAR3 nikle (MSG91 khud
-        // yahi default deta hai), to teenon jagah khali reh gayin aur grahak ko
-        // mila: "Your birthday is on. Get % off ... with code ,".
-        //
-        // Jo naam template me nahi hai use MSG91 chup-chaap chhod deta hai.
-        // Isliye dono roop bhej dete hain — jo bhi wahan likha ho, bhar jayega,
-        // aur baki anadekha. Ye andaza nahi hai: dono me se ek sach hoga hi.
-        //
-        // Kram maayne rakhta hai. Aane wale din wale template me teen variable
-        // hain (tareekh, chhoot, code), aur usi din wale me do (chhoot, code) —
-        // tareekh wahan hoti hi nahi. To VAR1 dono me ek cheez nahi hai.
-        var recipient = new Dictionary<string, object?>
-        {
-            ["mobiles"] = phone,
-            ["date"]    = dateText,
-            ["percent"] = percentText,
-            ["code"]    = coupon.Code,
-        };
-        var ordered = isTheDay
-            ? new[] { percentText, coupon.Code }
-            : new[] { dateText, percentText, coupon.Code };
-        for (var i = 0; i < ordered.Length; i++)
-        {
-            recipient[$"VAR{i + 1}"] = ordered[i];
-            recipient[$"var{i + 1}"] = ordered[i];
+            // Today has its own template; everything earlier shares the "upcoming"
+            // one and says how many days are left. Each step falls back to the next
+            // so a shop that has registered only one template still sends something.
+            string SettingName(string suffix) =>
+                (occasion == "anniversary" ? "msg91Anniversary" : "msg91Birthday") + suffix;
+
+            var candidates = isTheDay
+                ? new[] { SettingName("TodayTemplateId"), SettingName("TemplateId"), "msg91CelebrationTemplateId" }
+                : new[] { SettingName("TemplateId"), SettingName("TodayTemplateId"), "msg91CelebrationTemplateId" };
+
+            string? templateId = null;
+            foreach (var key in candidates)
+            {
+                templateId = await _db.SiteSettings.Where(x => x.Key == key).Select(x => x.Value).FirstOrDefaultAsync();
+                if (!string.IsNullOrWhiteSpace(templateId)) break;
+            }
+            if (string.IsNullOrWhiteSpace(templateId))
+                return (false, $"no {(isTheDay ? "on-the-day" : "upcoming")} {occasion} template is set in Settings → MSG91 Configuration.", null, null);
+
+            using var http = new System.Net.Http.HttpClient();
+
+            // The four templates registered on DLT against header 523611, and the
+            // variables each one takes, in order:
+            //
+            //   Combirthday       1077395740079927133   date, percent, code
+            //     "Your birthday is on{#alp#}. Get {#num#}% off at Mahalaxmi
+            //      Fashion Hub with code {#alp#}, valid till your birdhday.
+            //      Shop now www.mahalaxmifashionhub.com"
+            //   ComAnni           1077432270080599648   date, percent, code
+            //   HappyBirthday     1077454970079944897   percent, code
+            //   HappyAnniversary  1077490780079969170   percent, code
+            //
+            // Name these three variables date / percent / code in MSG91 and they
+            // fill themselves. Anything else sent here is ignored, so the two
+            // on-the-day templates simply do not use date.
+            // Ek hi value, kai naamon se.
+            //
+            // MSG91 variable ko NAAM se bharta hai, kram se nahi — aur naam wo lagta
+            // hai jo uske apne template me likha ho. Humne date / percent / code
+            // bheje, par un templates me naam VAR1, VAR2, VAR3 nikle (MSG91 khud
+            // yahi default deta hai), to teenon jagah khali reh gayin aur grahak ko
+            // mila: "Your birthday is on. Get % off ... with code ,".
+            //
+            // Jo naam template me nahi hai use MSG91 chup-chaap chhod deta hai.
+            // Isliye dono roop bhej dete hain — jo bhi wahan likha ho, bhar jayega,
+            // aur baki anadekha. Ye andaza nahi hai: dono me se ek sach hoga hi.
+            //
+            // Kram maayne rakhta hai. Aane wale din wale template me teen variable
+            // hain (tareekh, chhoot, code), aur usi din wale me do (chhoot, code) —
+            // tareekh wahan hoti hi nahi. To VAR1 dono me ek cheez nahi hai.
+            var recipient = new Dictionary<string, object?>
+            {
+                ["mobiles"] = phone,
+                ["date"]    = dateText,
+                ["percent"] = percentText,
+                ["code"]    = coupon.Code,
+            };
+            var ordered = isTheDay
+                ? new[] { percentText, coupon.Code }
+                : new[] { dateText, percentText, coupon.Code };
+            for (var i = 0; i < ordered.Length; i++)
+            {
+                recipient[$"VAR{i + 1}"] = ordered[i];
+                recipient[$"var{i + 1}"] = ordered[i];
+            }
+
+            var payload = new {
+                template_id = templateId,
+                // Left OFF on purpose. MSG91 would rewrite the link to its own
+                // short domain, and TRAI now requires every address in an SMS to be
+                // whitelisted on DLT against this sender. A rewritten link is not
+                // the one that was registered, so the message can be scrubbed on
+                // the operator's side — the SMS goes out looking fine to us and
+                // never reaches the customer.
+                short_url   = "0",
+                recipients  = new[] { recipient }
+            };
+            var reqBody = System.Text.Json.JsonSerializer.Serialize(payload);
+            var httpReq = new System.Net.Http.HttpRequestMessage(System.Net.Http.HttpMethod.Post, "https://api.msg91.com/api/v5/flow/")
+            {
+                Content = new System.Net.Http.StringContent(reqBody, System.Text.Encoding.UTF8, "application/json")
+            };
+            httpReq.Headers.Add("authkey", authKey);
+
+            string resBody;
+            try
+            {
+                var res = await http.SendAsync(httpReq);
+                resBody = await res.Content.ReadAsStringAsync();
+
+                // MSG91 answers 200 with {"type":"error"} for a rejected template,
+                // a bad variable or a number on DND. Reporting "SMS sent" off the
+                // HTTP status alone told the shop the offer went out when it had
+                // not, and the button then hid itself for that slab.
+                var accepted = res.IsSuccessStatusCode
+                               && !resBody.Contains("\"type\":\"error\"", StringComparison.OrdinalIgnoreCase);
+                if (!accepted)
+                {
+                    _log.LogError("Celebration SMS rejected by MSG91 ({Status}): {Body}", (int)res.StatusCode, LogSafe.Body(resBody));
+                    return (false, "MSG91 did not accept it — " + Trim200(resBody), null, resBody);
+                }
+            }
+            catch (Exception ex)
+            {
+                _log.LogError(ex, "Celebration SMS could not be sent");
+                return (false, "MSG91 could not be reached just now.", null, null);
+            }
+
+            // MSG91 ka apna request id. Uske panel ki report me har sandesh isi id se
+            // mila jata hai. Abhi tak ye jawab aata to tha par kahin dikhta nahi tha,
+            // isliye "bheja gaya par pahuncha nahi" ki jaanch nambar se chhan kar
+            // karni padti thi — report me saikdon pankti hoti hain. Id haath me ho to
+            // seedhi pankti khulti hai, aur wahan likha hota hai Delivered, Failed,
+            // Rejected ya DND. Asli jawab wahi deta hai; humara "Sent" sirf itna
+            // kehta hai ki MSG91 ne sandesh le liya.
+            //
+            // v5/flow success par { "message": "<request id>", "type": "success" }
+            // lautata hai, yani id usi "message" me hoti hai.
+            string? id = null;
+            try
+            {
+                using var doc = System.Text.Json.JsonDocument.Parse(resBody);
+                if (doc.RootElement.ValueKind == System.Text.Json.JsonValueKind.Object
+                    && doc.RootElement.TryGetProperty("message", out var m)
+                    && m.ValueKind == System.Text.Json.JsonValueKind.String)
+                {
+                    var v = m.GetString();
+                    if (!string.IsNullOrWhiteSpace(v)) id = v.Trim();
+                }
+            }
+            catch { /* jawab JSON na ho to id ke bina bhi kaam chalta hai */ }
+
+            return (true, null, id, resBody);
         }
 
-        var payload = new {
-            template_id = templateId,
-            // Left OFF on purpose. MSG91 would rewrite the link to its own
-            // short domain, and TRAI now requires every address in an SMS to be
-            // whitelisted on DLT against this sender. A rewritten link is not
-            // the one that was registered, so the message can be scrubbed on
-            // the operator's side — the SMS goes out looking fine to us and
-            // never reaches the customer.
-            short_url   = "0",
-            recipients  = new[] { recipient }
-        };
-        var body = System.Text.Json.JsonSerializer.Serialize(payload);
-        var httpReq = new System.Net.Http.HttpRequestMessage(System.Net.Http.HttpMethod.Post, "https://api.msg91.com/api/v5/flow/")
-        {
-            Content = new System.Net.Http.StringContent(body, System.Text.Encoding.UTF8, "application/json")
-        };
-        httpReq.Headers.Add("authkey", authKey);
+        var sms = await SendOfferSmsAsync();
 
-        string resBody;
-        try
-        {
-            var res = await http.SendAsync(httpReq);
-            resBody = await res.Content.ReadAsStringAsync();
+        // ── Email ──
+        //
+        // Ye hissa pehle tha hi nahi. Birthday aur anniversary ki offer sirf SMS
+        // se jati thi, isliye "mail nahi aayi" ki shikayat sahi thi — mail bani
+        // hi nahi thi. SMS par DLT ki pabandi hai aur 160 akshar ki seema; email
+        // par na manzoori chahiye na seema, aur grahak ka pata pehle se darj
+        // hai. Dono ek hi coupon bhejte hain, do nahi, isliye grahak ko do code
+        // nahi milte.
+        string? emailError = null;
+        var emailSent = false;
+        var emailTo = customer?.Email?.Trim();
 
-            // MSG91 answers 200 with {"type":"error"} for a rejected template,
-            // a bad variable or a number on DND. Reporting "SMS sent" off the
-            // HTTP status alone told the shop the offer went out when it had
-            // not, and the button then hid itself for that slab.
-            var ok = res.IsSuccessStatusCode
-                     && !resBody.Contains("\"type\":\"error\"", StringComparison.OrdinalIgnoreCase);
-            if (!ok)
+        if (!_email.IsConfigured)
+            emailError = "SMTP is not configured on the server (Email:Host / User / Password).";
+        else if (customer is null)
+            emailError = "no customer account matches this number, so there is no email address on file.";
+        else if (string.IsNullOrWhiteSpace(emailTo))
+            emailError = "this customer has no email address on file.";
+        else
+        {
+            var subject = isTheDay
+                ? (occasion == "anniversary" ? "Happy Anniversary — a gift from Mahalaxmi Fashion Hub"
+                                             : "Happy Birthday — a gift from Mahalaxmi Fashion Hub")
+                : (occasion == "anniversary" ? "Your anniversary gift is waiting"
+                                             : "Your birthday gift is waiting");
+            try
             {
-                _log.LogError("Celebration SMS rejected by MSG91 ({Status}): {Body}", (int)res.StatusCode, LogSafe.Body(resBody));
-                return BadRequest(new { success = false, couponCode = coupon.Code, response = resBody,
-                    message = "MSG91 did not accept the message. The coupon " + coupon.Code
-                        + " is created and still valid, so this can be retried. MSG91 said: " + Trim200(resBody) });
+                emailSent = await _email.SendAsync(
+                    emailTo,
+                    subject,
+                    EmailService.BuildCelebrationEmail(
+                        customer.FirstName, occasion, isTheDay,
+                        occasionOn?.ToString("dd MMM yyyy"),
+                        percentText, coupon.Code, validTill));
+                if (!emailSent) emailError = "the mail server did not accept it (see the server log).";
+            }
+            catch (Exception ex)
+            {
+                _log.LogError(ex, "Celebration email could not be sent to {To}", LogSafe.Body(emailTo));
+                emailError = "the mail server could not be reached just now.";
             }
         }
-        catch (Exception ex)
-        {
-            _log.LogError(ex, "Celebration SMS could not be sent");
-            return BadRequest(new { success = false, couponCode = coupon.Code,
-                message = "Could not reach MSG91 just now. Coupon " + coupon.Code + " is created; try again." });
-        }
 
-        // MSG91 ka apna request id. Uske panel ki report me har sandesh isi id se
-        // mila jata hai. Abhi tak ye jawab aata to tha par kahin dikhta nahi tha,
-        // isliye "bheja gaya par pahuncha nahi" ki jaanch nambar se chhan kar
-        // karni padti thi — report me saikdon pankti hoti hain. Id haath me ho to
-        // seedhi pankti khulti hai, aur wahan likha hota hai Delivered, Failed,
-        // Rejected ya DND. Asli jawab wahi deta hai; humara "Sent" sirf itna
-        // kehta hai ki MSG91 ne sandesh le liya.
+        // ── Dono ka haal, ek jawab me ──
         //
-        // v5/flow success par { "message": "<request id>", "type": "success" }
-        // lautata hai, yani id usi "message" me hoti hai.
-        string? requestId = null;
-        try
-        {
-            using var doc = System.Text.Json.JsonDocument.Parse(resBody);
-            if (doc.RootElement.ValueKind == System.Text.Json.JsonValueKind.Object
-                && doc.RootElement.TryGetProperty("message", out var m)
-                && m.ValueKind == System.Text.Json.JsonValueKind.String)
-            {
-                var v = m.GetString();
-                if (!string.IsNullOrWhiteSpace(v)) requestId = v.Trim();
-            }
-        }
-        catch { /* jawab JSON na ho to id ke bina bhi kaam chalta hai */ }
+        // Ek raasta chal gaya to offer grahak tak pahunch gayi, isliye wahi
+        // kaafi hai — par kaunsa chala aur kaunsa nahi, ye saaf likha jata hai,
+        // warna "Sent" dikhta rehta aur asal me aadha kaam hota.
+        var smsPart   = sms.ok ? $"SMS sent to {req.Phone}" : $"SMS not sent ({sms.error})";
+        var emailPart = emailSent ? $"email sent to {emailTo}" : $"email not sent ({emailError})";
 
-        return Ok(new { success = true, message = $"SMS sent to {req.Phone}.", couponCode = coupon.Code,
-                        requestId, response = resBody });
+        if (!sms.ok && !emailSent)
+        {
+            return BadRequest(new { success = false, smsSent = false, emailSent = false,
+                couponCode = coupon.Code, response = sms.raw,
+                message = $"Nothing went out. SMS: {sms.error} Email: {emailError} "
+                        + $"The coupon {coupon.Code} is created and still valid, so this can be retried." });
+        }
+
+        return Ok(new { success = true, smsSent = sms.ok, emailSent, emailTo,
+                        message = $"{smsPart} \u00b7 {emailPart}.",
+                        couponCode = coupon.Code,
+                        requestId = sms.requestId, response = sms.raw });
     }
 
     /// Enough of a gateway's reply to act on, without pasting a wall of JSON
