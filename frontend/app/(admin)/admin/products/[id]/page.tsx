@@ -245,6 +245,32 @@ function PhotoSlot({
     if (!value || converting) return;
     setConverting(true); setReport(null);
     try {
+      // Pehle server. Wahan sharp hai, aur wahi photo ko sach me WebP banata
+      // hai — chahe browser kuch bhi ho. Safari canvas se WebP likh hi nahi
+      // sakta, isliye phone se ki gayi koshish JPEG par hi ruk jati thi.
+      const srv = await fetch('/image-tools/webp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAdminToken() ?? ''}` },
+        body: JSON.stringify({ image: value }),
+      }).catch(() => null);
+
+      if (srv?.ok) {
+        const j = await srv.json().catch(() => null) as
+          { success?: boolean; path?: string; origKB?: number; outKB?: number; width?: number; height?: number } | null;
+        if (j?.success && j.path) {
+          onChange(j.path);
+          setReport({
+            dataUrl: j.path, fmt: 'WebP',
+            origKB: j.origKB ?? 0, outKB: j.outKB ?? 0,
+            w: j.width ?? 0, h: j.height ?? 0, padded: false,
+          });
+          return;
+        }
+      }
+
+      // Server se na bane to browser me hi kar lete hain — kam se kam size to
+      // ghat jaye. Yahan roop browser tay karta hai: Chrome par WebP, Safari
+      // par JPEG.
       const blob = await (await fetch(value)).blob();
       const file = new File([blob], 'photo', { type: blob.type || 'image/jpeg' });
       const r = await convertToAvif(file, 1200, 0.72, true);
