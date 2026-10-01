@@ -11,7 +11,6 @@ import { runProductQC, deepImageDuplicateCheck, type QcIssue } from '@/lib/produ
 import QcPanel from '@/components/admin/QcPanel';
 import TaxonomyCombo from '@/components/admin/TaxonomyCombo';
 import { PageHeader } from '@/components/admin/Ui';
-import GoogleColourPicker from '@/components/admin/GoogleColourPicker';
 import { colourProblem, colourNameToHex } from '@/lib/googleColours';
 import { fetchAllProducts } from '@/lib/adminPaged';
 
@@ -1291,15 +1290,17 @@ export default function AddProductPage() {
               selectedValues={colourSelectedValues} onToggle={toggleColourValue} />
           </div>
 
-          {/* Print / multi-colour — jis chiz ka ek fix colour nahi hota */}
-          <div style={{ paddingLeft:'68px', marginBottom:'.6rem', maxWidth:'540px' }}>
-            <GoogleColourPicker
-              value={printColour}
-              shades={printShades}
-              photo={mainPhotos.front || undefined}
-              onChange={(v, s) => { setPrintColour(v); setPrintShades(s); }}
-            />
-          </div>
+          {/* Print / multi-colour ka picker yahan se hata diya gaya.
+              Rang chunne ke do raaste the aur dono ek hi jagah khade the:
+              upar ke gole, aur neeche ye picker. Roz ke kaam me pehla hi
+              chahiye hota hai. Jis product ka ek fix rang nahi hota (print,
+              pattern, stripe) uske liye wahi picker alag se maujood hai —
+              Products → Colour Fix.
+
+              State (printColour / printShades) jaan-boojh kar rakhi gayi hai:
+              jis product me pehle se "Navy/White/Red" jaisa rang darj hai, wo
+              load hokar waise hi save hota rehta hai. Hatane se wo rang Google
+              ke feed se gir jata. */}
 
           {/* Custom colour chips (added) */}
           {customColours.length > 0 && (
