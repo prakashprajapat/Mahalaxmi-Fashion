@@ -77,7 +77,11 @@ public record AdminLoginRequest(
 public record CelebrationSmsRequest(
     string Phone,
     string? Message = null,   // optional custom message; backend uses template if null
-    string? Occasion = null   // "birthday" | "anniversary" — picks the code prefix
+    string? Occasion = null,  // "birthday" | "anniversary" — picks the code prefix
+    // 30 | 15 | 7 | 0 — kaun se slab ka batan daba tha. Panel pehle se bhejta
+    // tha par server ise girā deta tha; ab ye likha jata hai, taki "is slab me
+    // bhej diya" dobara login karne par bhi yaad rahe.
+    int? Slab = null
 );
 
 // Bulk promotional SMS campaign — sent server-side via MSG91 (no MSG91 website).

@@ -27,6 +27,7 @@ public class AppDbContext : DbContext
     public DbSet<GoogleLead>  GoogleLeads  { get; set; }
     public DbSet<WalletTransaction> WalletTransactions { get; set; }
     public DbSet<CustomerAddress> CustomerAddresses { get; set; }
+    public DbSet<CelebrationSend> CelebrationSends { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

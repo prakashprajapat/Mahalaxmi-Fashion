@@ -18,6 +18,21 @@ interface CelebrationEntry {
   anniversaryIn: number | null;
 }
 
+// Server par likha hua ek bheja hua offer. Pehle ye hisab sirf is browser ke
+// khaane me tha, isliye logout karte hi "Resend" gayab ho jata tha.
+interface SendRow {
+  customerId: number;
+  occasion: OccType;
+  slab: number;
+  year: number;
+  couponCode?: string | null;
+  smsSent: boolean;
+  emailSent: boolean;
+  sentAt: string;
+}
+
+type OccType = 'birthday' | 'anniversary';
+
 const API = '/api/customers';
 
 // Day-slabs. A customer sits in exactly one slab per occasion, by how many days
@@ -29,8 +44,6 @@ const SLABS = [
   { days: 0,  label: 'Today',   min: 0,  max: 0  },
 ] as const;
 
-type OccType = 'birthday' | 'anniversary';
-
 export default function BirthdayPage() {
   const [data, setData]       = useState<CelebrationEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -39,14 +52,26 @@ export default function BirthdayPage() {
   const [result, setResult]   = useState<Record<string, string>>({});
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
-  // What this browser has already sent: key = `${id}-${type}-${slabDays}-${year}`.
-  // See the note at the bottom of the page — this record is per-browser.
+  // Kya ja chuka hai: key = `${id}-${type}-${slab}-${year}`.
+  //
+  // Ye ab server se aata hai, is browser ke khaane se nahi. Purane sends jo is
+  // deploy se pehle sirf yahan likhe gaye the, unhe mitaya nahi gaya — dono ko
+  // milakar dekha jata hai, aur server ki baat upar rehti hai.
   const [sent, setSent] = useState<Record<string, string>>({});
-  const yearNow = new Date().getFullYear();
-  const sentKey = (id: number, type: OccType, slabDays: number) => `${id}-${type}-${slabDays}-${yearNow}`;
+  const [localSent, setLocalSent] = useState<Record<string, string>>({});
+
+  // Saal grahak ke DIN ka, bhejne ka nahi. 28 December ko bheji gayi 3 January
+  // wali badhai agle saal ke janmdin ki hai — server bhi yahi saal likhta hai.
+  const occYear = (daysIn: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() + daysIn);
+    return d.getFullYear();
+  };
+  const sentKey = (id: number, type: OccType, slabDays: number, year: number) =>
+    `${id}-${type}-${slabDays}-${year}`;
 
   useEffect(() => {
-    try { setSent(JSON.parse(localStorage.getItem('mfh_celeb_sent') ?? '{}')); } catch { /* ignore */ }
+    try { setLocalSent(JSON.parse(localStorage.getItem('mfh_celeb_sent') ?? '{}')); } catch { /* ignore */ }
   }, []);
 
   const token = getAdminToken() ?? '';
@@ -58,6 +83,11 @@ export default function BirthdayPage() {
       const res = await fetch(`${API}/celebrations?days=30`, { headers: { Authorization: `Bearer ${token}` } });
       const json = await res.json();
       setData(json.celebrations ?? []);
+      const map: Record<string, string> = {};
+      ((json.sends ?? []) as SendRow[]).forEach(r => {
+        map[`${r.customerId}-${r.occasion}-${r.slab}-${r.year}`] = (r.sentAt || '').slice(0, 10);
+      });
+      setSent(map);
     } catch { setData([]); }
     finally { setLoading(false); }
   }, [token]);
@@ -65,7 +95,7 @@ export default function BirthdayPage() {
   useEffect(() => { load(); }, [load]);
   useEffect(() => { setSelected(new Set()); }, [slab, data]);
 
-  const sendSms = async (c: CelebrationEntry['customer'], type: OccType, slabDays: number) => {
+  const sendSms = async (c: CelebrationEntry['customer'], type: OccType, slabDays: number, daysIn: number) => {
     const key = `${c.id}-${type}-${slabDays}`;
     setSending(s => ({ ...s, [key]: true }));
     try {
@@ -94,8 +124,15 @@ export default function BirthdayPage() {
           : json.message,
       }));
       if (res.ok) {
-        setSent(prev => {
-          const next = { ...prev, [sentKey(c.id, type, slabDays)]: new Date().toISOString().slice(0, 10) };
+        // Server ne apne yahan likh liya hai; yahan sirf is pankti ko turant
+        // badal dete hain, taki agle Refresh ka intezar na karna pade. Browser
+        // wali purani copy bhi rakhi jati hai — net beech me toote to kam se
+        // kam is machine par hisab bana rahe.
+        const k = sentKey(c.id, type, slabDays, occYear(daysIn));
+        const today = new Date().toISOString().slice(0, 10);
+        setSent(prev => ({ ...prev, [k]: today }));
+        setLocalSent(prev => {
+          const next = { ...prev, [k]: today };
           try { localStorage.setItem('mfh_celeb_sent', JSON.stringify(next)); } catch { /* ignore */ }
           return next;
         });
@@ -118,8 +155,16 @@ export default function BirthdayPage() {
   rows.sort((a, b) => a.daysIn - b.daysIn);
 
   const rowKey = (id: number, type: OccType) => `${id}-${type}`;
-  const isSendable = (r: { c: { phone: string; id: number }; type: OccType }) =>
-    Boolean(r.c.phone) && !sent[sentKey(r.c.id, r.type, active.days)];
+
+  // Kab bheja tha — server pehle, uske baad is browser ki purani copy. Teesri
+  // koshish un sends ke liye hai jo is sudhar se pehle sirf browser me likhe
+  // gaye the, jahan saal bhejne ka tha, grahak ke din ka nahi.
+  const sentOn = (id: number, type: OccType, daysIn: number): string | undefined => {
+    const k = sentKey(id, type, active.days, occYear(daysIn));
+    return sent[k] ?? localSent[k] ?? localSent[sentKey(id, type, active.days, new Date().getFullYear())];
+  };
+  const isSendable = (r: { c: { phone: string; id: number }; type: OccType; daysIn: number }) =>
+    Boolean(r.c.phone) && !sentOn(r.c.id, r.type, r.daysIn);
   const selectableRows = rows.filter(isSendable);
   const allSelected = selectableRows.length > 0 && selectableRows.every(r => selected.has(rowKey(r.c.id, r.type)));
   const selBirthdayCount = selectableRows.filter(r => r.type === 'birthday'    && selected.has(rowKey(r.c.id, r.type))).length;
@@ -140,7 +185,7 @@ export default function BirthdayPage() {
     setBulkBusy(true);
     for (const r of targets) {
       // eslint-disable-next-line no-await-in-loop
-      await sendSms(r.c, r.type, active.days);
+      await sendSms(r.c, r.type, active.days, r.daysIn);
     }
     setBulkBusy(false);
     setSelected(new Set());
@@ -171,7 +216,9 @@ export default function BirthdayPage() {
         <Stat label="Celebrating today" value={slabCount(0)} tone={slabCount(0) > 0 ? 'green' : undefined}
               action={slab === 0 ? undefined : 'Open today'} onClick={() => setSlab(0)} />
         <Stat label="Not yet sent in this slab" value={waiting} tone={waiting > 0 ? 'red' : undefined} />
-        <Stat label="No phone number on file" value={noPhone}
+        {/* Ye ginti sirf khule hue slab ki hai, poore catalogue ki nahi —
+            isliye naam bhi wahi kehta hai. */}
+        <Stat label="No phone number in this slab" value={noPhone}
               action={noPhone > 0 ? 'Add their numbers' : undefined}
               href={noPhone > 0 ? '/admin/customers' : undefined} />
         <Stat label="In the next 30 days"
@@ -231,7 +278,7 @@ export default function BirthdayPage() {
         ) : rows.map((row, i) => {
           const { c, type, daysIn } = row;
           const k = `${c.id}-${type}-${active.days}`;
-          const wasSent = sent[sentKey(c.id, type, active.days)];
+          const wasSent = sentOn(c.id, type, daysIn);
           const picked = selected.has(rowKey(c.id, type));
           const failed = result[k] && !result[k].startsWith('Sent');
           return (
@@ -246,7 +293,7 @@ export default function BirthdayPage() {
                   <Pill tone={type === 'birthday' ? 'amber' : 'grey'}>
                     {type === 'birthday' ? 'Birthday' : 'Anniversary'}{daysIn === 0 ? ' today' : ` in ${daysIn} day${daysIn === 1 ? '' : 's'}`}
                   </Pill>
-                  {wasSent && <Pill tone="green">Sent from this browser</Pill>}
+                  {wasSent && <Pill tone="green">Offer sent</Pill>}
                 </div>
                 <div className="adm-item-s">
                   {c.phone || 'no phone number'}{c.email ? ` · ${c.email}` : ''}
@@ -272,14 +319,14 @@ export default function BirthdayPage() {
                   <div style={{ display: 'flex', gap: '.5rem', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                     <span style={{ fontSize: '.74rem', color: '#7d736d' }} title={`Sent on ${wasSent}`}>{wasSent}</span>
                     <button className="adm-btn" style={{ padding: '.35rem .8rem', fontSize: '.78rem' }}
-                            onClick={() => sendSms(c, type, active.days)} disabled={sending[k]}
+                            onClick={() => sendSms(c, type, active.days, daysIn)} disabled={sending[k]}
                             title="Send the same offer again, by SMS and email — the same coupon code goes out, not a new one">
                       {sending[k] ? 'Sending…' : 'Resend'}
                     </button>
                   </div>
                 ) : (
                   <button className="adm-btn adm-btn-primary" style={{ padding: '.35rem .8rem', fontSize: '.78rem' }}
-                          onClick={() => sendSms(c, type, active.days)} disabled={sending[k]}>
+                          onClick={() => sendSms(c, type, active.days, daysIn)} disabled={sending[k]}>
                     {sending[k] ? 'Sending…' : 'Send offer'}
                   </button>
                 )}
@@ -289,17 +336,16 @@ export default function BirthdayPage() {
         })}
       </Card>
 
-      {/* Said out loud, because a record that looks firm and is not costs money. */}
-      <Card style={{ background: '#fff9ec', borderColor: '#f0e0bd' }}>
-        <p style={{ margin: 0, fontSize: '.82rem', color: '#7a5a18', lineHeight: 1.7 }}>
-          <strong>“Sent” is remembered by this browser only.</strong> It is kept in this browser&apos;s own
-          storage, not on the server — so a send from your phone is not known to your laptop, and clearing
-          browser data forgets all of it. Until that record moves to the server, send from one device, and if you
-          are unsure whether an offer already went out, check the customer for an unused BD- or AN- coupon
-          before sending again.
+      {/* Pehle yahan likha tha ki ye hisab sirf browser ka hai. Ab nahi. */}
+      <Card>
+        <p style={{ margin: 0, fontSize: '.82rem', color: '#7d736d', lineHeight: 1.7 }}>
+          <strong>“Sent” is now kept on the server.</strong> Log out, log in from another computer or from
+          your phone — the same record is there, so an offer already sent shows <em>Resend</em>, not
+          <em> Send offer</em>, and a customer does not get the same offer twice. Each slab is counted on its
+          own: 30 days, 15, 7 and the day itself are four separate offers, all carrying one coupon code.
         </p>
-        <p style={{ margin: '.5rem 0 0', fontSize: '.82rem', color: '#7a5a18' }}>
-          Sent from this browser this year: <strong>{Object.keys(sent).filter(k => k.endsWith(`-${yearNow}`)).length}</strong>
+        <p style={{ margin: '.5rem 0 0', fontSize: '.82rem', color: '#7d736d' }}>
+          Offers recorded on the server: <strong>{Object.keys(sent).length}</strong>
         </p>
       </Card>
     </div>

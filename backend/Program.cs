@@ -399,6 +399,26 @@ using (var scope = app.Services.CreateScope())
         );
         CREATE INDEX IF NOT EXISTS idx_cust_addr_customer ON customer_addresses (customer_id, is_default DESC, id);
 
+        -- Janmdin/saalgirah ki offer kab-kab bheji gayi. Pehle ye hisab browser
+        -- ke localStorage me tha, isliye logout karte hi "Resend" gayab ho jata
+        -- tha aur wahi offer dobara bhej di jati thi. Ab ek jagah, sab device ke
+        -- liye ek hi sach. year grahak ke DIN ka saal hai, bhejne ka nahi.
+        CREATE TABLE IF NOT EXISTS celebration_sends (
+            id          SERIAL PRIMARY KEY,
+            customer_id INTEGER     NOT NULL,
+            occasion    VARCHAR(20) NOT NULL DEFAULT 'birthday',
+            slab        INTEGER     NOT NULL DEFAULT 0,
+            year        INTEGER     NOT NULL,
+            coupon_code VARCHAR(50),
+            sms_sent    BOOLEAN     NOT NULL DEFAULT FALSE,
+            email_sent  BOOLEAN     NOT NULL DEFAULT FALSE,
+            request_id  VARCHAR(64),
+            sent_by     VARCHAR(120),
+            sent_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS idx_celeb_send_lookup
+            ON celebration_sends (customer_id, occasion, year, slab);
+
         -- Cash on Delivery advance: how much the customer already paid online. The courier
         -- must then collect only (total - wallet_used - advance_paid).
         ALTER TABLE site_orders ADD COLUMN IF NOT EXISTS advance_paid NUMERIC(12,2) NOT NULL DEFAULT 0;

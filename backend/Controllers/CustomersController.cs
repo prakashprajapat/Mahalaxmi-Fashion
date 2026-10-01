@@ -198,7 +198,24 @@ public class CustomersController : ControllerBase
             .OrderBy(x => Math.Min(x.birthdayIn ?? 999, x.anniversaryIn ?? 999))
             .ToList();
 
-        return Ok(new { success = true, celebrations = result });
+        // Kaun si offer ja chuki hai — ye panel ko server se milta hai, browser
+        // se nahi. Pehle ye hisab browser ke apne khaane me tha, isliye logout
+        // karte hi "Resend" gayab ho jata tha aur wahi offer dobara bhej di
+        // jati thi. Pichhle 400 din kaafi hain: ek saal ka chakkar aur thoda
+        // haashiya.
+        var since = DateTimeOffset.UtcNow.AddDays(-400);
+        var ids = all.Select(c => c.Id).ToList();
+        var sends = await _db.CelebrationSends
+            .Where(x => ids.Contains(x.CustomerId) && x.SentAt >= since)
+            .OrderByDescending(x => x.SentAt)
+            .Select(x => new {
+                customerId = x.CustomerId, occasion = x.Occasion, slab = x.Slab, year = x.Year,
+                couponCode = x.CouponCode, smsSent = x.SmsSent, emailSent = x.EmailSent,
+                requestId = x.RequestId, sentBy = x.SentBy, sentAt = x.SentAt,
+            })
+            .ToListAsync();
+
+        return Ok(new { success = true, celebrations = result, sends });
     }
 
     // POST /api/customers/send-celebration-sms
@@ -499,6 +516,40 @@ public class CustomersController : ControllerBase
                 couponCode = coupon.Code, response = sms.raw,
                 message = $"Nothing went out. SMS: {sms.error} Email: {emailError} "
                         + $"The coupon {coupon.Code} is created and still valid, so this can be retried." });
+        }
+
+        // Jo ja chuka hai, wo likh diya jata hai — server par, browser me nahi.
+        // Isi ek pankti ki wajah se logout karke wapas aane par bhi "Resend"
+        // dikhta hai aur wahi offer dobara nahi jati.
+        //
+        // Slab panel se aata hai (kaun sa batan daba tha); na aaye to din
+        // ginkar khud nikal lete hain. Saal grahak ke DIN ka hai, bhejne ka
+        // nahi — 28 December ko bheji gayi 3 January wali badhai agle saal ke
+        // janmdin ki hai.
+        if (customer != null)
+        {
+            var away = daysAway ?? 0;
+            var slab = req.Slab ?? (away <= 0 ? 0 : away <= 7 ? 7 : away <= 15 ? 15 : 30);
+            _db.CelebrationSends.Add(new CelebrationSend
+            {
+                CustomerId = customer.Id,
+                Occasion   = occasion,
+                Slab       = slab,
+                Year       = occasionOn?.Year ?? todayIst.Year,
+                CouponCode = coupon.Code,
+                SmsSent    = sms.ok,
+                EmailSent  = emailSent,
+                RequestId  = sms.requestId,
+                SentBy     = User.FindFirst(ClaimTypes.Email)?.Value ?? User.Identity?.Name,
+                SentAt     = DateTimeOffset.UtcNow,
+            });
+            try { await _db.SaveChangesAsync(); }
+            catch (Exception ex)
+            {
+                // Hisab na likha jaye to bhi offer ja chuki hai — use "nahi
+                // bheja" kehna galat hoga. Shikayat log me jati hai.
+                _log.LogError(ex, "Celebration send could not be recorded for customer {Id}", customer.Id);
+            }
         }
 
         return Ok(new { success = true, smsSent = sms.ok, emailSent, emailTo,
