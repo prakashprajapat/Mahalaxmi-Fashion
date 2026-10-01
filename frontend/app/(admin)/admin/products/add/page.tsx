@@ -7,7 +7,7 @@ import { getAdminToken } from '@/lib/auth';
 import { checkProduct } from '@/lib/productGate';
 import PublishPanel from '@/components/admin/PublishPanel';
 import { getTaxonomy } from '@/lib/womenTaxonomy';
-import { runProductQC, deepImageDuplicateCheck, type QcIssue } from '@/lib/productQC';
+import { runProductQC, type QcIssue } from '@/lib/productQC';
 import QcPanel from '@/components/admin/QcPanel';
 import TaxonomyCombo from '@/components/admin/TaxonomyCombo';
 import { PageHeader } from '@/components/admin/Ui';
@@ -801,11 +801,13 @@ export default function AddProductPage() {
         { name, description: desc, price: Number(price) || 0, sku, photos: allPhotos, category },
         existingProducts
       );
-      // DEEP pixel-level duplicate-image check (filename badalne par bhi pakadta hai).
-      try {
-        const imgIssues = await deepImageDuplicateCheck(allPhotos, existingProducts);
-        qc.push(...imgIssues);
-      } catch { /* image load fail — baaki QC chalta rahe */ }
+      // Duplicate photo ki jaanch ab server par hoti hai.
+      //
+      // Yahan har purane product ki har photo browser me utar kar hash ki jati
+      // thi — chaar sau se zyada photo, har save par. Server ke paas wahi photo
+      // apni hi disk par padi hai: use utarna nahi padta, aur wo pehle size
+      // milata hai, hash sirf tab nikalta hai jab size bhi wahi ho. Wahan ye
+      // kaam palak jhapakte hota hai.
       // ── Blank size/colour stock table ──
       // This table is what checkout deducts from. If sizes/colours are selected
       // but every cell is left empty, the old code still saved a table of zeros:
@@ -831,16 +833,20 @@ export default function AddProductPage() {
         if (colourIssue) qc.push({ level: 'fail', message: `Colour "${c}" — ${colourIssue}` });
       }
       const fails = qc.filter(i => i.level === 'fail');
-      const warns = qc.filter(i => i.level === 'warn');
-      // Any fail, or warnings-not-yet-acknowledged → show the inline QC panel and stop.
-      if (fails.length > 0 || (warns.length > 0 && !force)) {
-        setQcIssues(qc);
-        setQcOpen(true);
-        setSaving(false);
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-        return;
-      }
-      setQcOpen(false);
+
+      // Pehle yahan kaam ruk jata tha: ek bhi kami mili to QC panel khulta aur
+      // save hota hi nahi. Chhe cheezein theek karni hain to chhe baar yahi
+      // rukna. Ab rukta nahi — save hamesha hota hai, bas jagah badal jati hai:
+      //
+      //   sab theek  →  website par
+      //   kuch kami  →  Draft me, apne aap, kami ki soochi ke saath
+      //
+      // Draft wala product site par dikhta nahi, isliye adhoora product grahak
+      // tak nahi pahunchta — par mehnat bachi rehti hai. Theek karke dobara save
+      // karte hi wo khud website par chala jata hai.
+      setQcIssues(qc);
+      setQcOpen(qc.length > 0);
+      const holdAsDraft = fails.length > 0;
       const stockMatrix = Object.fromEntries(stockKeys.map(key => [key, Number(variantStock[key]) || 0]));
       // An all-zero table is not stock data — save as untracked (see blankStockTable above).
       const trackVariants = stockKeys.length > 0 && Object.values(stockMatrix).some(n => n > 0);
@@ -887,7 +893,7 @@ export default function AddProductPage() {
         price: Number(price),
         discountPrice: discPrice ? Number(discPrice) : undefined,
         shippingCharge: shipCharge ? Number(shipCharge) : 0,
-        stock: stockStatusFromQty(saveQty),
+        stock: holdAsDraft ? 'Draft' : stockStatusFromQty(saveQty),
         sku: sku.trim() || undefined,
         description: desc.trim() || undefined,
         image: mainPhotos.front || filledPackCols[0]?.front || undefined,

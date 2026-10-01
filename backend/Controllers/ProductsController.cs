@@ -371,6 +371,13 @@ public class ProductsController : ControllerBase
             await _db.SaveChangesAsync();
         }
 
+        // Duplicate photo ki jaanch ke liye sabki mukhya photo, ek hi baar.
+        // Browser se yeh kaam hat kar yahan aaya hai - wahan har photo utarni
+        // padti thi, yahan wo disk par hi hai.
+        var photoOwners = await _db.Products
+            .Select(x => new { x.Id, x.Name, x.Image })
+            .ToListAsync();
+
         var created = 0;
         var updated = 0;
         var i = 1;
@@ -409,14 +416,26 @@ public class ProductsController : ControllerBase
             ApplyProduct(product, dto, currentI);
 
             var g = ProductQualityGate.Check(product);
-            if (!g.Passed)
+            var problems = g.Blocking.Select(x => x.Message).ToList();
+
+            // Wahi photo kisi aur product par pehle se? To yeh product site par
+            // nahi jata - do alag panne, ek hi tasveer, aur Google dono ko
+            // duplicate maan kar dono gira deta hai. Draft me rakh dete hain,
+            // naam ke saath, taki pata ho kis se takrayi.
+            var dupOwner = DuplicatePhoto.OwnerOf(
+                product.Image,
+                photoOwners.Where(x => x.Id != product.Id).Select(x => (x.Name, x.Image)));
+            if (dupOwner is not null)
+                problems.Add($"This photo is already used by \"{dupOwner}\". Two products cannot share the same picture - upload a different photo, then save again.");
+
+            if (problems.Count > 0)
             {
                 product.StockStatus = ProductQualityGate.DraftStatus;
                 held.Add(new
                 {
                     name = product.Name,
                     sku = product.Sku,
-                    errors = g.Blocking.Select(i => i.Message).ToList(),
+                    errors = problems,
                 });
             }
         }

@@ -833,15 +833,20 @@ export default function EditProductPage() {
         if (colourIssue) qc.push({ level: 'fail', message: `Colour "${c}" — ${colourIssue}` });
       }
       const fails = qc.filter(i => i.level === 'fail');
-      const warns = qc.filter(i => i.level === 'warn');
-      if (fails.length > 0 || (warns.length > 0 && !force)) {
-        setQcIssues(qc);
-        setQcOpen(true);
-        setSaving(false);
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-        return;
-      }
-      setQcOpen(false);
+
+      // Pehle yahan kaam ruk jata tha: ek bhi kami mili to QC panel khulta aur
+      // save hota hi nahi. Chhe cheezein theek karni hain to chhe baar yahi
+      // rukna. Ab rukta nahi — save hamesha hota hai, bas jagah badal jati hai:
+      //
+      //   sab theek  →  website par
+      //   kuch kami  →  Draft me, apne aap, kami ki soochi ke saath
+      //
+      // Draft wala product site par dikhta nahi, isliye adhoora product grahak
+      // tak nahi pahunchta — par mehnat bachi rehti hai. Theek karke dobara save
+      // karte hi wo khud website par chala jata hai.
+      setQcIssues(qc);
+      setQcOpen(qc.length > 0);
+      const holdAsDraft = fails.length > 0;
       const stockMatrix    = Object.fromEntries(stockKeys.map(key => [key, Number(variantStock[key]) || 0]));
       // An all-zero table is not stock data — save as untracked (see blankStockTable above).
       const trackVariants  = stockKeys.length > 0 && Object.values(stockMatrix).some(n => n > 0);
@@ -881,7 +886,7 @@ export default function EditProductPage() {
         price:         Number(price),
         discountPrice: discPrice ? Number(discPrice) : undefined,
         shippingCharge: shipCharge ? Number(shipCharge) : 0,
-        stock:         stockStatusFromQty(saveQty),
+        stock:         holdAsDraft ? 'Draft' : stockStatusFromQty(saveQty),
         sku:           sku.trim() || undefined,
         description:   desc.trim() || undefined,
         image:         mainPhotos.front || filledPackCols[0]?.front || undefined,
