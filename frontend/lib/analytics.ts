@@ -5,6 +5,8 @@
 //
 // After these events start flowing, mark the ones you care about as "Key events" in
 // GA4 → Admin → Events (toggle "Mark as key event").
+import { storage } from '@/lib/safeStorage';
+
 type Params = Record<string, unknown>;
 
 export function trackEvent(name: string, params: Params = {}): void {
@@ -71,6 +73,64 @@ interface Ga4Item {
   item_group_id?: unknown;
 }
 
+// Har event ka apna id.
+//
+// Ye id browser aur server, dono ke saath jati hai — isi se Meta samajhta hai
+// ki dono ek hi baat keh rahe hain aur use ek hi baar ginta hai. Pehle id sirf
+// kharid ke saath jati thi (order id), isliye baki event server se bheje hi
+// nahi ja sakte the: dogune dikhte.
+function newEventId(): string {
+  try {
+    const c = (window as unknown as { crypto?: Crypto }).crypto;
+    if (c?.randomUUID) return c.randomUUID();
+  } catch { /* purana browser */ }
+  return `e-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+// Wahi event, apne hi server se hokar Meta tak.
+//
+// Pixel ka raasta aadha band hai: ad blocker connect.facebook.net ko rok deta
+// hai, iOS cookie kaat deta hai, aur app ya UPI redirect ke baad browser wapas
+// aata hi nahi. Ye anurodh apne hi domain par jata hai, isliye blocker ise
+// facebook ka anurodh samajh kar nahi rokta, aur server se Conversions API par
+// chala jata hai — bina kisi teesre partner ke.
+//
+// Purchase yahan se nahi jata: wo server pe khud banta hai, jahan paisa pakka
+// hota hai. Yahan se bhejne ka matlab hota "browser jo kahe wo sach".
+function sendServerCopy(metaName: string, eventId: string, payload: Record<string, unknown>): void {
+  if (metaName === 'Purchase') return;
+  try {
+    const contents = Array.isArray(payload.contents)
+      ? (payload.contents as Array<Record<string, unknown>>).slice(0, 20).map(c => ({
+          id: String(c.id ?? ''),
+          quantity: Number(c.quantity ?? 1),
+          price: Number(c.item_price ?? 0),
+        }))
+      : [];
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    // Login kiye hue grahak ka email/phone server khud nikal leta hai — bheja
+    // nahi jata. Khule pate par kisi ka bhi email bhej kar milan bigaada ja
+    // sakta tha.
+    const tok = storage.get('mfh_token');
+    if (tok) headers.Authorization = `Bearer ${tok}`;
+
+    void fetch('/api/site-events', {
+      method: 'POST',
+      headers,
+      keepalive: true,
+      body: JSON.stringify({
+        eventName: metaName,
+        eventId,
+        value: payload.value,
+        currency: payload.currency,
+        contentType: payload.content_type,
+        sourceUrl: window.location.href,
+        items: contents,
+      }),
+    }).catch(() => { /* analytics kabhi kaam nahi rokta */ });
+  } catch { /* same */ }
+}
+
 function trackMeta(name: string, params: Params): void {
   const metaName = META_EVENTS[name];
   if (!metaName) return;                      // not an event Meta has a name for
@@ -81,7 +141,10 @@ function trackMeta(name: string, params: Params): void {
   };
   const hasFbq = typeof w.fbq === 'function';
   const hasZaraz = typeof w.zaraz?.track === 'function';
-  if (!hasFbq && !hasZaraz) return;           // no Pixel installed yet — nothing to do
+  // Pehle yahan se laut jate the jab pixel maujood na ho. Par pixel ka na hona
+  // hi wo halat hai jisme server wala raasta sabse zyada kaam ka hai — blocker
+  // ne use rok diya hai. Isliye ab rukte nahi; neeche server copy phir bhi
+  // jati hai.
 
   const items = Array.isArray(params.items) ? (params.items as Ga4Item[]) : [];
   const payload: Record<string, unknown> = {
@@ -115,15 +178,21 @@ function trackMeta(name: string, params: Params): void {
   // The order id doubles as Meta's event id, so a purchase that reaches Meta
   // both from the browser and from the Conversions API is counted once. Without
   // it every sale would show twice the moment the server-side path is on.
+  //
+  // Baki event ka koi order id nahi hota, to ek nayi id bana lete hain — par
+  // banti ek hi baar hai aur dono raaston par wahi jati hai. Yahi jodi ko ek
+  // rakhti hai.
   const eventId = typeof params.transaction_id === 'string' && params.transaction_id
     ? params.transaction_id
-    : undefined;
+    : newEventId();
+
+  sendServerCopy(metaName, eventId, payload);
 
   if (hasFbq) {
-    w.fbq!('track', metaName, payload, eventId ? { eventID: eventId } : undefined);
+    w.fbq!('track', metaName, payload, { eventID: eventId });
     return;
   }
-  w.zaraz!.track!(metaName, eventId ? { ...payload, event_id: eventId } : payload);
+  if (hasZaraz) w.zaraz!.track!(metaName, { ...payload, event_id: eventId });
 }
 
 // Build a GA4 ecommerce "items" array from cart-like objects.

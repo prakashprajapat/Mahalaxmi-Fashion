@@ -4,13 +4,18 @@ using System.Text.Json;
 
 namespace MahalaxmiApi.Services;
 
-// Server-side Purchase to Meta, through the Conversions API.
+// Server-side events to Meta, through the Conversions API.
 //
-// The same reasoning as Ga4Mp next door. The browser's fbq('track','Purchase')
-// is dropped whenever the shopper has an ad blocker, pays through the app or a
-// UPI redirect, or the order is entered by hand in the admin — and Meta's ads
-// bid on purchases, so a sale it never hears about is a sale it cannot learn
-// from. Sending the same event from here means every order counts.
+// The same reasoning as Ga4Mp next door. The browser's fbq() is dropped
+// whenever the shopper has an ad blocker, pays through the app or a UPI
+// redirect, or the order is entered by hand in the admin — and Meta's ads bid
+// on these events, so one it never hears about is one it cannot learn from.
+// Sending the same event from here means it counts.
+//
+// Purchase jata hai OrdersController se, jahan paisa pakka hota hai. Baki
+// event (ViewContent, AddToCart, InitiateCheckout) browser se SiteEvents-
+// Controller ko aate hain aur wahan se yahan — kyunki server ko apne aap pata
+// nahi chalta ki kisne kaun sa product khola.
 //
 // This is deliberately NOT Meta's Conversions API Gateway, which is a server the
 // shop would have to run, and pay for, in its own cloud account. This is one
@@ -49,7 +54,11 @@ public static class MetaCapi
         return Sha256(digits);
     }
 
-    public static async Task SendPurchaseAsync(
+    /// <summary>
+    /// Purchase — ab bhi apna naam rakhta hai, kyunki checkout isi ko bulata
+    /// hai, par andar wahi aam raasta chalta hai.
+    /// </summary>
+    public static Task SendPurchaseAsync(
         string pixelId,
         string accessToken,
         string orderId,
@@ -59,18 +68,61 @@ public static class MetaCapi
         string? phone,
         string? eventSourceUrl,
         IEnumerable<(string id, string name, int qty, decimal price)> items)
+        => SendEventAsync(pixelId, accessToken, "Purchase", orderId, value, currency,
+                          email, phone, null, null, null, null, eventSourceUrl,
+                          "product", orderId, items);
+
+    /// <summary>
+    /// Koi bhi event Meta ko bhejna.
+    ///
+    /// user_data me kuch na kuch hona hi chahiye, warna Meta event ko girā deta
+    /// hai — use milane ko kuch chahiye. Char cheezon me se koi ek kafi hai:
+    /// hashed email, hashed phone, ya browser ke _fbp / _fbc cookie. Cookie
+    /// wale do rastey logged-out shopper ke liye hi bane hain, aur wahi aam
+    /// haalat hai.
+    ///
+    /// IP aur user-agent sath jate hain: Meta inhi se "event match quality"
+    /// ginta hai, aur ye dono server ke paas pehle se hote hain — browser se
+    /// poochhne ki zaroorat nahi.
+    /// </summary>
+    public static async Task SendEventAsync(
+        string pixelId,
+        string accessToken,
+        string eventName,
+        string? eventId,
+        decimal? value,
+        string currency,
+        string? email,
+        string? phone,
+        string? fbp,
+        string? fbc,
+        string? clientIp,
+        string? userAgent,
+        string? eventSourceUrl,
+        string? contentType,
+        string? orderId,
+        IEnumerable<(string id, string name, int qty, decimal price)> items)
     {
         try
         {
             if (string.IsNullOrWhiteSpace(pixelId) || string.IsNullOrWhiteSpace(accessToken))
                 return; // not configured yet — no-op
+            if (string.IsNullOrWhiteSpace(eventName)) return;
 
             var userData = new Dictionary<string, object?>();
             var em = Sha256(email);
             var ph = HashPhone(phone);
             if (em is not null) userData["em"] = new[] { em };
             if (ph is not null) userData["ph"] = new[] { ph };
+            // fbp / fbc hashed NAHI hote — Meta inhe jaise ke taise mangta hai.
+            if (!string.IsNullOrWhiteSpace(fbp)) userData["fbp"] = fbp;
+            if (!string.IsNullOrWhiteSpace(fbc)) userData["fbc"] = fbc;
             if (userData.Count == 0) return;   // Meta rejects an event with nothing to match on
+
+            if (!string.IsNullOrWhiteSpace(clientIp) && clientIp != "unknown")
+                userData["client_ip_address"] = clientIp;
+            if (!string.IsNullOrWhiteSpace(userAgent))
+                userData["client_user_agent"] = userAgent;
 
             var contents = items.Select(i => new Dictionary<string, object?>
             {
@@ -79,22 +131,33 @@ public static class MetaCapi
                 ["item_price"] = i.price,
             }).ToList();
 
+            var custom = new Dictionary<string, object?>
+            {
+                ["currency"] = currency,
+            };
+            if (value.HasValue) custom["value"] = value.Value;
+            if (!string.IsNullOrWhiteSpace(orderId)) custom["order_id"] = orderId;
+            if (contents.Count > 0)
+            {
+                // content_type batata hai ki id poore product ki hai ya feed ki
+                // us row ki jisme size aur rang dono tay hain. Galat batane par
+                // catalogue me kuch nahi milta — wahi 0% match rate.
+                custom["content_type"] = string.IsNullOrWhiteSpace(contentType) ? "product" : contentType;
+                custom["contents"]     = contents;
+                custom["content_ids"]  = contents.Select(c => c["id"]).ToList();
+            }
+
             var ev = new Dictionary<string, object?>
             {
-                ["event_name"]    = "Purchase",
+                ["event_name"]    = eventName,
                 ["event_time"]    = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
-                ["event_id"]      = orderId,      // the pair with the browser's event
                 ["action_source"] = "website",
                 ["user_data"]     = userData,
-                ["custom_data"]   = new Dictionary<string, object?>
-                {
-                    ["currency"]     = currency,
-                    ["value"]        = value,
-                    ["order_id"]     = orderId,
-                    ["content_type"] = "product",
-                    ["contents"]     = contents,
-                },
+                ["custom_data"]   = custom,
             };
+            // event_id browser wale event se milta hai, isliye jodi ek hi bar
+            // ginti hai. Iske bina har kaam do baar dikhta.
+            if (!string.IsNullOrWhiteSpace(eventId)) ev["event_id"] = eventId;
             if (!string.IsNullOrWhiteSpace(eventSourceUrl)) ev["event_source_url"] = eventSourceUrl;
 
             var payload = new Dictionary<string, object?> { ["data"] = new[] { ev } };
@@ -108,7 +171,7 @@ public static class MetaCapi
         }
         catch
         {
-            // analytics is best-effort — never break checkout because of it
+            // analytics is best-effort — never break the page because of it
         }
     }
 }

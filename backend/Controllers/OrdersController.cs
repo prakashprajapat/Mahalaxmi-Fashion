@@ -706,9 +706,16 @@ public class OrdersController : ControllerBase
                 var metaPixel = await _db.SiteSettings.Where(s => s.Key == "facebookPixelId")
                     .Select(s => s.Value).FirstOrDefaultAsync() ?? "";
 
+                // Pehle yahan akela SKU jata tha. Catalogue me ek row har size
+                // aur rang ki hai aur SKU sirf unka item_group_id hai, isliye
+                // Meta ko kuch milta hi nahi tha. Ab wahi id banti hai jo feed
+                // aur browser dono banate hain, to teenon ek jagah milte hain.
                 var metaItems = (req.Cart ?? new List<CartLineDto>())
                     .Select(c => (
-                        id: (c.Sku ?? "").Trim(),
+                        id: Services.FeedIds.For(
+                                c.Sku, c.Id,
+                                Services.FeedIds.SizeWithoutColour(c.Size, c.Color),
+                                c.Color),
                         name: (c.Name ?? "").Trim(),
                         qty: Math.Max(1, c.Quantity),
                         price: c.Price))

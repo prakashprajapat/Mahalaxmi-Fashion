@@ -142,6 +142,22 @@ builder.Services.AddRateLimiter(opts =>
             QueueLimit = 0,
         }));
 
+    // Browser se aane wale analytics event. Inki ginti alag hai kyunki ek aam
+    // shopper minute bhar me das panne khol leta hai, aur "auth" wali 10 ki
+    // seema me aadhe event chup-chaap gir jate. Yahan jhooth ka koi fayda bhi
+    // nahi hai - event bhejne se kisi ko kuch milta nahi - isliye seema sirf
+    // badtameezi rokne ke liye hai, pehchan ke liye nahi.
+    opts.AddPolicy("events", http => RateLimitPartition.GetSlidingWindowLimiter(
+        CallerIp(http),
+        _ => new SlidingWindowRateLimiterOptions
+        {
+            PermitLimit = 90,
+            Window = TimeSpan.FromMinutes(1),
+            SegmentsPerWindow = 3,
+            QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+            QueueLimit = 0,
+        }));
+
     opts.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
 });
 
