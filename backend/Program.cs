@@ -400,7 +400,7 @@ using (var scope = app.Services.CreateScope())
         CREATE INDEX IF NOT EXISTS idx_cust_addr_customer ON customer_addresses (customer_id, is_default DESC, id);
 
         -- Janmdin/saalgirah ki offer kab-kab bheji gayi. Pehle ye hisab browser
-        -- ke localStorage me tha, isliye logout karte hi "Resend" gayab ho jata
+        -- ke localStorage me tha, isliye logout karte hi Resend gayab ho jata
         -- tha aur wahi offer dobara bhej di jati thi. Ab ek jagah, sab device ke
         -- liye ek hi sach. year grahak ke DIN ka saal hai, bhejne ka nahi.
         CREATE TABLE IF NOT EXISTS celebration_sends (
