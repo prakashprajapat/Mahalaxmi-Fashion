@@ -163,6 +163,30 @@ async function convertToAvif(file: File, maxPx = 1200, quality = 0.82): Promise<
     if (b && b.type === 'image/jpeg') candidates.push({ blob: b, fmt: 'JPEG' });
   } catch {}
 
+  // Phone se upload par screen "278KB → 278KB, -0% saved" dikha rahi thi.
+  //
+  // Wajah: upar ke teenon daud me se koi bhi original se chhota nahi nikla, to
+  // neeche wala niyam (chhota ho tabhi rakho) sab ko chhod deta hai aur original
+  // hi jata hai. Yeh tab hota hai jab photo pehle se theek-thaak compressed ho
+  // aur browser WebP/AVIF na likh paye — bachta hai sirf JPEG 0.82, jo utna hi
+  // bada ban jata hai.
+  //
+  // Isliye ab quality ghata kar dobara likhte hain, jab tak koi daud TARGET se
+  // neeche na aa jaye. Jahan WebP pehle hi chhota nikal aata hai (desktop
+  // Chrome) wahan yeh hissa chalta hi nahi.
+  const TARGET = 200 * 1024;
+  if (!candidates.some(c => c.blob.size <= TARGET)) {
+    for (const q of [0.70, 0.60, 0.50]) {
+      try {
+        const b = await new Promise<Blob | null>(res => canvas.toBlob(res, 'image/jpeg', q));
+        if (b && b.type === 'image/jpeg') {
+          candidates.push({ blob: b, fmt: 'JPEG' });
+          if (b.size <= TARGET) break;
+        }
+      } catch { break; }
+    }
+  }
+
   // Smallest candidate. Normally it also has to beat the original file, but a
   // reshaped photo must be kept whatever it weighs — handing back the original
   // would quietly undo the reshaping this function just did.

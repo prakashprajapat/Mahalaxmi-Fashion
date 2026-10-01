@@ -191,6 +191,30 @@ async function convertToAvif(file: File, maxPx = 1200, quality = 0.82): Promise<
     if (b && b.type === 'image/jpeg') candidates.push({ blob: b, fmt: 'JPEG' });
   } catch {}
 
+  // Phone se upload par screen "278KB → 278KB, -0% saved" dikha rahi thi.
+  //
+  // Wajah: upar ke teenon daud me se koi bhi original se chhota nahi nikla, to
+  // neeche wala niyam (chhota ho tabhi rakho) sab ko chhod deta hai aur original
+  // hi jata hai. Yeh tab hota hai jab photo pehle se theek-thaak compressed ho
+  // aur browser WebP/AVIF na likh paye — bachta hai sirf JPEG 0.82, jo utna hi
+  // bada ban jata hai.
+  //
+  // Isliye ab quality ghata kar dobara likhte hain, jab tak koi daud TARGET se
+  // neeche na aa jaye. Jahan WebP pehle hi chhota nikal aata hai (desktop
+  // Chrome) wahan yeh hissa chalta hi nahi.
+  const TARGET = 200 * 1024;
+  if (!candidates.some(c => c.blob.size <= TARGET)) {
+    for (const q of [0.70, 0.60, 0.50]) {
+      try {
+        const b = await new Promise<Blob | null>(res => canvas.toBlob(res, 'image/jpeg', q));
+        if (b && b.type === 'image/jpeg') {
+          candidates.push({ blob: b, fmt: 'JPEG' });
+          if (b.size <= TARGET) break;
+        }
+      } catch { break; }
+    }
+  }
+
   // Smallest candidate. Normally it also has to beat the original file, but a
   // reshaped photo must be kept whatever it weighs — handing back the original
   // would quietly undo the reshaping this function just did.
@@ -666,6 +690,20 @@ export default function AddProductPage() {
       .catch(() => {});
   }, []);
 
+  // QC ke liye poori soochi — panna khulte hi, background me.
+  //
+  // Pehle yeh save dabane ke BAAD mangi jati thi, isliye har save me 140
+  // product ka poora jawab utarne ka intezar hota tha, aur usi ke baad asli
+  // save shuru hota tha. Ab jab tak form bhara jata hai, soochi aa chuki hoti
+  // hai; handleSave sirf is wade ka intezar karta hai, jo aam taur par pehle
+  // hi pura ho chuka hota hai.
+  const qcList = useRef<Promise<import('@/lib/productQC').ExistingProduct[]> | null>(null);
+  useEffect(() => {
+    qcList.current = fetchAllProducts({}, getAdminToken() ?? undefined)
+      .then(ps => ps.map(p => ({ id: p.dbId, name: p.name, image: p.image, extraJson: p.extraJson })))
+      .catch(() => []);
+  }, []);
+
   // ── Pack of change ──
   const handlePackOfChange = (value: string) => {
     setPackOf(value);
@@ -752,12 +790,12 @@ export default function AddProductPage() {
         ...galleryImages,
         ...filledPackCols.flatMap(c => [c.front, c.side, c.back, c.zoomed].filter(Boolean)),
       ];
+      // Soochi panna khulte hi mangwa li gayi thi (neeche wala effect), isliye
+      // yahan aam taur par intezar hota hi nahi. Pehle yeh poori soochi save
+      // dabane ke BAAD mangi jati thi — har save me wahi intezar, har baar.
       let existingProducts: import('@/lib/productQC').ExistingProduct[] = [];
-      try {
-        existingProducts = (await fetchAllProducts({}, getAdminToken() ?? undefined)).map((p) => ({
-          id: p.dbId, name: p.name, image: p.image, extraJson: p.extraJson,
-        }));
-      } catch { /* offline — QC still runs on this product's own fields */ }
+      try { existingProducts = (await qcList.current) ?? []; }
+      catch { /* offline — QC still runs on this product's own fields */ }
 
       const qc = runProductQC(
         { name, description: desc, price: Number(price) || 0, sku, photos: allPhotos, category },

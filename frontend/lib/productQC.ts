@@ -3,7 +3,7 @@
 // hoga — sirf saaf catalogue hi live jayega. Warnings block nahi karti (sirf
 // aagah karti hain).
 
-import { hashDataUrl, hashUrl, hammingDistance, DUP_THRESHOLD } from './imageHash';
+import { hashDataUrl, hashUrl, hashUrls, hammingDistance, DUP_THRESHOLD } from './imageHash';
 
 export interface QcInput {
   name: string;
@@ -105,14 +105,28 @@ export async function deepImageDuplicateCheck(
     issues.push({ level: 'warn', message: 'This photo appears to be repeated — the same image may be used in two slots of this product. Please verify they are different (this is only a warning — you can override if needed).' });
 
   // (b) Kisi aur product ki photo se match.
+  //
+  // Pehle yeh har product ki har photo ko ek-ek karke utarta aur hash karta tha.
+  // 140 product yani chaar sau se zyada photo, ek ke baad ek — aur jab photo
+  // nayi hoti hai (yani hamesha, kyunki duplicate virla hota hai) to poori
+  // soochi aakhir tak chalti thi. Phone par save dabane ke baad minton tak
+  // "Adding…" khada rehta tha.
+  //
+  // Ab saare pate ek saath bhejte hain: jo pehle se cache me hain turant milte
+  // hain, baaki saath-saath utarte hain.
+  const owner = new Map<string, string>();
+  for (const e of existing)
+    for (const url of existingImages(e))
+      if (url && !owner.has(url)) owner.set(url, e.name || 'another product');
+
   let matchedName = '';
+  const existingHashes = await hashUrls([...owner.keys()]);
   outer:
-  for (const e of existing) {
-    for (const url of existingImages(e)) {
-      const eh = await hashOf(url);
-      if (!eh) continue;
-      for (const ch of candHashes) {
-        if (hammingDistance(ch, eh) <= DUP_THRESHOLD) { matchedName = e.name || 'another product'; break outer; }
+  for (const [url, eh] of existingHashes) {
+    for (const ch of candHashes) {
+      if (hammingDistance(ch, eh) <= DUP_THRESHOLD) {
+        matchedName = owner.get(url) || 'another product';
+        break outer;
       }
     }
   }

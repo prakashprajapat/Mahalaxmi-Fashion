@@ -13,11 +13,34 @@
 
 const CACHE_KEY = 'mfh_img_dhash_v2';
 
+// Cache ek baar padhi jati hai aur phir yahin memory me rehti hai.
+//
+// Pehle har ek photo ke liye poori cache localStorage se JSON parse hoti thi,
+// aur hash nikalte hi poori wapas likhi jati thi. 140 product ki chaar-sau
+// photo par yeh chaar-sau baar parse aur chaar-sau baar stringify tha — ek hi
+// dhaage par — isliye phone wahin ruk jata tha, chahe har hash pehle se cache
+// me hi kyun na ho.
+let mem: Record<string, string> | null = null;
+let dirty = false;
+let flushTimer: ReturnType<typeof setTimeout> | null = null;
+
 function loadCache(): Record<string, string> {
-  try { return JSON.parse(localStorage.getItem(CACHE_KEY) || '{}'); } catch { return {}; }
+  if (mem) return mem;
+  try { mem = JSON.parse(localStorage.getItem(CACHE_KEY) || '{}'); } catch { mem = {}; }
+  return mem as Record<string, string>;
 }
-function saveCache(c: Record<string, string>) {
-  try { localStorage.setItem(CACHE_KEY, JSON.stringify(c)); } catch { /* quota — ignore */ }
+
+function flushCache() {
+  flushTimer = null;
+  if (!dirty || !mem) return;
+  dirty = false;
+  try { localStorage.setItem(CACHE_KEY, JSON.stringify(mem)); } catch { /* quota — ignore */ }
+}
+
+function remember(url: string, hash: string) {
+  loadCache()[url] = hash;
+  dirty = true;
+  if (!flushTimer) flushTimer = setTimeout(flushCache, 400);
 }
 
 // Draw an image to a (size+1)×size canvas and return a size*size-bit dHash string.
@@ -66,13 +89,47 @@ export async function hashDataUrl(dataUrl: string): Promise<string> {
 /** dHash for a stored image URL, cached in localStorage. */
 export async function hashUrl(url: string): Promise<string> {
   if (!url) return '';
-  const cache = loadCache();
-  if (cache[url]) return cache[url];
+  const cached = loadCache()[url];
+  if (cached) return cached;
   try {
     const h = hashFromImage(await loadImage(url));
-    if (h) { cache[url] = h; saveCache(cache); }
+    if (h) remember(url, h);
     return h;
   } catch { return ''; }
+}
+
+/**
+ * Kai photo ek saath.
+ *
+ * Jo cache me hain wo turant laut aati hain; baaki chhe-chhe karke utarti hain.
+ * Pehle inhe ek-ek karke utara jata tha, isliye nayi photo par — yani aam
+ * haalat me, jab koi duplicate nahi hota — poori soochi ek ke baad ek utarti
+ * thi aur "Adding…" minton tak khada rehta tha.
+ */
+export async function hashUrls(urls: string[], concurrency = 6): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  const todo: string[] = [];
+  const seen = new Set<string>();
+  const cache = loadCache();
+
+  for (const u of urls) {
+    if (!u || seen.has(u)) continue;
+    seen.add(u);
+    if (cache[u]) out.set(u, cache[u]);
+    else todo.push(u);
+  }
+
+  let next = 0;
+  const worker = async () => {
+    while (next < todo.length) {
+      const u = todo[next++];
+      const h = await hashUrl(u);
+      if (h) out.set(u, h);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(concurrency, todo.length) }, worker));
+  flushCache();
+  return out;
 }
 
 /** Number of differing bits between two equal-length binary hashes. */
