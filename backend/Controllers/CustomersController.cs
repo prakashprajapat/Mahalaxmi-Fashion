@@ -326,6 +326,37 @@ public class CustomersController : ControllerBase
         // Name these three variables date / percent / code in MSG91 and they
         // fill themselves. Anything else sent here is ignored, so the two
         // on-the-day templates simply do not use date.
+        // Ek hi value, kai naamon se.
+        //
+        // MSG91 variable ko NAAM se bharta hai, kram se nahi — aur naam wo lagta
+        // hai jo uske apne template me likha ho. Humne date / percent / code
+        // bheje, par un templates me naam VAR1, VAR2, VAR3 nikle (MSG91 khud
+        // yahi default deta hai), to teenon jagah khali reh gayin aur grahak ko
+        // mila: "Your birthday is on. Get % off ... with code ,".
+        //
+        // Jo naam template me nahi hai use MSG91 chup-chaap chhod deta hai.
+        // Isliye dono roop bhej dete hain — jo bhi wahan likha ho, bhar jayega,
+        // aur baki anadekha. Ye andaza nahi hai: dono me se ek sach hoga hi.
+        //
+        // Kram maayne rakhta hai. Aane wale din wale template me teen variable
+        // hain (tareekh, chhoot, code), aur usi din wale me do (chhoot, code) —
+        // tareekh wahan hoti hi nahi. To VAR1 dono me ek cheez nahi hai.
+        var recipient = new Dictionary<string, object?>
+        {
+            ["mobiles"] = phone,
+            ["date"]    = dateText,
+            ["percent"] = percentText,
+            ["code"]    = coupon.Code,
+        };
+        var ordered = isTheDay
+            ? new[] { percentText, coupon.Code }
+            : new[] { dateText, percentText, coupon.Code };
+        for (var i = 0; i < ordered.Length; i++)
+        {
+            recipient[$"VAR{i + 1}"] = ordered[i];
+            recipient[$"var{i + 1}"] = ordered[i];
+        }
+
         var payload = new {
             template_id = templateId,
             // Left OFF on purpose. MSG91 would rewrite the link to its own
@@ -335,12 +366,7 @@ public class CustomersController : ControllerBase
             // the operator's side — the SMS goes out looking fine to us and
             // never reaches the customer.
             short_url   = "0",
-            recipients  = new[] { new {
-                mobiles = phone,
-                date    = dateText,
-                percent = percentText,
-                code    = coupon.Code,
-            } }
+            recipients  = new[] { recipient }
         };
         var body = System.Text.Json.JsonSerializer.Serialize(payload);
         var httpReq = new System.Net.Http.HttpRequestMessage(System.Net.Http.HttpMethod.Post, "https://api.msg91.com/api/v5/flow/")
