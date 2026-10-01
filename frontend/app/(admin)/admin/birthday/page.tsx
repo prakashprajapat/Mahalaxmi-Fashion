@@ -253,7 +253,23 @@ export default function BirthdayPage() {
                 {!c.phone ? (
                   <span style={{ fontSize: '.76rem', color: '#a49a94' }}>No phone</span>
                 ) : wasSent ? (
-                  <span style={{ fontSize: '.74rem', color: '#7d736d' }} title={`Sent on ${wasSent}`}>{wasSent}</span>
+                  // Bheja ja chuka hai — par "bheja gaya" ka matlab sirf itna hai
+                  // ki MSG91 ne le liya. Template galat ho, variable khali rah
+                  // jayein, ya grahak ka phone band ho, to sandesh pahunchta hi
+                  // nahi — aur pehle is pankti par koi batan hi nahi bachta tha,
+                  // yani theek karne ke baad dobara bhejne ka koi rasta nahi.
+                  //
+                  // Dobara bhejne me coupon barbaad nahi hota: server us grahak
+                  // ka pehle wala bina istemal kiya coupon hi dhoondh kar bhejta
+                  // hai, naya tabhi banata hai jab koi ho hi na.
+                  <div style={{ display: 'flex', gap: '.5rem', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                    <span style={{ fontSize: '.74rem', color: '#7d736d' }} title={`Sent on ${wasSent}`}>{wasSent}</span>
+                    <button className="adm-btn" style={{ padding: '.35rem .8rem', fontSize: '.78rem' }}
+                            onClick={() => sendSms(c, type, active.days)} disabled={sending[k]}
+                            title="Send the same offer again — the same coupon code goes out, not a new one">
+                      {sending[k] ? 'Sending…' : 'Resend'}
+                    </button>
+                  </div>
                 ) : (
                   <button className="adm-btn adm-btn-primary" style={{ padding: '.35rem .8rem', fontSize: '.78rem' }}
                           onClick={() => sendSms(c, type, active.days)} disabled={sending[k]}>
