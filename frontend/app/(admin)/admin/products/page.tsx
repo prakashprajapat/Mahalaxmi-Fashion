@@ -60,12 +60,45 @@ function tabOf(p: Product): string {
   return 'out';
 }
 
+// Jo dekha ja raha tha, wahi wapas aane par mile.
+//
+// 140 product hain. Koi "Sarees" chunta hai, niche scroll karke bees-pacchees
+// product baad wale ko kholta hai, kuch sudhar kar wapas aata hai — aur list
+// phir se shuru se, bina filter ke. Us product tak dobara pahunchne me utni hi
+// mehnat lagti hai jitni pehli baar, har baar. Das product theek karne hain to
+// yahi das baar.
+//
+// Isliye chhani hui halat yaad rakhi jati hai: khoj, shreni, tab aur kitna
+// scroll kiya tha. sessionStorage me, localStorage me nahi — ye us tab ki baat
+// hai, agle din ki nahi; browser band hua to bhool jata hai, warna kal subah
+// dukaan adhi chhani hui khulti.
+const VIEW_KEY = 'mfh_admin_products_view';
+
+interface SavedView { search: string; cat: string; tab: string; y: number }
+
+function readView(): SavedView | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = window.sessionStorage.getItem(VIEW_KEY);
+    if (!raw) return null;
+    const v = JSON.parse(raw) as Partial<SavedView>;
+    return {
+      search: typeof v.search === 'string' ? v.search : '',
+      cat:    typeof v.cat    === 'string' ? v.cat    : '',
+      tab:    typeof v.tab    === 'string' ? v.tab    : 'all',
+      y:      typeof v.y      === 'number' ? v.y      : 0,
+    };
+  } catch { return null; }   // private window, band ki hui storage — bhool jana hi theek
+}
+
 export default function AdminProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
-  const [catFilter, setCatFilter] = useState('');
-  const [tab, setTab] = useState('all');
+  // Pehle render par hi purani halat — ek jhalak bina filter ke na dikhe.
+  const saved = useRef<SavedView | null>(typeof window === 'undefined' ? null : readView());
+  const [search, setSearch] = useState(saved.current?.search ?? '');
+  const [catFilter, setCatFilter] = useState(saved.current?.cat ?? '');
+  const [tab, setTab] = useState(saved.current?.tab ?? 'all');
   const [csvPreview, setCsvPreview] = useState<Record<string, string>[]>([]);
   const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
   const [importing, setImporting] = useState(false);
@@ -74,6 +107,39 @@ export default function AdminProductsPage() {
   const [busy, setBusy] = useState('');
   const csvRef = useRef<HTMLInputElement>(null);
   const dropRef = useRef<HTMLLabelElement>(null);
+
+  // Har badlaav par likh dete hain — chhodte waqt likhne ka bharosa nahi kiya
+  // ja sakta: tab band ho sakta hai, browser maar sakta hai.
+  useEffect(() => {
+    try {
+      window.sessionStorage.setItem(VIEW_KEY, JSON.stringify({
+        search, cat: catFilter, tab, y: window.scrollY,
+      }));
+    } catch { /* storage band ho to filter yaad na rahe, kaam na ruke */ }
+  }, [search, catFilter, tab]);
+
+  // Scroll alag se: badalta rehta hai, isliye jaate waqt hi likhna kafi hai.
+  useEffect(() => {
+    const save = () => {
+      try {
+        const raw = window.sessionStorage.getItem(VIEW_KEY);
+        const v = raw ? JSON.parse(raw) : {};
+        window.sessionStorage.setItem(VIEW_KEY, JSON.stringify({ ...v, y: window.scrollY }));
+      } catch { /* ignore */ }
+    };
+    window.addEventListener('pagehide', save);
+    return () => { save(); window.removeEventListener('pagehide', save); };
+  }, []);
+
+  // List aane ke baad hi wahan wapas jaya ja sakta hai jahan chhoda tha —
+  // khali panne par scroll karne ki koi jagah hi nahi hoti.
+  const restored = useRef(false);
+  useEffect(() => {
+    if (loading || restored.current) return;
+    restored.current = true;
+    const y = saved.current?.y ?? 0;
+    if (y > 0) requestAnimationFrame(() => window.scrollTo(0, y));
+  }, [loading]);
 
   const fetchProducts = () =>
     fetchAllProducts({}, getAdminToken() ?? undefined)
