@@ -47,7 +47,12 @@ const hrefFor = (terms: string[]) =>
 // new is built from subcategories.
 const usesPicker = (href: string) => !href.trim() || href.trim().startsWith('/products?subcategory=');
 
-const MIN_SUBS = 2;
+// Pehle yahan 2 tha: ek subcategory ko category maanna galat lagta tha.
+// Lekin dukaan me aisi shreniyan hoti hain jinke neeche sach me ek hi cheez
+// hai — Saree ke neeche sirf Sarees. Aise me niyam dukaan ko sudharta nahi,
+// bas tile banne nahi deta. Ab ginti ka faisla maalik ka hai; shart sirf itni
+// hai ki tile kuch to kholti ho.
+const MIN_SUBS = 1;
 
 export default function HomeCategoriesPage() {
   const [rows, setRows] = useState<Row[]>([]);
@@ -176,8 +181,8 @@ export default function HomeCategoriesPage() {
     if (thin) {
       setMsg({
         kind: 'err',
-        text: `“${thin.label.trim() || 'Unnamed'}” needs at least ${MIN_SUBS} subcategories. `
-            + 'One subcategory on its own is not a category — it is a subcategory, and it does not need a tile.',
+        text: `“${thin.label.trim() || 'Unnamed'}” has no subcategory picked. `
+            + 'Pick at least one, otherwise the tile opens a page with nothing on it.',
       });
       return;
     }
@@ -249,9 +254,10 @@ export default function HomeCategoriesPage() {
         <div>
           <h1>Home Categories</h1>
           <p className="admin-page-sub">
-            The “Shop by category” row on the homepage. A category is made of at least {MIN_SUBS}
-            subcategories — give it a name, pick the subcategories, add a photo. The link writes
-            itself, so it cannot point at a page that does not exist.
+            The “Shop by category” row on the homepage. Give a tile a name, pick one or more
+            subcategories, add a photo. The link writes itself, so it cannot point at a page that
+            does not exist. Photo: 900 × 1200 px (3:4, portrait) — it is cropped from the centre,
+            so keep the garment in the middle.
           </p>
         </div>
         <button onClick={save} disabled={saving} style={{ ...btn('primary'), opacity: saving ? .6 : 1 }}>
@@ -326,7 +332,7 @@ export default function HomeCategoriesPage() {
                 {picker ? (
                   <div>
                     <div style={lbl}>
-                      Which subcategories go in it — pick at least {MIN_SUBS}
+                      Which subcategories go in it — pick one or more
                     </div>
                     {knownSubs.length === 0 ? (
                       <div style={{ fontSize: '.8rem', color: '#9a908a' }}>
@@ -353,8 +359,8 @@ export default function HomeCategoriesPage() {
                     )}
                     <div style={{ fontSize: '.73rem', color: short ? '#c0392b' : '#9a908a', marginTop: '.4rem', fontWeight: short ? 700 : 400 }}>
                       {short
-                        ? `${chosen.length} picked — at least ${MIN_SUBS} are needed. One subcategory on its own is not a category.`
-                        : `${chosen.length} subcategories picked.`}
+                        ? 'Nothing picked yet — pick at least one subcategory, or this tile opens an empty page.'
+                        : `${chosen.length} picked.`}
                     </div>
                     <div style={{ fontSize: '.73rem', color: '#9a908a', marginTop: '.3rem', fontFamily: 'ui-monospace, monospace', wordBreak: 'break-all' }}>
                       Opens: {chosen.length > 0 ? hrefFor(chosen) : '—'}
