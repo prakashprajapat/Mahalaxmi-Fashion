@@ -839,8 +839,14 @@ public class CustomersController : ControllerBase
         if (isAdmin && !string.IsNullOrWhiteSpace(newEmail)) c.Email = newEmail;
         // Birthday & anniversary stay editable until the customer redeems the matching
         // date-based coupon; once that offer is used the date locks (stops repeat claims).
-        if (req.DateOfBirth  != null && !c.BirthdayOfferUsed)    c.DateOfBirth  = ParseDate(req.DateOfBirth);
-        if (req.MarriageDate != null && !c.AnniversaryOfferUsed) c.MarriageDate = ParseDate(req.MarriageDate);
+        //
+        // Wo taala GRAHAK ke liye hai, dukaan ke liye nahi. Grahak tareekh badal
+        // kar har mahine ek nayi "saalgirah" bana sakta tha — isiliye taala laga.
+        // Par galat tareekh darj ho jaye (ya grahak foan par sahi bataye) to use
+        // sudharne wala maalik hi hota hai, aur uske liye taala band darwaza ban
+        // jata tha. Admin ke liye khula rakha hai; grahak ke liye jaisa tha waisa.
+        if (req.DateOfBirth  != null && (isAdmin || !c.BirthdayOfferUsed))    c.DateOfBirth  = ParseDate(req.DateOfBirth);
+        if (req.MarriageDate != null && (isAdmin || !c.AnniversaryOfferUsed)) c.MarriageDate = ParseDate(req.MarriageDate);
         if (req.AddrLine1    != null) c.AddrLine1    = req.AddrLine1;
         if (req.AddrLine2    != null) c.AddrLine2    = req.AddrLine2;
         if (req.Pincode      != null) c.Pincode      = req.Pincode;

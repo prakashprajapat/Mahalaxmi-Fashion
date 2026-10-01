@@ -38,7 +38,7 @@ export default function AdminCustomersPage() {
   const [page, setPage] = useState(1);
 
   const [editCust, setEditCust] = useState<Customer | null>(null);
-  const [editForm, setEditForm] = useState({ firstName: '', lastName: '', email: '', phone: '' });
+  const [editForm, setEditForm] = useState({ firstName: '', lastName: '', email: '', phone: '', dateOfBirth: '', marriageDate: '' });
   const [editMsg, setEditMsg] = useState('');
   const [editSaving, setEditSaving] = useState(false);
 
@@ -103,7 +103,13 @@ export default function AdminCustomersPage() {
 
   const openEdit = (c: Customer) => {
     setEditCust(c);
-    setEditForm({ firstName: c.firstName || '', lastName: c.lastName || '', email: c.email || '', phone: c.phone || '' });
+    setEditForm({
+      firstName: c.firstName || '', lastName: c.lastName || '',
+      email: c.email || '', phone: c.phone || '',
+      // <input type="date"> sirf yyyy-MM-dd leta hai; server bhi wahi bhejta hai.
+      dateOfBirth: (c.dateOfBirth || '').slice(0, 10),
+      marriageDate: (c.marriageDate || '').slice(0, 10),
+    });
     setEditMsg('');
   };
 
@@ -116,6 +122,10 @@ export default function AdminCustomersPage() {
         lastName: editForm.lastName.trim(),
         email: editForm.email.trim(),
         phone: editForm.phone.trim(),
+        // Khali bhejna "mita do" nahi, "chhoo mat" hai — server null ko anadekha
+        // karta hai, isliye khali khana purani tareekh ko mitata nahi.
+        ...(editForm.dateOfBirth  ? { dateOfBirth:  editForm.dateOfBirth  } : {}),
+        ...(editForm.marriageDate ? { marriageDate: editForm.marriageDate } : {}),
       }, getAdminToken() ?? '');
       setEditCust(null);
       fetchCustomers();
@@ -318,7 +328,8 @@ export default function AdminCustomersPage() {
                style={{ background: '#fff', borderRadius: 14, padding: '1.4rem', width: '100%', maxWidth: 420 }}>
             <h2 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800 }}>Edit customer</h2>
             <p className="admin-page-sub" style={{ marginBottom: '.9rem' }}>
-              {editCust.customerCode} — use this to merge a duplicate account, or fix a wrong number.
+              {editCust.customerCode} — use this to merge a duplicate account, fix a wrong number,
+              or correct a birthday or anniversary date.
             </p>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '.6rem' }}>
               <input className="adm-input" placeholder="First name" value={editForm.firstName}
@@ -329,7 +340,22 @@ export default function AdminCustomersPage() {
                      value={editForm.email} onChange={e => setEditForm(f => ({ ...f, email: e.target.value }))} />
               <input className="adm-input" style={{ gridColumn: '1 / -1' }} placeholder="Mobile"
                      value={editForm.phone} onChange={e => setEditForm(f => ({ ...f, phone: e.target.value }))} />
+
+              <div>
+                <label className="adm-stat-l" style={{ display: 'block', marginBottom: '.25rem' }}>Birthday</label>
+                <input className="adm-input" type="date" value={editForm.dateOfBirth}
+                       onChange={e => setEditForm(f => ({ ...f, dateOfBirth: e.target.value }))} />
+              </div>
+              <div>
+                <label className="adm-stat-l" style={{ display: 'block', marginBottom: '.25rem' }}>Anniversary</label>
+                <input className="adm-input" type="date" value={editForm.marriageDate}
+                       onChange={e => setEditForm(f => ({ ...f, marriageDate: e.target.value }))} />
+              </div>
             </div>
+            <p style={{ fontSize: '.76rem', color: '#7d736d', marginTop: '.5rem', lineHeight: 1.6 }}>
+              These two dates decide when the customer appears in Birthday &amp; Anniversary Offers,
+              and the date printed in the SMS. A blank box leaves the stored date untouched.
+            </p>
             {editMsg && <p style={{ fontSize: '.84rem', color: '#c0392b', fontWeight: 700, marginTop: '.6rem' }}>{editMsg}</p>}
             <div style={{ display: 'flex', gap: '.5rem', justifyContent: 'flex-end', marginTop: '1rem' }}>
               <button className="adm-btn" onClick={() => setEditCust(null)}>Cancel</button>
