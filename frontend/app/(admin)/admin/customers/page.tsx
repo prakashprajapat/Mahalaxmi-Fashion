@@ -36,6 +36,11 @@ export default function AdminCustomersPage() {
   const [message, setMessage] = useState('');
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
+  // Dhoondhna server par hota hai (saare khaate), par ye chhanni is panne ke
+  // 50 naamon par lagti hai - isliye iska naam bhi wahi kehta hai.
+  const [showOnly, setShowOnly] = useState('');
+  const [sortBy, setSortBy] = useState<'name' | 'bday' | 'anniv' | ''>('');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
 
   const [editCust, setEditCust] = useState<Customer | null>(null);
   const [editForm, setEditForm] = useState({ firstName: '', lastName: '', email: '', phone: '', dateOfBirth: '', marriageDate: '' });
@@ -185,6 +190,35 @@ export default function AdminCustomersPage() {
     }
   };
 
+  // Tareekh ko "kitne din baad aayegi" me badal dete hain, taki tartib me
+  // janmdin saal ke hisaab se nahi, aane ke hisaab se lage.
+  const dayKey = (raw?: string) => {
+    if (!raw) return 9999;
+    const d = new Date(raw);
+    return Number.isNaN(d.getTime()) ? 9999 : d.getMonth() * 31 + d.getDate();
+  };
+  const onPage = customers.filter(c => {
+    if (!showOnly) return true;
+    if (showOnly === 'bday')  return isToday(c.dateOfBirth);
+    if (showOnly === 'anniv') return isToday(c.marriageDate);
+    if (showOnly === 'risk')  return highRiskIds.has(String(c.id));
+    if (showOnly === 'nophone') return !c.phone;
+    if (showOnly === 'noemail') return !c.email;
+    return true;
+  });
+  const shown = !sortBy ? onPage : [...onPage].sort((a, b) => {
+    let d = 0;
+    if (sortBy === 'name') d = `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`);
+    if (sortBy === 'bday')  d = dayKey(a.dateOfBirth) - dayKey(b.dateOfBirth);
+    if (sortBy === 'anniv') d = dayKey(a.marriageDate) - dayKey(b.marriageDate);
+    return sortDir === 'asc' ? d : -d;
+  });
+  const toggleSort = (k: 'name' | 'bday' | 'anniv') => {
+    if (sortBy === k) setSortDir(d => (d === 'asc' ? 'desc' : 'asc'));
+    else { setSortBy(k); setSortDir('asc'); }
+  };
+  const arrow = (k: string) => (sortBy === k ? (sortDir === 'asc' ? ' \u25b2' : ' \u25bc') : '');
+
   const birthdaysToday = customers.filter(c => isToday(c.dateOfBirth)).length;
   const annivToday = customers.filter(c => isToday(c.marriageDate)).length;
   const riskyOnPage = customers.filter(c => highRiskIds.has(String(c.id))).length;
@@ -261,13 +295,35 @@ export default function AdminCustomersPage() {
       )}
 
       <Card>
-        <input className="adm-input" style={{ width: '100%', maxWidth: '340px' }}
-               placeholder="Search name, email, phone or code"
-               value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} />
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '.5rem', alignItems: 'center' }}>
+          <span style={{ fontSize: '.72rem', fontWeight: 800, textTransform: 'uppercase',
+                         letterSpacing: '.04em', color: '#8a7f76' }}>Filter by</span>
+          <input className="adm-input" style={{ flex: '1 1 200px', maxWidth: 340 }}
+                 placeholder="Search name, email, phone or code"
+                 value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} />
+          <select className="adm-input" style={{ width: '186px' }} value={showOnly}
+                  onChange={e => setShowOnly(e.target.value)}>
+            <option value="">Everyone on this page</option>
+            <option value="bday">Birthday today</option>
+            <option value="anniv">Anniversary today</option>
+            <option value="risk">High risk (COD off)</option>
+            <option value="nophone">No mobile number</option>
+            <option value="noemail">No email</option>
+          </select>
+          {(search || showOnly) && (
+            <button className="adm-btn" onClick={() => { setSearch(''); setShowOnly(''); setPage(1); }}>Clear</button>
+          )}
+        </div>
+        {showOnly && (
+          <p style={{ fontSize: '.75rem', color: '#8a7f76', margin: '.5rem 0 0' }}>
+            Ye chhanni sirf is panne ke {customers.length} naamon par lagti hai. Saare khaato me dhoondhna ho to
+            upar wale search ka istemal kijiye.
+          </p>
+        )}
       </Card>
 
       <Card
-        title={`${customers.length} shown${total > customers.length ? ` of ${total}` : ''}`}
+        title={`${shown.length} shown${total > shown.length ? ` of ${total}` : ''}`}
         right={total > PAGE_SIZE && (
           <span style={{ display: 'flex', gap: '.4rem', alignItems: 'center' }}>
             <button className="adm-btn" style={{ padding: '.3rem .6rem' }} disabled={page === 1}
@@ -282,43 +338,74 @@ export default function AdminCustomersPage() {
           <Empty>Loading customers…</Empty>
         ) : customers.length === 0 ? (
           <Empty>{search ? 'Nobody matches that search.' : 'No customers yet.'}</Empty>
-        ) : customers.map(c => {
-          const risky = highRiskIds.has(String(c.id));
-          const bday = isToday(c.dateOfBirth);
-          const anniv = isToday(c.marriageDate);
-          return (
-            <div key={c.id} className="adm-item">
-              {c.photoUrl
-                ? <img src={c.photoUrl} alt="" className="adm-item-thumb" style={{ borderRadius: '50%' }} />
-                : <div className="adm-item-thumb" style={{ borderRadius: '50%', background: '#fbf1f3', color: '#722f37', fontWeight: 800, fontSize: '1rem' }}>
-                    {(c.firstName || '?').charAt(0).toUpperCase()}
-                  </div>}
-              <div style={{ minWidth: 0 }}>
-                <div className="adm-item-t" style={{ display: 'flex', gap: '.4rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                  {c.firstName} {c.lastName}
-                  {risky && <Pill tone="red">High risk — COD off</Pill>}
-                  {bday && <Pill tone="amber">Birthday today</Pill>}
-                  {anniv && <Pill tone="amber">Anniversary today</Pill>}
-                </div>
-                <div className="adm-item-s">
-                  <span style={{ fontFamily: 'monospace' }}>{c.customerCode}</span>
-                  {c.email ? ` · ${c.email}` : ''}{c.phone ? ` · ${c.phone}` : ''}
-                </div>
-                <div className="adm-item-s">
-                  {[c.district, c.state].filter(Boolean).join(', ') || 'no address'}
-                  {' · '}b {formatDate(c.dateOfBirth)}
-                  {' · '}a {formatDate(c.marriageDate)}
-                </div>
-                <div className="adm-actions" style={{ marginTop: '.35rem' }}>
-                  <button onClick={() => openEdit(c)}>Edit</button>
-                  <button onClick={() => openWallet(c)} style={{ color: '#b26b00' }}>Wallet</button>
-                  <button onClick={() => handleDelete(c)} style={{ color: '#c0392b' }}>Delete</button>
-                </div>
-              </div>
-              <div />
-            </div>
-          );
-        })}
+        ) : (
+          /* Grahak ki list bhi khaane me - naam, code, sampark, jagah, janmdin,
+             saalgirah. Naam, janmdin aur saalgirah ke khaane par click karke
+             tartib badal sakte hain; janmdin ki tartib saal nahi dekhti, sirf
+             din aur mahina, taki "agla janmdin kiska" saaf dikhe. */
+          <div className="adm-table-wrap">
+            <table className="adm-table adm-table-sticky">
+              <thead>
+                <tr>
+                  <th><button type="button" className="adm-sort" onClick={() => toggleSort('name')}>Customer{arrow('name')}</button></th>
+                  <th>Code</th>
+                  <th>Contact</th>
+                  <th>Place</th>
+                  <th><button type="button" className="adm-sort" onClick={() => toggleSort('bday')}>Birthday{arrow('bday')}</button></th>
+                  <th><button type="button" className="adm-sort" onClick={() => toggleSort('anniv')}>Anniversary{arrow('anniv')}</button></th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {shown.map(c => {
+                  const risky = highRiskIds.has(String(c.id));
+                  const bday = isToday(c.dateOfBirth);
+                  const anniv = isToday(c.marriageDate);
+                  return (
+                    <tr key={c.id}>
+                      <td data-label="Customer">
+                        <div style={{ display: 'flex', gap: '.5rem', alignItems: 'center' }}>
+                          {c.photoUrl
+                            ? <img src={c.photoUrl} alt="" style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+                            : <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#fbf1f3', color: '#722f37',
+                                            fontWeight: 800, fontSize: '.85rem', display: 'flex', alignItems: 'center',
+                                            justifyContent: 'center', flexShrink: 0 }}>
+                                {(c.firstName || '?').charAt(0).toUpperCase()}
+                              </div>}
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ fontWeight: 650, color: '#2d2724' }}>{c.firstName} {c.lastName}</div>
+                            <div style={{ display: 'flex', gap: '.3rem', flexWrap: 'wrap' }}>
+                              {risky && <Pill tone="red">COD off</Pill>}
+                              {bday && <Pill tone="amber">Birthday</Pill>}
+                              {anniv && <Pill tone="amber">Anniversary</Pill>}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td data-label="Code" className="mono">{c.customerCode}</td>
+                      <td data-label="Contact">
+                        <div style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {c.email || <span style={{ color: '#c4bab5' }}>no email</span>}
+                        </div>
+                        <div style={{ color: '#9a908a', fontSize: '.72rem' }}>{c.phone || 'no mobile'}</div>
+                      </td>
+                      <td data-label="Place">{[c.district, c.state].filter(Boolean).join(', ') || <span style={{ color: '#c4bab5' }}>&mdash;</span>}</td>
+                      <td data-label="Birthday" style={{ whiteSpace: 'nowrap' }}>{formatDate(c.dateOfBirth)}</td>
+                      <td data-label="Anniversary" style={{ whiteSpace: 'nowrap' }}>{formatDate(c.marriageDate)}</td>
+                      <td data-label="Action">
+                        <div className="adm-actions" style={{ flexWrap: 'wrap', margin: 0 }}>
+                          <button onClick={() => openEdit(c)}>Edit</button>
+                          <button onClick={() => openWallet(c)} style={{ color: '#b26b00' }}>Wallet</button>
+                          <button onClick={() => handleDelete(c)} style={{ color: '#c0392b' }}>Delete</button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </Card>
 
       {editCust && (

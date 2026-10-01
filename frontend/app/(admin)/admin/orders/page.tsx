@@ -579,7 +579,7 @@ export default function AdminOrdersPage() {
              Byora chhupa nahi hai: Order ID par click kijiye, usi pankti ke
              neeche saman ki poori tafseel khul jati hai. */
           <div className="adm-table-wrap">
-            <table className="adm-table adm-orders-table">
+            <table className="adm-table adm-table-sticky">
               <thead>
                 <tr>
                   <th style={{ width: 26 }}>

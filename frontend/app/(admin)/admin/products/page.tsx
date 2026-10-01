@@ -74,7 +74,7 @@ function tabOf(p: Product): string {
 // dukaan adhi chhani hui khulti.
 const VIEW_KEY = 'mfh_admin_products_view';
 
-interface SavedView { search: string; cat: string; tab: string; y: number }
+interface SavedView { search: string; cat: string; sub: string; tab: string; sortBy: string; sortDir: string; y: number }
 
 function readView(): SavedView | null {
   if (typeof window === 'undefined') return null;
@@ -83,10 +83,13 @@ function readView(): SavedView | null {
     if (!raw) return null;
     const v = JSON.parse(raw) as Partial<SavedView>;
     return {
-      search: typeof v.search === 'string' ? v.search : '',
-      cat:    typeof v.cat    === 'string' ? v.cat    : '',
-      tab:    typeof v.tab    === 'string' ? v.tab    : 'all',
-      y:      typeof v.y      === 'number' ? v.y      : 0,
+      search:  typeof v.search  === 'string' ? v.search  : '',
+      cat:     typeof v.cat     === 'string' ? v.cat     : '',
+      sub:     typeof v.sub     === 'string' ? v.sub     : '',
+      tab:     typeof v.tab     === 'string' ? v.tab     : 'all',
+      sortBy:  typeof v.sortBy  === 'string' ? v.sortBy  : '',
+      sortDir: v.sortDir === 'asc' ? 'asc' : 'desc',
+      y:       typeof v.y       === 'number' ? v.y       : 0,
     };
   } catch { return null; }   // private window, band ki hui storage — bhool jana hi theek
 }
@@ -98,7 +101,10 @@ export default function AdminProductsPage() {
   const saved = useRef<SavedView | null>(typeof window === 'undefined' ? null : readView());
   const [search, setSearch] = useState(saved.current?.search ?? '');
   const [catFilter, setCatFilter] = useState(saved.current?.cat ?? '');
+  const [subFilter, setSubFilter] = useState(saved.current?.sub ?? '');
   const [tab, setTab] = useState(saved.current?.tab ?? 'all');
+  const [sortBy, setSortBy] = useState<'name' | 'price' | 'stock' | ''>((saved.current?.sortBy as 'name' | 'price' | 'stock' | '') ?? '');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>(saved.current?.sortDir === 'asc' ? 'asc' : 'desc');
   const [csvPreview, setCsvPreview] = useState<Record<string, string>[]>([]);
   const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
   const [importing, setImporting] = useState(false);
@@ -113,10 +119,10 @@ export default function AdminProductsPage() {
   useEffect(() => {
     try {
       window.sessionStorage.setItem(VIEW_KEY, JSON.stringify({
-        search, cat: catFilter, tab, y: window.scrollY,
+        search, cat: catFilter, sub: subFilter, tab, sortBy, sortDir, y: window.scrollY,
       }));
     } catch { /* storage band ho to filter yaad na rahe, kaam na ruke */ }
-  }, [search, catFilter, tab]);
+  }, [search, catFilter, subFilter, tab, sortBy, sortDir]);
 
   // Scroll alag se: badalta rehta hai, isliye jaate waqt hi likhna kafi hai.
   useEffect(() => {
@@ -167,9 +173,41 @@ export default function AdminProductsPage() {
       (p.sku ?? '').toLowerCase().includes(q) ||
       (p.subcategory ?? '').toLowerCase().includes(q);
     const matchCat = !catFilter || p.category === catFilter;
+    const matchSub = !subFilter || (p.subcategory ?? '') === subFilter;
     const matchTab = tab === 'all' || tabOf(p) === tab;
-    return matchSearch && matchCat && matchTab;
+    return matchSearch && matchCat && matchSub && matchTab;
   });
+
+  // Upvarg ki soochi shreni ke saath badalti hai - "Women" chunne par "Sarees"
+  // dikhe, "Shirts" nahi. Haath se likhi list purani pad jati, isliye catalogue
+  // se hi bana lete hain.
+  const subcats = useMemo(() => Array.from(new Set(
+    products.filter(p => !catFilter || p.category === catFilter)
+            .map(p => (p.subcategory ?? '').trim()).filter(Boolean),
+  )).sort(), [products, catFilter]);
+
+  // Shreni badalne par agar purana upvarg usme hai hi nahi, to khali list
+  // mil jati - isliye woh apne aap hat jata hai.
+  useEffect(() => {
+    if (subFilter && !subcats.includes(subFilter)) setSubFilter('');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [catFilter, subcats.join('|')]);
+
+  const priceOf = (p: Product) =>
+    ((p.discountPrice && p.discountPrice > 0) ? p.discountPrice : p.price) + (p.shippingCharge ?? 0);
+
+  const shown = !sortBy ? filtered : [...filtered].sort((a, b) => {
+    let d = 0;
+    if (sortBy === 'name')  d = a.name.localeCompare(b.name);
+    if (sortBy === 'price') d = priceOf(a) - priceOf(b);
+    if (sortBy === 'stock') d = (a.stock ?? '').localeCompare(b.stock ?? '');
+    return sortDir === 'asc' ? d : -d;
+  });
+  const toggleSort = (k: 'name' | 'price' | 'stock') => {
+    if (sortBy === k) setSortDir(d => (d === 'asc' ? 'desc' : 'asc'));
+    else { setSortBy(k); setSortDir('asc'); }
+  };
+  const arrow = (k: string) => (sortBy === k ? (sortDir === 'asc' ? ' \u25b2' : ' \u25bc') : '');
 
   const handleInactive = async (id: number, sku: string) => {
     if (!confirm(`Mark product SKU ${sku} as Inactive?\nThis product will be removed from the website but not deleted.`)) return;
@@ -320,14 +358,26 @@ export default function AdminProductsPage() {
       )}
 
       <Card>
-        <div style={{ display: 'flex', gap: '.5rem', flexWrap: 'wrap', marginBottom: '.7rem' }}>
-          <input className="adm-input" style={{ flex: '1 1 220px' }}
+        <div style={{ display: 'flex', gap: '.5rem', flexWrap: 'wrap', marginBottom: '.7rem', alignItems: 'center' }}>
+          <span style={{ fontSize: '.72rem', fontWeight: 800, textTransform: 'uppercase',
+                         letterSpacing: '.04em', color: '#8a7f76' }}>Filter by</span>
+          <input className="adm-input" style={{ flex: '1 1 200px' }}
                  placeholder="Search name, SKU or subcategory"
                  value={search} onChange={e => setSearch(e.target.value)} />
           <select className="adm-input" value={catFilter} onChange={e => setCatFilter(e.target.value)}>
             <option value="">All categories</option>
             {CATEGORIES.map(c => <option key={c}>{c}</option>)}
           </select>
+          <select className="adm-input" style={{ maxWidth: 190 }} value={subFilter}
+                  onChange={e => setSubFilter(e.target.value)}>
+            <option value="">All subcategories</option>
+            {subcats.map(sc => <option key={sc} value={sc}>{sc}</option>)}
+          </select>
+          {(search || catFilter || subFilter || sortBy) && (
+            <button className="adm-btn" onClick={() => { setSearch(''); setCatFilter(''); setSubFilter(''); setSortBy(''); }}>
+              Clear
+            </button>
+          )}
         </div>
         <Chips value={tab} onChange={setTab}
                items={TABS.map(t => ({ key: t.key, label: t.label, count: counts[t.key] ?? 0 }))} />
@@ -339,7 +389,7 @@ export default function AdminProductsPage() {
         </div>
       </Card>
 
-      <Card title={`${filtered.length} ${filtered.length === 1 ? 'product' : 'products'}`}>
+      <Card title={`${shown.length} ${shown.length === 1 ? 'product' : 'products'}`}>
         {loading ? (
           <Empty>Loading the catalogue…</Empty>
         ) : filtered.length === 0 ? (
@@ -348,52 +398,81 @@ export default function AdminProductsPage() {
               ? 'Nothing in the catalogue yet. Add your first product and it will appear here.'
               : 'No product matches this search. Clear the search or pick a different tab.'}
           </Empty>
-        ) : filtered.map(p => {
-          const isDraft = p.stock === 'Draft';
-          const isInactive = p.stock === 'Inactive';
-          const off = isDraft || isInactive;
-          const base = (p.discountPrice && p.discountPrice > 0) ? p.discountPrice : p.price;
-          const ship = p.shippingCharge ?? 0;
-          return (
-            <div key={p.dbId} className="adm-item" style={off ? { opacity: .62 } : undefined}>
-              {p.image
-                ? <img src={p.image} alt="" className="adm-item-thumb" style={off ? { filter: 'grayscale(1)' } : undefined} />
-                : <div className="adm-item-thumb">—</div>}
-
-              <div style={{ minWidth: 0 }}>
-                <Link href={`/admin/products/${p.dbId}`} className="adm-item-t" style={{ display: 'block', textDecoration: 'none' }}>
-                  {p.name}
-                </Link>
-                <div className="adm-item-s">
-                  {p.sku || 'no SKU'} · {p.category}{p.subcategory ? ` · ${p.subcategory}` : ''}
-                </div>
-                {isDraft && <div style={{ fontSize: '.72rem', color: '#b26b00', fontWeight: 700, marginTop: '.2rem' }}>
-                  Held back — open it to see what Google is missing.
-                </div>}
-                {isInactive && <div style={{ fontSize: '.72rem', color: '#c0392b', fontWeight: 700, marginTop: '.2rem' }}>
-                  Switched off — not on the website.
-                </div>}
-                <div className="adm-actions" style={{ marginTop: '.35rem' }}>
-                  <Link href={`/admin/products/${p.dbId}`}>Edit</Link>
-                  {isInactive
-                    ? <button onClick={() => handleActivate(p.dbId, p.sku ?? p.name)} style={{ color: '#2e7d32' }}>Activate</button>
-                    : <button onClick={() => handleInactive(p.dbId, p.sku ?? p.name)} style={{ color: '#c0392b' }}>Switch off</button>}
-                </div>
-              </div>
-
-              <div className="adm-item-r">
-                <span className="adm-money">₹{(base + ship).toLocaleString('en-IN')}</span>
-                {ship > 0 && <span className="adm-money-s">incl. ₹{ship.toLocaleString('en-IN')} shipping</span>}
-                {p.discountPrice && p.discountPrice > 0 && p.discountPrice < p.price && (
-                  <span className="adm-money-s" style={{ textDecoration: 'line-through' }}>₹{p.price.toLocaleString('en-IN')}</span>
-                )}
-                <Pill tone={isDraft ? 'amber' : isInactive ? 'grey' : p.stock === 'In Stock' ? 'green' : p.stock === 'Limited Stock' ? 'amber' : 'red'}>
-                  {p.stock}
-                </Pill>
-              </div>
-            </div>
-          );
-        })}
+        ) : (
+          /* Catalogue ab khaane me hai: tasveer aur naam, SKU, shreni, upvarg,
+             daam, haalat. Naam, daam aur haalat ke khaane par click karke
+             tartib badal sakte hain - aur yeh tartib bhi chhanni ke saath yaad
+             rehti hai, to product kholkar wapas aane par list waisi hi milti
+             hai jaisi chhodi thi. */
+          <div className="adm-table-wrap">
+            <table className="adm-table adm-table-sticky">
+              <thead>
+                <tr>
+                  <th><button type="button" className="adm-sort" onClick={() => toggleSort('name')}>Product{arrow('name')}</button></th>
+                  <th>SKU</th>
+                  <th>Category</th>
+                  <th>Subcategory</th>
+                  <th className="num"><button type="button" className="adm-sort" onClick={() => toggleSort('price')}>Price{arrow('price')}</button></th>
+                  <th><button type="button" className="adm-sort" onClick={() => toggleSort('stock')}>Status{arrow('stock')}</button></th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {shown.map(p => {
+                  const isDraft = p.stock === 'Draft';
+                  const isInactive = p.stock === 'Inactive';
+                  const off = isDraft || isInactive;
+                  const base = (p.discountPrice && p.discountPrice > 0) ? p.discountPrice : p.price;
+                  const ship = p.shippingCharge ?? 0;
+                  return (
+                    <tr key={p.dbId} style={off ? { opacity: .68 } : undefined}>
+                      <td data-label="Product">
+                        <div style={{ display: 'flex', gap: '.5rem', alignItems: 'center' }}>
+                          {p.image
+                            ? <img src={p.image} alt="" style={{ width: 36, height: 36, borderRadius: 6, objectFit: 'cover', flexShrink: 0,
+                                                                 border: '1px solid #f0eae7', filter: off ? 'grayscale(1)' : undefined }} />
+                            : <div className="adm-item-thumb" style={{ width: 36, height: 36, fontSize: '.85rem', flexShrink: 0 }}>&mdash;</div>}
+                          <div style={{ minWidth: 0 }}>
+                            <Link href={`/admin/products/${p.dbId}`}
+                                  style={{ fontWeight: 650, color: '#2d2724', textDecoration: 'none', display: 'block',
+                                           maxWidth: 230, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {p.name}
+                            </Link>
+                            {isDraft && <span style={{ fontSize: '.7rem', color: '#b26b00', fontWeight: 700 }}>Held back &mdash; open it to see what Google is missing</span>}
+                            {isInactive && <span style={{ fontSize: '.7rem', color: '#c0392b', fontWeight: 700 }}>Switched off &mdash; not on the website</span>}
+                          </div>
+                        </div>
+                      </td>
+                      <td data-label="SKU" className="mono">{p.sku || <span style={{ color: '#c4bab5' }}>no SKU</span>}</td>
+                      <td data-label="Category">{p.category}</td>
+                      <td data-label="Subcategory">{p.subcategory || <span style={{ color: '#c4bab5' }}>&mdash;</span>}</td>
+                      <td data-label="Price" className="num">
+                        <span className="adm-money">&#8377;{(base + ship).toLocaleString('en-IN')}</span>
+                        {ship > 0 && <div className="adm-money-s">incl. &#8377;{ship.toLocaleString('en-IN')} shipping</div>}
+                        {p.discountPrice && p.discountPrice > 0 && p.discountPrice < p.price && (
+                          <div className="adm-money-s" style={{ textDecoration: 'line-through' }}>&#8377;{p.price.toLocaleString('en-IN')}</div>
+                        )}
+                      </td>
+                      <td data-label="Status">
+                        <Pill tone={isDraft ? 'amber' : isInactive ? 'grey' : p.stock === 'In Stock' ? 'green' : p.stock === 'Limited Stock' ? 'amber' : 'red'}>
+                          {p.stock}
+                        </Pill>
+                      </td>
+                      <td data-label="Action">
+                        <div className="adm-actions" style={{ flexWrap: 'wrap', margin: 0 }}>
+                          <Link href={`/admin/products/${p.dbId}`}>Edit</Link>
+                          {isInactive
+                            ? <button onClick={() => handleActivate(p.dbId, p.sku ?? p.name)} style={{ color: '#2e7d32' }}>Activate</button>
+                            : <button onClick={() => handleInactive(p.dbId, p.sku ?? p.name)} style={{ color: '#c0392b' }}>Switch off</button>}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </Card>
     </div>
   );

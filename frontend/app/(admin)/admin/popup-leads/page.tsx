@@ -32,6 +32,12 @@ export default function PopupLeadsPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [tab, setTab] = useState('all');
+  // Pehle khaana chuniye, phir likhiye - Orders ki tarah. Ek number name me
+  // dhoondhne ka koi matlab nahi hota, aur "sab" me dhoondhne par aksar woh
+  // pankti bhi aa jati hai jo nahi chahiye thi.
+  const [searchIn, setSearchIn] = useState('all');
+  const [filterSource, setFilterSource] = useState('');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
 
   const load = async () => {
     setLoading(true);
@@ -71,14 +77,25 @@ export default function PopupLeadsPage() {
 
   const filtered = leads.filter(l => {
     const q = search.trim().toLowerCase();
-    const matchSearch = !q
-      || (l.email || '').toLowerCase().includes(q)
-      || (l.phone || '').includes(search.trim())
-      || (l.name || '').toLowerCase().includes(q);
+    const hit: Record<string, boolean> = {
+      name:  (l.name || '').toLowerCase().includes(q),
+      email: (l.email || '').toLowerCase().includes(q),
+      phone: (l.phone || '').includes(search.trim()),
+    };
+    const matchSearch = !q || (searchIn === 'all' ? Object.values(hit).some(Boolean) : !!hit[searchIn]);
+    const matchSource = !filterSource || l.source === filterSource;
     const matchTab = tab === 'all'
       || (tab === 'registered' && l.isRegistered)
       || (tab === 'not' && !l.isRegistered);
-    return matchSearch && matchTab;
+    return matchSearch && matchSource && matchTab;
+  });
+
+  // Jahan se lead aayi - har dukaan me do-teen jagah hi hoti hain, isliye naam
+  // haath se likhne ki zaroorat nahi, list khud bana lete hain.
+  const sources = Array.from(new Set(leads.map(l => l.source).filter(Boolean))).sort();
+  const shown = [...filtered].sort((a, b) => {
+    const d = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+    return sortDir === 'asc' ? d : -d;
   });
 
   const registered = leads.filter(l => l.isRegistered).length;
@@ -121,9 +138,28 @@ export default function PopupLeadsPage() {
       )}
 
       <Card>
-        <input className="adm-input" style={{ width: '100%', maxWidth: '320px', marginBottom: '.65rem' }}
-               placeholder="Search name, email or phone"
-               value={search} onChange={e => setSearch(e.target.value)} />
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '.5rem', alignItems: 'center', marginBottom: '.65rem' }}>
+          <span style={{ fontSize: '.72rem', fontWeight: 800, textTransform: 'uppercase',
+                         letterSpacing: '.04em', color: '#8a7f76' }}>Filter by</span>
+          <select className="adm-input" style={{ width: '116px' }} value={searchIn}
+                  onChange={e => setSearchIn(e.target.value)}>
+            <option value="all">All fields</option>
+            <option value="name">Name</option>
+            <option value="email">Email</option>
+            <option value="phone">Phone</option>
+          </select>
+          <input className="adm-input" style={{ flex: '1 1 180px', maxWidth: 320 }}
+                 placeholder={searchIn === 'all' ? 'Search name, email or phone' : 'Search'}
+                 value={search} onChange={e => setSearch(e.target.value)} />
+          <select className="adm-input" style={{ width: '150px' }} value={filterSource}
+                  onChange={e => setFilterSource(e.target.value)}>
+            <option value="">Source: all</option>
+            {sources.map(sc => <option key={sc} value={sc}>{sc}</option>)}
+          </select>
+          {(search || filterSource) && (
+            <button className="adm-btn" onClick={() => { setSearch(''); setFilterSource(''); }}>Clear</button>
+          )}
+        </div>
         <Chips value={tab} onChange={setTab}
                items={[
                  { key: 'all', label: 'All', count: leads.length },
@@ -141,30 +177,60 @@ export default function PopupLeadsPage() {
               ? 'Nobody has filled in the popup yet. Leads land here the moment they do.'
               : 'Nothing matches that search.'}
           </Empty>
-        ) : filtered.map(l => {
-          const ph = (l.phone || '').replace(/\D/g, '');
-          return (
-            <div key={l.id} className="adm-item" style={{ gridTemplateColumns: 'minmax(0,1fr) auto' }}>
-              <div style={{ minWidth: 0 }}>
-                <div className="adm-item-t" style={{ display: 'flex', gap: '.45rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                  {l.name || 'No name given'}
-                  {l.isRegistered ? <Pill tone="green">Customer</Pill> : <Pill tone="amber">No account</Pill>}
-                  {isToday(l.createdAt) && <Pill tone="grey">Today</Pill>}
-                </div>
-                <div className="adm-item-s">
-                  {l.email || 'no email'}{l.phone ? ` · ${l.phone}` : ''} · from {l.source}
-                </div>
-                <div className="adm-item-s">{formatDate(l.createdAt)}</div>
-                <div className="adm-actions" style={{ marginTop: '.35rem', flexWrap: 'wrap' }}>
-                  {ph && <a href={`https://wa.me/91${ph.slice(-10)}`} target="_blank" rel="noopener noreferrer" style={{ color: '#128C7E' }}>WhatsApp</a>}
-                  {l.email && <a href={`mailto:${l.email}`}>Email</a>}
-                  <button onClick={() => handleDelete(l.id)} style={{ color: '#c0392b' }}>Delete</button>
-                </div>
-              </div>
-              <div />
-            </div>
-          );
-        })}
+        ) : (
+          /* Lead ki list bhi ab khaane me hai - naam, email, phone, kahan se
+             aayi, account bana ya nahi, kab aayi. Aankh seedhi neeche utarti
+             hai, aur ek jaisi cheez ek hi khaane me milti hai. */
+          <div className="adm-table-wrap">
+            <table className="adm-table adm-table-sticky">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Email</th>
+                  <th>Phone</th>
+                  <th>Source</th>
+                  <th>Status</th>
+                  <th>
+                    <button type="button" className="adm-sort"
+                            onClick={() => setSortDir(d => (d === 'asc' ? 'desc' : 'asc'))}>
+                      Came in{sortDir === 'asc' ? ' \u25b2' : ' \u25bc'}
+                    </button>
+                  </th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {shown.map(l => {
+                  const ph = (l.phone || '').replace(/\D/g, '');
+                  return (
+                    <tr key={l.id}>
+                      <td data-label="Name">
+                        <div style={{ fontWeight: 650, color: '#2d2724', display: 'flex', gap: '.4rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                          {l.name || 'No name given'}
+                          {isToday(l.createdAt) && <Pill tone="grey">Today</Pill>}
+                        </div>
+                      </td>
+                      <td data-label="Email">{l.email || <span style={{ color: '#c4bab5' }}>&mdash;</span>}</td>
+                      <td data-label="Phone" className="mono">{l.phone || <span style={{ color: '#c4bab5' }}>&mdash;</span>}</td>
+                      <td data-label="Source">{l.source}</td>
+                      <td data-label="Status">
+                        {l.isRegistered ? <Pill tone="green">Customer</Pill> : <Pill tone="amber">No account</Pill>}
+                      </td>
+                      <td data-label="Came in" style={{ whiteSpace: 'nowrap' }}>{formatDate(l.createdAt)}</td>
+                      <td data-label="Action">
+                        <div className="adm-actions" style={{ flexWrap: 'wrap', margin: 0 }}>
+                          {ph && <a href={`https://wa.me/91${ph.slice(-10)}`} target="_blank" rel="noopener noreferrer" style={{ color: '#128C7E' }}>WhatsApp</a>}
+                          {l.email && <a href={`mailto:${l.email}`}>Email</a>}
+                          <button onClick={() => handleDelete(l.id)} style={{ color: '#c0392b' }}>Delete</button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </Card>
     </div>
   );

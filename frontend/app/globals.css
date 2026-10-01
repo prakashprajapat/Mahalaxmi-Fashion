@@ -2189,17 +2189,17 @@ a.footer-app-btn.footer-app-live:hover{ background:rgba(255,255,255,.16); transf
 .adm-table .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .76rem; }
 .adm-table .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 
-/* ─── Orders table ───
+/* ─── Sticky-header admin tables ───
    Orders din bhar padhi jati hai, isliye yahan khaane ke naam chipke rehte
    hain — do sau pankti neeche jaakar bhi pata rehta hai kaun sa khaana kaun
    hai. Order ID khud hi woh batan hai jo usi pankti ke neeche poora byora
    khol deta hai. */
-.adm-orders-table thead th {
+.adm-table-sticky thead th {
   position: sticky; top: 0; z-index: 2; background: #fff;
   box-shadow: 0 1px 0 #eee3e4;
 }
-.adm-orders-table tbody td { vertical-align: middle; }
-.adm-orders-table tbody tr:not(.adm-row-detail):hover > td { background: #fdfbfa; }
+.adm-table-sticky tbody td { vertical-align: middle; }
+.adm-table-sticky tbody tr:not(.adm-row-detail):hover > td { background: #fdfbfa; }
 .adm-row-detail > td { background: #fbf8f7; }
 
 /* Tartib badalne wala khaane ka naam — dikhta waisa hi hai, par dabta hai. */
@@ -2220,8 +2220,8 @@ a.footer-app-btn.footer-app-live:hover{ background:rgba(255,255,255,.16); transf
 @media (max-width: 900px) {
   /* Phone par pankti card ban jati hai, to chipakna bemani hai. Byora ka card
      apne order wale card se juda rahe, alag na dikhe. */
-  .adm-orders-table thead th { position: static; box-shadow: none; }
-  .adm-orders-table tr.adm-row-detail {
+  .adm-table-sticky thead th { position: static; box-shadow: none; }
+  .adm-table-sticky tr.adm-row-detail {
     margin-top: -.75rem !important;
     border-top-left-radius: 0 !important;
     border-top-right-radius: 0 !important;
@@ -2280,10 +2280,11 @@ a.footer-app-btn.footer-app-live:hover{ background:rgba(255,255,255,.16); transf
   .adm-table td[data-label='Action'] { flex-wrap: wrap; justify-content: flex-start; text-align: left; }
   .adm-table td[data-label='Action'] > * { margin-right: .9rem; }
 
-  /* Item photos and colour swatches line up on the right like everything else. */
-  .adm-table td[data-label='Item(s)'] > div,
-  .adm-table td[data-label='Colour/Design'] > div,
-  .adm-table td[data-label='Size'] > div { align-items: flex-end; }
+  /* Tasveer aur rang ke gole bhi baki sab ki tarah daayin taraf lagte hain. */
+  .adm-table td[data-label='Order'] > div,
+  .adm-table td[data-label='Product'] > div,
+  .adm-table td[data-label='Customer'] > div,
+  .adm-table td[data-label='Size / Colour'] > div { align-items: flex-end; justify-content: flex-end; }
 
   /* The wrapper no longer needs a sideways scrollbar. */
   .adm-table-wrap { overflow-x: visible !important; }
