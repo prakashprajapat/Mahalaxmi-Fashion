@@ -68,10 +68,15 @@ function tabOf(p: Product): string {
 // mehnat lagti hai jitni pehli baar, har baar. Das product theek karne hain to
 // yahi das baar.
 //
-// Isliye chhani hui halat yaad rakhi jati hai: khoj, shreni, tab aur kitna
-// scroll kiya tha. sessionStorage me, localStorage me nahi — ye us tab ki baat
-// hai, agle din ki nahi; browser band hua to bhool jata hai, warna kal subah
-// dukaan adhi chhani hui khulti.
+// Isliye chhani hui halat yaad rakhi jati hai: khoj, shreni, upvarg, tab,
+// tartib aur kitna scroll kiya tha.
+//
+// localStorage me, sessionStorage me nahi. Pehle ye us tab tak hi yaad rehti
+// thi, is soch se ki kal subah dukaan adhi chhani hui na khule. Par kaam aisa
+// nahi chalta: Sarees theek karte-karte shaam ho jati hai aur agle din wahi
+// kaam wahin se uthana hota hai. Isliye ab jo chuna hai wahi laga rehta hai —
+// jab tak khud na badlein. Hatana ho to "Clear" wahin bagal me hai, aur
+// chipkon me "All 140" hamesha dikhta rehta hai, to chhanni chhup nahi sakti.
 const VIEW_KEY = 'mfh_admin_products_view';
 
 interface SavedView { search: string; cat: string; sub: string; tab: string; sortBy: string; sortDir: string; y: number }
@@ -79,7 +84,7 @@ interface SavedView { search: string; cat: string; sub: string; tab: string; sor
 function readView(): SavedView | null {
   if (typeof window === 'undefined') return null;
   try {
-    const raw = window.sessionStorage.getItem(VIEW_KEY);
+    const raw = window.localStorage.getItem(VIEW_KEY);
     if (!raw) return null;
     const v = JSON.parse(raw) as Partial<SavedView>;
     return {
@@ -118,7 +123,7 @@ export default function AdminProductsPage() {
   // ja sakta: tab band ho sakta hai, browser maar sakta hai.
   useEffect(() => {
     try {
-      window.sessionStorage.setItem(VIEW_KEY, JSON.stringify({
+      window.localStorage.setItem(VIEW_KEY, JSON.stringify({
         search, cat: catFilter, sub: subFilter, tab, sortBy, sortDir, y: window.scrollY,
       }));
     } catch { /* storage band ho to filter yaad na rahe, kaam na ruke */ }
@@ -128,9 +133,9 @@ export default function AdminProductsPage() {
   useEffect(() => {
     const save = () => {
       try {
-        const raw = window.sessionStorage.getItem(VIEW_KEY);
+        const raw = window.localStorage.getItem(VIEW_KEY);
         const v = raw ? JSON.parse(raw) : {};
-        window.sessionStorage.setItem(VIEW_KEY, JSON.stringify({ ...v, y: window.scrollY }));
+        window.localStorage.setItem(VIEW_KEY, JSON.stringify({ ...v, y: window.scrollY }));
       } catch { /* ignore */ }
     };
     window.addEventListener('pagehide', save);
@@ -186,12 +191,19 @@ export default function AdminProductsPage() {
             .map(p => (p.subcategory ?? '').trim()).filter(Boolean),
   )).sort(), [products, catFilter]);
 
-  // Shreni badalne par agar purana upvarg usme hai hi nahi, to khali list
-  // mil jati - isliye woh apne aap hat jata hai.
+  // Shreni badalne par agar purana upvarg usme hai hi nahi, to khali list mil
+  // jati — isliye woh apne aap hat jata hai.
+  //
+  // Par sirf tab, jab catalogue haath me ho. Pehla render khali list ke saath
+  // hota hai, to upvargon ki soochi bhi khali hoti hai — aur yahi chhanni
+  // "Sarees" ko usme na paakar saaf kar deti thi. Natija: wapas aate hi chuna
+  // hua upvarg apne aap "All subcategories" ho jata tha, bina kisi ke chhue.
+  // Khali soochi ka matlab "aisa upvarg hai hi nahi" nahi, "abhi pata nahi" hai.
   useEffect(() => {
+    if (loading || products.length === 0) return;
     if (subFilter && !subcats.includes(subFilter)) setSubFilter('');
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [catFilter, subcats.join('|')]);
+  }, [loading, products.length, catFilter, subcats.join('|')]);
 
   const priceOf = (p: Product) =>
     ((p.discountPrice && p.discountPrice > 0) ? p.discountPrice : p.price) + (p.shippingCharge ?? 0);
