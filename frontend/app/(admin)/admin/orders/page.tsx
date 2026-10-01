@@ -123,6 +123,21 @@ export default function AdminOrdersPage() {
   const [genAwbId, setGenAwbId] = useState<string | null>(null);    // order currently auto-generating an AWB
   const [updating, setUpdating] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  // Kaun sa order khula hua hai.
+  //
+  // Pehle har order apna poora byora khole rakhta tha — saman ki tasveer, SKU,
+  // rang, naap, aur niche teen batan. Do order me hi poori screen bhar jati
+  // thi, aur dus order dekhne ke liye scroll karte rehna padta tha. Kaam ke
+  // waqt sawal aksar ek hi hota hai: "kaun sa aaya, kiska, kitne ka, kahan tak
+  // pahuncha" — uske liye ek pankti kafi hai. Byora tab chahiye jab usi order
+  // par kuch karna ho, aur tab ek click door hai.
+  const [openIds, setOpenIds] = useState<Set<string>>(new Set());
+  const toggleOpen = (id: string) => setOpenIds(prev => {
+    const next = new Set(prev);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
   // Return-details modal (view media + approve/reject)
   const [returnModalId, setReturnModalId] = useState<string | null>(null);
   const [showReject, setShowReject] = useState(false);
@@ -513,6 +528,9 @@ export default function AdminOrdersPage() {
           </Empty>
         ) : filtered.map(o => {
           const picked = selectedIds.has(o.id);
+          const isOpen = openIds.has(o.id);
+          const lines = o.cart ?? [];
+          const pieces = lines.reduce((n, c) => n + (c.quantity ?? 1), 0);
           const placed = new Date(o.placedAt ?? o.createdAt);
           const tone = o.status === 'Delivered' ? 'green'
             : o.status === 'Cancelled' ? 'grey'
@@ -543,6 +561,22 @@ export default function AdminOrdersPage() {
                   {/* Size and colour used to be their own columns as well as being
                       written on every item. Once is enough, and it is the line
                       the packer actually reads. */}
+                  {/* Band halat me ek hi pankti: kya gaya aur kitna. Naam
+                      pehle saman ka, kyunki pehchan wahi hai. */}
+                  {!isOpen && lines.length > 0 && (
+                    <button type="button" onClick={() => toggleOpen(o.id)}
+                            style={{ background: 'none', border: 0, padding: '.3rem 0 0', cursor: 'pointer',
+                                     font: 'inherit', fontSize: '.76rem', color: '#7d736d', textAlign: 'left',
+                                     display: 'flex', gap: '.35rem', alignItems: 'center', maxWidth: '100%' }}>
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {lines[0].name}{lines.length > 1 ? ` +${lines.length - 1} more` : ''}
+                      </span>
+                      <span style={{ flexShrink: 0, color: '#9a908a' }}>· {pieces} pc{pieces === 1 ? '' : 's'}</span>
+                      <span style={{ flexShrink: 0, color: '#722f37', fontWeight: 700 }}>Details ▾</span>
+                    </button>
+                  )}
+
+                  {isOpen && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '.4rem', marginTop: '.5rem' }}>
                     {(o.cart ?? []).map((c, ci) => {
                       const thumb = productImageSrc(c.colorPhoto || c.image);
@@ -571,8 +605,11 @@ export default function AdminOrdersPage() {
                       );
                     })}
                   </div>
+                  )}
 
+                  {isOpen && (
                   <div className="adm-actions" style={{ marginTop: '.55rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                    <button onClick={() => toggleOpen(o.id)} style={{ color: '#7d736d' }}>Close ▴</button>
                     <button onClick={() => downloadShippingLabel(o)}>Label</button>
                     <button onClick={() => ordersApi.downloadInvoice(o.id, getAdminToken() ?? '').catch(() => {})}>Invoice</button>
                     {o.customerPhone && (
@@ -596,6 +633,7 @@ export default function AdminOrdersPage() {
                       </button>
                     )}
                   </div>
+                  )}
                 </div>
               </div>
             </div>
