@@ -376,7 +376,32 @@ public class CustomersController : ControllerBase
                 message = "Could not reach MSG91 just now. Coupon " + coupon.Code + " is created; try again." });
         }
 
-        return Ok(new { success = true, message = $"SMS sent to {req.Phone}.", couponCode = coupon.Code, response = resBody });
+        // MSG91 ka apna request id. Uske panel ki report me har sandesh isi id se
+        // mila jata hai. Abhi tak ye jawab aata to tha par kahin dikhta nahi tha,
+        // isliye "bheja gaya par pahuncha nahi" ki jaanch nambar se chhan kar
+        // karni padti thi — report me saikdon pankti hoti hain. Id haath me ho to
+        // seedhi pankti khulti hai, aur wahan likha hota hai Delivered, Failed,
+        // Rejected ya DND. Asli jawab wahi deta hai; humara "Sent" sirf itna
+        // kehta hai ki MSG91 ne sandesh le liya.
+        //
+        // v5/flow success par { "message": "<request id>", "type": "success" }
+        // lautata hai, yani id usi "message" me hoti hai.
+        string? requestId = null;
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(resBody);
+            if (doc.RootElement.ValueKind == System.Text.Json.JsonValueKind.Object
+                && doc.RootElement.TryGetProperty("message", out var m)
+                && m.ValueKind == System.Text.Json.JsonValueKind.String)
+            {
+                var v = m.GetString();
+                if (!string.IsNullOrWhiteSpace(v)) requestId = v.Trim();
+            }
+        }
+        catch { /* jawab JSON na ho to id ke bina bhi kaam chalta hai */ }
+
+        return Ok(new { success = true, message = $"SMS sent to {req.Phone}.", couponCode = coupon.Code,
+                        requestId, response = resBody });
     }
 
     /// Enough of a gateway's reply to act on, without pasting a wall of JSON

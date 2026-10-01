@@ -75,7 +75,17 @@ export default function BirthdayPage() {
         body: JSON.stringify({ phone: c.phone, occasion: type, slab: slabDays }),
       });
       const json = await res.json();
-      setResult(r => ({ ...r, [key]: res.ok ? `Sent — code ${json.couponCode ?? '—'}` : json.message }));
+      // MSG91 ka request id saath me. "Sent" sirf itna kehta hai ki MSG91 ne
+      // sandesh le liya — pahuncha ya nahi, ye uski report batati hai, aur
+      // wahan ki pankti isi id se milti hai. Bina iske nambar se chhanna padta
+      // tha.
+      setResult(r => ({
+        ...r,
+        [key]: res.ok
+          ? `Sent — code ${json.couponCode ?? '—'}`
+            + (json.requestId ? ` · MSG91 ref ${json.requestId}` : '')
+          : json.message,
+      }));
       if (res.ok) {
         setSent(prev => {
           const next = { ...prev, [sentKey(c.id, type, slabDays)]: new Date().toISOString().slice(0, 10) };
