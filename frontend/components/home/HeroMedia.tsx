@@ -76,8 +76,13 @@ export default function HeroMedia({
       style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
   ) : (
     <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src="/logo.webp?v=5" alt="Mahalaxmi Fashion Hub"
+      {/* Yahi mukhya panne ki sabse pehli aur sabse badi tasveer hai.
+          Pehle ye seedha <img src="/logo.webp?v=5"> thi — yani poori 45 KB ki
+          kachchi file, bina chhoti kiye, jabki uparwale navbar me wahi logo
+          next/image se 12 KB me aa raha tha. Ek hi panne par ek hi logo do
+          baar, aur bada wala theek wahan jahan se LCP napi jati hai. */}
+      <Image src="/logo.webp" alt="Mahalaxmi Fashion Hub"
+        width={547} height={300} priority sizes="(max-width: 768px) 92vw, 520px"
         style={{ maxWidth: '92%', maxHeight: '92%', width: 'auto', height: 'auto', objectFit: 'contain' }} />
     </div>
   );
@@ -93,8 +98,8 @@ export default function HeroMedia({
     }
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 'clamp(150px, 20vw, 260px)' }}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/logo.webp?v=5" alt="Mahalaxmi Fashion Hub"
+        <Image src="/logo.webp" alt="Mahalaxmi Fashion Hub"
+          width={547} height={300} priority sizes="(max-width: 768px) 92vw, 520px"
           style={{ maxWidth: '92%', maxHeight: '100%', width: 'auto', height: 'auto', objectFit: 'contain' }} />
       </div>
     );

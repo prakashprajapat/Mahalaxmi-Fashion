@@ -9,8 +9,19 @@ import CustomerReviews from '@/components/reviews/CustomerReviews';
 import FaqSection from '@/components/home/FaqSection';
 import { toListingProducts } from '@/lib/listingProduct';
 
-// No searchParams = page is fully ISR-cached; 60s so new products appear quickly.
-export const revalidate = 60;
+// Mukhya panna kitni der tak taiyaar rakha jata hai.
+//
+// 60 second tha. Har 60 second me panna bhula diya jata tha, aur agla aane
+// wala banne ka intezar karta tha — WebPageTest par pehla byte aane me 968ms
+// lage, jo 2.27s ki poori FCP ka kareeb aadha hissa hai. Cloudflare bhi isi
+// ginti par chalta hai (Next khud s-maxage me yahi bhejta hai), to CDN ke
+// paas bhi panna sirf ek minute rukta tha.
+//
+// Paanch minute: naya product panne par das guna kam intezar ke saath aata
+// hai, aur dukaandar ko farq itna hi padta hai ki naya saaman 5 minute me
+// dikhega 1 minute ke bajay. Products ki poori suchi (/products) par alag se
+// 300s pehle se hai, to ye uske saath mel bhi khaata hai.
+export const revalidate = 300;
 
 // Homepage SEO — admin-editable from Settings → "SEO — Homepage & Google".
 // Falls back to the site defaults (in layout.tsx) when a field is left blank.

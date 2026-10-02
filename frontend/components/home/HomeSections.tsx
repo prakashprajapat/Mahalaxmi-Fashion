@@ -48,9 +48,17 @@ export function BestSellersSection({ products }: { products: Product[] }) {
         </div>
 
         <div className="products-grid">
-          {/* Load ALL Best Sellers eagerly (this is the top preview section) so the second
-              row never shows as blank cards while lazy-loading. */}
-          {sorted.map((p) => <ProductCard key={p.dbId} product={p} priority />)}
+          {/* Sirf pehli pankti ko priority.
+              Pehle HAR best seller par priority lagi thi — yani aath-das
+              tasveerein ek saath "sabse pehle mujhe lao" keh rahi thin, aur
+              unke saath hero ki asli badi tasveer bhi. Jab sab cheezein
+              sabse zaroori hoti hain to koi cheez zaroori nahi rehti:
+              browser sabko baant kar deta hai aur jo sach me pehle chahiye
+              thi wo aakhir me aati hai. WebPageTest par Speed Index 6.5s
+              isi ka natija tha.
+              Baaki apne aap tab aati hain jab paas aati hain — foan par wo
+              waise bhi parde se neeche hain. */}
+          {sorted.map((p, idx) => <ProductCard key={p.dbId} product={p} priority={idx < 4} />)}
         </div>
       </div>
     </section>
