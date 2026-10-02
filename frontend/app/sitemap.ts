@@ -29,10 +29,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${BASE}/kids`,                               lastModified: new Date(), changeFrequency: 'weekly', priority: 0.8 },
     { url: `${BASE}/beauty`,                             lastModified: new Date(), changeFrequency: 'weekly', priority: 0.7 },
     { url: `${BASE}/fabrics`,                            lastModified: new Date(), changeFrequency: 'weekly', priority: 0.7 },
-    { url: `${BASE}/products?category=saree`,            lastModified: new Date(), changeFrequency: 'weekly', priority: 0.8 },
-    { url: `${BASE}/products?category=nighty`,           lastModified: new Date(), changeFrequency: 'weekly', priority: 0.8 },
-    { url: `${BASE}/products?category=petticoat`,        lastModified: new Date(), changeFrequency: 'weekly', priority: 0.8 },
-    { url: `${BASE}/become-supplier`,                    lastModified: new Date(), changeFrequency: 'monthly', priority: 0.5 },
+    { url: `${BASE}/more`,                               lastModified: new Date(), changeFrequency: 'weekly', priority: 0.6 },
+    // ?category=saree / nighty / petticoat yahan se hata diye. Wo apne aap ko
+    // /saree, /nighty, /petticoat batate the - aise koi panne hain hi nahi, to
+    // Google teenon ko gira deta tha. Ab canonical sudhar gaya hai, par in
+    // chhante hue panno ki asli jagah /products?subcategory=... hai, jiske apne
+    // andar ke link Google khud chal kar dhoond leta hai.
+    //
+    // /become-supplier bhi hata diya: uske apne layout me noindex likha hai,
+    // aur noindex panna sitemap me dene se Search Console me "Submitted URL
+    // marked noindex" ki galti aati hai.
 
     // ── SEO collection landing pages (Koskii-style keyword pages) ─────────────
     ...collectionSlugs.map(slug => ({
@@ -46,6 +52,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${BASE}/about-us`,                     lastModified: new Date(), changeFrequency: 'monthly', priority: 0.6 },
     { url: `${BASE}/contact`,                      lastModified: new Date(), changeFrequency: 'monthly', priority: 0.6 },
     { url: `${BASE}/blog`,                         lastModified: new Date(), changeFrequency: 'weekly',  priority: 0.6 },
+    { url: `${BASE}/customer-reviews`,             lastModified: new Date(), changeFrequency: 'weekly',  priority: 0.6 },
 
     // ── Blog articles ─────────────────────────────────────────────────────────
     ...posts.map(p => ({

@@ -64,3 +64,4 @@ frontend/public/product-images/
 # tracking it makes a changed file appear after every build.
 frontend/tsconfig.tsbuildinfo
 *.tsbuildinfo
+.next-seocheck/

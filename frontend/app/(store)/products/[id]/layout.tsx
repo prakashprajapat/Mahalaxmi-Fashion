@@ -31,14 +31,25 @@ export async function generateMetadata({ params }: { params: { id: string } }): 
     const canonical = `/products/${productSlug(product.name, product.dbId)}`;
     const fullTitle = `${name} | Mahalaxmi Fashion Hub`;
 
-    // Meta (Instagram/Facebook) ek product link ko tabhi pehchanta hai jab panne
-    // par Open Graph ke PRODUCT tags hon — og:type=product aur daam. Ab tak yahan
-    // og:type "website" tha aur daam kahin nahi, isliye Instagram ke "Add a
-    // product URL" me sahi link par bhi "Invalid URL" aata tha.
+    // Open Graph — yani jo Facebook, Instagram aur WhatsApp link ke saath
+    // dikhate hain.
     //
-    // Ye tags `other` se bheje jaate hain kyunki Next ke openGraph.type me
-    // 'product' hai hi nahi; isliye openGraph block hata kar saare og tags yahin
-    // se jaate hain — warna og:type do baar nikalta.
+    // Pehle ye saare tag `other` se bheje jate the. Next `other` ki har cheez
+    // ko <meta NAME="og:title"> likhta hai (maine next/dist/lib/metadata/
+    // generate/basic.js me dekha: wo seedha `name` paas karta hai). Open Graph
+    // ka niyam PROPERTY maangta hai, name nahi - to Facebook in tagon ko padhta
+    // hi nahi tha.
+    //
+    // Aur kyunki yahan apna openGraph block tha hi nahi, root wala jyon ka
+    // tyon utar aata tha. Natija: har product ke link par Facebook ko mukhya
+    // panne ka naam, mukhya panne ka byora aur mukhya panne ki tasveer dikhti
+    // thi - 440 alag products, saare share par ek jaisi.
+    //
+    // Ab openGraph se jata hai, jise Next property= ke saath likhta hai.
+    // `type` jaan-boojh kar nahi diya: Next ki soochi me 'product' hai hi nahi
+    // aur koi anjaan type dene par wo build me error fenk deta hai; type na ho
+    // to Facebook khud 'website' maan leta hai, jo galat naam-tasveer dikhane
+    // se behtar hai.
     const price = finalUnitPrice(product);
     const soldOut = String(product.stock ?? '').trim().toLowerCase() === 'out of stock';
 
@@ -46,13 +57,20 @@ export async function generateMetadata({ params }: { params: { id: string } }): 
       title: name,
       description,
       alternates: { canonical },
+      openGraph: {
+        siteName: 'Mahalaxmi Fashion Hub',
+        locale: 'en_IN',
+        title: fullTitle,
+        description,
+        url: `${BASE}${canonical}`,
+        images: [{ url: ogImage, width: 1200, height: 630, alt: name }],
+      },
+      // Facebook ke apne product tag. Inhe Next sirf name= se likh pata hai,
+      // property= se nahi, isliye Facebook inpar bharosa nahi karega. Rehne
+      // diye kyunki inka koi nuksan nahi aur daam-stock dusre paathak (jaise
+      // kuch scraper) inhe padh lete hain. Instagram par product URL asal me
+      // CATALOGUE se mili hai ya nahi, usi se tay hoti hai - in tagon se nahi.
       other: {
-        'og:type': 'product',
-        'og:title': fullTitle,
-        'og:description': description,
-        'og:url': `${BASE}${canonical}`,
-        'og:image': ogImage,
-        'og:site_name': 'Mahalaxmi Fashion Hub',
         'product:price:amount': String(price),
         'product:price:currency': 'INR',
         'product:availability': soldOut ? 'out of stock' : 'in stock',
@@ -71,6 +89,9 @@ export async function generateMetadata({ params }: { params: { id: string } }): 
     return {};
   }
 }
+
+// Jin category naamon ka apna panna sach me maujood hai.
+const CATEGORY_ROUTES = new Set(['women', 'men', 'kids', 'beauty', 'fabrics', 'more']);
 
 // Server-rendered Product + BreadcrumbList JSON-LD. Emitting it here (a server component)
 // puts the structured data in the initial HTML — fully crawlable without JS — and includes
@@ -169,7 +190,18 @@ async function buildJsonLd(idParam: string): Promise<string | null> {
         { '@type': 'ListItem', position: 1, name: 'Home', item: BASE },
         { '@type': 'ListItem', position: 2, name: 'Products', item: `${BASE}/products` },
         ...(product.category
-          ? [{ '@type': 'ListItem', position: 3, name: product.category, item: `${BASE}/${product.category.toLowerCase().replace(/\s+/g, '-')}` }]
+          // Pehle category ka naam seedha URL bana diya jata tha - "Nighty"
+          // se /nighty, "Saree" se /saree. Aise koi panne hain hi nahi, to
+          // breadcrumb ka teesra paaydaan 404 par le jata tha, aur 404 par
+          // jaane wala breadcrumb Google poora hi radd kar deta hai. Ab jin
+          // category ka apna panna hai bas unka link, baaki ke liye /products
+          // par chhanta hua panna.
+          ? [{
+              '@type': 'ListItem', position: 3, name: product.category,
+              item: CATEGORY_ROUTES.has(product.category.toLowerCase().trim())
+                ? `${BASE}/${product.category.toLowerCase().trim()}`
+                : `${BASE}/products?category=${encodeURIComponent(product.category.toLowerCase().trim())}`,
+            }]
           : []),
         { '@type': 'ListItem', position: product.category ? 4 : 3, name: product.name },
       ],

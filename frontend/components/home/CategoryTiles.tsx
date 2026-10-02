@@ -78,7 +78,11 @@ export default async function CategoryTiles({ products }: { products: Product[] 
                 {t.image && (
                   <Image
                     src={t.image}
-                    alt=""
+                    /* Khali alt ka matlab hai "yeh tasveer sirf sajawat hai".
+                       Ye dukaan ki mukhya category ki tasveerein hain, sajawat
+                       nahi - khali alt ke saath Google Images me inka koi naam
+                       hi nahi tha. */
+                    alt={t.label}
                     fill
                     sizes="(max-width: 600px) 45vw, (max-width: 1024px) 30vw, 18vw"
                     style={{ objectFit: 'cover' }}

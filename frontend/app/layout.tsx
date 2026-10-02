@@ -65,20 +65,27 @@ export async function generateMetadata(): Promise<Metadata> {
     authors: [{ name: 'Mahalaxmi Fashion Hub' }],
     creator: 'Mahalaxmi Fashion Hub',
     publisher: 'Mahalaxmi Fashion Hub',
-    alternates: { canonical: '/' },
+    // YAHAN canonical NAHI.
+    //
+    // Pehle yahan `alternates: { canonical: '/' }` likha tha. Next har panne me
+    // sirf wahi chaabi badalta hai jo us panne ne KHUD likhi ho - baaki jaisi ki
+    // waisi utar aati hai. Matlab /contact, /app, /tracking, /cart, /account/...
+    // sab apne aap ko mukhya panna bata rahe the. Google aise panne ko alag
+    // panna manta hi nahi, use mukhya panne ki nakal maan kar gira deta hai.
+    // Mukhya panna apna canonical khud likhta hai, (store)/page.tsx me.
     openGraph: {
+      // Yahan sirf wo cheezein jo har panne par EK JAISI hoti hain. title,
+      // description aur url pehle yahan likhe the, to har panne ka og:title
+      // mukhya panne ka tha - saanjha karne par /women, /products, har policy
+      // ka panna ek hi naam aur ek hi link dikhata tha. Hata diye: Next in dono
+      // ko panne ke apne title/description se khud bana leta hai.
       type: 'website',
       locale: 'en_IN',
-      url: SITE_URL,
       siteName: 'Mahalaxmi Fashion Hub',
-      title: defaultTitle,
-      description: defaultDesc,
       images: [{ url: ogImage, width: 1200, height: 630, alt: 'Mahalaxmi Fashion Hub — Ethnic Wear for the Entire Family' }],
     },
     twitter: {
       card: 'summary_large_image',
-      title: defaultTitle,
-      description: defaultDesc,
       images: [ogImage],
       ...(twitterSite ? { site: twitterSite, creator: twitterSite } : {}),
     },

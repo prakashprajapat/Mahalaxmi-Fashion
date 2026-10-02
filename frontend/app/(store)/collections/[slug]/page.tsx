@@ -8,6 +8,8 @@ import CategoryPageContent from '@/components/product/CategoryPageContent';
 import { productSlug } from '@/lib/productSlug';
 import { toListingProducts } from '@/lib/listingProduct';
 
+const BASE = 'https://www.mahalaxmifashionhub.com';
+
 // JSON.stringify leaves "<" alone, so a name holding "</script>" would close
 // this tag early and run as script. Escaped, the JSON stays valid either way.
 function safeJsonLd(value: unknown): string {
@@ -49,7 +51,17 @@ export async function generateMetadata({ params }: { params: { slug: string } })
     title: { absolute: def.title },
     description: def.description,
     alternates: { canonical: `/collections/${def.slug}` },
-    openGraph: { title: def.title, description: def.description },
+    // openGraph ki poori chaabi badalti hai, deep-merge nahi hoti - sirf title
+    // aur description likhne se root ki og:image, og:type aur og:site_name sab
+    // gayab ho jate the, aur keyword wale panne bina tasveer ke share hote the.
+    openGraph: {
+      type: 'website',
+      siteName: 'Mahalaxmi Fashion Hub',
+      url: `${BASE}/collections/${def.slug}`,
+      title: def.title,
+      description: def.description,
+      images: [{ url: `${BASE}/og-image.jpg`, width: 1200, height: 630 }],
+    },
     ...(isEmpty ? { robots: { index: false, follow: true } } : {}),
   };
 }
@@ -152,7 +164,12 @@ export default async function CollectionPage({ params }: { params: { slug: strin
         </div>
       </section>
 
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(faqJsonLd) }} />
+      {/* FAQPage sirf tab, jab sach me sawal hon. Admin panel se banaya gaya
+          panna FAQ ke bina bhi ho sakta hai, aur tab yahan khali mainEntity
+          jata tha - Google use adhoori FAQPage ki galti ginta hai. */}
+      {def.faqs.length > 0 && (
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(faqJsonLd) }} />
+      )}
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(breadcrumbJsonLd) }} />
       {itemListJsonLd && (
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(itemListJsonLd) }} />

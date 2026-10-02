@@ -20,6 +20,10 @@ function subcategoriesFromQuery(value?: string): string[] {
 const normSub = (s: string) =>
   s.toLowerCase().replace(/[^a-z0-9 ]/g, '').replace(/\s+/g, ' ').trim();
 
+// Jin category naamon ka apna panna sach me maujood hai. Baaki sab /products
+// par hi rehte hain.
+const CATEGORY_ROUTES = new Set(['women', 'men', 'kids', 'beauty', 'fabrics', 'more']);
+
 export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
   const subs = subcategoriesFromQuery(searchParams.subcategory);
 
@@ -32,10 +36,21 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
   // A subcategory listing is its own page, so it gets its own canonical. Pointing
   // it at /products told Google every tile was the same page and dropped them all
   // from the index.
+  //
+  // Subcategory ki soochi tarteeb me lagti hai: ?subcategory=A,B aur
+  // ?subcategory=B,A wahi maal dikhate hain, par bina tarteeb ke do alag
+  // canonical ban jate the - Google ke liye do alag panne, dono aadhe-aadhe.
+  const subKey = [...subs].sort().join(',');
+
+  // ?category=X ko /X par tabhi bhejte hain jab /X sach me ek panna ho.
+  // Pehle har category ko bhej dete the, to ?category=saree apne aap ko /saree
+  // batata tha - jo hai hi nahi. Google 404 par canonical dekhta hai aur dono
+  // panne gira deta hai; sitemap me teen aise hi URL pade the.
+  const cat = (searchParams.category ?? '').toLowerCase().trim();
   const canonical = subs.length > 0
-    ? `/products?subcategory=${encodeURIComponent(subs.join(','))}`
-    : searchParams.category
-      ? `/${searchParams.category}`
+    ? `/products?subcategory=${encodeURIComponent(subKey)}`
+    : cat
+      ? (CATEGORY_ROUTES.has(cat) ? `/${cat}` : `/products?category=${encodeURIComponent(cat)}`)
       : searchParams.bestSeller === 'true'
         ? '/best-sellers'
         : '/products';
@@ -44,10 +59,17 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
   // index so they don't dilute ranking, but still let Google follow the links.
   const isSearch = !!searchParams.q;
 
+  // Catalogue ka mukhya darwaza apna byora nahi likhta tha, to root wala utar
+  // aata tha - yaani mukhya panne jaisa hi. Do panne, ek hi snippet.
+  const description = subs.length > 0 || cat
+    ? `Shop ${label.toLowerCase()} online at Mahalaxmi Fashion Hub. Cash on delivery, 7-day returns and pan-India shipping, with free delivery over ₹999.`
+    : 'Browse the full Mahalaxmi Fashion Hub catalogue — cotton nighties, sarees, petticoats, innerwear, footwear and perfume. Cash on delivery, 7-day returns, pan-India shipping.';
+
   return {
     title: searchParams.q
       ? `Search: ${searchParams.q}`
       : `${label}`,
+    description,
     alternates: { canonical },
     ...(isSearch ? { robots: { index: false, follow: true } } : {}),
   };

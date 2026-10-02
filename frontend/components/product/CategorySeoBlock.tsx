@@ -46,7 +46,12 @@ export default async function CategorySeoBlock({ slug }: { slug: string }) {
         </div>
       </div>
 
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(faqJsonLd) }} />
+      {/* FAQPage sirf tab, jab sach me sawal hon. Admin panel se banaya gaya
+          panna FAQ ke bina bhi ho sakta hai, aur tab yahan khali mainEntity
+          jata tha - Google use adhoori FAQPage ki galti ginta hai. */}
+      {seo.faqs.length > 0 && (
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(faqJsonLd) }} />
+      )}
     </section>
   );
 }

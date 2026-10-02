@@ -55,7 +55,7 @@ export function ReviewCard({ r }: { r: PublicReview }) {
           // next/image is not configured for, and the product fallback may be
           // any URL the catalogue holds.
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={lead} alt="" loading="lazy"
+          <img src={lead} alt={r.productName ? `Customer photo \u2014 ${r.productName}` : 'Customer review photo'} loading="lazy"
             style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
         )}
         {photos.length > 1 && (

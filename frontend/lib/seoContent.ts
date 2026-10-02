@@ -95,6 +95,7 @@ export async function getPosts(): Promise<BlogPost[]> {
       readMinutes: p.readMinutes || 3,
       excerpt: p.excerpt ?? '',
       content: p.content ?? '',
+      image: p.image,
     });
   }
 
@@ -121,7 +122,12 @@ export async function getCollections(): Promise<Record<string, CollectionDef>> {
       slug: c.slug,
       label: c.label || c.title,
       title: c.title,
-      description: c.description ?? '',
+      // Khali byora sabse bura hai: panna indexable rehta hai par Google ke
+      // paas dikhane ko kuch hota hi nahi. Admin ne na bhara ho to wahi purana
+      // (file wala) byora, aur wo bhi na ho to ek bana hua saaf vaakya.
+      description: c.description?.trim()
+        || COLLECTIONS[c.slug]?.description
+        || `Shop ${c.title} online at Mahalaxmi Fashion Hub. Cash on delivery, 7-day returns and pan-India shipping, with free delivery over ₹999.`,
       eyebrow: c.eyebrow || 'Collection',
       h1: c.h1 || c.title,
       sub: c.sub ?? '',
@@ -153,7 +159,10 @@ export async function getCategorySeo(): Promise<Record<string, CategorySeo>> {
     if (!c?.title) continue;
     out[key] = {
       title: c.title,
-      description: c.description ?? '',
+      // Wahi baat: khali byora chhodne se behtar purana byora rakhna hai.
+      description: c.description?.trim()
+        || CATEGORY_SEO[key]?.description
+        || `Shop ${c.title} at Mahalaxmi Fashion Hub. Cash on delivery, 7-day returns and pan-India shipping, with free delivery over ₹999.`,
       heading: c.heading ?? '',
       intro: Array.isArray(c.intro) ? c.intro : [],
       faqs: Array.isArray(c.faqs) ? c.faqs : [],

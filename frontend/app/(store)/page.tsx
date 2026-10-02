@@ -22,7 +22,9 @@ export async function generateMetadata(): Promise<Metadata> {
   const keywords = s.seoKeywords?.trim();
   const ogImage = s.seoOgImage?.trim();
 
-  const meta: Metadata = {};
+  // Mukhya panna apna canonical khud likhta hai. Pehle ye root layout se
+  // utarta tha - aur usi ke saath HAR doosre panne par bhi utar jata tha.
+  const meta: Metadata = { alternates: { canonical: '/' } };
   if (title) meta.title = { absolute: title };
   if (description) meta.description = description;
   if (keywords) meta.keywords = keywords;
@@ -101,10 +103,14 @@ export default async function HomePage() {
           read. It shows itself only once there are enough of them. */}
       <CustomerReviews />
 
-      <div className="home-desktop">
-        {/* SEO: FAQ rich results + AI Overviews (visible accordion + FAQPage schema) */}
-        <FaqSection />
-      </div>
+      {/* FAQ har chaudai par. Pehle ye .home-desktop ke andar tha, jo 1024px
+          se neeche display:none hai - yaani foan par dikhta hi nahi tha. Google
+          ab mobile banke hi site padhta hai, to usne FAQPage ka data to padha
+          par us panne par wo chhe sawal kahin dikhte nahi the. Google ka niyam
+          saaf hai: jo markup me likha hai wo panne par dikhna chahiye; na
+          dikhe to rich result to milta hi nahi, haath se saza bhi lag sakti
+          hai. Aur foan par FAQ grahak ke liye bhi kaam ki cheez hai. */}
+      <FaqSection />
     </>
   );
 }

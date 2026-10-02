@@ -13,7 +13,9 @@ import { ReviewCard } from '@/components/reviews/ReviewCards';
 export const revalidate = 300;
 
 export const metadata: Metadata = {
-  title: 'Customer Reviews — Mahalaxmi Fashion Hub',
+  // `absolute` ke bina root ka template ' | Mahalaxmi Fashion Hub' peeche aur
+  // jod deta hai - naam do baar, aur Google me kat kar dikhta hai.
+  title: { absolute: 'Customer Reviews — Mahalaxmi Fashion Hub' },
   description: 'What customers say about their orders from Mahalaxmi Fashion Hub — ratings, photos and reviews left after delivery.',
   alternates: { canonical: '/customer-reviews' },
 };

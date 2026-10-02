@@ -35,6 +35,12 @@ export async function generateMetadata({ params }: { params: { slug: string } })
       title: post.title,
       description: post.description,
       publishedTime: post.date,
+      // openGraph ki poori chaabi badal jati hai, deep-merge nahi hota - to
+      // root ki og:image bhi chali jati thi aur har post bina tasveer ke
+      // share hota tha.
+      images: [post.image
+        ? (/^https?:/i.test(post.image) ? post.image : `${BASE}${post.image}`)
+        : `${BASE}/og-image.jpg`],
     },
   };
 }
@@ -48,6 +54,11 @@ export default async function BlogPostPage({ params }: { params: { slug: string 
     '@type': 'Article',
     headline: post.title,
     description: post.description,
+    // Google ke Article rich result ke liye image zaroori hai; iske bina post
+    // yogya hi nahi hoti. Post ki apni tasveer, warna site ki saanjhi.
+    image: [post.image
+      ? (/^https?:/i.test(post.image) ? post.image : `${BASE}${post.image}`)
+      : `${BASE}/og-image.jpg`],
     datePublished: post.date,
     dateModified: post.date,
     author: { '@type': 'Organization', name: 'Mahalaxmi Fashion Hub' },

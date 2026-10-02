@@ -523,7 +523,7 @@ export default function ProductDetail({ params, initialProduct = null }: { param
                     border: activeImg === img ? '2px solid #722f37' : '2px solid #eee',
                     padding: 0, cursor: 'pointer', background: '#f5f5f5', flexShrink: 0,
                   }}>
-                    <Image src={img} alt={`View ${i+1}`} width={64} height={64} sizes="64px"
+                    <Image src={img} alt={`${product.name} \u2014 photo ${i + 1}`} width={64} height={64} sizes="64px"
                       style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   </button>
                 ))}

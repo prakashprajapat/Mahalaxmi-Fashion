@@ -13,6 +13,10 @@ export interface BlogPost {
   readMinutes: number;
   excerpt: string;       // shown on the blog index
   content: string;       // HTML body
+  /** Lead photo. Google ke Article rich result ke liye image zaroori hai -
+   *  iske bina post us result ke yogya hi nahi hoti. Khali ho to site ki
+   *  saanjhi tasveer lag jati hai. */
+  image?: string;
 }
 
 export const POSTS: BlogPost[] = [
