@@ -28,6 +28,42 @@ export function setCustomer(customer: Customer): void {
   storage.set(CUSTOMER_KEY, JSON.stringify(customer));
 }
 
+// Server se taaza grahak laakar yahan ki copy badal deta hai.
+//
+// Zaroorat kyun padi: login ke waqt grahak ka poora record is browser me likh
+// diya jata hai aur uske baad har panna wahi padhta hai. Dukaan se admin ne
+// number, janmdin ya saalgirah sudhari to database me to badal gaya, par
+// grahak ke browser me purani copy padi rahti thi — use wahi purana dikhta
+// raha, chaahe kitni baar panna kholta. Logout karke dobara login karne par hi
+// badalta tha.
+//
+// Chup-chaap chalta hai: token na ho, net na chale ya server mana kar de to
+// purani copy jaisi ki waisi rahti hai — grahak ko kuch dikhane ki zarurat
+// nahi, aur unhe is wajah se logout to bilkul nahi karna.
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? '/api';
+
+export async function refreshCustomer(): Promise<Customer | null> {
+  const token = getToken();
+  const cached = getCustomer();
+  if (!token || !cached?.id) return null;
+  try {
+    const res = await fetch(`${API_BASE}/customers/${cached.id}`, {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: 'no-store',
+    });
+    if (!res.ok) return null;
+    const json = await res.json() as { customer?: Customer };
+    if (!json.customer) return null;
+    setCustomer(json.customer);
+    // Jo panne 'auth-changed' sunte hain wo turant naya naam/number dikha dete
+    // hain, bina panna dobara khole.
+    window.dispatchEvent(new Event('auth-changed'));
+    return json.customer;
+  } catch {
+    return null;
+  }
+}
+
 export function logout(): void {
   storage.remove(TOKEN_KEY);
   storage.remove(CUSTOMER_KEY);

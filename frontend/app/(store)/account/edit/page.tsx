@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { getCustomer, getToken, setCustomer as saveCustomer } from '@/lib/auth';
+import { getCustomer, getToken, setCustomer as saveCustomer, refreshCustomer } from '@/lib/auth';
 import { customersApi } from '@/lib/api';
 import ImageCropper from '@/components/account/ImageCropper';
 import type { Customer } from '@/types';
@@ -32,26 +32,39 @@ export default function AccountEditPage() {
   const [photoBusy, setPhotoBusy] = useState(false);
   const [cropSrc, setCropSrc] = useState<string | null>(null);
 
+  // Yahi wo panna hai jahan grahak apna number, janmdin aur saalgirah dekhta
+  // hai — isliye yahan browser ki purani copy par bharosa nahi kiya jata.
+  // Pehle isi copy se form bharta tha, to dukaan se sudhari hui tareekh grahak
+  // ko kabhi dikhti hi nahi thi.
+  //
+  // Pehle purani copy se bhar dete hain taki panna khali na dikhe, phir server
+  // se taaza aake usi ko badal deta hai.
   useEffect(() => {
+    const fill = (c: Customer) => {
+      setCustomer(c);
+      setForm({
+        firstName: c.firstName ?? '',
+        lastName: c.lastName ?? '',
+        gender: c.gender ?? '',
+        email: c.email ?? '',
+        phone: c.phone ?? '',
+        dateOfBirth: c.dateOfBirth ?? '',
+        marriageDate: c.marriageDate ?? '',
+        addrLine1: c.addrLine1 ?? '',
+        addrLine2: c.addrLine2 ?? '',
+        pincode: c.pincode ?? '',
+        postOffice: c.postOffice ?? '',
+        state: c.state ?? '',
+        district: c.district ?? '',
+        marketingConsent: c.marketingConsent ?? false,
+      });
+    };
     const c = getCustomer();
     if (!c) { router.push('/account'); return; }
-    setCustomer(c);
-    setForm({
-      firstName: c.firstName ?? '',
-      lastName: c.lastName ?? '',
-      gender: c.gender ?? '',
-      email: c.email ?? '',
-      phone: c.phone ?? '',
-      dateOfBirth: c.dateOfBirth ?? '',
-      marriageDate: c.marriageDate ?? '',
-      addrLine1: c.addrLine1 ?? '',
-      addrLine2: c.addrLine2 ?? '',
-      pincode: c.pincode ?? '',
-      postOffice: c.postOffice ?? '',
-      state: c.state ?? '',
-      district: c.district ?? '',
-      marketingConsent: c.marketingConsent ?? false,
-    });
+    fill(c);
+    let alive = true;
+    refreshCustomer().then(fresh => { if (alive && fresh) fill(fresh); });
+    return () => { alive = false; };
   }, [router]);
 
   const set = (field: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
@@ -64,10 +77,14 @@ export default function AccountEditPage() {
     if (form.pincode && !/^\d{6}$/.test(form.pincode)) { setError('Pincode must be 6 digits.'); return; }
     setLoading(true); setError(''); setMsg('');
     try {
-      const updated = await customersApi.updateProfile(customer.id, {
+      const res = await customersApi.updateProfile(customer.id, {
         ...form,
       }, getToken() ?? '');
-      saveCustomer({ ...customer, ...form });
+      // Server ne jo lautaya wahi rakha jata hai, form ki nakal nahi. Kuch
+      // khaane server par taale me hain (tareekh ek baar coupon istemal hone
+      // ke baad nahi badalti) — form ko sach maan lene se browser me kuch aur
+      // likha dikhta aur database me kuch aur hota.
+      saveCustomer(res.customer ?? { ...customer, ...form });
       window.dispatchEvent(new Event('auth-changed'));
       setMsg('Profile updated successfully!');
       // Close the edit screen and return to the account dashboard right after saving.

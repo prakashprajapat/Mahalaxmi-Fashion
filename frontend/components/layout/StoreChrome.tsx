@@ -10,7 +10,7 @@ import WhatsAppFloat from './WhatsAppFloat';
 import HelpFab from './HelpFab';
 import CompareBar from '@/components/product/CompareBar';
 import RefCapture from '../RefCapture';
-import { getCustomer } from '@/lib/auth';
+import { getCustomer, refreshCustomer } from '@/lib/auth';
 import { setAnalyticsUserId } from '@/lib/analytics';
 
 // Three widgets that have no business rendering on the server: a popup that
@@ -41,6 +41,26 @@ export default function StoreChrome({ children }: { children: React.ReactNode })
   // False on the server and on the first client render, so the two agree.
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
+
+  // Grahak ka record server se ek baar taaza kar lete hain. Dukaan se admin
+  // ne number ya tareekh sudhari ho to use wahi purani copy dikhti rahti thi,
+  // kyunki login ke baad kabhi dobara poocha hi nahi jata tha.
+  //
+  // Tab wapas khulne par bhi — par tees second se jaldi dobara nahi, warna
+  // har baar tab badalne par ek request jati rahegi.
+  useEffect(() => {
+    let last = 0;
+    const pull = () => {
+      if (document.visibilityState !== 'visible') return;
+      const now = Date.now();
+      if (now - last < 30_000) return;
+      last = now;
+      void refreshCustomer();
+    };
+    pull();
+    document.addEventListener('visibilitychange', pull);
+    return () => document.removeEventListener('visibilitychange', pull);
+  }, []);
 
   // GA4 "Set up User ID": once a customer is logged in, tie their sessions to one identity
   // (cross-device). Runs on load and whenever auth changes. Uses the non-PII customer code.
