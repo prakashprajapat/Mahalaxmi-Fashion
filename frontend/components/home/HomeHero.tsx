@@ -44,7 +44,7 @@ export default function HomeHero({
           }}>
             <span className="hero-eyebrow" style={{
               fontSize: '.66rem', letterSpacing: '.32em', textTransform: 'uppercase',
-              color: '#8a7f76', fontWeight: 600,
+              color: '#7c726a', fontWeight: 600,   // 3.90 contrast tha, ab 4.70
             }}>
               Balotra, Rajasthan
             </span>

@@ -39,7 +39,7 @@ export default function ProductEdit({
             {eyebrow && (
               <span style={{
                 display: 'block', fontSize: '.68rem', letterSpacing: '.3em',
-                textTransform: 'uppercase', color: '#8a7f76', fontWeight: 600,
+                textTransform: 'uppercase', color: '#7c726a', fontWeight: 600,   // 3.90 -> 4.70
               }}>
                 {eyebrow}
               </span>

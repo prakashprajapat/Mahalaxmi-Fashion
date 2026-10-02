@@ -105,7 +105,15 @@ export default function ProductCard({ product, priority = false }: { product: Pr
               "New" made the word meaningless and cluttered the grid. */}
           {product.bestSeller && (
             <div className="product-card-top-left">
-              <span style={{ background: 'none', border: 'none', padding: 0, color: 'rgba(255,255,255,.96)', fontWeight: 800, fontSize: '.85rem', letterSpacing: '.04em', textShadow: '0 0 8px rgba(122,10,34,.95), 0 0 16px rgba(255,200,60,.7), 0 1px 3px rgba(0,0,0,.55)' }}>Best Seller</span>
+              {/* Pehle ye safed akshar the, bina kisi background ke, seedha
+                  product ki photo par — padhne layak sirf is bharose par ki
+                  peechhe ek chamak (text-shadow) daal di gayi thi. Halki
+                  photo par wo chamak kaam nahi karti aur akshar gayab ho jate
+                  hain; Lighthouse text-shadow ginta hi nahi, to contrast 1.11
+                  nikalta tha jahan 4.5 chahiye.
+                  Ab ek asli maroon goli hai: safed par maroon ka contrast 9.65
+                  hai, aur peechhe ki photo chaahe jaisi ho, farq nahi padta. */}
+              <span style={{ background: 'rgba(114,47,55,.95)', color: '#fff', padding: '.2rem .5rem', borderRadius: 999, fontWeight: 800, fontSize: '.72rem', letterSpacing: '.04em', boxShadow: '0 1px 4px rgba(0,0,0,.25)' }}>Best Seller</span>
             </div>
           )}
 
