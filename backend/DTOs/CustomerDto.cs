@@ -75,13 +75,21 @@ public record AdminLoginRequest(
 );
 
 public record CelebrationSmsRequest(
-    string Phone,
+    // Ab zaroori nahi. Jin grahakon ka number darj nahi hai unki offer sirf
+    // email se jati hai, aur wahan bhejne ke liye number hai hi nahi.
+    string? Phone = null,
     string? Message = null,   // optional custom message; backend uses template if null
     string? Occasion = null,  // "birthday" | "anniversary" — picks the code prefix
     // 30 | 15 | 7 | 0 — kaun se slab ka batan daba tha. Panel pehle se bhejta
     // tha par server ise girā deta tha; ab ye likha jata hai, taki "is slab me
     // bhej diya" dobara login karne par bhi yaad rahe.
-    int? Slab = null
+    int? Slab = null,
+    // Kis grahak ko. Pehle grahak sirf number ke aakhri 10 anko se dhoonda
+    // jata tha; bina number wale is raaste se milte hi nahi the.
+    int? CustomerId = null,
+    // "both" (default) ya "email". "email" par MSG91 ko haath hi nahi lagaya
+    // jata — na authkey chahiye, na DLT template, na number.
+    string? Channel = null
 );
 
 // Bulk promotional SMS campaign — sent server-side via MSG91 (no MSG91 website).

@@ -229,17 +229,28 @@ public class CustomersController : ControllerBase
         var occasion = (req.Occasion ?? "birthday").Trim().ToLowerInvariant();
         occasion = occasion == "anniversary" ? "anniversary" : "birthday";
 
-        // MSG91 ka authkey na ho to pehle yahin se laut jate the. Ab nahi:
-        // email ka MSG91 se koi rishta nahi, aur usi ke na hone par offer
-        // bhejna band ho jata tha. Iski shikayat niche SMS wale hisse me hoti
-        // hai, jahan se email ka raasta alag hai.
-        if (string.IsNullOrWhiteSpace(req.Phone))
-            return BadRequest(new { success = false, message = "Phone number is required." });
+        // "email" par sirf email jati hai. Jiska number darj nahi hai uski offer
+        // pehle bheji hi nahi ja sakti thi — panel par batan tak nahi aata tha,
+        // jabki email ka pata darj tha.
+        var emailOnly = string.Equals((req.Channel ?? "").Trim(), "email", StringComparison.OrdinalIgnoreCase);
 
-        // Find the customer this offer is for (match on the last 10 digits of the phone).
-        var digits = new string(req.Phone.Where(char.IsDigit).ToArray());
-        var last10 = digits.Length >= 10 ? digits[^10..] : digits;
-        var customer = await _db.Customers.FirstOrDefaultAsync(c => c.Phone != null && c.Phone.EndsWith(last10));
+        if (string.IsNullOrWhiteSpace(req.Phone) && req.CustomerId is null)
+            return BadRequest(new { success = false, message = "Either a phone number or a customer is required." });
+
+        // Find the customer this offer is for. Id se seedha, warna number ke
+        // aakhri 10 anko se — purana raasta jaisa tha waisa hi chalta hai.
+        Customer? customer = null;
+        if (req.CustomerId is int cid)
+            customer = await _db.Customers.FirstOrDefaultAsync(c => c.Id == cid);
+        if (customer is null && !string.IsNullOrWhiteSpace(req.Phone))
+        {
+            var digits = new string(req.Phone.Where(char.IsDigit).ToArray());
+            var last10 = digits.Length >= 10 ? digits[^10..] : digits;
+            customer = await _db.Customers.FirstOrDefaultAsync(c => c.Phone != null && c.Phone.EndsWith(last10));
+        }
+
+        // Bina number ke SMS ka koi raasta nahi — ye email wali offer hai.
+        if (string.IsNullOrWhiteSpace(req.Phone)) emailOnly = true;
 
         // Reuse an existing unused personal code for this customer+occasion, else mint a new one.
         Coupon? coupon = null;
@@ -270,8 +281,8 @@ public class CustomersController : ControllerBase
             await _db.SaveChangesAsync();
         }
 
-        var phone = req.Phone.TrimStart('+').Replace(" ", "");
-        if (!phone.StartsWith("91")) phone = "91" + phone;
+        var phone = (req.Phone ?? "").TrimStart('+').Replace(" ", "");
+        if (phone.Length > 0 && !phone.StartsWith("91")) phone = "91" + phone;
 
         // How many days until the day itself. A greeting sent a month early must
         // not read "Happy Birthday" — that is a different message, so it is a
@@ -457,7 +468,11 @@ public class CustomersController : ControllerBase
             return (true, null, id, resBody);
         }
 
-        var sms = await SendOfferSmsAsync();
+        // Email-only par MSG91 ko bulaya hi nahi jata. Isse "SMS not sent" jaisi
+        // shikayat bhi jawab me nahi aati, jo yahan galat hoti — bhejni hi
+        // nahi thi.
+        (bool ok, string? error, string? requestId, string? raw) sms = (false, null, null, null);
+        if (!emailOnly) sms = await SendOfferSmsAsync();
 
         // ── Email ──
         //
@@ -474,7 +489,7 @@ public class CustomersController : ControllerBase
         if (!_email.IsConfigured)
             emailError = "SMTP is not configured on the server (Email:Host / User / Password).";
         else if (customer is null)
-            emailError = "no customer account matches this number, so there is no email address on file.";
+            emailError = "no customer account was found, so there is no email address on file.";
         else if (string.IsNullOrWhiteSpace(emailTo))
             emailError = "this customer has no email address on file.";
         else
@@ -512,9 +527,12 @@ public class CustomersController : ControllerBase
 
         if (!sms.ok && !emailSent)
         {
+            var why = emailOnly
+                ? $"Email: {emailError}"
+                : $"SMS: {sms.error} Email: {emailError}";
             return BadRequest(new { success = false, smsSent = false, emailSent = false,
                 couponCode = coupon.Code, response = sms.raw,
-                message = $"Nothing went out. SMS: {sms.error} Email: {emailError} "
+                message = $"Nothing went out. {why} "
                         + $"The coupon {coupon.Code} is created and still valid, so this can be retried." });
         }
 
@@ -553,7 +571,7 @@ public class CustomersController : ControllerBase
         }
 
         return Ok(new { success = true, smsSent = sms.ok, emailSent, emailTo,
-                        message = $"{smsPart} \u00b7 {emailPart}.",
+                        message = emailOnly ? $"{emailPart}." : $"{smsPart} \u00b7 {emailPart}.",
                         couponCode = coupon.Code,
                         requestId = sms.requestId, response = sms.raw });
     }

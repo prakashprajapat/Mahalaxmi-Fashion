@@ -33,6 +33,10 @@ interface SendRow {
 
 type OccType = 'birthday' | 'anniversary';
 
+// 'both' = SMS aur email dono. 'email' = sirf email — un grahakon ke liye jinka
+// number darj nahi hai, aur tab bhi jab dukandar sirf mail bhejna chahe.
+type Channel = 'both' | 'email';
+
 const API = '/api/customers';
 
 // Day-slabs. A customer sits in exactly one slab per occasion, by how many days
@@ -50,6 +54,10 @@ export default function BirthdayPage() {
   const [slab, setSlab]       = useState<number>(0);
   const [sending, setSending] = useState<Record<string, boolean>>({});
   const [result, setResult]   = useState<Record<string, string>>({});
+  // Kamyabi alag se. Pehle lal/hara iss baat se tay hota tha ki jawab "Sent"
+  // se shuru hota hai ya nahi — par jawab "SMS + Email — code BD-..." se shuru
+  // hota hai, isliye kamyab bhejna bhi lal dikhta tha.
+  const [resultOk, setResultOk] = useState<Record<string, boolean>>({});
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
   // Kya ja chuka hai: key = `${id}-${type}-${slab}-${year}`.
@@ -95,14 +103,24 @@ export default function BirthdayPage() {
   useEffect(() => { load(); }, [load]);
   useEffect(() => { setSelected(new Set()); }, [slab, data]);
 
-  const sendSms = async (c: CelebrationEntry['customer'], type: OccType, slabDays: number, daysIn: number) => {
+  const sendSms = async (c: CelebrationEntry['customer'], type: OccType, slabDays: number,
+                         daysIn: number, channel: Channel = 'both') => {
     const key = `${c.id}-${type}-${slabDays}`;
     setSending(s => ({ ...s, [key]: true }));
     try {
       const res = await fetch(`${API}/send-celebration-sms`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ phone: c.phone, occasion: type, slab: slabDays }),
+        // customerId bhi jata hai. Pehle server grahak ko sirf number se
+        // dhoondhta tha, isliye bina number wale is raaste par aate hi nahi
+        // the — na coupon banta, na email jati.
+        body: JSON.stringify({
+          customerId: c.id,
+          phone: c.phone || null,
+          occasion: type,
+          slab: slabDays,
+          channel: c.phone ? channel : 'email',
+        }),
       });
       const json = await res.json();
       // Ab do raaste hain — SMS aur email — aur dono alag chalte hain. Ek chal
@@ -114,6 +132,7 @@ export default function BirthdayPage() {
       // wahan ki pankti isi id se milti hai. Bina iske nambar se chhanna padta
       // tha.
       const went = [json.smsSent ? 'SMS' : null, json.emailSent ? 'Email' : null].filter(Boolean).join(' + ');
+      setResultOk(r => ({ ...r, [key]: res.ok }));
       setResult(r => ({
         ...r,
         [key]: res.ok
@@ -163,8 +182,10 @@ export default function BirthdayPage() {
     const k = sentKey(id, type, active.days, occYear(daysIn));
     return sent[k] ?? localSent[k] ?? localSent[sentKey(id, type, active.days, new Date().getFullYear())];
   };
-  const isSendable = (r: { c: { phone: string; id: number }; type: OccType; daysIn: number }) =>
-    Boolean(r.c.phone) && !sentOn(r.c.id, r.type, r.daysIn);
+  // Email bhi ek raasta hai. Pehle sirf number dekha jata tha, isliye jinke
+  // paas email tha par number nahi, unke saamne koi batan hi nahi aata tha.
+  const isSendable = (r: { c: { phone: string; email: string; id: number }; type: OccType; daysIn: number }) =>
+    (Boolean(r.c.phone) || Boolean(r.c.email)) && !sentOn(r.c.id, r.type, r.daysIn);
   const selectableRows = rows.filter(isSendable);
   const allSelected = selectableRows.length > 0 && selectableRows.every(r => selected.has(rowKey(r.c.id, r.type)));
   const selBirthdayCount = selectableRows.filter(r => r.type === 'birthday'    && selected.has(rowKey(r.c.id, r.type))).length;
@@ -181,7 +202,11 @@ export default function BirthdayPage() {
   const bulkSend = async (occasion: OccType) => {
     const targets = selectableRows.filter(r => r.type === occasion && selected.has(rowKey(r.c.id, r.type)));
     if (targets.length === 0) return;
-    if (!confirm(`Send a real SMS and email to ${targets.length} customer${targets.length === 1 ? '' : 's'} now?`)) return;
+    const byMail = targets.filter(r => !r.c.phone).length;
+    const note = byMail === 0 ? 'SMS and email'
+      : byMail === targets.length ? 'email'
+      : `SMS and email (${byMail} of them by email only \u2014 no number on file)`;
+    if (!confirm(`Send a real ${note} to ${targets.length} customer${targets.length === 1 ? '' : 's'} now?`)) return;
     setBulkBusy(true);
     for (const r of targets) {
       // eslint-disable-next-line no-await-in-loop
@@ -208,7 +233,7 @@ export default function BirthdayPage() {
     <div className="admin-page">
       <PageHeader
         title="Birthday &amp; anniversary offers"
-        sub="One offer per slab, as the date gets closer: 30 days, 15, 7, then the day itself. Each one sends a real SMS and an email, both carrying the same coupon code."
+        sub="One offer per slab, as the date gets closer: 30 days, 15, 7, then the day itself. Each one sends a real SMS and an email, both carrying the same coupon code \u2014 and a customer with no number on file can still be sent the email on its own."
         right={<button className="adm-btn" onClick={load}>Refresh</button>}
       />
 
@@ -218,7 +243,9 @@ export default function BirthdayPage() {
         <Stat label="Not yet sent in this slab" value={waiting} tone={waiting > 0 ? 'red' : undefined} />
         {/* Ye ginti sirf khule hue slab ki hai, poore catalogue ki nahi —
             isliye naam bhi wahi kehta hai. */}
-        <Stat label="No phone number in this slab" value={noPhone}
+        {/* Email ab bhi ja sakti hai, isliye ye ginti "nahi pahunch sakte"
+            nahi kehti — sirf itna ki inhe SMS nahi jayegi. */}
+        <Stat label="Email only in this slab (no number)" value={noPhone}
               action={noPhone > 0 ? 'Add their numbers' : undefined}
               href={noPhone > 0 ? '/admin/customers' : undefined} />
         <Stat label="In the next 30 days"
@@ -280,7 +307,9 @@ export default function BirthdayPage() {
           const k = `${c.id}-${type}-${active.days}`;
           const wasSent = sentOn(c.id, type, daysIn);
           const picked = selected.has(rowKey(c.id, type));
-          const failed = result[k] && !result[k].startsWith('Sent');
+          const failed = result[k] !== undefined && resultOk[k] === false;
+          const canSms   = Boolean(c.phone);
+          const canEmail = Boolean(c.email);
           return (
             <div key={k + i} className="adm-item" style={{ gridTemplateColumns: 'auto minmax(0,1fr) auto',
                                                            background: picked ? '#fdf7f8' : undefined }}>
@@ -304,8 +333,21 @@ export default function BirthdayPage() {
                 )}
               </div>
               <div className="adm-item-r">
-                {!c.phone ? (
-                  <span style={{ fontSize: '.76rem', color: '#a49a94' }}>No phone</span>
+                {!canSms && !canEmail ? (
+                  <span style={{ fontSize: '.76rem', color: '#a49a94' }}>No phone or email</span>
+                ) : !canSms ? (
+                  // Number nahi hai, email hai. Pehle yahan sirf "No phone"
+                  // likha aata tha aur baat wahin ruk jati thi — jabki offer
+                  // email se ja sakti thi.
+                  <div style={{ display: 'flex', gap: '.5rem', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                    {wasSent && <span style={{ fontSize: '.74rem', color: '#7d736d' }} title={`Sent on ${wasSent}`}>{wasSent}</span>}
+                    <button className={wasSent ? 'adm-btn' : 'adm-btn adm-btn-primary'}
+                            style={{ padding: '.35rem .8rem', fontSize: '.78rem' }}
+                            onClick={() => sendSms(c, type, active.days, daysIn, 'email')} disabled={sending[k]}
+                            title={`Send the offer by email to ${c.email} — no SMS, there is no number on file`}>
+                      {sending[k] ? 'Sending…' : wasSent ? 'Resend email' : 'Send email'}
+                    </button>
+                  </div>
                 ) : wasSent ? (
                   // Bheja ja chuka hai — par "bheja gaya" ka matlab sirf itna hai
                   // ki MSG91 ne le liya. Template galat ho, variable khali rah
@@ -323,12 +365,29 @@ export default function BirthdayPage() {
                             title="Send the same offer again, by SMS and email — the same coupon code goes out, not a new one">
                       {sending[k] ? 'Sending…' : 'Resend'}
                     </button>
+                    {canEmail && (
+                      <button className="adm-btn" style={{ padding: '.35rem .8rem', fontSize: '.78rem' }}
+                              onClick={() => sendSms(c, type, active.days, daysIn, 'email')} disabled={sending[k]}
+                              title={`Send only the email to ${c.email} — MSG91 is not touched, so no SMS goes out`}>
+                        Resend email
+                      </button>
+                    )}
                   </div>
                 ) : (
-                  <button className="adm-btn adm-btn-primary" style={{ padding: '.35rem .8rem', fontSize: '.78rem' }}
-                          onClick={() => sendSms(c, type, active.days, daysIn)} disabled={sending[k]}>
-                    {sending[k] ? 'Sending…' : 'Send offer'}
-                  </button>
+                  <div style={{ display: 'flex', gap: '.5rem', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                    <button className="adm-btn adm-btn-primary" style={{ padding: '.35rem .8rem', fontSize: '.78rem' }}
+                            onClick={() => sendSms(c, type, active.days, daysIn)} disabled={sending[k]}
+                            title="Send the offer by SMS and email — one coupon code in both">
+                      {sending[k] ? 'Sending…' : 'Send offer'}
+                    </button>
+                    {canEmail && (
+                      <button className="adm-btn" style={{ padding: '.35rem .8rem', fontSize: '.78rem' }}
+                              onClick={() => sendSms(c, type, active.days, daysIn, 'email')} disabled={sending[k]}
+                              title={`Send only the email to ${c.email} — MSG91 is not touched, so no SMS goes out`}>
+                        Email only
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
             </div>
