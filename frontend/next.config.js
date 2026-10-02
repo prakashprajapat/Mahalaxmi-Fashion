@@ -36,6 +36,16 @@ const nextConfig = {
     // Keemat: WebP ki file AVIF se thodi badi hoti hai. Ek photo jo der se aaye
     // usse thodi badi photo jo turant aaye behtar hai.
     formats: ['image/webp'],
+    // Sirf itni chaudai banti hain. Next default me 1920, 2048 aur 3840 tak
+    // jata hai — par asli photo hi kareeb 1200px ki hai, to us se badi maang
+    // par woh use KHEENCHKAR bada karta hai: detail ek bhi nahi badhti, bas
+    // encode mehnga aur file bhari ho jati hai. Teen mangwaayi (DPR 3) wale
+    // foan 1200 maangte the, jo kabhi pehle se bana hi nahi hota tha.
+    //
+    // Ab sabse badi 1080 hai, aur deploy ke waqt yahi chaaron pehle se bana
+    // di jati hain (deploy.sh), isliye kisi bhi shopper ko banne ka intezar
+    // nahi karna padta.
+    deviceSizes: [640, 828, 1080],
     // Every product photo filename ends in the millisecond it was uploaded, so
     // a given URL can never point at different bytes. A one-day TTL meant the
     // optimiser went STALE daily and re-resized all 84 photos to produce the

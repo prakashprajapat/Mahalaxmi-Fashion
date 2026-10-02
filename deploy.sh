@@ -123,6 +123,25 @@ echo "8. Swapping in the new frontend and restarting..."
 # the old in-place build left it broken for.
 rm -rf "frontend/$PREV_DIR"
 [ -d frontend/.next ] && mv frontend/.next "frontend/$PREV_DIR"
+
+# Banayi hui photo ko nayi build me saath le jate hain.
+#
+# Optimiser har photo ko pehli maang par banata hai aur .next/cache/images me
+# rakh leta hai — tees din ke liye. Par .next hi har deploy par badal jati
+# thi, to woh poora khazana har baar mit jata tha aur sab kuch phir se thanda.
+# Jitni baar deploy, utni baar pehla shopper intezar karta tha.
+#
+# Files ke naam me unka hash hai, isliye purani entry naye build me bhi utni
+# hi sahi hai. Hardlink se jodte hain — turant, aur disk bhi dugni nahi hoti;
+# na jude to seedhi nakal.
+if [ -d "frontend/$PREV_DIR/cache/images" ]; then
+  mkdir -p "frontend/$BUILD_DIR/cache"
+  cp -al "frontend/$PREV_DIR/cache/images" "frontend/$BUILD_DIR/cache/" 2>/dev/null \
+    || cp -a "frontend/$PREV_DIR/cache/images" "frontend/$BUILD_DIR/cache/" 2>/dev/null \
+    || true
+  echo "   Image cache carried over."
+fi
+
 mv "frontend/$BUILD_DIR" frontend/.next
 pm2 restart mahalaxmi-frontend
 
@@ -154,21 +173,37 @@ echo "   Warming up..."
 # after a deploy pays that for every photo on the page and watches the cards
 # fill in one by one. Asking for them here means the cache is already warm.
 echo "   Warming the image cache..."
+#
+# Pehle yahan sirf "image" wali photo, sirf 384 aur 640 par garam hoti thi.
+# Wo card ki chaudai hai. Product ke panne ki badi photo (foan par 1080) kabhi
+# pehle se banti hi nahi thi — isliye suchi me sab saaf dikhta tha aur product
+# kholte hi paanch second dhundhla dhabba. Jin products ki photo
+# productPhotos.front me hai, unki to "image" wali kunji bhi nahi padhi jati
+# thi, yani wo bilkul achhuti rehti thi.
+#
+# Ab jawab me jo bhi /product-images/... ka naam dikhe, chaahe kisi bhi kunji
+# ke neeche, woh uthaya jata hai — aur un sab chaudaiyon par jo asli browser
+# maangta hai (next.config.js ki deviceSizes).
 (
-  ACCEPT='image/avif,image/webp,*/*'
+  ACCEPT='image/webp,*/*'
+  URLS=$(mktemp); REQS=$(mktemp)
   curl -s "http://localhost:5000/api/products?pageSize=500" \
-    | grep -o '"image":"[^"]*"' | cut -d'"' -f4 | sort -u | head -200 \
-    | while read -r img; do
-        case "$img" in /*) ;; *) img="/$img" ;; esac
-        for w in 384 640; do
-          curl -s -o /dev/null -H "Accept: $ACCEPT" \
-            "http://localhost:3000/_next/image?url=$(printf %s "$img" | sed 's|/|%2F|g')&w=$w&q=75"
-        done
-      done
-  echo "   Image cache warmed."
+    | grep -oE '/?product-images/[A-Za-z0-9._%-]+\.(webp|jpg|jpeg|png|avif|gif)' \
+    | sed 's|^/*|/|' | sort -u | head -400 > "$URLS"
+  while read -r img; do
+    enc=$(printf %s "$img" | sed 's|/|%2F|g')
+    for w in 384 640 828 1080; do
+      echo "http://localhost:3000/_next/image?url=$enc&w=$w&q=75" >> "$REQS"
+    done
+  done < "$URLS"
+  # Do ek saath. Isse zyada par deploy ke turant baad VPS ka CPU asli
+  # shoppers se chhin jata hai.
+  xargs -P 2 -n 1 curl -s -o /dev/null --max-time 30 -H "Accept: $ACCEPT" < "$REQS"
+  echo "   Image cache warmed ($(wc -l < "$URLS") photos, $(wc -l < "$REQS") sizes)."
+  rm -f "$URLS" "$REQS"
 ) &
 WARM_PID=$!
 # Never let warming hold up or fail a deploy.
-( sleep 180 && kill $WARM_PID 2>/dev/null ) >/dev/null 2>&1 &
+( sleep 420 && kill $WARM_PID 2>/dev/null ) >/dev/null 2>&1 &
 pm2 status
 echo "=== Deploy complete ==="
