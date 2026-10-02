@@ -2444,3 +2444,22 @@ body.has-pdp-bar { padding-bottom: 92px; }
 .post-next-link:nth-child(n+2) { background: #fff; color: #722f37; border: 1px solid #e5d3d6; }
 .post-next-sub { margin: .8rem 0 0; font-size: .79rem; color: #7d736d; line-height: 1.6; }
 .post-next-sub a { color: #722f37; font-weight: 700; }
+
+/* Product form: the shop tag.
+   Small, near the Save button, out of the way — it is filled in automatically
+   from the staff login and only ever typed by hand for older products. */
+.shop-tag-row {
+  display: flex; align-items: center; gap: .5rem; flex-wrap: wrap;
+  margin-top: 1.4rem; padding-top: .8rem; border-top: 1px dashed #eadfe2;
+}
+.shop-tag-l {
+  font-size: .72rem; font-weight: 800; text-transform: uppercase;
+  letter-spacing: .04em; color: #8a7f76;
+}
+.shop-tag-in {
+  width: 180px; padding: .35rem .6rem; font-size: .82rem;
+  border: 1px solid #e5dcdd; border-radius: 7px; background: #fff; color: #2d2724;
+  font-family: inherit;
+}
+.shop-tag-in::placeholder { color: #b5aba6; font-style: italic; }
+.shop-tag-note { font-size: .72rem; color: #9a908a; line-height: 1.5; flex: 1 1 260px; min-width: 0; }

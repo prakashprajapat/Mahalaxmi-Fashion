@@ -275,6 +275,9 @@ export default function AdminOrdersPage() {
       awb:      (o.awb ?? '').toLowerCase().includes(q),
       sku:      (o.cart ?? []).some(c => (c.sku ?? '').toLowerCase().includes(q)),
       product:  (o.cart ?? []).some(c => (c.name ?? '').toLowerCase().includes(q)),
+      // Dukaan ka naam bhi khoja ja sake. Naam order par dikhne laga tha par
+      // khoj me shaamil nahi tha, isliye "All fields" me bhi nahi milta tha.
+      shop:     (o.cart ?? []).some(c => (c.shopName ?? '').toLowerCase().includes(q)),
     };
     const matchSearch = !search ||
       (searchIn === 'all' ? Object.values(hit).some(Boolean) : !!hit[searchIn]);
@@ -496,9 +499,10 @@ export default function AdminOrdersPage() {
             <option value="awb">AWB</option>
             <option value="sku">SKU</option>
             <option value="product">Product</option>
+            <option value="shop">Shop</option>
           </select>
           <input className="adm-input" style={{ flex: '1 1 170px' }}
-                 placeholder={searchIn === 'all' ? 'Search ID, name, phone, AWB or SKU' : 'Search'}
+                 placeholder={searchIn === 'all' ? 'Search ID, name, phone, AWB, SKU or shop' : 'Search'}
                  value={search} onChange={e => setSearch(e.target.value)} />
           <select className="adm-input" style={{ width: '118px' }} value={filterPay}
                   onChange={e => setFilterPay(e.target.value)}>

@@ -1131,16 +1131,6 @@ export default function EditProductPage() {
           </div>
 
           <div style={{ gridColumn:'1 / -1' }}>
-            <label style={lbl}>Shop</label>
-            <input value={shopName} onChange={e => setShopName(e.target.value)}
-                   placeholder="Which shop stocks this" style={inp} />
-            <div style={{ fontSize:'.72rem', color:'#8b8f98', marginTop:'.25rem', lineHeight:1.5 }}>
-              Shown on the order so you know where to get the item from. A staff login with a shop set
-              fills this in on its own; the name stays on the product even if that login is removed.
-            </div>
-          </div>
-
-          <div style={{ gridColumn:'1 / -1' }}>
             <label style={lbl}>Product Name <span style={{ color:'#c62828' }}>*</span></label>
             <input value={name} onChange={e => setName(e.target.value)} style={inp} />
           </div>
@@ -1606,6 +1596,22 @@ export default function EditProductPage() {
               onChange={e => setMainPhotos(p => ({ ...p, front: e.target.value }))}
               style={{ ...inp, flex:1 }} />
           </div>
+        </div>
+
+        {/* Dukaan ka naam — neeche, chhota, aur raaste se hata hua.
+            Pehle ye SKU ke theek neeche poori chaudai ka khana tha, yaani har
+            product kholte hi saamne. Par ise bharna hota hi nahi: jis staff ke
+            khaate me dukaan likhi hai, uske banaye har product par ye apne aap
+            chhap jata hai. Yahan sirf isliye hai ki purane products me, jinpar
+            koi naam nahi hai, maalik haath se bhar sake. */}
+        <div className="shop-tag-row">
+          <span className="shop-tag-l">Shop</span>
+          <input value={shopName} onChange={e => setShopName(e.target.value)}
+                 placeholder="auto from your login" className="shop-tag-in" />
+          <span className="shop-tag-note">
+            Fills in on its own from the staff login that lists the product, and stays on it afterwards.
+            Shown on the order so you know where to source the item.
+          </span>
         </div>
 
         {/* ── Action Buttons ── */}

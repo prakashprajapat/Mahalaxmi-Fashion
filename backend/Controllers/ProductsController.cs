@@ -651,13 +651,20 @@ public class ProductsController : ControllerBase
 
         // Dukaan ka naam.
         //
-        // Pehli baar hi chhapta hai aur phir wahi bana rehta hai. Baad me koi
-        // doosri dukaan ka staff isi product ko theek kare to naam nahi
-        // badalta - maal to us pehli dukaan se hi aaya tha. Badalna ho to
-        // admin panel se saaf-saaf bhejna padta hai; tabhi naya naam lagta
-        // hai.
-        if (!string.IsNullOrWhiteSpace(req.ShopName))
-            p.ShopName = req.ShopName.Trim();
+        // Do haalat alag-alag hain, aur farq null aur khali string ka hai:
+        //
+        //   null  = panne ne bheja hi nahi. Naya product banate waqt jab khana
+        //           khali ho to kuch bheja nahi jata - matlab "tum hi tay
+        //           karo" - aur tab jis staff ne listing ki uski dukaan chhap
+        //           jati hai. Yahi aam raasta hai; khana bharna padta hi nahi.
+        //   ""    = panne ne jaan-boojh kar khali bheja. Edit ke panne par
+        //           maalik ne naam mita diya. To mit jata hai.
+        //
+        // Aur naam ek baar chhapne ke baad apne aap nahi badalta: doosri dukaan
+        // ka staff isi product ko theek kare to bhi wahi rehta hai, kyunki maal
+        // to pehli dukaan se hi aaya tha.
+        if (req.ShopName is not null)
+            p.ShopName = string.IsNullOrWhiteSpace(req.ShopName) ? null : req.ShopName.Trim();
         else if (string.IsNullOrWhiteSpace(p.ShopName) && !string.IsNullOrWhiteSpace(callerShop))
             p.ShopName = callerShop.Trim();
 
