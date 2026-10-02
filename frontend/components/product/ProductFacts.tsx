@@ -67,12 +67,12 @@ export default function ProductFacts({
     },
     {
       q: `Can I return this if it does not fit?`,
-      // Seedha "nahi". Ye wahi sawal hai jiska galat jawab baad me jhagda banta
-      // hai, aur jiska jawab schema galat de raha tha.
-      a: `No. Size and fitting issues are not covered, unless the wrong size was delivered. `
-        + `Returns are accepted within ${RETURNS.windowDays} days only when ${RETURNS.acceptedReasons.join(', ')}. `
-        + `An original, unedited parcel-opening video is required for every claim, so please record one while opening the parcel. `
-        + `Please check the size chart on this page before ordering.`,
+      a: `Yes. Returns are accepted within ${RETURNS.windowDays} days of delivery for any reason, including size and change of mind, `
+        + `as long as the product is unused, unwashed and still has its tags and packaging. `
+        + `If the fault is ours \u2014 damaged, defective, wrong item or wrong size sent \u2014 we reimburse the return postage up to `
+        + `Rs. ${RETURNS.faultReturnShippingReimbursedUpTo} and you should report it within ${RETURNS.reportDamageWithinHours} hours with a parcel-opening video. `
+        + `If you simply changed your mind or picked the wrong size yourself, the return postage is yours. `
+        + `Checking the size chart on this page first saves everyone the trouble.`,
     },
     {
       q: `What sizes does this come in?`,
@@ -144,21 +144,21 @@ export default function ProductFacts({
           <div className="pf-card">
             <h3 className="pf-h3">Returns</h3>
             <p className="pf-note">
-              A {RETURNS.windowDays}-day window from delivery, for these reasons only:
+              <strong>{RETURNS.windowDays} days from delivery, for any reason</strong> — including size and
+              change of mind. The product has to come back unused, unwashed and with its tags and packaging
+              intact.
             </p>
-            <ul className="pf-list">
-              {RETURNS.acceptedReasons.map(r => <li key={r}>Where {r}.</li>)}
-            </ul>
             <p className="pf-warn">
-              <strong>Record a parcel-opening video.</strong> An original, unedited video of the sealed parcel
-              being opened is required for every claim — without it a return cannot be processed. Report damage,
-              defects, wrong or missing items within {RETURNS.reportDamageWithinHours} hours of delivery.
+              <strong>If the fault is ours, so is the postage.</strong> Damaged, defective, wrong item or wrong
+              size sent: tell us within {RETURNS.reportDamageWithinHours} hours with a parcel-opening video and
+              we reimburse the return postage up to Rs. {RETURNS.faultReturnShippingReimbursedUpTo}. Changed
+              your mind or ordered the wrong size yourself? Send it back within {RETURNS.windowDays} days and
+              the postage is yours.
             </p>
             <p className="pf-note">
-              Not covered: {RETURNS.excludedReasons.join('; ')}. Approved returns go back by{' '}
-              {RETURNS.returnCourier} and postage is reimbursed up to Rs. {RETURNS.returnShippingReimbursedUpTo};
-              refunds take {RETURNS.refundDaysMin}–{RETURNS.refundDaysMax} business days after the item is
-              received and checked.{' '}
+              Not accepted: {RETURNS.excludedReasons.join('; ')}. Returns travel by {RETURNS.returnCourier};
+              refunds are made {RETURNS.refundDaysMin}–{RETURNS.refundDaysMax} business days after the item
+              reaches us and is checked.{' '}
               <Link href={RETURNS.policyPath} className="pf-link">Full return policy</Link>
             </p>
           </div>

@@ -21,14 +21,12 @@ const FAQS: { q: string; a: string }[] = [
   },
   {
     q: 'Can I return or exchange a product?',
-    // Pehle yahan sirf "yes" tha. Jo baatein wapsi ko rok deti hain — video,
-    // aur ye ki pasand badalne par wapsi nahi hoti — wo yahan likhi hi nahi
-    // thi, aur grahak ko tab pata chalti thi jab dair ho chuki hoti thi.
-    a: `Yes, within ${RETURNS.windowDays} days of delivery, if the product arrived damaged or defective, the wrong item was sent, `
-      + `something was missing, or the product is significantly different from its description. `
-      + `An original, unedited parcel-opening video is required for every claim, so please record one while opening the parcel. `
-      + `Change of mind and size or fitting issues are not covered unless the wrong size was delivered. `
-      + `Damage must be reported within ${RETURNS.reportDamageWithinHours} hours of delivery.`,
+    a: `Yes. You have ${RETURNS.windowDays} days from delivery to return anything, for any reason — including `
+      + `size and simply changing your mind — as long as the product is unused, unwashed and still has its tags `
+      + `and packaging. If the mistake was ours (damaged, defective, wrong item or wrong size sent), tell us `
+      + `within ${RETURNS.reportDamageWithinHours} hours with a parcel-opening video and we reimburse the return `
+      + `postage up to Rs. ${RETURNS.faultReturnShippingReimbursedUpTo}. If you changed your mind, the return `
+      + `postage is yours.`,
   },
   {
     q: 'What sizes do you stock?',

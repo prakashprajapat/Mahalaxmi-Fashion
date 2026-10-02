@@ -64,7 +64,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
     // ── Policy pages ──────────────────────────────────────────────────────────
     { url: `${BASE}/privacy-policy`,               lastModified: new Date(), changeFrequency: 'yearly',  priority: 0.4 },
-    { url: `${BASE}/return-policy`,                lastModified: new Date(), changeFrequency: 'yearly',  priority: 0.4 },
+    // /return-policy ab /return-exchange par 301 hai — sitemap me redirect dena
+    // Search Console me galti ginta hai.
     { url: `${BASE}/return-exchange`,              lastModified: new Date(), changeFrequency: 'yearly',  priority: 0.4 },
     { url: `${BASE}/cancellation-policy`,          lastModified: new Date(), changeFrequency: 'yearly',  priority: 0.4 },
     { url: `${BASE}/shipping-delivery-policy`,     lastModified: new Date(), changeFrequency: 'yearly',  priority: 0.4 },

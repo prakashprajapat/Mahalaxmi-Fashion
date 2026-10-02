@@ -1,8 +1,9 @@
 import type { Metadata } from 'next';
+import { RETURNS, SHOP } from '@/lib/shopFacts';
 
 export const metadata: Metadata = {
-  title: 'Refund & Exchange Policy',
-  description: '7-day return window for damaged or defective products. Parcel opening video is mandatory for all claims.',
+  title: 'Return & Exchange Policy',
+  description: `${RETURNS.windowDays}-day returns on every order at Mahalaxmi Fashion Hub, for any reason including size and change of mind, as long as the product is unused with its tags intact. If the mistake is ours we pay the return postage.`,
   alternates: { canonical: '/return-exchange' },
 };
 
@@ -11,70 +12,95 @@ export default function ReturnExchangePage() {
     <>
       <section className="page-hero">
         <p className="eyebrow">Policy</p>
-        <h1>Refund &amp; Exchange Policy</h1>
-        <p>Effective Date: 19 June 2026. 7-day return window for damaged or defective products. Parcel opening video is mandatory for all claims.</p>
+        <h1>Return &amp; Exchange Policy</h1>
+        <p>
+          Updated 2 October 2026. {RETURNS.windowDays} days to return anything, for any reason, including size
+          and change of mind. If the mistake is ours, we pay the return postage.
+        </p>
       </section>
 
       <main className="policy-page">
         <article className="policy-card">
-          <h2>1. Return &amp; Exchange Eligibility</h2>
-          <p>We offer a <strong>7-day return window</strong> from the date of delivery. All of the following conditions must be met:</p>
-          <ul>
-            <li>An original, unedited parcel opening video is mandatory.</li>
-            <li>The video must show: the sealed package before opening, the shipping label, and the complete unboxing in one continuous recording.</li>
-            <li>The product must be unused, unwashed, unworn, and in original condition.</li>
-            <li>All original tags, labels, packaging, invoices, and accessories must be intact.</li>
-            <li>Return requests must be submitted within 7 days of delivery.</li>
-            <li>Damaged, defective, incorrect, or missing item issues must be reported within <strong>48 hours of delivery</strong>.</li>
-          </ul>
+          <h2>1. The short version</h2>
+          <p>
+            You have <strong>{RETURNS.windowDays} days from delivery</strong> to send a product back. You do not
+            have to justify it &mdash; the size being wrong, or simply not liking it once you see it, is reason
+            enough.
+          </p>
+          <p>
+            Two things we do ask: the product comes back <strong>unused, unwashed and unworn</strong>, with its{' '}
+            <strong>tags, packaging and accessories intact</strong>. Once a garment has been worn or washed we
+            cannot sell it to anyone else, and that is the whole of it.
+          </p>
+          <p>
+            This replaces our earlier policy, which only accepted returns for damaged or defective items. If you
+            were told otherwise on an earlier order, this is the policy that applies now.
+          </p>
         </article>
 
         <article className="policy-card">
-          <h2>2. Valid Reasons for Refund / Exchange</h2>
+          <h2>2. Who pays the return postage</h2>
+          <h3>Our mistake &mdash; we pay</h3>
+          <p>If any of these happened, the postage is on us, reimbursed up to <strong>Rs. {RETURNS.faultReturnShippingReimbursedUpTo}</strong>:</p>
           <ul>
-            <li>Product received in a damaged condition.</li>
-            <li>Product received with manufacturing defects.</li>
-            <li>Incorrect product delivered.</li>
-            <li>Missing item(s) in the package.</li>
-            <li>Product significantly differs from the description at the time of purchase.</li>
+            {RETURNS.faultReasons.map(r => <li key={r}>Where {r}.</li>)}
           </ul>
+          <p>
+            For these, please tell us within <strong>{RETURNS.reportDamageWithinHours} hours of delivery</strong>{' '}
+            and send an <strong>unedited parcel-opening video</strong> &mdash; the sealed parcel, the shipping
+            label, and the unboxing in one continuous recording. That video is how we claim against the courier
+            or the supplier, which is why we have to insist on it for damage claims. Please get into the habit of
+            recording while you open a parcel; it takes a few seconds and it protects you.
+          </p>
+
+          <h3>Your change of mind &mdash; you pay</h3>
+          <p>
+            If the product is fine and you simply want to send it back &mdash; wrong size ordered, colour not
+            what you imagined, changed your mind &mdash; the return postage is yours. No video is needed. Send it
+            back within {RETURNS.windowDays} days and we will refund the product in full.
+          </p>
         </article>
 
         <article className="policy-card">
-          <h2>3. Non-Refundable / Non-Exchangeable Cases</h2>
+          <h2>3. What we cannot take back</h2>
           <ul>
-            <li>Change of mind or personal preference.</li>
-            <li>Minor color variations due to photography, lighting, or screen settings.</li>
-            <li>Size or fitting issues unless an incorrect size was delivered.</li>
-            <li>Products used, washed, altered, ironed, or damaged after delivery.</li>
-            <li>Products returned without original tags, packaging, or accessories.</li>
-            <li>Claims submitted without a valid parcel opening video.</li>
-            <li>Customized, personalized, clearance-sale, or special-order products (unless received damaged or defective).</li>
+            {RETURNS.excludedReasons.map(r => <li key={r}>Anything {r.replace(/^anything /, '')}.</li>)}
           </ul>
+          <p>
+            Minor colour differences between the photograph and the product are normal &mdash; screens and
+            lighting vary &mdash; but if the difference is real and not a trick of the screen, that counts as our
+            mistake, not your change of mind.
+          </p>
         </article>
 
         <article className="policy-card">
-          <h2>4. How to Raise a Request</h2>
+          <h2>4. How to start a return</h2>
           <ol>
-            <li><strong>Step 1:</strong> Contact our support team within the 7-day return period.</li>
-            <li><strong>Step 2:</strong> Share — Order Number, Parcel Opening Video, Product Images, Reason for Return.</li>
-            <li><strong>Step 3:</strong> Our team will review within 2–3 business days and confirm eligibility.</li>
-            <li><strong>Step 4:</strong> If approved, send the item back via Speed Post to our Balotra address.</li>
+            <li><strong>Step 1:</strong> WhatsApp us on {SHOP.phoneDisplay} within {RETURNS.windowDays} days of delivery.</li>
+            <li><strong>Step 2:</strong> Send your order number, a photo of the product, and the reason. If it
+              arrived damaged, defective, wrong or incomplete, send the parcel-opening video too.</li>
+            <li><strong>Step 3:</strong> We reply within 2 business days with the return address and confirm who
+              is paying the postage.</li>
+            <li><strong>Step 4:</strong> Post it back by {RETURNS.returnCourier} and send us the receipt. Keep
+              the receipt &mdash; we need the tracking number, and for our-mistake returns we need it to
+              reimburse you.</li>
           </ol>
         </article>
 
         <article className="policy-card">
-          <h2>5. Return Shipping</h2>
+          <h2>5. Return shipping</h2>
           <ul>
-            <li>Use <strong>India Post Speed Post</strong> for return shipments.</li>
-            <li>We reimburse return shipping up to <strong>₹100</strong> for approved return cases.</li>
-            <li>Keep your Speed Post receipt — we need the tracking number to process the reimbursement.</li>
-            <li>COD or courier-partner-collected returns are not accepted.</li>
+            <li>Use <strong>{RETURNS.returnCourier}</strong>. We cannot accept COD or
+              courier-collected returns &mdash; they arrive with a bill attached.</li>
+            <li>Where the mistake was ours, we reimburse the postage up to <strong>Rs. {RETURNS.faultReturnShippingReimbursedUpTo}</strong> against the receipt.</li>
+            <li>Where you changed your mind or ordered the wrong size yourself, the postage is yours.</li>
+            <li>Keep the receipt either way &mdash; without the tracking number we cannot trace a parcel that
+              goes missing on the way back.</li>
           </ul>
         </article>
 
         <article className="policy-card">
-          <h2>6. Refund Timeline</h2>
+          <h2>6. Refund timeline</h2>
           <ul>
             <li>Once the returned item is received and inspected, refund is processed within <strong>5–7 business days</strong>.</li>
             <li>Prepaid orders: refund to original payment method.</li>
@@ -83,8 +109,13 @@ export default function ReturnExchangePage() {
         </article>
 
         <article className="policy-card">
-          <h2>7. Exchange Process</h2>
-          <p>We currently process exchanges as a return + new order. Once your return is approved, place a fresh order for the item you want and we will process your refund simultaneously.</p>
+          <h2>7. Exchanges</h2>
+          <p>
+            We handle an exchange as a return plus a fresh order, because it is faster than holding your money
+            while a parcel travels both ways. Place the new order whenever you like; we refund the first one as
+            soon as it reaches us. If we sent the wrong size, tell us and we will post the right one without
+            waiting for the first to come back.
+          </p>
         </article>
 
         <article className="policy-card">

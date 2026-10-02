@@ -101,12 +101,12 @@ Total products available to order: ${live.length}.
 - Each product page carries a size chart with bust, waist and hip measurements in inches.
 
 ## Returns
-- Window: ${RETURNS.windowDays} days from delivery.
-- Returns are accepted when ${RETURNS.acceptedReasons.join(', ')}.
-- Returns are NOT accepted for ${RETURNS.excludedReasons.join(', ')}.
-- An original, unedited parcel-opening video is required for every claim. Without it a claim cannot be processed.
-- Damage, defects, wrong items and missing items must be reported within ${RETURNS.reportDamageWithinHours} hours of delivery.
-- Approved returns are sent back by ${RETURNS.returnCourier}; return postage is reimbursed up to ${money(RETURNS.returnShippingReimbursedUpTo)}.
+- Window: ${RETURNS.windowDays} days from delivery, for any reason, including size and change of mind.
+- Conditions on every return: ${RETURNS.conditions.join('; ')}.
+- Where the fault is ours (${RETURNS.faultReasons.join(', ')}), return postage is reimbursed up to ${money(RETURNS.faultReturnShippingReimbursedUpTo)}, and the issue should be reported within ${RETURNS.reportDamageWithinHours} hours with an unedited parcel-opening video.
+- Where the customer changed their mind or ordered the wrong size themselves, the return postage is theirs. No video is needed.
+- Returns are NOT accepted for: ${RETURNS.excludedReasons.join('; ')}.
+- Returns travel by ${RETURNS.returnCourier}.
 - Refunds are processed within ${RETURNS.refundDaysMin}-${RETURNS.refundDaysMax} business days of the returned item being received and checked.
 - Full policy: ${BASE}${RETURNS.policyPath}
 

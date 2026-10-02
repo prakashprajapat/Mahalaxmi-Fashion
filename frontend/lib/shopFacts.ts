@@ -53,35 +53,64 @@ export const DELIVERY_TOTAL_MAX = SHIPPING.processingDaysMax + SHIPPING.transitD
 
 export const RETURNS = {
   windowDays: 7,
-  /** Jin wajahon se wapsi hoti hai. */
-  acceptedReasons: [
+
+  // 2 October 2026 se khuli wapsi.
+  //
+  // Pehle wapsi sirf toote, kharab, galat ya kam aaye saaman par thi — pasand
+  // ya naap par nahi. Par site ka schema Google ko "7-day free return" bata
+  // raha tha, aur Google wahi apne AI jawab me likhta tha. Grahak us vaade par
+  // order karta tha aur baad me "nahi ho sakti" sunta tha.
+  //
+  // Do hi imaandaar raaste the: ya to vaada chhota karke likh dein, ya policy
+  // ko vaade jitna bada kar dein. Maalik ne doosra chuna.
+  anyReason: true,
+
+  /** Jo har wapsi par lagu hai. */
+  conditions: [
+    'the product is unused, unwashed, unworn and still in its original condition',
+    'all tags, labels, packaging and accessories are intact',
+    'the request is raised within 7 days of delivery',
+  ],
+
+  /** Jin par dukaan wapsi ka kharch uthati hai. */
+  faultReasons: [
     'the product arrived damaged',
     'the product has a manufacturing defect',
-    'the wrong product was delivered',
+    'the wrong product or wrong size was delivered',
     'an item was missing from the parcel',
     'the product is significantly different from its description',
   ],
-  /** Jin wajahon se NAHI hoti. Ye likhna utna hi zaroori hai. */
+
+  /** Ab bhi kuch cheezein wapas nahi hoti — par ye chhoti soochi hai. */
   excludedReasons: [
-    'change of mind',
-    'size or fitting issues, unless the wrong size was sent',
-    'minor colour differences caused by photography or screen settings',
-    'anything used, washed, altered or ironed after delivery',
+    'anything used, washed, worn, altered or ironed after delivery',
+    'anything returned without its original tags, packaging or accessories',
+    'innerwear, which cannot be resold once opened, for reasons of hygiene',
+    'customised or special-order products, unless they arrived damaged or defective',
   ],
-  /** Bina iske koi claim nahi chalta — isliye ye chhupa kar rakhne wali baat nahi. */
-  videoRequired: true,
+
+  /** Video ab SIRF kharab/galat saaman ke claim par. Pasand ya naap par nahi —
+   *  wahan uska koi matlab hi nahi tha, aur wo wapsi ko rokne wali shart ban
+   *  gayi thi. */
+  videoRequiredForFaults: true,
   reportDamageWithinHours: 48,
+
   returnCourier: 'India Post Speed Post',
-  returnShippingReimbursedUpTo: 100,
+  /** Dukaan ki galti ho to bhejne ka kharch dukaan ka. */
+  faultReturnShippingReimbursedUpTo: 100,
+  /** Pasand ya naap badalne par bhejne ka kharch grahak ka — warna har badli
+   *  hui pasand dukaan ko ₹100 ki padti. */
+  remorseReturnShippingPaidBy: 'customer' as const,
+
   refundDaysMin: 5,
   refundDaysMax: 7,
   policyPath: '/return-exchange',
 } as const;
 
-/** Ek vaakya me wapsi ki sachchai — jahan jagah kam ho wahan yahi likhiye. */
+/** Ek vaakya me wapsi — jahan jagah kam ho wahan yahi likhiye. */
 export const RETURNS_SHORT =
-  `${RETURNS.windowDays}-day returns for damaged, defective, wrong or missing items. `
-  + 'An unedited parcel-opening video is required. Change of mind and size issues are not covered.';
+  `${7}-day returns on any order, including size and change of mind, as long as the product is unused `
+  + 'and its tags are intact. If the fault is ours, we pay the return postage.';
 
 export const SIZES = {
   /** Readymade kapdon ki naap. */

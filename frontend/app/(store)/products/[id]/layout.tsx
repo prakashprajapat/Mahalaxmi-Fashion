@@ -146,24 +146,43 @@ async function buildJsonLd(idParam: string): Promise<string | null> {
         priceValidUntil: new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0],
         availability: outOfStock ? 'https://schema.org/OutOfStock' : 'https://schema.org/InStock',
         itemCondition: 'https://schema.org/NewCondition',
-        seller: { '@type': 'Organization', name: 'Mahalaxmi Fashion Hub' },
+        // Dukaan ko dobara likhne ke bajay usi entity ka ishara, jo root layout
+        // me @id ke saath likhi hai — isse padhne wale ko pata chalta hai ki
+        // bechne wala wahi hai jiska pata, phone aur social sab wahan darj hai.
+        seller: { '@id': `${BASE}/#organization` },
         shippingDetails: {
           '@type': 'OfferShippingDetails',
-          shippingRate: { '@type': 'MonetaryAmount', value: price >= 999 ? 0 : 60, currency: 'INR' },
+          shippingRate: {
+            '@type': 'MonetaryAmount',
+            value: price >= SHIPPING.freeAbove ? 0 : SHIPPING.chargeBelow,
+            currency: 'INR',
+          },
           shippingDestination: { '@type': 'DefinedRegion', addressCountry: 'IN' },
           deliveryTime: {
             '@type': 'ShippingDeliveryTime',
-            handlingTime: { '@type': 'QuantitativeValue', minValue: 0, maxValue: 1, unitCode: 'DAY' },
-            transitTime: { '@type': 'QuantitativeValue', minValue: 2, maxValue: 7, unitCode: 'DAY' },
+            // Yahan 0-1 aur 2-7 din likhe the jabki policy ke panne par 1-2 aur
+            // 3-8 hai. Ab dono ek hi file se aate hain.
+            handlingTime: { '@type': 'QuantitativeValue', minValue: SHIPPING.processingDaysMin, maxValue: SHIPPING.processingDaysMax, unitCode: 'DAY' },
+            transitTime: { '@type': 'QuantitativeValue', minValue: SHIPPING.transitDaysMin, maxValue: SHIPPING.transitDaysMax, unitCode: 'DAY' },
           },
         },
         hasMerchantReturnPolicy: {
           '@type': 'MerchantReturnPolicy',
           applicableCountry: 'IN',
           returnPolicyCategory: 'https://schema.org/MerchantReturnFiniteReturnWindow',
-          merchantReturnDays: 7,
+          merchantReturnDays: RETURNS.windowDays,
           returnMethod: 'https://schema.org/ReturnByMail',
+          // Ab ye sach hai. Pehle bhi yahi likha tha, par tab policy sirf toote
+          // hue saaman par wapsi deti thi — schema ek vaada karta tha aur panna
+          // doosra, aur bich me grahak pista tha.
+          //
+          // Bhejne ka kharch dono haalaton me alag hai, aur Google ke paas iske
+          // liye alag khane hain, isliye dono likh diye.
           returnFees: 'https://schema.org/FreeReturn',
+          itemDefectReturnFees: 'https://schema.org/FreeReturn',
+          customerRemorseReturnFees: 'https://schema.org/ReturnShippingFees',
+          customerRemorseReturnLabelSource: 'https://schema.org/ReturnLabelCustomerResponsibility',
+          merchantReturnLink: `${BASE}${RETURNS.policyPath}`,
         },
       },
     };

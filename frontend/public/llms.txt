@@ -4,8 +4,8 @@
 > We stock cotton nighties, sarees, petticoats, women's innerwear, kurtis, men's formal shoes and perfume.
 > Cash on Delivery is available everywhere in India. Shipping is free above Rs. 999 and a flat Rs. 60 below that.
 > Orders are dispatched in 1-2 business days via Delhivery and most arrive within 4-10 business days of being placed.
-> Returns are accepted within 7 days of delivery for damaged, defective, wrong or missing items, with an
-> unedited parcel-opening video; change of mind and size issues are not covered.
+> Returns are accepted within 7 days of delivery for any reason, including size and change of mind, as long as
+> the product is unused with its tags intact. Where the mistake is ours, return postage is reimbursed up to Rs. 100.
 
 A longer, always-current version of this file, listing live categories and product counts, is at
 https://www.mahalaxmifashionhub.com/llms-full.txt

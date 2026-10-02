@@ -222,6 +222,11 @@ const nextConfig = {
         destination,
         permanent: true,
       })),
+      // Wapsi ke do panne the - /return-policy aur /return-exchange - aur dono
+      // par kareeb kareeb wahi likha tha. Google ke liye ye do nakal wale panne
+      // hain, aur rakhne wale ke liye do jagah jahan niyam alag ho jate hain
+      // (jaisa abhi hua bhi: ek par purani shart padi thi). Ek hi panna rahega.
+      { source: '/return-policy', destination: '/return-exchange', permanent: true },
     ];
   },
 };
