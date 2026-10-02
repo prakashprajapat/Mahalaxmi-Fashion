@@ -5,6 +5,7 @@ import { POSTS } from '@/lib/blog';
 import { getPost } from '@/lib/seoContent';
 import Image from 'next/image';
 import { OWNER } from '@/lib/owner';
+import { SHIPPING, RETURNS } from '@/lib/shopFacts';
 
 const BASE = 'https://www.mahalaxmifashionhub.com';
 
@@ -47,9 +48,60 @@ export async function generateMetadata({ params }: { params: { slug: string } })
   };
 }
 
+// Lekh ke vishay se judi jagahein. Jo yahan na mile uske liye aam soochi.
+function nextStepsFor(slug: string, title: string): { heading: string; links: { href: string; label: string }[] } {
+  const hay = `${slug} ${title}`.toLowerCase();
+  if (/shoe|leather|footwear/.test(hay)) {
+    return {
+      heading: 'Looking for a pair?',
+      links: [
+        { href: '/men', label: 'Men\u2019s footwear and clothing' },
+        { href: '/blog/formal-shoe-size-guide-india', label: 'Get the size right first' },
+      ],
+    };
+  }
+  if (/perfume|fragrance/.test(hay)) {
+    return {
+      heading: 'Shop fragrance',
+      links: [
+        { href: '/beauty', label: 'Perfume and personal care' },
+        { href: '/best-sellers', label: 'What sells most' },
+      ],
+    };
+  }
+  if (/saree|petticoat|drap/.test(hay)) {
+    return {
+      heading: 'Shop sarees and petticoats',
+      links: [
+        { href: '/products?subcategory=Saree', label: 'Cotton and daily-wear sarees' },
+        { href: '/products?subcategory=Petticoat', label: 'Petticoats, S to XXL' },
+        { href: '/blog/saree-petticoat-guide', label: 'Which petticoat to pick' },
+      ],
+    };
+  }
+  if (/nighty|nightwear|sleep|cotton|fabric|size/.test(hay)) {
+    return {
+      heading: 'Shop cotton nighties',
+      links: [
+        { href: '/products?subcategory=Nighty', label: 'Cotton nighties, S to XXL' },
+        { href: '/women', label: 'Everything for women' },
+        { href: '/blog/nighty-size-guide-india', label: 'Measure for the right size' },
+      ],
+    };
+  }
+  return {
+    heading: 'Shop the catalogue',
+    links: [
+      { href: '/products', label: 'All products' },
+      { href: '/best-sellers', label: 'Best sellers' },
+    ],
+  };
+}
+
 export default async function BlogPostPage({ params }: { params: { slug: string } }) {
   const post = await getPost(params.slug);
   if (!post) notFound();
+  const nextUp = nextStepsFor(post.slug, post.title);
 
   const articleJsonLd = {
     '@context': 'https://schema.org',
@@ -118,9 +170,25 @@ export default async function BlogPostPage({ params }: { params: { slug: string 
           dangerouslySetInnerHTML={{ __html: post.content }}
         />
 
-        <div style={{ maxWidth: '820px', margin: '2rem auto 0', display: 'flex', gap: '.75rem', flexWrap: 'wrap' }}>
-          <Link href="/products?bestSeller=true" className="button primary">🛍️ Shop Best Sellers</Link>
-          <Link href="/blog" className="button secondary">← All Articles</Link>
+        {/* Lekh ke baad kahan jaana hai.
+            Pehle yahan sirf "Shop Best Sellers" tha — har lekh ke neeche ek hi
+            jagah, chaahe lekh joote ke baare me ho ya saree ke. Ab lekh ke
+            vishay se judi jagah par bhejta hai. Do fayde: padhne wale ko wahi
+            milta hai jiske baare me usne abhi padha, aur Google ko dikhta hai
+            ki kaun sa lekh kis panne se juda hua hai. Topical authority isi
+            jodh se banti hai, akele lekhon se nahi. */}
+        <div className="post-next">
+          <p className="post-next-h">{nextUp.heading}</p>
+          <div className="post-next-links">
+            {nextUp.links.map(l => (
+              <Link key={l.href} href={l.href} className="post-next-link">{l.label}</Link>
+            ))}
+          </div>
+          <p className="post-next-sub">
+            Cash on Delivery across India, free shipping above Rs. {SHIPPING.freeAbove},
+            and {RETURNS.windowDays} days to return anything unused.{' '}
+            <Link href="/blog">Read the other guides</Link>
+          </p>
         </div>
       </main>
 
