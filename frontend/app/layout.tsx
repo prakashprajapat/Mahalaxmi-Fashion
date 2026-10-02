@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import Script from 'next/script';
 import { settingsApi } from '@/lib/api';
 import PWARegister from '@/components/pwa/PWARegister';
+import { SHOP } from '@/lib/shopFacts';
 import './globals.css';
 
 export const viewport: Viewport = {
@@ -257,92 +258,111 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         )}
 
         {/* LocalBusiness JSON-LD */}
+        {/* Ek jodi hui entity, teen alag nahi.
+            Pehle yahan teen alag-alag JSON-LD the — ClothingStore, WebSite aur
+            Organization — teenon ka naam ek, par unke beech koi taar nahi. Jo
+            bhi padhta (Google ya koi AI) use teen cheezein dikhti thin jinke
+            naam sanyog se ek jaise hain, aur use khud andaza lagana padta tha
+            ki ye ek hi dukaan hai.
+
+            Ab @id se teenon ek doosre ko pehchante hain, aur product ka schema
+            bhi usi #organization ko ishara karta hai — alag se dobara likhne ke
+            bajay. Isi tarah ek "entity" banti hai, jise AI apne jawab me naam
+            lekar hawala de sakta hai. */}
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
             __html: JSON.stringify({
               '@context': 'https://schema.org',
-              '@type': 'ClothingStore',
-              name: 'Mahalaxmi Fashion Hub',
-              url: SITE_URL,
-              logo: `${SITE_URL}/icon-512.png`,
-              image: `${SITE_URL}/hero-bannernew.webp`,
-              description: 'Premium Indian Fashion — Sarees, Nighty, Petticoat & More. Family-run ethnic wear boutique in Balotra, Rajasthan.',
-              telephone: '+919429429880',
-              address: {
-                '@type': 'PostalAddress',
-                streetAddress: 'Ward No. 45, Near Mahadev Temple',
-                addressLocality: 'Balotra',
-                addressRegion: 'Rajasthan',
-                postalCode: '344022',
-                addressCountry: 'IN',
-              },
-              geo: { '@type': 'GeoCoordinates', latitude: 25.8333, longitude: 72.2333 },
-              // Google looks for hasMap on a local business. Pointed at the
-              // postal address rather than a Place ID, because the shop has no
-              // Google Business Profile yet; swap in the real Maps link the day
-              // it does, and correct the coordinates above at the same time —
-              // 25.8333, 72.2333 is the centre of Balotra, not the shop.
-              hasMap: 'https://www.google.com/maps/search/?api=1&query='
-                + encodeURIComponent('Ward No. 45, Near Mahadev Temple, Balotra, Rajasthan 344022'),
-              openingHoursSpecification: [
+              '@graph': [
                 {
-                  '@type': 'OpeningHoursSpecification',
-                  dayOfWeek: ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'],
-                  opens: '10:00',
-                  closes: '20:00',
+                  '@type': ['Organization', 'ClothingStore'],
+                  '@id': `${SITE_URL}/#organization`,
+                  name: 'Mahalaxmi Fashion Hub',
+                  alternateName: 'Mahalaxmi Fashion Hub Balotra',
+                  url: SITE_URL,
+                  logo: { '@type': 'ImageObject', '@id': `${SITE_URL}/#logo`, url: `${SITE_URL}/icon-512.png`, width: 512, height: 512 },
+                  image: `${SITE_URL}/hero-bannernew.webp`,
+                  description:
+                    'Family-run ethnic and fashion wear shop in Balotra, Rajasthan, selling cotton nighties, '
+                    + 'sarees, petticoats, innerwear, footwear and perfume online across India with Cash on Delivery.',
+                  slogan: 'Every look, a new experience',
+                  telephone: SHOP.phoneE164,
+                  email: 'mahalaxmifashionhub@gmail.com',
+                  address: {
+                    '@type': 'PostalAddress',
+                    streetAddress: SHOP.street,
+                    addressLocality: SHOP.city,
+                    addressRegion: SHOP.state,
+                    postalCode: SHOP.pincode,
+                    addressCountry: SHOP.country,
+                  },
+                  geo: { '@type': 'GeoCoordinates', latitude: 25.8333, longitude: 72.2333 },
+                  // Google looks for hasMap on a local business. Pointed at the
+                  // postal address rather than a Place ID, because the shop has no
+                  // Google Business Profile yet; swap in the real Maps link the day
+                  // it does, and correct the coordinates above at the same time —
+                  // 25.8333, 72.2333 is the centre of Balotra, not the shop.
+                  hasMap: 'https://www.google.com/maps/search/?api=1&query='
+                    + encodeURIComponent(`${SHOP.street}, ${SHOP.city}, ${SHOP.state} ${SHOP.pincode}`),
+                  openingHoursSpecification: [
+                    {
+                      '@type': 'OpeningHoursSpecification',
+                      dayOfWeek: ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'],
+                      opens: '10:00',
+                      closes: '20:00',
+                    },
+                  ],
+                  // Jo bhi channel site khud link karti hai wo yahan hona chahiye —
+                  // yahi wo taar hain jinse Google aur AI ek naam ko ek asli
+                  // dukaan se jodte hain. YouTube footer me tha par yahan nahi.
+                  sameAs: [
+                    'https://www.instagram.com/mahalaxmifashionhub.blt/',
+                    'https://www.facebook.com/mahalaxmifashionhub.blt/',
+                    'https://www.youtube.com/@Mahalaxmifashionhub',
+                  ],
+                  areaServed: { '@type': 'Country', name: 'India' },
+                  knowsAbout: [
+                    'cotton nighty', 'nighty for women', 'saree', 'cotton saree', 'petticoat',
+                    'womens innerwear', 'kurti', 'ethnic wear', 'formal shoes', 'perfume',
+                  ],
+                  priceRange: '₹₹',
+                  currenciesAccepted: 'INR',
+                  paymentAccepted: 'Cash on Delivery, UPI, Credit Card, Debit Card, Net Banking',
+                  contactPoint: {
+                    '@type': 'ContactPoint',
+                    telephone: SHOP.phoneE164,
+                    contactType: 'customer service',
+                    areaServed: 'IN',
+                    availableLanguage: ['Hindi', 'English'],
+                    hoursAvailable: {
+                      '@type': 'OpeningHoursSpecification',
+                      dayOfWeek: ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'],
+                      opens: '10:00',
+                      closes: '20:00',
+                    },
+                  },
+                },
+                {
+                  '@type': 'Brand',
+                  '@id': `${SITE_URL}/#brand`,
+                  name: 'Mahalaxmi Fashion Hub',
+                  logo: `${SITE_URL}/icon-512.png`,
+                },
+                {
+                  '@type': 'WebSite',
+                  '@id': `${SITE_URL}/#website`,
+                  name: 'Mahalaxmi Fashion Hub',
+                  url: SITE_URL,
+                  inLanguage: 'en-IN',
+                  publisher: { '@id': `${SITE_URL}/#organization` },
+                  potentialAction: {
+                    '@type': 'SearchAction',
+                    target: { '@type': 'EntryPoint', urlTemplate: `${SITE_URL}/products?q={search_term_string}` },
+                    'query-input': 'required name=search_term_string',
+                  },
                 },
               ],
-              sameAs: [
-                'https://www.instagram.com/mahalaxmifashionhub.blt/',
-                'https://www.facebook.com/mahalaxmifashionhub.blt/',
-              ],
-              priceRange: '₹₹',
-              currenciesAccepted: 'INR',
-              paymentAccepted: 'Cash, Credit Card, Debit Card, UPI',
-            }),
-          }}
-        />
-
-        {/* WebSite + SearchAction JSON-LD (Google sitelinks search box) */}
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{
-            __html: JSON.stringify({
-              '@context': 'https://schema.org',
-              '@type': 'WebSite',
-              name: 'Mahalaxmi Fashion Hub',
-              url: SITE_URL,
-              potentialAction: {
-                '@type': 'SearchAction',
-                target: { '@type': 'EntryPoint', urlTemplate: `${SITE_URL}/products?q={search_term_string}` },
-                'query-input': 'required name=search_term_string',
-              },
-            }),
-          }}
-        />
-
-        {/* Organization JSON-LD */}
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{
-            __html: JSON.stringify({
-              '@context': 'https://schema.org',
-              '@type': 'Organization',
-              name: 'Mahalaxmi Fashion Hub',
-              url: SITE_URL,
-              logo: `${SITE_URL}/icon-512.png`,
-              sameAs: [
-                'https://www.instagram.com/mahalaxmifashionhub.blt/',
-                'https://www.facebook.com/mahalaxmifashionhub.blt/',
-              ],
-              contactPoint: {
-                '@type': 'ContactPoint',
-                telephone: '+919429429880',
-                contactType: 'customer service',
-                areaServed: 'IN',
-                availableLanguage: ['Hindi', 'English'],
-              },
             }),
           }}
         />

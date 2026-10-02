@@ -27,9 +27,42 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
     ...extra,
   ]));
 
+  // AI wale crawler ab naam se likhe hain.
+  //
+  // Pehle inka koi zikr hi nahi tha. Chhup kar sab chal to rahe the (kyunki *
+  // sabko ijazat deta hai), par likha kuch nahi tha — matlab kal agar kisi ne
+  // * me ek Disallow jod diya to ChatGPT, Perplexity aur Google ke AI jawab
+  // dukaan ko dekhna hi band kar dete, aur kisi ko pata bhi na chalta.
+  //
+  // Ye wo crawler hain jo jawab me dukaan ka NAAM LEKAR hawala dete hain.
+  // Inhe ijazat dene ka seedha fayda hai: AI ke jawab me dukaan ka naam aata
+  // hai. Inhe alag group me rakha hai taki upar wale niyam se ye kabhi
+  // galti se na ruk jayein.
+  const aiSearchBots = [
+    'OAI-SearchBot',    // ChatGPT ka search
+    'ChatGPT-User',     // jab koi ChatGPT me link kholta hai
+    'GPTBot',           // OpenAI
+    'PerplexityBot',
+    'Perplexity-User',
+    'ClaudeBot',
+    'Claude-SearchBot',
+    'Claude-User',
+    'Google-Extended',  // Gemini / AI Overviews
+    'Applebot-Extended',
+    'meta-externalagent',
+    'Amazonbot',
+    'Bingbot',
+    'DuckAssistBot',
+    'cohere-ai',
+    'YouBot',
+  ];
+
   return {
     rules: [
       { userAgent: '*', allow: '/', disallow },
+      // Wahi pabandiyan, bas naam se — /admin aur /api dukaan ka andar ka
+      // hissa hai, wo inke liye bhi band hai.
+      ...aiSearchBots.map(ua => ({ userAgent: ua, allow: '/', disallow })),
     ],
     sitemap: 'https://www.mahalaxmifashionhub.com/sitemap.xml',
   };

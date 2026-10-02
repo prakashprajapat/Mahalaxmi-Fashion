@@ -5,7 +5,11 @@ export default function TrustBadges() {
   const items = [
     { icon: '🔒', title: 'Secure Payments', sub: '256-bit encrypted checkout' },
     { icon: '🚚', title: 'Cash on Delivery', sub: 'Pay when it arrives' },
-    { icon: '↩️', title: 'Easy 7-Day Returns', sub: 'Hassle-free exchange' },
+    // "Easy 7-Day Returns / Hassle-free exchange" likha tha, jo sach nahi hai:
+    // wapsi sirf toote, kharab, galat ya kam aaye saaman par hoti hai, aur
+    // bina parcel kholne ke video ke nahi. Grahak ko ye baat kharidne se
+    // PEHLE pata honi chahiye, baad me nahi.
+    { icon: '↩️', title: '7-Day Returns', sub: 'Damaged or wrong items' },
     { icon: '✅', title: 'Quality Checked', sub: 'Every order inspected' },
   ];
   const methods = ['UPI', 'VISA', 'RuPay', 'Mastercard', 'Net Banking', 'COD'];

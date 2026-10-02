@@ -1,17 +1,42 @@
 # Mahalaxmi Fashion Hub
 
-> Online ethnic and fashion wear store based in Balotra, Rajasthan, India. We sell sarees, cotton nighties, petticoats, innerwear and fabrics. Cash on Delivery available, free shipping over Rs. 999, pan-India delivery with order tracking.
+> A family-run ethnic and fashion wear shop in Balotra, Rajasthan, India, selling online across India.
+> We stock cotton nighties, sarees, petticoats, women's innerwear, kurtis, men's formal shoes and perfume.
+> Cash on Delivery is available everywhere in India. Shipping is free above Rs. 999 and a flat Rs. 60 below that.
+> Orders are dispatched in 1-2 business days via Delhivery and most arrive within 4-10 business days of being placed.
+> Returns are accepted within 7 days of delivery for damaged, defective, wrong or missing items, with an
+> unedited parcel-opening video; change of mind and size issues are not covered.
+
+A longer, always-current version of this file, listing live categories and product counts, is at
+https://www.mahalaxmifashionhub.com/llms-full.txt
+
+## Shop
+- Name: Mahalaxmi Fashion Hub
+- Address: Ward No. 45, Near Mahadev Temple, Balotra, Rajasthan 344022, India
+- Phone and WhatsApp: +91 9429429880
+- Hours: Monday to Saturday, 10 AM to 8 PM IST
+- Languages: Hindi, English
+- Payment: Cash on Delivery, UPI, debit card, credit card, net banking
+- Sizes: S to XXL for readymade clothing; some pieces are Free Size
 
 ## Key pages
-- [Home](https://www.mahalaxmifashionhub.com/): Store overview, best sellers, new arrivals
-- [Women](https://www.mahalaxmifashionhub.com/women): Sarees, nighties, petticoats and daily wear
-- [Sarees](https://www.mahalaxmifashionhub.com/products?category=saree): Designer and daily-wear sarees
-- [Best Sellers](https://www.mahalaxmifashionhub.com/best-sellers): Most popular products
-- [All Products](https://www.mahalaxmifashionhub.com/products): Full catalogue
-- [Track Order](https://www.mahalaxmifashionhub.com/tracking): Order tracking
-- [Contact](https://www.mahalaxmifashionhub.com/contact): Customer support and WhatsApp
+- [Home](https://www.mahalaxmifashionhub.com/): store overview, best sellers, new arrivals
+- [All products](https://www.mahalaxmifashionhub.com/products): the full catalogue
+- [Best sellers](https://www.mahalaxmifashionhub.com/best-sellers): most ordered products
+- [Women](https://www.mahalaxmifashionhub.com/women): nighties, sarees, petticoats, innerwear, kurtis
+- [Men](https://www.mahalaxmifashionhub.com/men): formal shoes and men's wear
+- [Kids](https://www.mahalaxmifashionhub.com/kids): children's clothing
+- [Beauty](https://www.mahalaxmifashionhub.com/beauty): perfume and personal care
+- [Fabrics](https://www.mahalaxmifashionhub.com/fabrics): fabric by the metre
+- [Customer reviews](https://www.mahalaxmifashionhub.com/customer-reviews): photo reviews left after delivery
+- [Blog](https://www.mahalaxmifashionhub.com/blog): buying and fabric-care guides
+- [About us](https://www.mahalaxmifashionhub.com/about-us): who runs the shop
+- [Contact](https://www.mahalaxmifashionhub.com/contact): phone, WhatsApp, address and hours
+- [Track an order](https://www.mahalaxmifashionhub.com/tracking): tracking by order ID or AWB
 
 ## Policies
-- [Shipping and Delivery](https://www.mahalaxmifashionhub.com/shipping-delivery-policy)
-- [Returns and Exchange](https://www.mahalaxmifashionhub.com/return-exchange)
-- [Privacy Policy](https://www.mahalaxmifashionhub.com/privacy-policy)
+- [Shipping and delivery](https://www.mahalaxmifashionhub.com/shipping-delivery-policy): timelines, charges, free-shipping threshold
+- [Returns and exchange](https://www.mahalaxmifashionhub.com/return-exchange): what is and is not covered, and how to claim
+- [Cancellation](https://www.mahalaxmifashionhub.com/cancellation-policy)
+- [Privacy](https://www.mahalaxmifashionhub.com/privacy-policy)
+- [Terms and conditions](https://www.mahalaxmifashionhub.com/terms-conditions)

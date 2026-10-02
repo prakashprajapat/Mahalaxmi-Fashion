@@ -1,4 +1,6 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
+import { SHOP, SHIPPING, RETURNS, SIZES, DELIVERY_TOTAL_MIN, DELIVERY_TOTAL_MAX } from '@/lib/shopFacts';
 import ProductsClient from '@/components/products/ProductsClient';
 import { toListingProducts } from '@/lib/listingProduct';
 import { fetchAllProducts } from '@/lib/adminPaged';
@@ -75,6 +77,50 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
   };
 }
 
+// Catalogue ke panne ke neeche ki likhawat. Har chhanti hui soochi ke liye
+// wahi dhaancha, par naam uska apna - taki do alag chhantiyon ka text hubahu
+// ek jaisa na ho.
+function ListingIntro({ label, count }: { label: string; count: number }) {
+  const what = label === 'All Products' ? 'the full catalogue' : label.toLowerCase();
+  return (
+    <section className="pf-wrap" aria-labelledby="li-heading">
+      <div className="pf-inner">
+        <h2 id="li-heading" className="pf-h2">Buying {what} at Mahalaxmi Fashion Hub</h2>
+        <p className="pf-note" style={{ maxWidth: 760 }}>
+          {count > 0 && <>There {count === 1 ? 'is' : 'are'} <strong>{count}</strong> {count === 1 ? 'product' : 'products'} in {what} right now. </>}
+          Every piece is checked before it is packed, and ordered from our own shop in {SHOP.city}, {SHOP.state}.
+          Cash on Delivery is available everywhere in India, alongside UPI, cards and net banking.
+        </p>
+        <div className="pf-grid">
+          <div className="pf-card">
+            <h3 className="pf-h3">Delivery</h3>
+            <p className="pf-note" style={{ margin: 0 }}>
+              Dispatched in {SHIPPING.processingDaysMin}–{SHIPPING.processingDaysMax} business days via {SHIPPING.courier}.
+              Most orders arrive within {DELIVERY_TOTAL_MIN}–{DELIVERY_TOTAL_MAX} business days of being placed.
+              Shipping is free above Rs. {SHIPPING.freeAbove} and a flat Rs. {SHIPPING.chargeBelow} below that.
+            </p>
+          </div>
+          <div className="pf-card">
+            <h3 className="pf-h3">Sizes</h3>
+            <p className="pf-note" style={{ margin: 0 }}>
+              Readymade clothing is stocked from {SIZES.range}. {SIZES.note} Each product page carries a size
+              chart with bust, waist and hip measurements in inches.
+            </p>
+          </div>
+          <div className="pf-card">
+            <h3 className="pf-h3">Returns</h3>
+            <p className="pf-note" style={{ margin: 0 }}>
+              {RETURNS.windowDays} days from delivery for damaged, defective, wrong or missing items, with an
+              original unedited parcel-opening video. Change of mind and size issues are not covered.{' '}
+              <Link href={RETURNS.policyPath} className="pf-link">Read the full policy</Link>
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export default async function ProductsPage({ searchParams }: Props) {
   // Server ek page me 100 se zyada nahi deta, isliye pageSize: 500 maangne par
   // bhi 103 me se sirf 100 aate the — listing par teen products kabhi dikhte hi
@@ -103,12 +149,23 @@ export default async function ProductsPage({ searchParams }: Props) {
         ? searchParams.category.charAt(0).toUpperCase() + searchParams.category.slice(1).replace(/-/g, ' ')
         : 'All Products';
 
+  // Khoj ke nateeje ka panna noindex hai, uspar likhne ka koi matlab nahi.
+  const showCopy = !searchParams.q;
+
   return (
-    <ProductsClient
-      products={toListingProducts(products as any[])}
-      title={title}
-      initialQ={searchParams.q ?? ''}
-      initialSubcat={subs.length === 1 ? subs[0] : ''}
-    />
+    <>
+      <ProductsClient
+        products={toListingProducts(products as any[])}
+        title={title}
+        initialQ={searchParams.q ?? ''}
+        initialSubcat={subs.length === 1 ? subs[0] : ''}
+      />
+      {/* Is panne par ek bhi shabd nahi tha - sirf products ka grid.
+          Yahi catalogue ka mukhya darwaza hai, aur breadcrumb aur llms.txt
+          dono isi par ishara karte hain. Bina kisi likhe shabd ke Google ke
+          paas is panne ke baare me batane ko kuch tha hi nahi, aur AI ke jawab
+          me ye kabhi aa hi nahi sakta tha. */}
+      {showCopy && <ListingIntro label={title} count={products.length} />}
+    </>
   );
 }

@@ -4,6 +4,8 @@ import { productsApi, reviewsApi } from '@/lib/api';
 import { productImageSrc } from '@/lib/productImages';
 import { productSlug, parseProductId } from '@/lib/productSlug';
 import { finalUnitPrice } from '@/lib/price';
+import { SHIPPING, RETURNS } from '@/lib/shopFacts';
+import ProductFacts from '@/components/product/ProductFacts';
 
 const BASE = 'https://www.mahalaxmifashionhub.com';
 
@@ -129,7 +131,7 @@ async function buildJsonLd(idParam: string): Promise<string | null> {
       description: product.description || product.name,
       image,
       sku: product.sku || String(product.dbId),
-      brand: { '@type': 'Brand', name: 'Mahalaxmi Fashion Hub' },
+      brand: { '@id': `${BASE}/#brand` },
       offers: {
         '@type': 'Offer',
         url: canonical,
@@ -225,9 +227,15 @@ export default async function ProductLayout({
   // another thin duplicate in the index. Answer 404 and it goes away.
   const id = parseProductId(params.id);
   if (!id) notFound();
+  let facts: { name: string; category: string; price?: number } | null = null;
   try {
     const { product } = await productsApi.getById(id);
     if (!product) notFound();
+    facts = {
+      name: product.name,
+      category: product.category ?? '',
+      price: finalUnitPrice(product),
+    };
   } catch (e) {
     // notFound() works by throwing — let it through rather than swallowing it.
     if ((e as { digest?: string })?.digest === 'NEXT_NOT_FOUND') throw e;
@@ -242,6 +250,11 @@ export default async function ProductLayout({
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd }} />
       )}
       {children}
+      {/* Naap, delivery, wapsi aur dekhbhal — server par bana hua, isliye pehle
+          HTML me. Product ke panne par pehle in me se ek bhi baat likhi nahi
+          thi: naap ka chart ek modal me band tha, dekhbhal ka zikr hi nahi
+          tha, aur wapsi ki asli shart kahin nahi likhi thi. */}
+      {facts && <ProductFacts name={facts.name} category={facts.category} price={facts.price} />}
     </>
   );
 }

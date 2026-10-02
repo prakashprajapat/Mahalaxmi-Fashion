@@ -2372,3 +2372,41 @@ body.has-pdp-bar { padding-bottom: 92px; }
 
 /* The saving now sits inline after the MRP on a product card. */
 .product-card-off { font-size: .8rem; font-weight: 700; color: #2e7d32; white-space: nowrap; }
+
+/* ===== Product page: sizes, delivery, returns, care (ProductFacts) =====
+   Server-rendered, so all of this is in the first HTML — that is the point:
+   the size chart used to live inside a modal and never reached Google. */
+.pf-wrap { border-top: 1px solid #eee; background: #fafafa; padding: 2rem 1.15rem; }
+.pf-inner { max-width: 1080px; margin: 0 auto; }
+.pf-h2 { font-size: 1.25rem; font-weight: 800; color: #4a1f27; margin: 0 0 1rem; }
+.pf-h3 { font-size: .95rem; font-weight: 800; color: #4a1f27; margin: 0 0 .5rem; }
+.pf-faq-h { margin-top: 1.6rem; }
+.pf-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1rem; }
+.pf-card { background: #fff; border: 1px solid #efe7e4; border-radius: 12px; padding: 1rem 1.05rem; }
+.pf-note { font-size: .82rem; color: #6f655f; line-height: 1.65; margin: 0 0 .6rem; }
+.pf-warn {
+  font-size: .82rem; line-height: 1.65; margin: .6rem 0; color: #7a3b1f;
+  background: #fff7ed; border: 1px solid #f3dfc6; border-radius: 9px; padding: .6rem .7rem;
+}
+.pf-list { margin: 0; padding-left: 1.05rem; font-size: .82rem; color: #4a423d; line-height: 1.7; }
+.pf-list li { margin-bottom: .2rem; }
+.pf-link { color: #722f37; font-weight: 700; }
+.pf-table { width: 100%; border-collapse: collapse; font-size: .8rem; }
+.pf-caption { caption-side: top; text-align: left; font-size: .75rem; color: #9a908a; padding-bottom: .4rem; }
+.pf-table th, .pf-table td { border: 1px solid #efe7e4; padding: .38rem .5rem; text-align: left; }
+.pf-table thead th { background: #f7f1ee; font-weight: 800; color: #4a1f27; }
+.pf-table tbody th { font-weight: 800; color: #4a1f27; background: #fcfaf9; }
+.pf-faqs { display: grid; gap: .5rem; }
+.pf-faq { background: #fff; border: 1px solid #efe7e4; border-radius: 10px; padding: .7rem .9rem; }
+.pf-faq summary {
+  cursor: pointer; font-weight: 700; font-size: .87rem; color: #2d2724; list-style: none;
+  display: flex; justify-content: space-between; gap: .6rem; align-items: center;
+}
+.pf-faq summary::-webkit-details-marker { display: none; }
+.pf-faq summary::after { content: '+'; color: #722f37; font-weight: 800; font-size: 1.1rem; line-height: 1; }
+.pf-faq[open] summary::after { content: '\2212'; }
+.pf-faq p { margin: .55rem 0 0; font-size: .82rem; color: #6f655f; line-height: 1.7; }
+@media (max-width: 600px) {
+  .pf-wrap { padding: 1.5rem .9rem; }
+  .pf-grid { grid-template-columns: 1fr; }
+}

@@ -1,9 +1,10 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { SHIPPING, DELIVERY_TOTAL_MIN, DELIVERY_TOTAL_MAX } from '@/lib/shopFacts';
 
 export const metadata: Metadata = {
   title: 'Shipping & Delivery Policy',
-  description: 'Orders dispatched via Delhivery. Delivery in 3–7 business days across India.',
+  description: `Orders are dispatched in ${SHIPPING.processingDaysMin}–${SHIPPING.processingDaysMax} business days via ${SHIPPING.courier} and arrive in ${DELIVERY_TOTAL_MIN}–${DELIVERY_TOTAL_MAX} business days across India. Free shipping above ₹${SHIPPING.freeAbove}, flat ₹${SHIPPING.chargeBelow} below, Cash on Delivery available.`,
   alternates: { canonical: '/shipping-delivery-policy' },
 };
 
@@ -13,7 +14,14 @@ export default function ShippingPolicyPage() {
       <section className="page-hero">
         <p className="eyebrow">Policy</p>
         <h1>Shipping &amp; Delivery Policy</h1>
-        <p>We ship across India via Delhivery. Most orders are delivered within 3–7 business days of dispatch.</p>
+        <p>
+          We ship across India via {SHIPPING.courier}. Orders are dispatched in{' '}
+          {SHIPPING.processingDaysMin}–{SHIPPING.processingDaysMax} business days and reach you in another{' '}
+          {SHIPPING.transitDaysMin}–{SHIPPING.transitDaysMax}, so most orders arrive within{' '}
+          {DELIVERY_TOTAL_MIN}–{DELIVERY_TOTAL_MAX} business days of being placed. Shipping is free on orders
+          above ₹{SHIPPING.freeAbove}; below that it is ₹{SHIPPING.chargeBelow}. Cash on Delivery is available
+          across India.
+        </p>
       </section>
 
       <main className="policy-page">
@@ -33,17 +41,26 @@ export default function ShippingPolicyPage() {
           </ol>
 
           <h2>Delivery Timeline</h2>
+          <p>Counted from dispatch, not from the day the order is placed. Add{' '}
+            {SHIPPING.processingDaysMin}–{SHIPPING.processingDaysMax} business days of processing for the full
+            door-to-door time.</p>
           <ol>
-            <li><strong>Metro cities</strong> (Mumbai, Delhi, Bangalore, Chennai, etc.): 3–5 business days.</li>
-            <li><strong>Tier 2 &amp; Tier 3 cities</strong>: 4–6 business days.</li>
-            <li><strong>Remote or rural areas</strong>: 5–8 business days.</li>
+            {SHIPPING.byRegion.map(r => (
+              <li key={r.label}><strong>{r.label}</strong>: {r.min}–{r.max} business days.</li>
+            ))}
             <li>Timelines are estimates and may vary due to courier delays, local holidays, or weather conditions.</li>
           </ol>
 
           <h2>Shipping Charges</h2>
+          {/* Ye panna hi wo jagah hai jahan koi shipping ke baare me padhne aata
+              hai — grahak bhi, Google bhi. Yahan tak sirf "checkout par dikh
+              jayega" likha tha, yani ek bhi ankda nahi, jabki ₹999 ki seema
+              site par char jagah likhi hai aur schema me bhi hai. */}
           <ol>
-            <li>Shipping charges, if applicable, are calculated and displayed at checkout before payment.</li>
-            <li>Free shipping may be available on orders above a minimum order value as displayed on the website.</li>
+            <li><strong>Free shipping on every order above ₹{SHIPPING.freeAbove}.</strong></li>
+            <li>Below ₹{SHIPPING.freeAbove}, shipping is a flat ₹{SHIPPING.chargeBelow} anywhere in India.</li>
+            <li>The exact amount is shown at checkout before you pay.</li>
+            <li>Cash on Delivery is available across India.</li>
           </ol>
 
           <h2>Incorrect or Incomplete Address</h2>
