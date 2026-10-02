@@ -58,7 +58,17 @@ public class SiteEventsController : ControllerBase
     [EnableRateLimiting("events")]
     public async Task<IActionResult> Post([FromBody] SiteEventRequest req)
     {
-        if (req is null || !Allowed.Contains((req.EventName ?? "").Trim()))
+        // Naam ek hi baar nikaal kar rakh lete hain.
+        //
+        // Pehle yahan (req.EventName ?? "").Trim() likha tha aur neeche phir
+        // se req.EventName.Trim(). EventName ko string (bina ?) likha hai, par
+        // JSON se null bhi aa sakta hai — isliye yahan ?? lagaya tha. Compiler
+        // ne usi ?? se samajh liya ki ye null ho sakta hai, aur neeche bina
+        // jaanch ke .Trim() dekh kar CS8602 ki chetavni di: "yahan null aa gaya
+        // to crash hoga". Chetavni sahi thi.
+        var eventName = (req?.EventName ?? "").Trim();
+
+        if (req is null || !Allowed.Contains(eventName))
             return Ok(new { success = true, skipped = true });
 
         var token = await _db.SiteSettings.Where(s => s.Key == "metaCapiAccessToken")
@@ -99,7 +109,7 @@ public class SiteEventsController : ControllerBase
 
         await Services.MetaCapi.SendEventAsync(
             pixel, token,
-            req.EventName.Trim(),
+            eventName,
             string.IsNullOrWhiteSpace(req.EventId) ? null : req.EventId.Trim(),
             req.Value,
             string.IsNullOrWhiteSpace(req.Currency) ? "INR" : req.Currency.Trim(),

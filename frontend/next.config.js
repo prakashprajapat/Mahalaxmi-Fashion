@@ -17,6 +17,17 @@ const nextConfig = {
   // CQ-1: Build errors should surface — removed ignoreBuildErrors and ignoreDuringBuilds
   typescript: { ignoreBuildErrors: false },
   eslint: { ignoreDuringBuilds: false },
+  // sharp ko bundle me mat kheencho, server par jahan pada hai wahin se uthao.
+  //
+  // /image-tools/webp wali route sharp ko chalte waqt createRequire se maangti
+  // hai (uske types install nahi hain, aur build ko unki zarurat bhi nahi).
+  // Webpack ko aisa require pasand nahi aata — use static taur par pata hi
+  // nahi chalta ki kya maanga ja raha hai, isliye wo build me ek chetavni
+  // deta hai. Yahan likh dene se wo sharp ko chhod deta hai: na chetavni, na
+  // ek bada native package bundle me ghuseda jata hai.
+  experimental: {
+    serverComponentsExternalPackages: ['sharp'],
+  },
   webpack: (config) => {
     config.resolve.alias['@'] = path.resolve(__dirname);
     return config;
