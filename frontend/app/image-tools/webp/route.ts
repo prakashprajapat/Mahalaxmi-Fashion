@@ -1,6 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { promises as fs } from 'fs';
-import { createRequire } from 'module';
 import path from 'path';
 
 // Photo ko sach me WebP banane ki ek hi jagah — server.
@@ -65,8 +64,26 @@ export async function POST(req: NextRequest) {
 
   let sharp: SharpFactory;
   try {
-    const nodeRequire = createRequire(path.join(process.cwd(), 'package.json'));
-    const mod = nodeRequire('sharp') as SharpFactory & { default?: SharpFactory };
+    // Seedha naam se. Pehle yahan createRequire(path.join(process.cwd(), ...))
+    // likha tha, aur build me har baar ye chetavni aati thi:
+    //
+    //   module.createRequire failed parsing argument.
+    //
+    // Webpack build ke waqt hi ye jaan lena chahta hai ki kis file se
+    // dhoondhna hai. path.join(...) ka jawab chalte waqt hi milta hai, build
+    // ke waqt nahi — to wo haath khada kar deta tha.
+    //
+    // Us ghumav ki zarurat hi nahi thi: ye route frontend ke andar hai aur
+    // sharp frontend ke hi node_modules me pada hai, to Node khud dhoondh
+    // leta hai. Aur next.config.js me sharp ko serverComponentsExternalPackages
+    // me likh diya gaya hai, isliye webpack use bundle me ghusedne ki koshish
+    // bhi nahi karta — naam waisa ka waisa chhod deta hai.
+    //
+    // (compress-product-images.js me createRequire ab bhi hai aur wahan sahi
+    // hai: wo saada Node script hai, webpack uske paas jata hi nahi.)
+    // @ts-expect-error sharp ke types install nahi hain; uski shakl upar
+    // SharpFactory me khud likhi hui hai.
+    const mod = await import('sharp') as SharpFactory & { default?: SharpFactory };
     sharp = mod.default ?? mod;
   } catch {
     return NextResponse.json({ success: false, message: 'Image tools are not installed on this server.' }, { status: 501 });
