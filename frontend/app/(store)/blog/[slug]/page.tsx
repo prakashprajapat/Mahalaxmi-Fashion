@@ -3,6 +3,8 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { POSTS } from '@/lib/blog';
 import { getPost } from '@/lib/seoContent';
+import Image from 'next/image';
+import { OWNER } from '@/lib/owner';
 
 const BASE = 'https://www.mahalaxmifashionhub.com';
 
@@ -61,11 +63,22 @@ export default async function BlogPostPage({ params }: { params: { slug: string 
       : `${BASE}/og-image.jpg`],
     datePublished: post.date,
     dateModified: post.date,
-    author: { '@type': 'Organization', name: 'Mahalaxmi Fashion Hub' },
+    // Pehle yahan lekhak ke naam par sirf dukaan likhi thi, aur panne par koi
+    // byline tha hi nahi. Google aur AI dono dekhte hain ki likhne wale ke
+    // peechhe koi asli insaan hai ya nahi — yahi E-E-A-T ka asli matlab hai.
+    author: {
+      '@type': 'Person',
+      name: OWNER.name,
+      jobTitle: OWNER.role,
+      image: `${BASE}${OWNER.photo}`,
+      worksFor: { '@id': `${BASE}/#organization` },
+      url: `${BASE}/about-us`,
+    },
     publisher: {
       '@type': 'Organization',
       name: 'Mahalaxmi Fashion Hub',
       logo: { '@type': 'ImageObject', url: `${BASE}/logo-color.webp` },
+      '@id': `${BASE}/#organization`,
     },
     mainEntityOfPage: { '@type': 'WebPage', '@id': `${BASE}/blog/${post.slug}` },
   };
@@ -85,7 +98,17 @@ export default async function BlogPostPage({ params }: { params: { slug: string 
       <section className="page-hero">
         <p className="eyebrow">Style Guide</p>
         <h1>{post.title}</h1>
-        <p>{post.readMinutes} min read</p>
+        {/* Byline. Pehle lekh par likhne wale ka koi naam hi nahi tha. */}
+        <div className="post-byline">
+          <Image src={OWNER.photo} alt={OWNER.name} width={36} height={36} />
+          <span className="post-byline-t">
+            <strong>{OWNER.name}</strong>
+            <span>
+              {OWNER.role} &middot; {post.readMinutes} min read &middot;{' '}
+              {new Date(post.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}
+            </span>
+          </span>
+        </div>
       </section>
 
       <main className="policy-page">

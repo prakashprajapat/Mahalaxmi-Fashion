@@ -227,6 +227,11 @@ const nextConfig = {
       // hain, aur rakhne wale ke liye do jagah jahan niyam alag ho jate hain
       // (jaisa abhi hua bhi: ek par purani shart padi thi). Ek hi panna rahega.
       { source: '/return-policy', destination: '/return-exchange', permanent: true },
+      // Do purane chhote lekh (dono ~200 shabd) ab apne gehre version me sama
+      // gaye hain. Do panne ek hi sawal par aapas me ladte hain, aur patla
+      // panna dono ko neeche kheenchta hai.
+      { source: '/blog/cotton-nighty-buying-guide', destination: '/blog/cotton-vs-hosiery-vs-rayon-nighty', permanent: true },
+      { source: '/blog/petticoat-size-and-fabric-guide', destination: '/blog/saree-petticoat-guide', permanent: true },
     ];
   },
 };

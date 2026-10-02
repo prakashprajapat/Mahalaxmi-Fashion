@@ -3,6 +3,7 @@ import Script from 'next/script';
 import { settingsApi } from '@/lib/api';
 import PWARegister from '@/components/pwa/PWARegister';
 import { SHOP } from '@/lib/shopFacts';
+import { OWNER, FOUNDED_YEAR } from '@/lib/owner';
 import './globals.css';
 
 export const viewport: Viewport = {
@@ -287,6 +288,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                     'Family-run ethnic and fashion wear shop in Balotra, Rajasthan, selling cotton nighties, '
                     + 'sarees, petticoats, innerwear, footwear and perfume online across India with Cash on Delivery.',
                   slogan: 'Every look, a new experience',
+                  // Kab se, aur kaun. Ye wahi do baatein hain jinse Google aur
+                  // AI ek website ko ek ASLI dukaan maante hain.
+                  foundingDate: String(FOUNDED_YEAR),
+                  founder: { '@type': 'Person', name: OWNER.name },
+                  foundingLocation: { '@type': 'Place', name: `${SHOP.city}, ${SHOP.state}, India` },
                   telephone: SHOP.phoneE164,
                   email: 'mahalaxmifashionhub@gmail.com',
                   address: {
