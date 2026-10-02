@@ -23,7 +23,19 @@ const nextConfig = {
   },
   // CQ-2: Specific allowed image domains instead of wildcard **
   images: {
-    formats: ['image/avif', 'image/webp'],
+    // AVIF hata diya, sirf WebP.
+    //
+    // Jo photo pehli baar maangi jati hai use yahin banaya jata hai — original
+    // kholo, chhota karo, phir encode. AVIF ka encode WebP se kai guna mehnga
+    // hai (ek seedhe naap me 1080x1440 par AVIF 339ms, WebP 152ms — aur VPS ka
+    // core is naap wale se kahin dheema hai). Isi wajah se product ke panne par
+    // dhundhli jagah-bharne wali copy to turant aa jati thi (64px, palak jhapakte
+    // ban jati hai) aur asli photo chaar-paanch second baad. Shopper ke liye wo
+    // chaar second "site chal hi nahi rahi" hote hain.
+    //
+    // Keemat: WebP ki file AVIF se thodi badi hoti hai. Ek photo jo der se aaye
+    // usse thodi badi photo jo turant aaye behtar hai.
+    formats: ['image/webp'],
     // Every product photo filename ends in the millisecond it was uploaded, so
     // a given URL can never point at different bytes. A one-day TTL meant the
     // optimiser went STALE daily and re-resized all 84 photos to produce the
