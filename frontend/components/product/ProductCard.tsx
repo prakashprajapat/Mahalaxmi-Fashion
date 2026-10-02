@@ -111,9 +111,13 @@ export default function ProductCard({ product, priority = false }: { product: Pr
                   photo par wo chamak kaam nahi karti aur akshar gayab ho jate
                   hain; Lighthouse text-shadow ginta hi nahi, to contrast 1.11
                   nikalta tha jahan 4.5 chahiye.
-                  Ab ek asli maroon goli hai: safed par maroon ka contrast 9.65
-                  hai, aur peechhe ki photo chaahe jaisi ho, farq nahi padta. */}
-              <span style={{ background: 'rgba(114,47,55,.95)', color: '#fff', padding: '.2rem .5rem', borderRadius: 999, fontWeight: 800, fontSize: '.72rem', letterSpacing: '.04em', boxShadow: '0 1px 4px rgba(0,0,0,.25)' }}>Best Seller</span>
+                  Ab ye wahi .product-badge-* family hai jo New/Sale badge
+                  use karte hain: thos (opaque) maroon, wahi radius, wahi
+                  size — contrast 9.65, aur peechhe ki photo chaahe jaisi ho,
+                  farq nahi padta. Alpha jaan-boojh kar nahi rakha: aadha
+                  paardarshi background par Lighthouse contrast naap hi nahi
+                  pata. */}
+              <span className="product-badge-best">Best Seller</span>
             </div>
           )}
 
