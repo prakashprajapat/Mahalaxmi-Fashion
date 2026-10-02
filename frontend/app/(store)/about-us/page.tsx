@@ -43,7 +43,7 @@ export default function AboutUsPage() {
               className="about-owner-img"
             />
             <div>
-              <h2 style={{ marginTop: 0 }}>Who runs this shop</h2>
+              <h2 style={{ marginTop: 0 }}>Meet the owner</h2>
               <p>
                 <strong>{OWNER.name}</strong> runs Mahalaxmi Fashion Hub from {SHOP.city}, {SHOP.state}. The shop
                 opened in {FOUNDED_YEAR} and has been selling online across India since. When you message the
