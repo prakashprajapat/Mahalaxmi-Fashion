@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
+using System.Security.Claims;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using MahalaxmiApi.Data;
@@ -378,6 +379,9 @@ public class ProductsController : ControllerBase
             .Select(x => new { x.Id, x.Name, x.Image })
             .ToListAsync();
 
+        // Ek hi baar poochh lete hain - har product par dobara nahi.
+        var callerShop = await CallerShopAsync();
+
         var created = 0;
         var updated = 0;
         var i = 1;
@@ -413,7 +417,7 @@ public class ProductsController : ControllerBase
                 updated++;
             }
 
-            ApplyProduct(product, dto, currentI);
+            ApplyProduct(product, dto, currentI, callerShop);
 
             var g = ProductQualityGate.Check(product);
             var problems = g.Blocking.Select(x => x.Message).ToList();
@@ -474,7 +478,7 @@ public class ProductsController : ControllerBase
                 return Conflict(new { success = false, message = $"SKU '{sku}' is already used by product '{duplicate.Name}'. Please use a unique SKU." });
         }
 
-        ApplyProduct(p, req);
+        ApplyProduct(p, req, 0, await CallerShopAsync());
 
         // The gate runs on what is about to be saved, not on what was asked
         // for. A product that fails is still saved — nothing the owner typed is
@@ -609,7 +613,22 @@ public class ProductsController : ControllerBase
         }
     }
 
-    private static void ApplyProduct(Product p, ProductCreateRequest req, int fallbackNewest = 0)
+    // Jis khaate se yeh request aayi hai uski dukaan ka naam. Admin ka apna
+    // koi khaata-dukaan nahi hota, to uske liye khali.
+    private async Task<string?> CallerShopAsync()
+    {
+        var role = User.FindFirst("role")?.Value;
+        if (role is not ("staff" or "manager")) return null;
+        var sub = User.FindFirstValue("sub");
+        if (!int.TryParse(sub, out var staffId)) return null;
+        var shop = await _db.StaffMembers
+            .Where(x => x.Id == staffId)
+            .Select(x => x.ShopName)
+            .FirstOrDefaultAsync();
+        return string.IsNullOrWhiteSpace(shop) ? null : shop.Trim();
+    }
+
+    private static void ApplyProduct(Product p, ProductCreateRequest req, int fallbackNewest = 0, string? callerShop = null)
     {
         var sku = req.Sku?.Trim();
         p.Sku           = !string.IsNullOrWhiteSpace(sku)
@@ -629,6 +648,19 @@ public class ProductsController : ControllerBase
         p.Image         = SaveBase64Image(req.Image?.Trim(), $"product-img");
         p.BestSeller    = req.BestSeller;
         p.ExtraJson     = BuildExtraJsonWithImages(req);
+
+        // Dukaan ka naam.
+        //
+        // Pehli baar hi chhapta hai aur phir wahi bana rehta hai. Baad me koi
+        // doosri dukaan ka staff isi product ko theek kare to naam nahi
+        // badalta - maal to us pehli dukaan se hi aaya tha. Badalna ho to
+        // admin panel se saaf-saaf bhejna padta hai; tabhi naya naam lagta
+        // hai.
+        if (!string.IsNullOrWhiteSpace(req.ShopName))
+            p.ShopName = req.ShopName.Trim();
+        else if (string.IsNullOrWhiteSpace(p.ShopName) && !string.IsNullOrWhiteSpace(callerShop))
+            p.ShopName = callerShop.Trim();
+
         p.UpdatedAt     = DateTimeOffset.UtcNow;
     }
 
@@ -825,7 +857,8 @@ public class ProductsController : ControllerBase
             ExtraDecimal(extra, "gstRate"),
             ExtraInt(extra, "qty"),
             ExtraInt(extra, "packOf"),
-            ShippingCharge: p.ShippingCharge
+            ShippingCharge: p.ShippingCharge,
+            ShopName: p.ShopName
         );
     }
 }

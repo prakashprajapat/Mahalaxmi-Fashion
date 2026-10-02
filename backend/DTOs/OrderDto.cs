@@ -19,7 +19,12 @@ public record CartLineDto(
     string? Color = null,
     string? ColorCode = null,
     string? ColorPhoto = null,
-    string? ColorColumn = null
+    string? ColorColumn = null,
+    // Kis dukaan ka maal hai. Order ke saath likha hua nahi aata - har baar
+    // SKU se product ki pankti dekhkar bhara jata hai, isliye PURANE orders
+    // par bhi dikh jata hai, aur naam sudhar jaye to wahi naya naam dikhta
+    // hai. Sirf admin ko bheja jata hai.
+    string? ShopName = null
 );
 
 public record OrderDto(

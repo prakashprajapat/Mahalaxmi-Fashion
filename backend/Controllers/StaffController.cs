@@ -29,7 +29,7 @@ public class StaffController : ControllerBase
             .OrderBy(s => s.CreatedAt)
             .Select(s => new {
                 s.Id, s.Name, s.Username, s.Email,
-                s.Role, s.Permissions, s.IsActive, s.LastLogin, s.CreatedAt
+                s.Role, s.Permissions, s.ShopName, s.IsActive, s.LastLogin, s.CreatedAt
             })
             .ToListAsync();
         return Ok(staff);
@@ -57,6 +57,7 @@ public class StaffController : ControllerBase
             PasswordHash = BCrypt.Net.BCrypt.HashPassword(req.Password, workFactor: 12),
             Role         = req.Role is "manager" ? "manager" : "staff",
             Permissions  = string.IsNullOrWhiteSpace(req.Permissions) ? null : req.Permissions.Trim(),
+            ShopName     = string.IsNullOrWhiteSpace(req.ShopName) ? null : req.ShopName.Trim(),
             IsActive     = true,
         };
 
@@ -116,12 +117,17 @@ public class StaffController : ControllerBase
         if (req.Role is not null) member.Role = req.Role is "manager" ? "manager" : "staff";
         if (req.Permissions is not null)
             member.Permissions = string.IsNullOrWhiteSpace(req.Permissions) ? null : req.Permissions.Trim();
+        // Dukaan ka naam badalne se PURANE products par koi asar nahi padta -
+        // unpar jo naam chhap chuka hai wahi rehta hai. Yahi theek bhi hai: wo
+        // maal us waqt us dukaan se aaya tha.
+        if (req.ShopName is not null)
+            member.ShopName = string.IsNullOrWhiteSpace(req.ShopName) ? null : req.ShopName.Trim();
 
         await _db.SaveChangesAsync();
         return Ok(new { message = "Staff updated." });
     }
 }
 
-public record StaffCreateRequest(string Name, string Username, string? Email, string Password, string Role, string? Permissions);
-public record StaffUpdateRequest(string? Name, string? Role, string? Permissions);
+public record StaffCreateRequest(string Name, string Username, string? Email, string Password, string Role, string? Permissions, string? ShopName = null);
+public record StaffUpdateRequest(string? Name, string? Role, string? Permissions, string? ShopName = null);
 public record StaffResetPasswordRequest(string NewPassword);

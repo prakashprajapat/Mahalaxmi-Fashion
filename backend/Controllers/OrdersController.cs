@@ -119,7 +119,40 @@ public class OrdersController : ControllerBase
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
                 .ToListAsync();
-            return Ok(new { success = true, orders = orders.Select(o => MapOrder(o)), total, page, pageSize });
+
+            // Har pankti par dukaan ka naam. Order ke andar yeh likha nahi
+            // hota - SKU se product ki pankti dekhkar yahan joda jata hai.
+            // Isi wajah se purane orders par bhi dikhta hai, aur agar naam
+            // baad me theek kiya jaye to wahi theek kiya hua dikhta hai.
+            var mapped = orders.Select(o => MapOrder(o)).ToList();
+            var skus = mapped
+                .SelectMany(o => o.Cart)
+                .Select(l => l.Sku)
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .Distinct()
+                .ToList();
+            if (skus.Count > 0)
+            {
+                var rows = await _db.Products
+                    .Where(p => p.Sku != null && p.ShopName != null && skus.Contains(p.Sku))
+                    .Select(p => new { p.Sku, p.ShopName })
+                    .ToListAsync();
+                var shopBySku = rows
+                    .GroupBy(r => r.Sku!, StringComparer.OrdinalIgnoreCase)
+                    .ToDictionary(g => g.Key, g => g.First().ShopName!, StringComparer.OrdinalIgnoreCase);
+                if (shopBySku.Count > 0)
+                    mapped = mapped
+                        .Select(o => o with {
+                            Cart = o.Cart
+                                .Select(l => shopBySku.TryGetValue(l.Sku ?? "", out var shop)
+                                    ? l with { ShopName = shop }
+                                    : l)
+                                .ToList()
+                        })
+                        .ToList();
+            }
+
+            return Ok(new { success = true, orders = mapped, total, page, pageSize });
         }
 
         // Customer — match orders in memory so identifiers can be NORMALISED before

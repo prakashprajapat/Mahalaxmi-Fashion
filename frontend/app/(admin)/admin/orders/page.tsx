@@ -619,6 +619,9 @@ export default function AdminOrdersPage() {
                     c.color ? (c.size || '').split(' / ').filter(p => p && p !== c.color).join(' / ') : (c.size || '');
                   const sizes = Array.from(new Set(lines.map(sizeOf).filter(Boolean)));
                   const colours = Array.from(new Set(lines.map(c => c.color).filter(Boolean)));
+                  // Kis dukaan se maal mangwana hai. Ek order me do dukaanon
+                  // ka maal ho sakta hai, isliye sabhi dikhate hain.
+                  const shops = Array.from(new Set(lines.map(c => c.shopName).filter(Boolean)));
                   const first = lines[0];
                   const thumb = first ? productImageSrc(first.colorPhoto || first.image) : '';
                   return (
@@ -642,6 +645,13 @@ export default function AdminOrdersPage() {
                                       title="Open the full details of this order">
                                 {o.id} {isOpen ? '\u25b4' : '\u25be'}
                               </button>
+                              {shops.length > 0 && (
+                                <div title={`Stocked at ${shops.join(', ')}`}
+                                     style={{ marginTop: '.15rem', fontSize: '.72rem', fontWeight: 700, color: '#722f37',
+                                              maxWidth: 210, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                  {shops.join(' \u00b7 ')}
+                                </div>
+                              )}
                             </div>
                           </div>
                         </td>
@@ -726,6 +736,9 @@ export default function AdminOrdersPage() {
                                         {sz && <span>&middot; Size {sz}</span>}
                                         <span>&middot; &times;{c.quantity}</span>
                                       </div>
+                                      {c.shopName && (
+                                        <div style={{ color: '#722f37', fontWeight: 700 }}>{c.shopName}</div>
+                                      )}
                                     </div>
                                   </div>
                                 );

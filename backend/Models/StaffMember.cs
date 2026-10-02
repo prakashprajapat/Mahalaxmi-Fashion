@@ -11,6 +11,10 @@ public class StaffMember {
     [Column("role")] public string Role { get; set; } = "staff";
     // Comma-separated admin-section keys this staff may access (e.g. "orders,products,stock").
     [Column("permissions")] public string? Permissions { get; set; }
+    // Kis dukaan ka hai yeh staff. Jo bhi product yeh listing karega uspar
+    // yahi naam chhap jayega, taki order aane par pata ho maal kahan se
+    // mangwana hai.
+    [Column("shop_name")] public string? ShopName { get; set; }
     [Column("is_active")] public bool IsActive { get; set; } = true;
     [Column("last_login")] public DateTimeOffset? LastLogin { get; set; }
     [Column("created_at")] public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;

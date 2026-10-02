@@ -53,6 +53,13 @@ public class Product
     [Column("extra_json", TypeName = "jsonb")]
     public string? ExtraJson { get; set; }
 
+    // Dukaan ka naam, product par hi likha hua - staff ki pankti se juda hua
+    // nahi. Jaan-boojh kar: staff hata diya jaye to bhi product par naam bana
+    // rehta hai, warna purane orders ka maal kahan se aaya tha yeh pata hi na
+    // chalta.
+    [Column("shop_name")]
+    public string? ShopName { get; set; }
+
     [Column("best_seller")]
     public bool BestSeller { get; set; }
 

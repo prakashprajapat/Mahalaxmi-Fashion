@@ -653,6 +653,7 @@ export default function AddProductPage() {
   // Basic fields
   const [sku, setSku]           = useState('MFH…');
   const [hsnCode, setHsnCode]   = useState('');
+  const [shopName, setShopName] = useState('');
   const [name, setName]         = useState('');
   const [category, setCategory] = useState('Women');
   const [sub, setSub]           = useState('');
@@ -962,6 +963,7 @@ export default function AddProductPage() {
         image: mainPhotos.front || filledPackCols[0]?.front || undefined,
         bestSeller,
         hsnCode: finalHsn || '',
+        shopName: shopName.trim(),
         gstRate: Number(gstRate),
         qty: saveQty,
         packOf: packValue >= 2 ? packValue : undefined,
@@ -1119,6 +1121,16 @@ export default function AddProductPage() {
           <div>
             <label style={lbl}>HSN Code</label>
             <input value={hsnCode} onChange={e => setHsnCode(e.target.value)} placeholder="e.g. 6211" style={inp} />
+          </div>
+
+          <div style={{ gridColumn:'1 / -1' }}>
+            <label style={lbl}>Shop</label>
+            <input value={shopName} onChange={e => setShopName(e.target.value)}
+                   placeholder="Which shop stocks this" style={inp} />
+            <div style={{ fontSize:'.72rem', color:'#8b8f98', marginTop:'.25rem', lineHeight:1.5 }}>
+              Shown on the order so you know where to get the item from. A staff login with a shop set
+              fills this in on its own; the name stays on the product even if that login is removed.
+            </div>
           </div>
 
           <div style={{ gridColumn:'1 / -1' }}>

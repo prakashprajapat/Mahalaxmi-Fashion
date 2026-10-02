@@ -22,6 +22,8 @@ export interface Product {
   reviewCount?: number;
   avgRating?: number;
   soldCount?: number;
+  // Kis dukaan ka maal. Sirf admin panel me dikhta hai.
+  shopName?: string;
 }
 
 export interface CartItem extends Product {
@@ -77,6 +79,9 @@ export interface CartLine {
   // Structured colour info captured at checkout (new orders only)
   color?: string;
   colorCode?: string;
+  // Order ke saath likha hua nahi aata — server har baar SKU se product ki
+  // pankti dekhkar bharta hai, isliye purane orders par bhi dikhta hai.
+  shopName?: string;
   colorPhoto?: string;
   colorColumn?: string;
 }

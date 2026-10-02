@@ -104,7 +104,7 @@ function PermissionPicker({ chosen, toggle, setAll }: {
 
 export default function AdminStaffPage() {
   const [extraStaff, setExtraStaff] = useState<any[]>([]);
-  const [staffForm, setStaffForm] = useState({ name: '', username: '', password: '', role: 'staff', permissions: [] as string[] });
+  const [staffForm, setStaffForm] = useState({ name: '', username: '', password: '', role: 'staff', shopName: '', permissions: [] as string[] });
   const [pwForm, setPwForm] = useState({ newPassword: '', confirmPassword: '' });
 
   // Two separate messages. They used to share one, and it was printed under both
@@ -116,7 +116,7 @@ export default function AdminStaffPage() {
   const [showForm, setShowForm] = useState(false);
 
   const [editStaff, setEditStaff] = useState<any | null>(null);
-  const [editForm, setEditForm] = useState({ name: '', role: 'staff', permissions: [] as string[] });
+  const [editForm, setEditForm] = useState({ name: '', role: 'staff', shopName: '', permissions: [] as string[] });
   const [editMsg, setEditMsg] = useState('');
 
   const togglePerm = (key: string) => setStaffForm(f => ({
@@ -138,6 +138,7 @@ export default function AdminStaffPage() {
     setEditForm({
       name: s.name || '',
       role: s.role === 'manager' ? 'manager' : 'staff',
+      shopName: s.shopName || '',
       permissions: (s.permissions || '').split(',').map((p: string) => p.trim()).filter(Boolean),
     });
     setEditStaff(s);
@@ -151,6 +152,7 @@ export default function AdminStaffPage() {
       await staffApi.update(editStaff.id, {
         name: editForm.name.trim(),
         role: editForm.role,
+        shopName: editForm.shopName.trim(),
         permissions: editForm.permissions.join(','),
       }, getAdminToken() ?? '');
       const who = editStaff.username;
@@ -196,10 +198,11 @@ export default function AdminStaffPage() {
         email: `${staffForm.username.trim().toLowerCase()}@staff.local`,
         password: staffForm.password,
         role: staffForm.role,
+        shopName: staffForm.shopName.trim(),
         permissions: staffForm.permissions.join(','),
       }, getAdminToken() ?? '');
       const who = staffForm.username.trim().toLowerCase();
-      setStaffForm({ name: '', username: '', password: '', role: 'staff', permissions: [] });
+      setStaffForm({ name: '', username: '', password: '', role: 'staff', shopName: '', permissions: [] });
       setShowForm(false);
       setStaffMsg(`${who} can sign in now with the password you typed. Tell them to change it.`);
       refresh();
@@ -255,6 +258,7 @@ export default function AdminStaffPage() {
                     {owner ? 'Owner' : s.role}
                   </Pill>
                   {!owner && perms === 0 && <Pill tone="red">No sections</Pill>}
+                  {!owner && s.shopName && <Pill tone="grey">{s.shopName}</Pill>}
                 </div>
                 <div className="adm-item-s">
                   <span style={{ fontFamily: 'monospace' }}>{s.username}</span>
@@ -299,6 +303,15 @@ export default function AdminStaffPage() {
                 <option value="staff">Staff</option>
                 <option value="manager">Manager</option>
               </select>
+            </label>
+            <label style={{ display: 'block' }}>
+              <span className="adm-stat-l">Shop</span>
+              <input className="adm-input" style={{ width: '100%', marginTop: '.2rem' }} placeholder="Shop name"
+                     value={staffForm.shopName} onChange={e => setStaffForm(f => ({ ...f, shopName: e.target.value }))} />
+              <span style={{ display: 'block', fontSize: '.72rem', color: '#8b8f98', marginTop: '.25rem', lineHeight: 1.5 }}>
+                Stamped on every product this person lists, so an order tells you which shop to get it from.
+                It stays on the product even if this login is removed.
+              </span>
             </label>
           </div>
 
@@ -373,6 +386,15 @@ export default function AdminStaffPage() {
                   <option value="staff">Staff</option>
                   <option value="manager">Manager</option>
                 </select>
+              </label>
+              <label style={{ display: 'block' }}>
+                <span className="adm-stat-l">Shop</span>
+                <input className="adm-input" style={{ width: '100%', marginTop: '.2rem' }} placeholder="Shop name"
+                       value={editForm.shopName} onChange={e => setEditForm(f => ({ ...f, shopName: e.target.value }))} />
+                <span style={{ display: 'block', fontSize: '.72rem', color: '#8b8f98', marginTop: '.25rem', lineHeight: 1.5 }}>
+                  Applies to products listed from now on. Products already listed keep the shop they were
+                  listed under.
+                </span>
               </label>
             </div>
 

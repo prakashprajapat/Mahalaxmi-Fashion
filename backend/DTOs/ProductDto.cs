@@ -22,7 +22,10 @@ public record ProductDto(
     int     ReviewCount = 0,
     double  AvgRating = 0,
     int     SoldCount = 0,
-    decimal ShippingCharge = 0
+    decimal ShippingCharge = 0,
+    // Kis dukaan ka maal hai. Panel par dikhta hai, order aane par kaam aata
+    // hai; grahak ko kahin nahi dikhaya jata.
+    string? ShopName = null
 );
 
 public record ProductCreateRequest(
@@ -47,7 +50,10 @@ public record ProductCreateRequest(
     decimal? GstRate = null,
     int?    Qty = null,
     int?    PackOf = null,
-    decimal ShippingCharge = 0
+    decimal ShippingCharge = 0,
+    // Admin isse khud bhar sakta hai. Staff ke bheje hue request me yeh khali
+    // hota hai - tab server uske apne khaate ki dukaan laga deta hai.
+    string? ShopName = null
 );
 
 public record BulkSaveRequest(List<ProductCreateRequest> Products, bool ReplaceAll = false);
