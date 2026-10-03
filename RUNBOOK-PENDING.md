@@ -109,7 +109,30 @@ ssh <vps> && cd /var/www/mahalaxmi-nextjs && bash deploy.sh
 - Admin → 💰 Payment Reconcile → last 30 days chala ke dekho
 - `pm2 logs mahalaxmi-api --lines 50`
 
-## Real client IP (do this on the VPS — the app cannot do it alone)
+## Real client IP — DONE 3 Oct 2026
+
+Done on the VPS, in this shape:
+
+- `/etc/nginx/conf.d/cloudflare-realip.conf` holds 21 `set_real_ip_from`
+  ranges fetched live from cloudflare.com, plus `real_ip_header
+  CF-Connecting-IP;` and `real_ip_recursive on;`.
+- `proxy_set_header CF-Connecting-IP $remote_addr;` was added beside the
+  existing `X-Real-IP` line in every proxying location of all four files in
+  `sites-enabled` (12 occurrences in the live config). nginx now overwrites
+  the header rather than forwarding what arrived, so a value a visitor wrote
+  never reaches the app.
+- `nginx -t` passed, nginx reloaded, the site answered 200.
+- Backup of the previous files: `/root/nginx-backup-2026-10-03-1709`.
+
+Still open from this item: the firewall still allows 80/443 from anywhere,
+so the origin is still reachable without going through Cloudflare. That is
+now defence in depth rather than the hole itself.
+
+To refresh the ranges later, re-run the generator in the deploy notes and
+`systemctl reload nginx`.
+
+### Original notes (kept for reference)
+
 
 Every rate limit — password guesses, OTP sends — is counted per caller, and the
 caller's identity comes from a header. The app now reads that header only when
