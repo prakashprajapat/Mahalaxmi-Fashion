@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
+import SiteTags from '@/components/analytics/SiteTags';
 import { productsApi } from '@/lib/api';
 import { productImageSrc } from '@/lib/productImages';
 import { productSlug } from '@/lib/productSlug';
@@ -147,6 +148,10 @@ export default async function BioPage() {
         Free delivery · Easy returns · Cash on delivery<br />
         Balotra, Rajasthan · +91 94294 29880
       </div>
+      {/* Standalone page — it is outside the (store) group, so it renders the
+          shop's tags itself. Instagram's bio link lands here; losing the Pixel
+          here would lose the visit that the ad paid for. */}
+      <SiteTags />
     </main>
   );
 }

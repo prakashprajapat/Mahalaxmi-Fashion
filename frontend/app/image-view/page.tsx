@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import SiteTags from '@/components/analytics/SiteTags';
 import type { Metadata } from 'next';
 
 // Branded wrapper shown when someone opens a raw product image URL directly in the
@@ -69,6 +70,8 @@ export default function ImageViewPage({ searchParams }: { searchParams: { src?: 
       <footer style={{ textAlign: 'center', padding: '.75rem', color: '#8a6b72', fontSize: '.8rem' }}>
         © Mahalaxmi Fashion Hub, Balotra — Sarees, Nighty & Ethnic Wear
       </footer>
+      {/* Also outside the (store) group — see the note in app/bio/page.tsx. */}
+      <SiteTags />
     </div>
   );
 }
