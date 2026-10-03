@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net.Http.Headers;
 using System.Text.Json;
 using MahalaxmiApi.Authorization;
@@ -161,12 +162,32 @@ public class MetaAdsController : ControllerBase
         return exact > 0 ? exact : pixel;
     }
 
-    private static string Range(int days, out string since, out string until)
+    // Two exact dates win when both are given and readable; otherwise this is
+    // the last `days` days, exactly as before. Everything is clamped rather
+    // than refused: a reversed pair is swapped, a future end date is pulled
+    // back to today, and a start more than two years back is pulled forward,
+    // so a typo in the date box cannot ask Meta for a decade of rows.
+    private static string Range(int days, string? fromText, string? toText, out string since, out string until)
     {
-        var to = DateTime.UtcNow.Date;
-        var from = to.AddDays(-(days - 1));
-        since = from.ToString("yyyy-MM-dd");
-        until = to.ToString("yyyy-MM-dd");
+        var today = DateTime.UtcNow.Date;
+        DateTime f, t;
+        if (DateTime.TryParse(fromText, CultureInfo.InvariantCulture, DateTimeStyles.None, out f)
+         && DateTime.TryParse(toText, CultureInfo.InvariantCulture, DateTimeStyles.None, out t))
+        {
+            f = f.Date; t = t.Date;
+            if (t < f) (f, t) = (t, f);
+            if (t > today) t = today;
+            if (f > today) f = today;
+            if (f < today.AddDays(-730)) f = today.AddDays(-730);
+        }
+        else
+        {
+            days = Math.Clamp(days, 1, 180);
+            t = today;
+            f = today.AddDays(-(days - 1));
+        }
+        since = f.ToString("yyyy-MM-dd");
+        until = t.ToString("yyyy-MM-dd");
         return "{\"since\":\"" + since + "\",\"until\":\"" + until + "\"}";
     }
 
@@ -197,15 +218,13 @@ public class MetaAdsController : ControllerBase
     [HttpGet("stats")]
     [Authorize]
     [RequirePerm("settings")]
-    public async Task<IActionResult> Stats([FromQuery] int days = 30)
+    public async Task<IActionResult> Stats([FromQuery] int days = 30, [FromQuery] string? from = null, [FromQuery] string? to = null)
     {
-        days = Math.Clamp(days, 1, 180);
-
         var account = Digits(await Get("metaAdsAccountId"));
         if (account.Length < 5)
             return BadRequest(new { success = false, message = "Meta Ad Account ID is missing. It is the number after act_ in Ads Manager." });
 
-        var timeRange = Range(days, out var since, out var until);
+        var timeRange = Range(days, from, to, out var since, out var until);
         var path = $"act_{account}/insights"
                  + "?level=account&time_increment=1"
                  + "&fields=spend,impressions,clicks,actions,action_values"
@@ -295,10 +314,8 @@ public class MetaAdsController : ControllerBase
     [HttpGet("campaigns")]
     [Authorize]
     [RequirePerm("settings")]
-    public async Task<IActionResult> Campaigns([FromQuery] int days = 30)
+    public async Task<IActionResult> Campaigns([FromQuery] int days = 30, [FromQuery] string? from = null, [FromQuery] string? to = null)
     {
-        days = Math.Clamp(days, 1, 180);
-
         var account = Digits(await Get("metaAdsAccountId"));
         if (account.Length < 5)
             return BadRequest(new { success = false, message = "Meta Ad Account ID is missing." });
@@ -349,7 +366,7 @@ public class MetaAdsController : ControllerBase
             return StatusCode(502, new { success = false, message = "Meta answered in a shape we could not read." });
         }
 
-        var timeRange = Range(days, out _, out _);
+        var timeRange = Range(days, from, to, out _, out _);
         var insightsPath = $"act_{account}/insights"
                          + "?level=campaign"
                          + "&fields=campaign_id,spend,impressions,clicks,actions,action_values"

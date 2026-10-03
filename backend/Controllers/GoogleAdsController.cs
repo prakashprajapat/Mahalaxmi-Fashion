@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text.Json;
@@ -215,14 +216,39 @@ public class GoogleAdsController : ControllerBase
         return Ok(new { success = true });
     }
 
+    // The window the shop is asking about. Two exact dates win when both are
+    // given and readable; otherwise it falls back to the last `days` days,
+    // which is what every caller used before custom dates existed.
+    //
+    // Everything is clamped rather than refused: a reversed pair is swapped, a
+    // future end date is pulled back to today, and a start more than two years
+    // back is pulled forward — so a typo in the date box cannot ask Google for
+    // a decade of rows and time the request out.
+    private static (DateTime From, DateTime To) Window(int days, string? from, string? to)
+    {
+        var today = DateTime.UtcNow.Date;
+        if (DateTime.TryParse(from, CultureInfo.InvariantCulture, DateTimeStyles.None, out var f)
+         && DateTime.TryParse(to, CultureInfo.InvariantCulture, DateTimeStyles.None, out var t))
+        {
+            f = f.Date; t = t.Date;
+            if (t < f) (f, t) = (t, f);
+            if (t > today) t = today;
+            if (f > today) f = today;
+            if (f < today.AddDays(-730)) f = today.AddDays(-730);
+            return (f, t);
+        }
+        days = Math.Clamp(days, 1, 180);
+        return (today.AddDays(-(days - 1)), today);
+    }
+
     // ── 5. the numbers ────────────────────────────────────────────────────────
 
     [HttpGet("stats")]
     [Authorize]
     [RequirePerm("settings")]
-    public async Task<IActionResult> Stats([FromQuery] int days = 30)
+    public async Task<IActionResult> Stats([FromQuery] int days = 30, [FromQuery] string? from = null, [FromQuery] string? to = null)
     {
-        days = Math.Clamp(days, 1, 180);
+        var (winFrom, winTo) = Window(days, from, to);
 
         var customerId = Digits(await Get("googleAdsCustomerId"));
         if (customerId.Length < 10)
@@ -236,12 +262,10 @@ public class GoogleAdsController : ControllerBase
 
         // Google Ads reports in the account's own timezone; asking for "today"
         // back is normal and simply returns partial numbers.
-        var to = DateTime.UtcNow.Date;
-        var from = to.AddDays(-(days - 1));
         var gaql =
             "SELECT segments.date, metrics.impressions, metrics.clicks, metrics.cost_micros, " +
             "metrics.conversions, metrics.conversions_value FROM customer " +
-            $"WHERE segments.date BETWEEN '{from:yyyy-MM-dd}' AND '{to:yyyy-MM-dd}' " +
+            $"WHERE segments.date BETWEEN '{winFrom:yyyy-MM-dd}' AND '{winTo:yyyy-MM-dd}' " +
             "ORDER BY segments.date";
 
         var (ok, body, apiErr) = await CallAds(token, version, customerId, "googleAds:searchStream", new { query = gaql });
@@ -392,9 +416,9 @@ public class GoogleAdsController : ControllerBase
     [HttpGet("campaigns")]
     [Authorize]
     [RequirePerm("settings")]
-    public async Task<IActionResult> Campaigns([FromQuery] int days = 30)
+    public async Task<IActionResult> Campaigns([FromQuery] int days = 30, [FromQuery] string? from = null, [FromQuery] string? to = null)
     {
-        days = Math.Clamp(days, 1, 180);
+        var (winFrom, winTo) = Window(days, from, to);
 
         var customerId = Digits(await Get("googleAdsCustomerId"));
         if (customerId.Length < 10)
@@ -435,12 +459,10 @@ public class GoogleAdsController : ControllerBase
             };
         }
 
-        var to = DateTime.UtcNow.Date;
-        var from = to.AddDays(-(days - 1));
         var metricsQuery =
             "SELECT campaign.id, metrics.impressions, metrics.clicks, metrics.cost_micros, " +
             "metrics.conversions, metrics.conversions_value FROM campaign " +
-            $"WHERE segments.date BETWEEN '{from:yyyy-MM-dd}' AND '{to:yyyy-MM-dd}'";
+            $"WHERE segments.date BETWEEN '{winFrom:yyyy-MM-dd}' AND '{winTo:yyyy-MM-dd}'";
 
         var (ok2, metricsBody, e2) = await CallAds(token, version, customerId, "googleAds:searchStream", new { query = metricsQuery });
         if (!ok2) return BadRequest(new { success = false, message = e2 });

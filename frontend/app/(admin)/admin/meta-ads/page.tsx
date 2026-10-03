@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { getAdminToken } from '@/lib/auth';
 import { PageHeader, Stat } from '@/components/admin/Ui';
+import DateRangeChips, { DEFAULT_RANGE, rangeQuery, type DateRange } from '@/components/admin/DateRangeChips';
 
 interface Row {
   date: string;
@@ -55,7 +56,7 @@ export default function MetaAdsPage() {
   const [status, setStatus] = useState<Status | null>(null);
   const [rows, setRows] = useState<Row[]>([]);
   const [totals, setTotals] = useState<Totals | null>(null);
-  const [days, setDays] = useState(30);
+  const [range, setRange] = useState<DateRange>(DEFAULT_RANGE);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
@@ -72,11 +73,11 @@ export default function MetaAdsPage() {
     return data as Status;
   }, []);
 
-  const loadStats = useCallback(async (d: number) => {
+  const loadStats = useCallback(async (r: DateRange) => {
     setLoading(true);
     setError('');
     try {
-      const res = await fetch(`/api/metaads/stats?days=${d}`, { headers: { Authorization: `Bearer ${getAdminToken()}` } });
+      const res = await fetch(`/api/metaads/stats?${rangeQuery(r)}`, { headers: { Authorization: `Bearer ${getAdminToken()}` } });
       const data = await res.json();
       if (!res.ok || !data.success) {
         setRows([]); setTotals(null);
@@ -92,9 +93,9 @@ export default function MetaAdsPage() {
     }
   }, []);
 
-  const loadCampaigns = useCallback(async (d: number) => {
+  const loadCampaigns = useCallback(async (r: DateRange) => {
     try {
-      const res = await fetch(`/api/metaads/campaigns?days=${d}`, { headers: { Authorization: `Bearer ${getAdminToken()}` } });
+      const res = await fetch(`/api/metaads/campaigns?${rangeQuery(r)}`, { headers: { Authorization: `Bearer ${getAdminToken()}` } });
       const data = await res.json();
       if (res.ok && data.success) {
         setCampaigns(data.campaigns ?? []);
@@ -106,15 +107,15 @@ export default function MetaAdsPage() {
   useEffect(() => {
     (async () => {
       const st = await loadStatus().catch(() => null);
-      if (st?.connected) { await loadStats(days); await loadCampaigns(days); }
+      if (st?.connected) { await loadStats(range); await loadCampaigns(range); }
       else setLoading(false);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const changeRange = (d: number) => {
-    setDays(d);
-    if (status?.connected) { loadStats(d); loadCampaigns(d); }
+  const changeRange = (r: DateRange) => {
+    setRange(r);
+    if (status?.connected) { loadStats(r); loadCampaigns(r); }
   };
 
   const toggleStatus = async (c: Campaign) => {
@@ -222,19 +223,9 @@ export default function MetaAdsPage() {
       {status?.connected && (
         <>
           <div style={{ display: 'flex', alignItems: 'center', gap: '.5rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
-            {RANGES.map(d => (
-              <button key={d} onClick={() => changeRange(d)}
-                style={{
-                  border: '1.5px solid ' + (days === d ? '#a7354d' : '#ddd'),
-                  background: days === d ? '#a7354d' : '#fff',
-                  color: days === d ? '#fff' : '#555',
-                  borderRadius: 999, padding: '.35rem .9rem', fontSize: '.84rem', fontWeight: 700, cursor: 'pointer',
-                }}>
-                Last {d} days
-              </button>
-            ))}
+            <DateRangeChips value={range} onChange={changeRange} options={RANGES} />
             <span style={{ flex: 1 }} />
-            <button onClick={() => { loadStats(days); loadCampaigns(days); }}
+            <button onClick={() => { loadStats(range); loadCampaigns(range); }}
               className="adm-btn" style={{ padding: '.35rem .8rem', fontSize: '.8rem' }}>
               Refresh
             </button>
