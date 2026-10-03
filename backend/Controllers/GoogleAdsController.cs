@@ -322,8 +322,11 @@ public class GoogleAdsController : ControllerBase
         return Ok(new
         {
             success = true,
-            from = from.ToString("yyyy-MM-dd"),
-            to = to.ToString("yyyy-MM-dd"),
+            // The window actually used, not what was asked for — these two were
+            // the DateTime locals before custom dates existed, and `from`/`to`
+            // are now the raw strings the caller sent.
+            from = winFrom.ToString("yyyy-MM-dd"),
+            to = winTo.ToString("yyyy-MM-dd"),
             rows,
             totals = new
             {
