@@ -9,6 +9,7 @@ import { getAdminToken } from '@/lib/auth';
 import { checkProduct } from '@/lib/productGate';
 import PublishPanel from '@/components/admin/PublishPanel';
 import { PageHeader } from '@/components/admin/Ui';
+import TaxonomyCombo from '@/components/admin/TaxonomyCombo';
 import { colourProblem, colourNameToHex } from '@/lib/googleColours';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -658,11 +659,6 @@ export default function EditProductPage() {
   // Variants
   const [variants, setVariants] = useState<Variant[]>([]);
 
-  // Subcategory
-  const [localSubcats, setLocalSubcats] = useState<string[]>([]);
-  const [hiddenSubcats, setHiddenSubcats] = useState<Set<string>>(new Set());
-  const [subcatOpen, setSubcatOpen] = useState(false);
-
   // Subcategory autocomplete
   const [allSubcats, setAllSubcats] = useState<{ cat: string; sub: string }[]>([]);
   useEffect(() => {
@@ -1142,57 +1138,33 @@ export default function EditProductPage() {
             </select>
           </div>
 
-          <div style={{ position:'relative' }}>
-            <label style={lbl}>Subcategory</label>
-            <div style={{ display:'flex', gap:'.4rem', alignItems:'center' }}>
-              <div style={{ position:'relative', flex:1 }}>
-                <input
-                  value={sub}
-                  onChange={e => { setSub(e.target.value); setSubcatOpen(true); }}
-                  onFocus={() => setSubcatOpen(true)}
-                  onBlur={() => setTimeout(() => setSubcatOpen(false), 180)}
-                  placeholder="Type a subcategory..."
-                  style={{ ...inp, width:'100%', boxSizing:'border-box' }}
-                />
-                {subcatOpen && (() => {
-                  const all = [...new Set([
-                    ...allSubcats.filter(s => s.cat === category.toLowerCase()).map(s => s.sub),
-                    ...localSubcats,
-                  ])].filter(s => !hiddenSubcats.has(s));
-                  const filtered = sub.trim()
-                    ? all.filter(s => s.toLowerCase().includes(sub.toLowerCase()))
-                    : all;
-                  return filtered.length > 0 ? (
-                    <div style={{ position:'absolute', top:'calc(100% + 4px)', left:0, right:0, background:'#fff', border:'1.5px solid #ddd', borderRadius:'8px', boxShadow:'0 4px 16px rgba(0,0,0,.12)', zIndex:200, maxHeight:'200px', overflowY:'auto' }}>
-                      {filtered.map(s => (
-                        <div key={s} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'.48rem .75rem', borderBottom:'1px solid #f5f5f5', background: sub===s ? '#fdf0f3' : '#fff' }}>
-                          <span onMouseDown={() => setSub(s)} style={{ fontSize:'.85rem', fontWeight: sub===s ? 700 : 400, color: sub===s ? '#a7354d' : '#333', cursor:'pointer', flex:1 }}>{s}</span>
-                          <button onMouseDown={e => { e.preventDefault(); setHiddenSubcats(p => new Set([...p, s])); setLocalSubcats(p => p.filter(x => x!==s)); if (sub===s) setSub(''); }}
-                            style={{ background:'#fdecea', border:'none', borderRadius:'4px', color:'#c0392b', fontSize:'.72rem', fontWeight:700, cursor:'pointer', padding:'.15rem .45rem', marginLeft:'.5rem', whiteSpace:'nowrap' }}>
-                            🗑 Delete
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  ) : null;
-                })()}
-              </div>
-              <button
-                onMouseDown={e => { e.preventDefault(); const v = sub.trim(); if (v && !localSubcats.includes(v)) setLocalSubcats(p => [...p, v]); }}
-                title="Save to list"
-                style={{ background:'#a7354d', color:'#fff', border:'none', borderRadius:'8px', padding:'.6rem .95rem', fontSize:'1.15rem', fontWeight:700, cursor:'pointer', flexShrink:0, lineHeight:1 }}>
-                +
-              </button>
-            </div>
-            {sub.trim() && [...new Set([
-              ...allSubcats.filter(s => s.cat === category.toLowerCase()).map(s => s.sub),
-              ...localSubcats,
-            ])].filter(s => !hiddenSubcats.has(s)).some(s => s.toLowerCase() === sub.trim().toLowerCase()) && (
-              <span style={{ fontSize:'.75rem', color:'#e67e22', fontWeight:600, marginTop:'.25rem', display:'block' }}>
-                ⚠️ This subcategory is already in the list
-              </span>
-            )}
-          </div>
+          {/* The edit screen used to carry its own copy of this dropdown, with
+              only a Delete button and a separate "+" to save a name. It is the
+              same combo as the add screen now, so Modify / Merge / Delete work
+              in both places and both read the same saved list. */}
+          <TaxonomyCombo
+            label="Subcategory"
+            value={sub}
+            onChange={setSub}
+            baseOptions={allSubcats.filter(x => x.cat === category.toLowerCase()).map(x => x.sub)}
+            storageKey={`sub_${category.toLowerCase()}`}
+            placeholder="Type or select subcategory…"
+            inpStyle={inp}
+            labelStyle={lbl}
+            onRename={async (from, to) => {
+              const token = getAdminToken();
+              if (!token) throw new Error('Signed out — sign in again and retry.');
+              await productsApi.renameSubcategory({ category, from, to }, token);
+              setAllSubcats(prev => prev.map(x =>
+                x.cat === category.toLowerCase() && x.sub === from ? { ...x, sub: to } : x));
+            }}
+            countUsers={async (name) => {
+              const token = getAdminToken();
+              if (!token) return 0;
+              const r = await productsApi.renameSubcategory({ category, from: name, dryRun: true }, token);
+              return r.count ?? 0;
+            }}
+          />
 
           {/* ── Variants ── */}
           <div style={{ gridColumn:'1 / -1', marginTop:'.25rem' }}>

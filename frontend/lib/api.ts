@@ -104,6 +104,18 @@ export const productsApi = {
     ),
   delete: (id: number, token: string) =>
     request(`/products/${id}`, { method: 'DELETE' }, token),
+  // Rename a subcategory across the whole catalogue. Merging two subcategories
+  // is the same call with a `to` that already exists. `dryRun: true` only
+  // counts the products that would change, so the form can warn first.
+  renameSubcategory: (
+    body: { category?: string; from: string; to?: string; dryRun?: boolean },
+    token: string
+  ) =>
+    request<{ success: boolean; count?: number; changed?: number; message?: string }>(
+      '/products/subcategory/rename',
+      { method: 'POST', body: JSON.stringify(body) },
+      token
+    ),
 };
 
 // ── Orders ───────────────────────────────────────────────────────────────────

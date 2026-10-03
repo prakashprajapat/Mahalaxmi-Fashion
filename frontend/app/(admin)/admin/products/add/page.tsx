@@ -718,11 +718,6 @@ export default function AddProductPage() {
   // Variants
   const [variants, setVariants] = useState<Variant[]>([]);
 
-  // Subcategory
-  const [localSubcats, setLocalSubcats] = useState<string[]>([]);
-  const [hiddenSubcats, setHiddenSubcats] = useState<Set<string>>(new Set());
-  const [subcatOpen, setSubcatOpen] = useState(false);
-
   // ── Fetch next SKU + HSN memory + subcategory list on mount ──
   useEffect(() => {
     fetchNextSku().then(setSku);
@@ -1001,7 +996,7 @@ export default function AddProductPage() {
     setVariantStock({});
     setMainPhotos({ front:'', side:'', back:'', zoomed:'' });
     setPackOf(''); setPackCols([]);
-    setAddOns([]); setVariants([]); setSub(''); setTaxVariant(''); setLocalSubcats([]); setHiddenSubcats(new Set());
+    setAddOns([]); setVariants([]); setSub(''); setTaxVariant('');
     setAvailColours(''); setBestSeller(false); setTotalQty('');
   };
 
@@ -1147,6 +1142,20 @@ export default function AddProductPage() {
             baseOptions={getTaxonomy(category).map(g => g.name)}
             storageKey={`sub_${category.toLowerCase()}`}
             canDelete={(name) => (getTaxonomy(category).find(g => g.name === name)?.variants.length ?? 0) === 0}
+            // Renaming only this list would leave every product that already
+            // carries the old spelling behind, with its own page still live on
+            // the website. These two move the products with the name.
+            onRename={async (from, to) => {
+              const token = getAdminToken();
+              if (!token) throw new Error('Signed out — sign in again and retry.');
+              await productsApi.renameSubcategory({ category, from, to }, token);
+            }}
+            countUsers={async (name) => {
+              const token = getAdminToken();
+              if (!token) return 0;
+              const r = await productsApi.renameSubcategory({ category, from: name, dryRun: true }, token);
+              return r.count ?? 0;
+            }}
             placeholder="Type or select subcategory…"
             inpStyle={inp}
             labelStyle={lbl}
@@ -1165,59 +1174,32 @@ export default function AddProductPage() {
           />
           </>
           ) : (
-          <div style={{ position:'relative' }}>
-            <label style={lbl}>Subcategory</label>
-            <div style={{ display:'flex', gap:'.4rem', alignItems:'center' }}>
-              <div style={{ position:'relative', flex:1 }}>
-                <input
-                  value={sub}
-                  onChange={e => { setSub(e.target.value); setSubcatOpen(true); }}
-                  onFocus={() => setSubcatOpen(true)}
-                  onBlur={() => setTimeout(() => setSubcatOpen(false), 180)}
-                  placeholder="Type a subcategory..."
-                  style={{ ...inp, width:'100%', boxSizing:'border-box' }}
-                />
-                {/* Filtered dropdown */}
-                {subcatOpen && (() => {
-                  const all = [...new Set([
-                    ...allSubcats.filter(s => s.cat === category.toLowerCase()).map(s => s.sub),
-                    ...localSubcats,
-                  ])].filter(s => !hiddenSubcats.has(s));
-                  const filtered = sub.trim()
-                    ? all.filter(s => s.toLowerCase().includes(sub.toLowerCase()))
-                    : all;
-                  return filtered.length > 0 ? (
-                    <div style={{ position:'absolute', top:'calc(100% + 4px)', left:0, right:0, background:'#fff', border:'1.5px solid #ddd', borderRadius:'8px', boxShadow:'0 4px 16px rgba(0,0,0,.12)', zIndex:200, maxHeight:'200px', overflowY:'auto' }}>
-                      {filtered.map(s => (
-                        <div key={s} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'.48rem .75rem', borderBottom:'1px solid #f5f5f5', background: sub===s ? '#fdf0f3' : '#fff' }}>
-                          <span onMouseDown={() => setSub(s)} style={{ fontSize:'.85rem', fontWeight: sub===s ? 700 : 400, color: sub===s ? '#a7354d' : '#333', cursor:'pointer', flex:1 }}>{s}</span>
-                          <button onMouseDown={e => { e.preventDefault(); setHiddenSubcats(p => new Set([...p, s])); setLocalSubcats(p => p.filter(x => x!==s)); if (sub===s) setSub(''); }}
-                            style={{ background:'#fdecea', border:'none', borderRadius:'4px', color:'#c0392b', fontSize:'.72rem', fontWeight:700, cursor:'pointer', padding:'.15rem .45rem', marginLeft:'.5rem', whiteSpace:'nowrap' }}>
-                            🗑 Delete
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  ) : null;
-                })()}
-              </div>
-              <button
-                onMouseDown={e => { e.preventDefault(); const v = sub.trim(); if (v && !localSubcats.includes(v)) { setLocalSubcats(p => [...p, v]); } }}
-                title="Save to list"
-                style={{ background:'#a7354d', color:'#fff', border:'none', borderRadius:'8px', padding:'.6rem .95rem', fontSize:'1.15rem', fontWeight:700, cursor:'pointer', flexShrink:0, lineHeight:1 }}>
-                +
-              </button>
-            </div>
-            {/* Already exists warning */}
-            {sub.trim() && [...new Set([
-              ...allSubcats.filter(s => s.cat === category.toLowerCase()).map(s => s.sub),
-              ...localSubcats,
-            ])].filter(s => !hiddenSubcats.has(s)).some(s => s.toLowerCase() === sub.trim().toLowerCase()) && (
-              <span style={{ fontSize:'.75rem', color:'#e67e22', fontWeight:600, marginTop:'.25rem', display:'block' }}>
-                ⚠️ This subcategory is already in the list
-              </span>
-            )}
-          </div>
+          /* A category with no fixed taxonomy (the names come from what the
+             catalogue already uses) gets the same combo, so Modify / Merge /
+             Delete behave identically everywhere. */
+          <TaxonomyCombo
+            label="Subcategory"
+            value={sub}
+            onChange={setSub}
+            baseOptions={allSubcats.filter(x => x.cat === category.toLowerCase()).map(x => x.sub)}
+            storageKey={`sub_${category.toLowerCase()}`}
+            placeholder="Type or select subcategory…"
+            inpStyle={inp}
+            labelStyle={lbl}
+            onRename={async (from, to) => {
+              const token = getAdminToken();
+              if (!token) throw new Error('Signed out — sign in again and retry.');
+              await productsApi.renameSubcategory({ category, from, to }, token);
+              setAllSubcats(prev => prev.map(x =>
+                x.cat === category.toLowerCase() && x.sub === from ? { ...x, sub: to } : x));
+            }}
+            countUsers={async (name) => {
+              const token = getAdminToken();
+              if (!token) return 0;
+              const r = await productsApi.renameSubcategory({ category, from: name, dryRun: true }, token);
+              return r.count ?? 0;
+            }}
+          />
           )}
 
           {/* ── Variants ── */}

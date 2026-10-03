@@ -566,6 +566,60 @@ public class ProductsController : ControllerBase
         }
     }
 
+    // The subcategory box on the product form is just a list of names the shop
+    // types in; the real value lives on each product row. So renaming a name in
+    // that list alone leaves every product already carrying the old spelling
+    // behind — "Rajasthani Dresh" keeps its own page on the website while new
+    // products go to "Rajasthani Dress". This moves the products, which is what
+    // makes a rename a rename. A merge is the same operation with a `to` that
+    // already exists.
+    public class SubcategoryRenameRequest
+    {
+        public string? Category { get; set; }
+        public string? From { get; set; }
+        public string? To { get; set; }
+        /// Count only, change nothing — so the form can say how many products a
+        /// rename will touch BEFORE the shop confirms it.
+        public bool DryRun { get; set; }
+    }
+
+    // POST /api/products/subcategory/rename   (merge = rename onto an existing name)
+    [HttpPost("subcategory/rename")]
+    [Authorize]
+    [RequirePerm("products")]
+    public async Task<IActionResult> RenameSubcategory([FromBody] SubcategoryRenameRequest? req)
+    {
+        if (req is null) return BadRequest(new { message = "Request body is missing." });
+
+        var from = (req.From ?? "").Trim();
+        var to   = (req.To ?? "").Trim();
+        var cat  = (req.Category ?? "").Trim();
+
+        if (from.Length == 0)
+            return BadRequest(new { message = "The old subcategory name is empty." });
+        if (!req.DryRun && to.Length == 0)
+            return BadRequest(new { message = "The new subcategory name is empty." });
+        if (to.Length > 120)
+            return BadRequest(new { message = "Subcategory name is too long (max 120 characters)." });
+        if (!req.DryRun && string.Equals(from, to, StringComparison.OrdinalIgnoreCase))
+            return Ok(new { success = true, changed = 0, message = "The name is unchanged." });
+
+        var fromLower = from.ToLower();
+        var catLower  = cat.ToLower();
+
+        var q = _db.Products.Where(p => p.Subcategory.ToLower() == fromLower);
+        // A subcategory name belongs to one category — "Shirt" under Men is not
+        // "Shirt" under Women. Without this, a rename made on one category's
+        // form would quietly rewrite the other category's products too.
+        if (catLower.Length > 0) q = q.Where(p => p.Category.ToLower() == catLower);
+
+        if (req.DryRun) return Ok(new { success = true, count = await q.CountAsync() });
+
+        var changed = await q.ExecuteUpdateAsync(s => s.SetProperty(p => p.Subcategory, to));
+        if (changed > 0) BustCache();
+        return Ok(new { success = true, changed });
+    }
+
     private async Task<Product?> FindUpsertTarget(ProductCreateRequest dto)
     {
         // Match an existing product ONLY by its database id (explicit edit) or by its unique SKU.
