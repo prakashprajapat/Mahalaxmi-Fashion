@@ -246,6 +246,14 @@ using (var scope = app.Services.CreateScope())
             used        BOOLEAN     NOT NULL DEFAULT FALSE,
             created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
+        CREATE TABLE IF NOT EXISTS site_event_log (
+            id          BIGSERIAL PRIMARY KEY,
+            event_name  VARCHAR(40)  NOT NULL,
+            value       NUMERIC(12,2),
+            created_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS ix_site_event_log_created
+            ON site_event_log (created_at DESC);
         CREATE TABLE IF NOT EXISTS popup_leads (
             id         SERIAL PRIMARY KEY,
             name       VARCHAR(255),

@@ -2,7 +2,10 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
+using MahalaxmiApi.Authorization;
 using MahalaxmiApi.Data;
+using MahalaxmiApi.Models;
 
 namespace MahalaxmiApi.Controllers;
 
@@ -70,6 +73,20 @@ public class SiteEventsController : ControllerBase
 
         if (req is null || !Allowed.Contains(eventName))
             return Ok(new { success = true, skipped = true });
+
+        // Kept FIRST, and on its own.
+        //
+        // Everything below this is about Meta, and every branch of it can end
+        // in "skipped" — no token, no pixel, Meta unreachable. The shop's own
+        // record of what its visitors did must not depend on any of that; the
+        // day the Conversions API is switched off is exactly the day the owner
+        // most needs to see where people stopped.
+        try
+        {
+            _db.SiteEventLogs.Add(new SiteEventLog { EventName = eventName, Value = req.Value });
+            await _db.SaveChangesAsync();
+        }
+        catch { /* a browser event must never fail because of our own bookkeeping */ }
 
         var token = await _db.SiteSettings.Where(s => s.Key == "metaCapiAccessToken")
             .Select(s => s.Value).FirstOrDefaultAsync() ?? "";
@@ -213,4 +230,61 @@ public class SiteEventsController : ControllerBase
             || (b[0] == 172 && b[1] >= 16 && b[1] <= 31)
             || (b[0] == 192 && b[1] == 168);
     }
+    // GET /api/site-events/funnel?days=7
+    //
+    // How far visitors got, day by day. Purchase is NOT read from these rows —
+    // it comes from the orders table, because that is the only place money is
+    // actually taken. A purchase count built from browser events would be the
+    // one number here that could be inflated by anyone with a keyboard.
+    [HttpGet("funnel")]
+    [Authorize]
+    [RequirePerm("reports")]
+    public async Task<IActionResult> Funnel([FromQuery] int days = 7)
+    {
+        days = Math.Clamp(days, 1, 90);
+        var from = DateTimeOffset.UtcNow.Date.AddDays(-(days - 1));
+
+        var steps = await _db.SiteEventLogs
+            .Where(e => e.CreatedAt >= from)
+            .GroupBy(e => new { Day = e.CreatedAt.Date, e.EventName })
+            .Select(g => new { g.Key.Day, g.Key.EventName, Count = g.Count() })
+            .ToListAsync();
+
+        var orders = await _db.SiteOrders
+            .Where(o => o.CreatedAt >= from)
+            .GroupBy(o => o.CreatedAt.Date)
+            .Select(g => new { Day = g.Key, Count = g.Count() })
+            .ToListAsync();
+
+        int At(DateTime day, string name) =>
+            steps.FirstOrDefault(x => x.Day == day && x.EventName == name)?.Count ?? 0;
+
+        var rows = Enumerable.Range(0, days)
+            .Select(i => from.Date.AddDays(i))
+            .Where(d => d <= DateTimeOffset.UtcNow.Date)
+            .OrderByDescending(d => d)
+            .Select(d => new
+            {
+                date = d.ToString("yyyy-MM-dd"),
+                viewed = At(d, "ViewContent"),
+                addedToCart = At(d, "AddToCart"),
+                startedCheckout = At(d, "InitiateCheckout"),
+                purchased = orders.FirstOrDefault(o => o.Day == d)?.Count ?? 0,
+            })
+            .ToList();
+
+        return Ok(new
+        {
+            success = true,
+            rows,
+            totals = new
+            {
+                viewed = rows.Sum(r => r.viewed),
+                addedToCart = rows.Sum(r => r.addedToCart),
+                startedCheckout = rows.Sum(r => r.startedCheckout),
+                purchased = rows.Sum(r => r.purchased),
+            },
+        });
+    }
+
 }
