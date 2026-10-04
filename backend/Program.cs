@@ -248,6 +248,13 @@ using (var scope = app.Services.CreateScope())
             used        BOOLEAN     NOT NULL DEFAULT FALSE,
             created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
+        DO $$
+        BEGIN
+            CREATE UNIQUE INDEX IF NOT EXISTS ux_reviews_order_product
+                ON reviews (order_id, product_id) WHERE order_id IS NOT NULL;
+        EXCEPTION WHEN OTHERS THEN
+            RAISE NOTICE 'ux_reviews_order_product not created (duplicates exist) - the controller check still applies';
+        END $$;
         CREATE TABLE IF NOT EXISTS abandoned_carts (
             id          SERIAL PRIMARY KEY,
             customer_id INT         NOT NULL UNIQUE,

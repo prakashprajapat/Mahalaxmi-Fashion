@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Text.Json;
 using MahalaxmiApi.Data;
 using MahalaxmiApi.Models;
 
@@ -208,6 +209,50 @@ public class ReviewsController : ControllerBase
         if (int.TryParse(userId, out var parsedId) && parsedId > 0)
             customerId = parsedId;
 
+        // A review has to come from an order that was actually received.
+        //
+        // Until now the order id was taken from the request and never looked
+        // at: anyone signed in could review anything, under any order number,
+        // as many times as they liked, and the "verified purchase" the shop
+        // shows beside a review meant nothing at all. The form already offers
+        // only delivered orders and only the items inside them, so nothing a
+        // real customer can do is blocked here — this just makes the server
+        // insist on what the page already shows.
+        var orderId = (req.OrderId ?? "").Trim();
+        if (orderId.Length == 0)
+            return BadRequest(new { success = false, message = "Please choose which order this is about." });
+
+        var order = await _db.SiteOrders.FirstOrDefaultAsync(o => o.OrderId == orderId);
+        if (order is null)
+            return BadRequest(new { success = false, message = "We could not find that order." });
+
+        if (order.Status != "Delivered")
+            return BadRequest(new { success = false, message = "You can write a review once the order has been delivered." });
+
+        // It has to be the caller's own order. Matched on the customer id, and
+        // on the email as well, because orders placed before signing in carry
+        // the address but not the id.
+        var callerEmail = (User.FindFirstValue(ClaimTypes.Email) ?? User.FindFirstValue("email") ?? "").Trim().ToLowerInvariant();
+        var buyer = ParseJson(order.CustomerJson);
+        var buyerId = JsonStr(buyer, "id");
+        var buyerEmail = (JsonStr(buyer, "email") ?? "").Trim().ToLowerInvariant();
+
+        var ownsIt = (customerId is not null && buyerId == customerId.Value.ToString())
+                  || (callerEmail.Length > 0 && callerEmail == buyerEmail);
+        if (!ownsIt)
+            return BadRequest(new { success = false, message = "That order belongs to a different account." });
+
+        // And the order has to contain this product. Otherwise one delivered
+        // order would unlock a review on all one hundred and sixty-five.
+        if (!OrderHasProduct(order.CartJson, req.ProductId))
+            return BadRequest(new { success = false, message = "That product was not in this order." });
+
+        // One review per product per order. A second one is not a mistake to
+        // swallow quietly — the customer should be told it is already there.
+        var already = await _db.Reviews.AnyAsync(r => r.OrderId == orderId && r.ProductId == req.ProductId);
+        if (already)
+            return Conflict(new { success = false, message = "You have already reviewed this product for this order." });
+
         // Only accept photo URLs that we issued ourselves (from /api/reviews/upload) — max 3.
         var images = (req.Images ?? new List<string>())
             .Where(u => !string.IsNullOrWhiteSpace(u) && u.StartsWith("/api/reviews/image/", StringComparison.Ordinal))
@@ -222,7 +267,7 @@ public class ReviewsController : ControllerBase
             Rating = (short)req.Rating,
             Body = req.Text.Trim(),
             // BUG-5: Store OrderId in dedicated column; Title kept null
-            OrderId = req.OrderId,
+            OrderId = orderId,
             ImageUrls = images.Count > 0 ? System.Text.Json.JsonSerializer.Serialize(images) : null,
             Status = "pending",
             CreatedAt = DateTimeOffset.UtcNow,
@@ -286,6 +331,39 @@ public class ReviewsController : ControllerBase
         orderId = r.OrderId ?? r.Title,
         createdAt = r.CreatedAt
     };
+
+    private static JsonElement? ParseJson(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return null;
+        try { return JsonSerializer.Deserialize<JsonElement>(json); } catch { return null; }
+    }
+
+    private static string? JsonStr(JsonElement? el, string key)
+    {
+        if (el is null || !el.Value.TryGetProperty(key, out var v)) return null;
+        return v.ValueKind == JsonValueKind.String ? v.GetString() : v.ToString();
+    }
+
+    /// Was this product one of the lines on that order? The cart is stored as
+    /// the browser sent it, where a line's id is a string, so it is compared
+    /// as one rather than parsed and hoped over.
+    private static bool OrderHasProduct(string? cartJson, int productId)
+    {
+        var want = productId.ToString();
+        try
+        {
+            var lines = JsonSerializer.Deserialize<List<JsonElement>>(cartJson ?? "[]") ?? new();
+            foreach (var l in lines)
+            {
+                if (!l.TryGetProperty("id", out var idEl)) continue;
+                var id = idEl.ValueKind == JsonValueKind.String ? idEl.GetString() : idEl.ToString();
+                if (id == want) return true;
+            }
+        }
+        catch { /* an unreadable cart is not a licence to review anything */ }
+        return false;
+    }
+
 }
 
 public record ReviewSubmitRequest(int ProductId, int Rating, string Text, string? OrderId, List<string>? Images = null);
