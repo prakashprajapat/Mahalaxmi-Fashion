@@ -263,7 +263,11 @@ export const customersApi = {
     ),
   // token is passed when an ADMIN creates a customer from the panel (bypasses OTP).
   register: (data: unknown, token?: string) =>
-    request<{ success: boolean; token: string; customer: import('@/types').Customer }>(
+    request<{
+      success: boolean; token: string; customer: import('@/types').Customer;
+      // Present only when Settings names a coupon that is actually usable today.
+      welcomeCoupon?: { code: string; type: string; value: number; minOrder: number; expiresAt: string | null } | null;
+    }>(
       '/customers/register', { method: 'POST', body: JSON.stringify(data) }, token
     ),
   login: (data: { email: string; password: string }) =>

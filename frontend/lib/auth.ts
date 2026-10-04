@@ -6,6 +6,17 @@ const TOKEN_KEY    = 'mfh_token';
 const CUSTOMER_KEY = 'mfh_customer';
 const ADMIN_KEY    = 'mfh_admin_token';
 
+// The name of whoever last signed in on this device. Deliberately NOT cleared
+// by logout: it is what lets the app greet a returning customer by name instead
+// of asking a stranger to log in. It is a first name and nothing else - no
+// token, no email, no number - so it is no use to anybody who finds it.
+const KNOWN_NAME_KEY = 'mfh_known_name';
+
+/** The first name of the last person to sign in here, if anyone ever has. */
+export function getKnownName(): string {
+  return (storage.get(KNOWN_NAME_KEY) ?? '').trim();
+}
+
 // Every read and write goes through safeStorage. getToken() in particular is
 // called while components render, and a bare localStorage.getItem there throws
 // in Safari when the visitor has blocked cookies — which stopped React
@@ -26,6 +37,8 @@ export function getCustomer(): Customer | null {
 
 export function setCustomer(customer: Customer): void {
   storage.set(CUSTOMER_KEY, JSON.stringify(customer));
+  const first = (customer.firstName ?? '').trim();
+  if (first) storage.set(KNOWN_NAME_KEY, first);
 }
 
 // Server se taaza grahak laakar yahan ki copy badal deta hai.

@@ -98,6 +98,12 @@ export default function RegisterPage() {
   };
 
   // Step 2 → verify the OTP and create the account (backend re-checks the OTP).
+  // The code the account was born with. It also goes out by email, so losing
+  // this screen does not lose the coupon.
+  const [welcome, setWelcome] = useState<
+    { code: string; type: string; value: number; minOrder: number; expiresAt: string | null } | null
+  >(null);
+
   const handleVerifyAndCreate = async () => {
     setOtpError('');
     if (!/^\d{6}$/.test(otp)) return setOtpError('Please enter the 6-digit OTP.');
@@ -124,6 +130,7 @@ export default function RegisterPage() {
       trackEvent('sign_up', { method: 'mobile_otp' });   // GA4
       setSavedCustomer(res.customer);
       setSavedToken(res.token);
+      setWelcome(res.welcomeCoupon ?? null);
       setStep('birthday');
     } catch (e) {
       setOtpError((e as Error).message || 'OTP verification failed. Please try again.');
@@ -361,6 +368,26 @@ export default function RegisterPage() {
                   <p style={{ color: '#555', fontSize: '.85rem', margin: '2px 0 0' }}>Welcome to Mahalaxmi Fashion Hub, {savedCustomer?.firstName}!</p>
                 </div>
               </div>
+
+              {welcome && (
+                <div style={{ border: '2px dashed #a7354d', background: '#faf0f3', borderRadius: 12,
+                              padding: '1.1rem 1.25rem', marginBottom: '1.5rem', textAlign: 'center' }}>
+                  <p style={{ margin: 0, fontSize: '.74rem', letterSpacing: '.07em', textTransform: 'uppercase', color: '#8a7f76' }}>
+                    Your welcome code
+                  </p>
+                  <p style={{ margin: '.3rem 0', fontSize: '1.6rem', fontWeight: 800, color: '#722f37', letterSpacing: '.1em' }}>
+                    {welcome.code}
+                  </p>
+                  <p style={{ margin: 0, fontSize: '.9rem', color: '#463d38' }}>
+                    {welcome.type === 'percent' ? `${welcome.value}% off` : `\u20b9${welcome.value} off`}
+                    {welcome.minOrder > 0 ? ` on orders over \u20b9${welcome.minOrder.toLocaleString('en-IN')}` : ''}
+                    {welcome.expiresAt ? ` \u00b7 till ${new Date(welcome.expiresAt).toLocaleDateString('en-IN')}` : ''}
+                  </p>
+                  <p style={{ margin: '.45rem 0 0', fontSize: '.78rem', color: '#8a7f76' }}>
+                    Also sent to your email. Type it in the Coupon box at checkout.
+                  </p>
+                </div>
+              )}
 
               {/* Birthday/Anniversary Card */}
               <div className="form-card" style={{ textAlign: 'center' }}>

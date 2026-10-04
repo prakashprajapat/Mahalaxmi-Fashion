@@ -708,8 +708,134 @@ public class CustomersController : ControllerBase
                 <p><strong>Mobile:</strong> {System.Net.WebUtility.HtmlEncode(customer.Phone ?? "")}</p>
                 <p><strong>Code:</strong> {customer.CustomerCode}</p>"));
 
+        // The welcome coupon. The popup promises a code to anyone who leaves
+        // their details; an account made without ever seeing that popup - in the
+        // app, or straight from the Register page - was getting nothing. The code
+        // now travels with the account itself: in the reply, so the screen can
+        // show it the second the profile exists, and in an email, so it is still
+        // there tomorrow when they come back to spend it.
+        var welcome = await WelcomeCouponAsync();
+        if (welcome is not null && !isAdminCreate)
+            SendWelcomeEmail(customer, welcome);
+
         var token = _auth.GenerateJwt(customer.Id.ToString(), customer.Email ?? "", "customer");
-        return Ok(new { success = true, token, customer = ToDto(customer) });
+        return Ok(new
+        {
+            success = true,
+            token,
+            customer = ToDto(customer),
+            // (object?) on purpose: a conditional cannot pick a type between
+            // null and an anonymous one, and the field has to be able to be null.
+            welcomeCoupon = welcome is null ? null : (object?)new
+            {
+                code = welcome.Code,
+                type = welcome.Type,
+                value = welcome.Value,
+                minOrder = welcome.MinOrder,
+                expiresAt = welcome.ExpiresAt,
+            },
+        });
+    }
+
+    // The coupon named in Settings -> 'welcomeCouponCode', but ONLY if it is a
+    // coupon somebody could actually use today. A code typed into Settings with
+    // no coupon behind it, or behind a switched-off or expired one, is the exact
+    // failure that leaves a new customer staring at an empty promise - so it is
+    // logged by name rather than passed over in silence.
+    private async Task<Models.Coupon?> WelcomeCouponAsync()
+    {
+        string wanted;
+        try
+        {
+            wanted = (await _db.SiteSettings
+                .Where(x => x.Key == "welcomeCouponCode")
+                .Select(x => x.Value)
+                .FirstOrDefaultAsync() ?? "").Trim();
+        }
+        catch { return null; }
+
+        if (string.IsNullOrWhiteSpace(wanted)) return null;   // nothing promised, nothing owed
+
+        var lower = wanted.ToLowerInvariant();
+        var c = await _db.Coupons.FirstOrDefaultAsync(x => x.Code.ToLower() == lower);
+        if (c is null)
+        {
+            _log.LogWarning("Welcome coupon '{Code}' is set in Settings but no such coupon exists.", wanted);
+            return null;
+        }
+        if (!c.IsActive)
+        {
+            _log.LogWarning("Welcome coupon '{Code}' is switched off, so new customers are being sent nothing.", wanted);
+            return null;
+        }
+        if (c.ExpiresAt is not null && c.ExpiresAt < DateTimeOffset.UtcNow)
+        {
+            _log.LogWarning("Welcome coupon '{Code}' expired on {When:yyyy-MM-dd}.", wanted, c.ExpiresAt);
+            return null;
+        }
+        if (c.MaxUses is not null && c.UsedCount >= c.MaxUses)
+        {
+            _log.LogWarning("Welcome coupon '{Code}' has been used up ({Used}/{Max}).", wanted, c.UsedCount, c.MaxUses);
+            return null;
+        }
+        if (c.CustomerId is not null)
+        {
+            _log.LogWarning("Welcome coupon '{Code}' belongs to one customer and cannot be the welcome code.", wanted);
+            return null;
+        }
+        if (!string.Equals(c.Occasion ?? "none", "none", StringComparison.OrdinalIgnoreCase))
+        {
+            _log.LogWarning("Welcome coupon '{Code}' is a {Occasion} coupon, so most new customers cannot use it.", wanted, c.Occasion);
+            return null;
+        }
+        return c;
+    }
+
+    // Fire-and-forget: a slow mail server must never hold up an account.
+    private void SendWelcomeEmail(Models.Customer customer, Models.Coupon c)
+    {
+        var to = (customer.Email ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(to) || !to.Contains('@')) return;
+
+        var name = System.Net.WebUtility.HtmlEncode((customer.FirstName ?? "").Trim());
+        var off = c.Type == "percent"
+            ? $"{c.Value:0.##}% off"
+            : $"\u20b9{c.Value:0} off";
+        var min = c.MinOrder > 0 ? $" on orders over \u20b9{c.MinOrder:0}" : "";
+        var till = c.ExpiresAt is not null
+            ? $"Use it before {c.ExpiresAt:dd MMM yyyy}."
+            : "There is no last date on it.";
+
+        var html = $@"
+<div style=""font-family:Arial,Helvetica,sans-serif;max-width:520px;margin:0 auto;border:1px solid #eee;border-radius:12px;overflow:hidden"">
+  <div style=""background:#722f37;padding:18px 24px"">
+    <span style=""color:#fff;font-size:17px;font-weight:700"">Welcome to Mahalaxmi Fashion Hub</span>
+  </div>
+  <div style=""padding:22px 24px;color:#333;font-size:14px;line-height:1.65"">
+    <p style=""margin:0 0 12px"">Namaste {name},</p>
+    <p style=""margin:0 0 16px"">Your account is ready. Here is the code we promised you:</p>
+    <div style=""border:2px dashed #a7354d;border-radius:10px;padding:16px;text-align:center;background:#faf0f3"">
+      <div style=""font-size:12px;color:#8a7f76;letter-spacing:.06em;text-transform:uppercase"">Your welcome code</div>
+      <div style=""font-size:26px;font-weight:800;color:#722f37;letter-spacing:.1em;margin:6px 0"">{System.Net.WebUtility.HtmlEncode(c.Code)}</div>
+      <div style=""font-size:14px;color:#463d38"">{off}{min}</div>
+    </div>
+    <p style=""margin:16px 0 0;font-size:13px;color:#666"">{till} Type it in the Coupon box at checkout.</p>
+    <p style=""margin:18px 0 0"">
+      <a href=""https://www.mahalaxmifashionhub.com"" style=""background:#722f37;color:#fff;text-decoration:none;padding:11px 22px;border-radius:8px;font-weight:700;display:inline-block"">Start shopping</a>
+    </p>
+  </div>
+  <div style=""padding:12px 24px;background:#faf6f2;color:#888;font-size:12px"">
+    www.mahalaxmifashionhub.com &nbsp;|&nbsp; WhatsApp +91 94294 29880
+  </div>
+</div>";
+
+        var email = _email;
+        var log = _log;
+        _ = Task.Run(async () =>
+        {
+            try { await email.SendAsync(to, "Welcome to Mahalaxmi Fashion Hub - your code inside", html); }
+            catch (Exception ex) { log.LogWarning(ex, "Welcome coupon email failed."); }
+        });
     }
 
     // POST /api/customers/login

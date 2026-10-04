@@ -30,6 +30,9 @@ import { setAnalyticsUserId } from '@/lib/analytics';
 // and the widgets appear a tick later, which is sooner than any of them shows
 // anything anyway.
 const WelcomePopup = dynamic(() => import('./WelcomePopup'));
+// The app's own greeting. WelcomePopup refuses to run inside the app; this one
+// runs ONLY there, so the two can never appear together.
+const AppLoginPrompt = dynamic(() => import('./AppLoginPrompt'));
 const AiChatWidget = dynamic(() => import('../chat/AiChatWidget'));
 const PushOptIn = dynamic(() => import('../push/PushOptIn'));
 
@@ -98,6 +101,7 @@ export default function StoreChrome({ children }: { children: React.ReactNode })
       <Footer minimal={pathname?.startsWith('/checkout') ?? false} />
       <FloatingCart />
       {mounted && <WelcomePopup />}
+      {mounted && <AppLoginPrompt />}
       <CompareBar />
       <BottomNav />
       {/* Single combined launcher (WhatsApp + chatbot) instead of two overlapping floats */}

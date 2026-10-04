@@ -60,6 +60,9 @@ export default function CouponsPage() {
   const [filterWho, setFilterWho] = useState('');
   const [sortBy, setSortBy] = useState<'created' | 'used' | 'expires'>('created');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+  // Settings names one coupon as the welcome code. A name with nothing behind it
+  // is the quietest way to break the popup, so this screen says so out loud.
+  const [welcomeCode, setWelcomeCode] = useState('');
 
   const load = async () => {
     setLoading(true);
@@ -68,6 +71,13 @@ export default function CouponsPage() {
   };
 
   useEffect(() => { load(); }, []);
+
+  useEffect(() => {
+    fetch('/api/settings')
+      .then(r => r.json())
+      .then(d => setWelcomeCode((d?.settings?.welcomeCouponCode ?? '').trim()))
+      .catch(() => { /* the coupons themselves still load */ });
+  }, []);
 
   const resetForm = () => { setForm({ ...empty }); setEditId(null); setMsg(null); setShowForm(false); };
 
@@ -188,6 +198,19 @@ export default function CouponsPage() {
     const d = daysLeft(c.expiresAt);
     return c.isActive && d !== null && d >= 0 && d <= 7;
   }).length;
+
+  // Why the welcome code is not reaching anybody - said in the words of the
+  // thing that is wrong, not as a generic "check your settings".
+  const welcomeProblem = (() => {
+    if (!welcomeCode || loading) return '';
+    const c = coupons.find(x => x.code.toLowerCase() === welcomeCode.toLowerCase());
+    if (!c) return `Settings says the welcome code is ${welcomeCode}, but there is no coupon with that code. Make it below, or the popup and every new account get nothing.`;
+    if (isExpired(c)) return `The welcome code ${c.code} expired on ${shortDate(c.expiresAt)}. New customers are being promised a code that no longer works.`;
+    if (isUsedUp(c)) return `The welcome code ${c.code} has been used ${c.usedCount} of ${c.maxUses} times and is finished. Raise its limit or clear it.`;
+    if (!c.isActive) return `The welcome code ${c.code} is switched off, so nobody can use it.`;
+    if (c.occasion && c.occasion !== 'none') return `The welcome code ${c.code} is a ${c.occasion} coupon, so most new customers cannot use it. The welcome code has to be open to anyone.`;
+    return '';
+  })();
 
   const exportCsv = () => {
     downloadCsv(
@@ -310,6 +333,23 @@ export default function CouponsPage() {
             </button>
             <button className="adm-btn" onClick={resetForm}>Cancel</button>
           </div>
+        </Card>
+      )}
+
+      {welcomeProblem && (
+        <Card style={{ background: '#fdf4f3', borderColor: '#f0d4d0' }}>
+          <p style={{ margin: 0, fontSize: '.85rem', color: '#8a3127', lineHeight: 1.6 }}>
+            <strong>The welcome code is not working.</strong> {welcomeProblem}
+          </p>
+        </Card>
+      )}
+
+      {welcomeCode && !welcomeProblem && (
+        <Card style={{ background: '#f3faf4', borderColor: '#cfe8d3' }}>
+          <p style={{ margin: 0, fontSize: '.85rem', color: '#2e6b33', lineHeight: 1.6 }}>
+            <strong>{welcomeCode}</strong> is the welcome code. It is shown in the popup after someone
+            leaves their details, and emailed to every new account the moment it is made.
+          </p>
         </Card>
       )}
 
