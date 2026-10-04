@@ -761,6 +761,20 @@ public class OrdersController : ControllerBase
             }
         }
 
+        // The basket became an order, so there is nothing left to remind them
+        // about. Done here rather than waiting for the browser to sync an empty
+        // cart: a reminder that reaches someone who already paid is the thing
+        // that makes a shop look like it is not paying attention.
+        if (int.TryParse(req.CustomerId, out var boughtBy) && boughtBy > 0)
+        {
+            var saved = await _db.AbandonedCarts.FirstOrDefaultAsync(c => c.CustomerId == boughtBy);
+            if (saved is not null)
+            {
+                _db.AbandonedCarts.Remove(saved);
+                await _db.SaveChangesAsync();
+            }
+        }
+
         return Ok(new { success = true, orderId });
     }
 

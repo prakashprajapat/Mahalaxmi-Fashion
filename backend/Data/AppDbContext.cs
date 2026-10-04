@@ -29,6 +29,7 @@ public class AppDbContext : DbContext
     public DbSet<CustomerAddress> CustomerAddresses { get; set; }
     public DbSet<CelebrationSend> CelebrationSends { get; set; }
     public DbSet<SiteEventLog> SiteEventLogs { get; set; }
+    public DbSet<AbandonedCart> AbandonedCarts { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

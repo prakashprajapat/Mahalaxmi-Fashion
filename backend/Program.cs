@@ -39,6 +39,7 @@ builder.Services.AddHostedService<DelhiveryTrackingSyncService>();
 // existed, and ones that stop passing later.
 builder.Services.AddHostedService<ProductGateSweepService>();
 builder.Services.AddHostedService<ReviewRequestService>();
+builder.Services.AddHostedService<AbandonedCartService>();
 
 // Emails the database and the day's new photos every night at 11:59 PM IST.
 // Registered as a singleton as well as a hosted service so the admin
@@ -246,6 +247,15 @@ using (var scope = app.Services.CreateScope())
             expires_at  TIMESTAMPTZ NOT NULL,
             used        BOOLEAN     NOT NULL DEFAULT FALSE,
             created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE TABLE IF NOT EXISTS abandoned_carts (
+            id          SERIAL PRIMARY KEY,
+            customer_id INT         NOT NULL UNIQUE,
+            items_json  JSONB       NOT NULL DEFAULT '[]',
+            item_count  INT         NOT NULL DEFAULT 0,
+            value       NUMERIC(12,2) NOT NULL DEFAULT 0,
+            updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            reminded_at TIMESTAMPTZ
         );
         CREATE TABLE IF NOT EXISTS site_event_log (
             id          BIGSERIAL PRIMARY KEY,
