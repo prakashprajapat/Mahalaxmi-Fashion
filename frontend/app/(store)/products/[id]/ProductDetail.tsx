@@ -12,6 +12,7 @@ import { productImageSrc, productImageThumb } from '@/lib/productImages';
 import { parseProductId } from '@/lib/productSlug';
 import { presetColourCode, swatchBackground } from '@/lib/presetColours';
 import RelatedProducts from '@/components/product/RelatedProducts';
+import BoughtTogether from '@/components/product/BoughtTogether';
 import RecentlyViewed from '@/components/product/RecentlyViewed';
 import DeliveryEstimate from '@/components/product/DeliveryEstimate';
 import SizeGuideButton from '@/components/product/SizeGuideButton';
@@ -835,6 +836,10 @@ export default function ProductDetail({ params, initialProduct = null }: { param
       </main>
 
       {/* You may also like — same-category cross-sell + internal linking */}
+      <div style={{ maxWidth: '1080px', margin: '0 auto', padding: '0 1.5rem' }}>
+        <BoughtTogether product={product} />
+      </div>
+
       <RelatedProducts category={product.category} currentId={product.dbId} />
 
       {/* Personalization — the visitor's own browsing history (client-side only) */}
