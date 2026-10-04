@@ -11,6 +11,15 @@ export default function WelcomePopup() {
   const [visible, setVisible] = useState(false);
   const [form, setForm] = useState({ name: '', email: '', phone: '' });
   const [submitted, setSubmitted] = useState(false);
+  // The code this popup is actually worth.
+  //
+  // It promised "exclusive offers" and then handed over nothing — the shopper
+  // gave a name and a number and got a thank-you. Twelve of the sixteen people
+  // on that list never came back, and there was nothing to come back FOR.
+  //
+  // Read from Settings rather than written here, so the shop can change the
+  // code, or empty it to turn the offer off, without a deploy.
+  const [welcomeCode, setWelcomeCode] = useState('');
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -22,6 +31,16 @@ export default function WelcomePopup() {
     const t = setTimeout(() => setVisible(true), 3500);
     return () => clearTimeout(t);
   }, []);
+
+  useEffect(() => {
+    if (!visible || welcomeCode) return;
+    let alive = true;
+    fetch('/api/settings')
+      .then(r => r.json())
+      .then(d => { if (alive) setWelcomeCode((d?.settings?.welcomeCouponCode ?? '').trim()); })
+      .catch(() => { /* no code, no offer shown — the popup still works */ });
+    return () => { alive = false; };
+  }, [visible, welcomeCode]);
 
   const close = () => {
     storage.set(POPUP_KEY, String(Date.now()));
@@ -41,7 +60,8 @@ export default function WelcomePopup() {
     } catch { /* silent fail — popup is non-critical */ }
     setSubmitted(true);
     setLoading(false);
-    setTimeout(close, 2200);
+    // Long enough to read a code and write it down; the old 2.2s was not.
+    setTimeout(close, welcomeCode ? 7000 : 2200);
   };
 
   if (!visible) return null;
@@ -121,6 +141,20 @@ export default function WelcomePopup() {
               <p style={{ color: '#666', fontSize: '.9rem', margin: 0 }}>
                 You&apos;ll be the first to know about new arrivals, offers and exclusive deals.
               </p>
+              {welcomeCode && (
+                <div style={{ marginTop: '1rem', padding: '.85rem 1rem', background: '#faf0f3',
+                  border: '1.5px dashed #a7354d', borderRadius: 10 }}>
+                  <div style={{ fontSize: '.78rem', color: '#777', marginBottom: '.25rem' }}>
+                    Your code for this order
+                  </div>
+                  <div style={{ fontSize: '1.35rem', fontWeight: 800, color: '#722f37', letterSpacing: '.08em' }}>
+                    {welcomeCode}
+                  </div>
+                  <div style={{ fontSize: '.76rem', color: '#888', marginTop: '.3rem' }}>
+                    Enter it at checkout
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             <>

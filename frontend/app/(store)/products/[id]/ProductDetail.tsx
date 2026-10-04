@@ -350,6 +350,21 @@ export default function ProductDetail({ params, initialProduct = null }: { param
   const variantStock = variantStockFor(extra.variantMatrix, variantKey, product.stock);
   const outOfStock = product.stock === 'Out of Stock' || (variantStock !== null && variantStock === 0);
 
+  // How many are actually left, when that is known and small.
+  //
+  // The shop has the number and never showed it, so every product read the
+  // same whether there were two left or two hundred — and "I'll order it next
+  // week" is what a shopper decides when nothing says otherwise.
+  //
+  // Only below six, only above zero, and only from the real count: a shop that
+  // says "only 3 left" on everything is making a claim its own stock page can
+  // disprove, and that costs more trust than the hurry is worth.
+  const lowStockLeft = (() => {
+    if (outOfStock) return null;
+    const n = variantStock !== null ? variantStock : (typeof product.qty === 'number' ? product.qty : null);
+    return n !== null && n > 0 && n <= 5 ? n : null;
+  })();
+
   // Never let the add-to-cart quantity exceed the available stock for this variant.
   const cappedQty = (variantStock !== null && variantStock > 0) ? Math.min(qty, variantStock) : qty;
 
@@ -653,11 +668,22 @@ export default function ProductDetail({ params, initialProduct = null }: { param
                   })}
                 </div>
                 {variantStock !== null && (
-                  <p style={{ fontSize: '.8rem', marginTop: '.4rem', color: outOfStock ? '#e74c3c' : '#27ae60', fontWeight: 600 }}>
-                    {outOfStock ? 'Out of stock for this selection' : `${variantStock} in stock`}
+                  <p style={{ fontSize: '.8rem', marginTop: '.4rem', fontWeight: 600,
+                    color: outOfStock ? '#e74c3c' : (lowStockLeft !== null ? '#c0392b' : '#27ae60') }}>
+                    {outOfStock
+                      ? 'Out of stock for this selection'
+                      : lowStockLeft !== null
+                        ? `Only ${lowStockLeft} left`
+                        : `${variantStock} in stock`}
                   </p>
                 )}
               </div>
+            )}
+
+            {variantStock === null && lowStockLeft !== null && (
+              <p style={{ fontSize: '.85rem', fontWeight: 700, color: '#c0392b', margin: '.2rem 0 .6rem' }}>
+                Only {lowStockLeft} left
+              </p>
             )}
 
             {/* The only place to add or buy. It is fixed to the bottom of the
