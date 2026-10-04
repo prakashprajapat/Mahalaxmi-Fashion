@@ -81,7 +81,7 @@ public class AbandonedCartService : BackgroundService
         var ids = carts.Select(c => c.CustomerId).ToList();
         var people = await db.Customers
             .Where(c => ids.Contains(c.Id))
-            .Select(c => new { c.Id, c.Name, c.Email })
+            .Select(c => new { c.Id, c.FirstName, c.Email })
             .ToListAsync(ct);
 
         foreach (var cart in carts)
@@ -99,7 +99,8 @@ public class AbandonedCartService : BackgroundService
 
             if (string.IsNullOrWhiteSpace(who?.Email)) continue;
 
-            var first = (who.Name ?? "").Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? "";
+            // first_name is already just the first name — no splitting needed.
+            var first = (who.FirstName ?? "").Trim();
             try
             {
                 await email.SendAsync(who.Email!, "You left something in your bag", Body(first, cart));
