@@ -23,9 +23,10 @@ import { trackEvent } from '@/lib/analytics';
 const SNOOZE_KEY = 'mfh_app_login_prompt';
 const SNOOZE_MS = 3 * 24 * 60 * 60 * 1000;   // asked again after three days, not every launch
 
-// Pages where this would be in the way: the ones already asking for a login,
-// and checkout, which does its own asking at the right moment.
-const QUIET_PATHS = ['/account/login', '/account/register', '/account/forgot', '/checkout', '/admin'];
+// Pages where this would be in the way: anything under /account (the login form
+// lives on /account itself, with register and the rest beneath it), the password
+// reset, and checkout, which does its own asking at the right moment.
+const QUIET_PATHS = ['/account', '/forgot-password', '/checkout', '/admin'];
 
 export default function AppLoginPrompt() {
   const pathname = usePathname();
@@ -122,7 +123,7 @@ export default function AppLoginPrompt() {
 
         <div style={{ display: 'grid', gap: '.6rem', marginTop: '1.25rem' }}>
           <Link
-            href={returning ? '/account/login' : '/account/register'}
+            href={returning ? '/account' : '/account/register'}
             onClick={() => went(returning ? 'login' : 'register')}
             style={{
               display: 'block', textAlign: 'center', background: '#a7354d', color: '#fff',
@@ -134,7 +135,7 @@ export default function AppLoginPrompt() {
           </Link>
 
           <Link
-            href={returning ? '/account/register' : '/account/login'}
+            href={returning ? '/account/register' : '/account'}
             onClick={() => went(returning ? 'register' : 'login')}
             style={{
               display: 'block', textAlign: 'center', background: '#fff', color: '#722f37',

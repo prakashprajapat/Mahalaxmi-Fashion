@@ -6,6 +6,7 @@ import { customersApi } from '@/lib/api';
 import { setCustomer, setToken } from '@/lib/auth';
 import { trackEvent } from '@/lib/analytics';
 import { INDIA_STATES, getDistrictsForState } from '@/lib/indianLocations';
+import SocialAuthRow, { SocialDivider } from '@/components/account/SocialAuthRow';
 import type { Customer } from '@/types';
 
 type Step = 'details' | 'otp' | 'birthday';
@@ -45,6 +46,19 @@ export default function RegisterPage() {
       if (fromLink) setForm(f => (f.referralCode ? f : { ...f, referralCode: fromLink.trim() }));
     } catch { /* no window/search — nothing to prefill */ }
   }, []);
+
+  // "Mobile" on this page is not a third provider - the form below IS the mobile
+  // route, since the account is created only after an OTP on that number. So the
+  // button takes them to it and puts the cursor in the first box.
+  const focusMobileForm = () => {
+    try {
+      document.getElementById('mfh-reg-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      setTimeout(() => {
+        const el = document.getElementById('mfh-reg-phone') as HTMLInputElement | null;
+        el?.focus({ preventScroll: true });
+      }, 420);
+    } catch { /* an old browser just stays where it is */ }
+  };
 
   const setField = (field: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm(f => ({ ...f, [field]: (e.target as HTMLInputElement).type === 'checkbox' ? (e.target as HTMLInputElement).checked : e.target.value }));
@@ -179,7 +193,21 @@ export default function RegisterPage() {
               {/* Honeypot — hidden from humans, bots fill it */}
               <input type="text" name="website" value={honeypot} onChange={e => setHoneypot(e.target.value)}
                 style={{ display: 'none' }} tabIndex={-1} autoComplete="off" aria-hidden="true" />
-              <h2>Your Personal Details</h2>
+              <h2 style={{ marginBottom: '.35rem' }}>Create your account</h2>
+              <p style={{ margin: '0 0 1rem', fontSize: '.86rem', color: '#777' }}>
+                One tap with Google or Facebook, or fill in the form below.
+              </p>
+
+              {/* Google / Mobile / Facebook first. Thirteen fields are a lot to
+                  ask of someone who has an account with Google already, and the
+                  ones who do not still have the form right underneath. */}
+              <SocialAuthRow mobileLabel="Mobile" onMobile={focusMobileForm} />
+
+              <div style={{ margin: '1.1rem 0 1rem' }}>
+                <SocialDivider label="or sign up with your details" />
+              </div>
+
+              <h2 id="mfh-reg-form" style={{ scrollMarginTop: '5.5rem' }}>Your Personal Details</h2>
               <div className="info-banner success">
                 We&apos;ll send a 6-digit OTP to your mobile number to verify your account before completing registration.
               </div>
@@ -210,7 +238,7 @@ export default function RegisterPage() {
                   </div>
                   <label className="form-field">
                     Mobile Number <span className="required-mark">*</span>
-                    <input type="tel" value={form.phone} onChange={setField('phone')}
+                    <input id="mfh-reg-phone" type="tel" value={form.phone} onChange={setField('phone')}
                       placeholder="10-digit mobile" maxLength={15} inputMode="numeric" autoComplete="off" data-form-type="other" />
                   </label>
                 </div>
