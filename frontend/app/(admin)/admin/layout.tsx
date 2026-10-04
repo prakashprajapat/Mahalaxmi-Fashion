@@ -137,6 +137,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [storeName, setStoreName] = useState('Mahalaxmi Fashion Hub');
   const [adminName, setAdminName] = useState('');
+  const [navQuery, setNavQuery] = useState('');
   // One group open at a time, so the sidebar stays short enough to read.
   const [openGroup, setOpenGroup] = useState<string | null>(null);
 
@@ -201,6 +202,30 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     return visible.filter((n, i) => !n.heading || Boolean(visible[i + 1] && !visible[i + 1].heading));
   })();
 
+  // Jump straight to a screen by name.
+  //
+  // The menu has nine groups and most are collapsed, so reaching Coupons meant
+  // remembering that it lives under Marketing and opening that first. Typing
+  // three letters is faster than remembering someone else's filing.
+  //
+  // It searches the SAME list the menu is built from, so a staff member can
+  // only ever find what they were already allowed to open.
+  const navMatches = (() => {
+    const q = navQuery.trim().toLowerCase();
+    if (!q) return [];
+    return navItems.filter(n => n.href && (
+      (n.label ?? '').toLowerCase().includes(q) || n.href.toLowerCase().includes(q)
+    ));
+  })();
+
+  const goToFirstMatch = () => {
+    const first = navMatches[0];
+    if (!first?.href) return;
+    setNavQuery('');
+    setMobileNavOpen(false);
+    router.push(first.href);
+  };
+
   const navGroups = groupNav(navItems);
 
   const isActive = (item: { href?: string; exact?: boolean }) =>
@@ -233,8 +258,35 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             </span>
           </span>
         </div>
+        <div style={{ padding: '0 1rem .6rem' }}>
+          <input
+            value={navQuery}
+            onChange={e => setNavQuery(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter') { e.preventDefault(); goToFirstMatch(); }
+              else if (e.key === 'Escape') setNavQuery('');
+            }}
+            placeholder="Search the menu…"
+            aria-label="Search the menu"
+            style={{
+              width: '100%', boxSizing: 'border-box', padding: '.45rem .7rem',
+              borderRadius: 8, border: '1px solid rgba(255,255,255,.18)',
+              background: 'rgba(255,255,255,.08)', color: '#fff', fontSize: '.85rem',
+            }}
+          />
+        </div>
         <nav className="admin-nav">
-          {navGroups.map((g, gi) => (
+          {navQuery.trim() && (
+            navMatches.length === 0
+              ? <p style={{ padding: '.5rem 1.25rem', color: '#aaa', fontSize: '.82rem' }}>Nothing by that name.</p>
+              : navMatches.map(m => (
+                  <Link key={m.href} href={m.href!} onClick={() => { setNavQuery(''); setMobileNavOpen(false); }}
+                    className={'admin-nav-item' + (isActive(m) ? ' active' : '')}>
+                    {m.label}
+                  </Link>
+                ))
+          )}
+          {!navQuery.trim() && navGroups.map((g, gi) => (
             <Fragment key={g.heading ?? 'top' + gi}>
               {g.heading && (
                 <button type="button" onClick={() => toggleGroup(g.heading!)}

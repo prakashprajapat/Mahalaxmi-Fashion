@@ -109,6 +109,36 @@ ssh <vps> && cd /var/www/mahalaxmi-nextjs && bash deploy.sh
 - Admin → 💰 Payment Reconcile → last 30 days chala ke dekho
 - `pm2 logs mahalaxmi-api --lines 50`
 
+## Clean the popup_leads duplicates already in the table (one time)
+
+The code now keeps one row per person, but the rows saved before that are
+still there — the same Dinesh twice, months apart, because the old check
+only looked back 24 hours. Messaging a list like that sends the same person
+the same offer twice, which is how a shop gets blocked on WhatsApp.
+
+Look first, change nothing:
+
+```sql
+SELECT lower(email) AS e, regexp_replace(coalesce(phone,''), '\\D', '', 'g') AS p,
+       count(*), min(created_at) AS first_seen
+FROM popup_leads
+GROUP BY 1, 2 HAVING count(*) > 1;
+```
+
+If that lists rows, keep the OLDEST of each and delete the rest:
+
+```sql
+DELETE FROM popup_leads a USING popup_leads b
+WHERE a.id > b.id
+  AND (
+    (a.email IS NOT NULL AND lower(a.email) = lower(b.email))
+    OR (a.phone IS NOT NULL AND regexp_replace(a.phone, '\\D', '', 'g')
+                              = regexp_replace(b.phone, '\\D', '', 'g'))
+  );
+```
+
+Take a backup first — this cannot be undone.
+
 ## Real client IP — DONE 3 Oct 2026
 
 Done on the VPS, in this shape:

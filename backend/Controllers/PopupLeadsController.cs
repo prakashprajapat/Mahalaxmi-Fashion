@@ -21,6 +21,9 @@ public class PopupLeadsController : ControllerBase
         _notify = notify;
     }
 
+    // A phone as digits only, so the same number typed three ways is one number.
+    private static string Digits(string? s) => new((s ?? "").Where(char.IsDigit).ToArray());
+
     // Public — called from WelcomePopup form
     [HttpPost]
     public async Task<IActionResult> Submit([FromBody] PopupLeadRequest req)
@@ -28,20 +31,45 @@ public class PopupLeadsController : ControllerBase
         if (string.IsNullOrWhiteSpace(req.Email) && string.IsNullOrWhiteSpace(req.Phone))
             return BadRequest(new { success = false, message = "Email or phone required." });
 
-        // Avoid exact duplicates submitted within 24 hours
-        var cutoff = DateTimeOffset.UtcNow.AddHours(-24);
-        bool exists = await _db.PopupLeads.AnyAsync(l =>
-            l.CreatedAt > cutoff &&
-            ((!string.IsNullOrEmpty(req.Email) && l.Email == req.Email) ||
-             (!string.IsNullOrEmpty(req.Phone) && l.Phone == req.Phone)));
+        // One row per person, for good.
+        //
+        // This used to ignore a repeat only within 24 hours, which is not how
+        // the popup is met: the same shopper sees it again weeks later on a new
+        // phone or after clearing their browser, fills it in once more out of
+        // habit, and the list grew a second Dinesh with the same number — months
+        // apart, so the day-long window never caught it. A list with the same
+        // person twice gets them messaged twice, which is how a shop earns a
+        // block on WhatsApp.
+        //
+        // Email is matched lowercased and the phone on its digits, because the
+        // same person types "+91 87490 39868" one time and "8749039868" the
+        // next, and those are not two people.
+        var email = req.Email?.Trim().ToLower();
+        var phone = Digits(req.Phone);
 
-        if (!exists)
+        var existing = await _db.PopupLeads.FirstOrDefaultAsync(l =>
+            (!string.IsNullOrEmpty(email) && l.Email == email) ||
+            (!string.IsNullOrEmpty(phone) && l.Phone != null && l.Phone.Replace(" ", "").Replace("-", "").Replace("+", "") == phone));
+
+        if (existing is not null)
+        {
+            // Keep the first sighting — when they first showed interest is worth
+            // more than when they last retyped it — but take a name if the first
+            // time they did not leave one.
+            if (string.IsNullOrWhiteSpace(existing.Name) && !string.IsNullOrWhiteSpace(req.Name))
+            {
+                existing.Name = req.Name.Trim();
+                await _db.SaveChangesAsync();
+            }
+            return Ok(new { success = true, duplicate = true });
+        }
+
         {
             _db.PopupLeads.Add(new PopupLead
             {
                 Name   = req.Name?.Trim(),
-                Email  = req.Email?.Trim().ToLower(),
-                Phone  = req.Phone?.Trim(),
+                Email  = email,
+                Phone  = string.IsNullOrEmpty(phone) ? null : phone,
                 Source = req.Source ?? "welcome_popup",
             });
             await _db.SaveChangesAsync();
