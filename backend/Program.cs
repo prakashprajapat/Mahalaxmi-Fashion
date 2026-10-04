@@ -38,6 +38,7 @@ builder.Services.AddHostedService<DelhiveryTrackingSyncService>();
 // runs at save time; this is what catches products that went live before it
 // existed, and ones that stop passing later.
 builder.Services.AddHostedService<ProductGateSweepService>();
+builder.Services.AddHostedService<ReviewRequestService>();
 
 // Emails the database and the day's new photos every night at 11:59 PM IST.
 // Registered as a singleton as well as a hosted service so the admin
@@ -403,6 +404,7 @@ using (var scope = app.Services.CreateScope())
         CREATE INDEX IF NOT EXISTS idx_wallet_tx_customer ON wallet_transactions (customer_id, created_at DESC);
         CREATE UNIQUE INDEX IF NOT EXISTS uq_wallet_earn_order ON wallet_transactions (order_id) WHERE type = 'earn';
         ALTER TABLE site_orders ADD COLUMN IF NOT EXISTS wallet_used NUMERIC(12,2) NOT NULL DEFAULT 0;
+        ALTER TABLE site_orders ADD COLUMN IF NOT EXISTS review_asked_at TIMESTAMPTZ;
         ALTER TABLE cashfree_orders ADD COLUMN IF NOT EXISTS wallet_used NUMERIC(12,2) NOT NULL DEFAULT 0;
         ALTER TABLE cashfree_orders ADD COLUMN IF NOT EXISTS full_total NUMERIC(12,2) NOT NULL DEFAULT 0;
         ALTER TABLE coupons ADD COLUMN IF NOT EXISTS referrer_customer_id INTEGER;

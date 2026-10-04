@@ -94,6 +94,12 @@ public class SiteOrder
 
     [Column("updated_at")]
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
+
+    // When this order had its turn at being asked for a review — stamped once,
+    // whether or not an email could actually be sent, so an order with no
+    // address is not picked up again every six hours forever.
+    [Column("review_asked_at")]
+    public DateTimeOffset? ReviewAskedAt { get; set; }
 }
 
 [Table("razorpay_orders")]
