@@ -226,7 +226,7 @@ public class GoogleAdsController : ControllerBase
     // a decade of rows and time the request out.
     private static (DateTime From, DateTime To) Window(int days, string? from, string? to)
     {
-        var today = DateTime.UtcNow.Date;
+        var today = Services.IndiaTime.Today;   // the shop's today, not UTC's
         if (DateTime.TryParse(from, CultureInfo.InvariantCulture, DateTimeStyles.None, out var f)
          && DateTime.TryParse(to, CultureInfo.InvariantCulture, DateTimeStyles.None, out var t))
         {

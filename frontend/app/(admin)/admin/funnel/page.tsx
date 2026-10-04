@@ -16,6 +16,16 @@ const RANGES = [7, 30, 90];
 const num = (n: number) => n.toLocaleString('en-IN');
 const pct = (part: number, whole: number) => (whole > 0 ? `${Math.round((part / whole) * 100)}%` : '—');
 
+// "2026-10-04" is read as 10 April by half the people who see it. The month
+// gets a name. Built from the parts rather than new Date(), which would shift
+// the day again in a browser west of UTC.
+function prettyDay(iso: string) {
+  const [y, m, d] = iso.split('-').map(Number);
+  if (!y || !m || !d) return iso;
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  return `${String(d).padStart(2, '0')} ${months[m - 1]} ${y}`;
+}
+
 export default function FunnelPage() {
   const [days, setDays] = useState(7);
   const [rows, setRows] = useState<Row[]>([]);
@@ -55,7 +65,7 @@ export default function FunnelPage() {
   return (
     <div className="adm-page">
       <PageHeader title="Where visitors stop"
-        sub="How far people got through the shop. The Ordered column is read straight from the Orders list — every order of that day, whatever its status, a test order of your own included. If a number here surprises you, open Orders for that date and the row will be there." />
+        sub="How far people got through the shop, counted in Indian days — midnight to midnight here, not in UTC. The Ordered column is read straight from the Orders list: every order of that day, whatever its status, a test order of your own included. If a number here surprises you, open Orders for that date and the row will be there." />
 
       <div style={{ display: 'flex', gap: '.5rem', flexWrap: 'wrap', marginBottom: '1.2rem' }}>
         {RANGES.map(d => (
@@ -108,7 +118,7 @@ export default function FunnelPage() {
             <tbody>
               {rows.map(r => (
                 <tr key={r.date}>
-                  <td>{r.date}</td>
+                  <td style={{ whiteSpace: 'nowrap' }}>{prettyDay(r.date)}</td>
                   <td>{num(r.viewed)}</td>
                   <td>{num(r.addedToCart)}</td>
                   <td>{num(r.startedCheckout)}</td>

@@ -236,32 +236,56 @@ public class SiteEventsController : ControllerBase
     // it comes from the orders table, because that is the only place money is
     // actually taken. A purchase count built from browser events would be the
     // one number here that could be inflated by anyone with a keyboard.
+    //
+    // Days are Indian days throughout. The grouping is still done by the
+    // database — it is only split into half-hour buckets so the shift to IST
+    // can be applied afterwards, which keeps the number of rows crossing the
+    // wire at 48 per day instead of one per event.
     [HttpGet("funnel")]
     [Authorize]
     [RequirePerm("reports")]
     public async Task<IActionResult> Funnel([FromQuery] int days = 7)
     {
         days = Math.Clamp(days, 1, 90);
-        var from = DateTimeOffset.UtcNow.Date.AddDays(-(days - 1));
+        // Indian days, not UTC ones — see Services/IndiaTime.
+        var today = Services.IndiaTime.Today;
+        var firstDay = today.AddDays(-(days - 1));
+        var from = Services.IndiaTime.DayStartUtc(firstDay);
 
-        var steps = await _db.SiteEventLogs
+        // Half-hour buckets, shifted into IST here rather than in SQL: Postgres
+        // could do it with AT TIME ZONE, but that means hand-written SQL, and
+        // 48 rows a day is nothing to carry.
+        static DateTime IstDayOf(DateTime utcDate, int hour, int half) =>
+            Services.IndiaTime.DayOfBucket(utcDate, hour, half);
+
+        var stepBuckets = await _db.SiteEventLogs
             .Where(e => e.CreatedAt >= from)
-            .GroupBy(e => new { Day = e.CreatedAt.Date, e.EventName })
-            .Select(g => new { g.Key.Day, g.Key.EventName, Count = g.Count() })
+            .GroupBy(e => new { Day = e.CreatedAt.Date, e.CreatedAt.Hour, Half = e.CreatedAt.Minute / 30, e.EventName })
+            .Select(g => new { g.Key.Day, g.Key.Hour, g.Key.Half, g.Key.EventName, Count = g.Count() })
             .ToListAsync();
 
-        var orders = await _db.SiteOrders
+        var steps = stepBuckets
+            .GroupBy(x => new { Day = IstDayOf(x.Day, x.Hour, x.Half), x.EventName })
+            .Select(g => new { g.Key.Day, g.Key.EventName, Count = g.Sum(x => x.Count) })
+            .ToList();
+
+        var orderBuckets = await _db.SiteOrders
             .Where(o => o.CreatedAt >= from)
-            .GroupBy(o => o.CreatedAt.Date)
-            .Select(g => new { Day = g.Key, Count = g.Count() })
+            .GroupBy(o => new { Day = o.CreatedAt.Date, o.CreatedAt.Hour, Half = o.CreatedAt.Minute / 30 })
+            .Select(g => new { g.Key.Day, g.Key.Hour, g.Key.Half, Count = g.Count() })
             .ToListAsync();
+
+        var orders = orderBuckets
+            .GroupBy(x => IstDayOf(x.Day, x.Hour, x.Half))
+            .Select(g => new { Day = g.Key, Count = g.Sum(x => x.Count) })
+            .ToList();
 
         int At(DateTime day, string name) =>
             steps.FirstOrDefault(x => x.Day == day && x.EventName == name)?.Count ?? 0;
 
         var rows = Enumerable.Range(0, days)
-            .Select(i => from.Date.AddDays(i))
-            .Where(d => d <= DateTimeOffset.UtcNow.Date)
+            .Select(i => firstDay.AddDays(i))
+            .Where(d => d <= today)
             .OrderByDescending(d => d)
             .Select(d => new
             {

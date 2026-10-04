@@ -169,7 +169,7 @@ public class MetaAdsController : ControllerBase
     // so a typo in the date box cannot ask Meta for a decade of rows.
     private static string Range(int days, string? fromText, string? toText, out string since, out string until)
     {
-        var today = DateTime.UtcNow.Date;
+        var today = Services.IndiaTime.Today;   // the shop's today, not UTC's
         DateTime f, t;
         if (DateTime.TryParse(fromText, CultureInfo.InvariantCulture, DateTimeStyles.None, out f)
          && DateTime.TryParse(toText, CultureInfo.InvariantCulture, DateTimeStyles.None, out t))
