@@ -65,3 +65,6 @@ frontend/public/product-images/
 frontend/tsconfig.tsbuildinfo
 *.tsbuildinfo
 .next-seocheck/
+
+# Claude Code local settings (machine-specific, not shared)
+.claude/settings.local.json
