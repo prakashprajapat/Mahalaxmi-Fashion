@@ -5,6 +5,18 @@ import { getAdminToken } from '@/lib/auth';
 import { PageHeader, Stat } from '@/components/admin/Ui';
 import DateRangeChips, { DEFAULT_RANGE, rangeQuery, type DateRange } from '@/components/admin/DateRangeChips';
 
+interface AccountInfo {
+  name: string | null;
+  currency: string;
+  accountStatus: number;
+  balance: number;
+  // What Meta's `balance` actually is on THIS account — credit left on a
+  // prepaid one, money owed on an auto-billing one. Shown, never guessed.
+  balanceMeans: 'credit_left' | 'owed_since_last_bill' | 'unknown';
+  amountSpent: number;
+  spendCap: number | null;
+}
+
 interface Row {
   date: string;
   impressions: number;
@@ -57,6 +69,7 @@ export default function MetaAdsPage() {
   const [rows, setRows] = useState<Row[]>([]);
   const [totals, setTotals] = useState<Totals | null>(null);
   const [range, setRange] = useState<DateRange>(DEFAULT_RANGE);
+  const [acct, setAcct] = useState<AccountInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
@@ -71,6 +84,14 @@ export default function MetaAdsPage() {
     const data = await res.json();
     setStatus(data);
     return data as Status;
+  }, []);
+
+  const loadAccount = useCallback(async () => {
+    try {
+      const res = await fetch('/api/metaads/account', { headers: { Authorization: `Bearer ${getAdminToken()}` } });
+      const data = await res.json();
+      if (res.ok && data.success) setAcct(data as AccountInfo);
+    } catch { /* the money strip is extra — never block the page for it */ }
   }, []);
 
   const loadStats = useCallback(async (r: DateRange) => {
@@ -107,7 +128,7 @@ export default function MetaAdsPage() {
   useEffect(() => {
     (async () => {
       const st = await loadStatus().catch(() => null);
-      if (st?.connected) { await loadStats(range); await loadCampaigns(range); }
+      if (st?.connected) { await loadStats(range); await loadCampaigns(range); loadAccount(); }
       else setLoading(false);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -225,7 +246,7 @@ export default function MetaAdsPage() {
           <div style={{ display: 'flex', alignItems: 'center', gap: '.5rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
             <DateRangeChips value={range} onChange={changeRange} options={RANGES} />
             <span style={{ flex: 1 }} />
-            <button onClick={() => { loadStats(range); loadCampaigns(range); }}
+            <button onClick={() => { loadStats(range); loadCampaigns(range); loadAccount(); }}
               className="adm-btn" style={{ padding: '.35rem .8rem', fontSize: '.8rem' }}>
               Refresh
             </button>
@@ -234,6 +255,30 @@ export default function MetaAdsPage() {
               Disconnect
             </button>
           </div>
+
+          {/* What the ad account itself holds. Separate from the date range on
+              purpose: spend-to-date and the balance are not "last 30 days"
+              numbers, and showing them inside that row would read as if they
+              were. */}
+          {acct && (
+            <div style={{ display: 'flex', gap: '1.4rem', flexWrap: 'wrap', alignItems: 'baseline',
+              background: '#faf7f8', border: '1px solid #f0e6e9', borderRadius: 10,
+              padding: '.7rem 1rem', marginBottom: '1rem', fontSize: '.86rem', color: '#555' }}>
+              <span>
+                {acct.balanceMeans === 'credit_left' ? 'Balance left' :
+                 acct.balanceMeans === 'owed_since_last_bill' ? 'Owed since last bill' : 'Balance (Meta)'}
+                {': '}
+                <b style={{ color: '#1a1a1a' }}>{money(acct.balance)}</b>
+              </span>
+              <span>Spent all time: <b style={{ color: '#1a1a1a' }}>{money(acct.amountSpent)}</b></span>
+              {acct.spendCap !== null && <span>Spend limit: <b style={{ color: '#1a1a1a' }}>{money(acct.spendCap)}</b></span>}
+              {acct.accountStatus !== 1 && (
+                <span style={{ color: '#b71c1c', fontWeight: 700 }}>
+                  Account not active (status {acct.accountStatus}) — ads will not run
+                </span>
+              )}
+            </div>
+          )}
 
           {loading && <p style={{ color: '#999' }}>Loading…</p>}
 

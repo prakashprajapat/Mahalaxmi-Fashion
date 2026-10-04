@@ -213,6 +213,82 @@ public class MetaAdsController : ControllerBase
         return Ok(new { success = true });
     }
 
+    // ── what the ad account itself says about money ──────────────────────────
+
+    // GET /api/metaads/account
+    //
+    // Meta reports money here in the account's own smallest unit (paise for an
+    // INR account), as strings. They are divided down once, here, so no screen
+    // has to remember it.
+    //
+    // `balance` means different things on different accounts, and getting that
+    // wrong on a money figure is worse than not showing it: on a PREPAID
+    // account it is the credit left to spend, and on an automatic-billing one
+    // it is what has run up since the last bill — money owed, not money left.
+    // So the funding source is read too, and the caller is told which of the
+    // two this number is rather than being left to guess.
+    [HttpGet("account")]
+    [Authorize]
+    [RequirePerm("settings")]
+    public async Task<IActionResult> Account()
+    {
+        var account = Digits(await Get("metaAdsAccountId"));
+        if (account.Length < 5)
+            return BadRequest(new { success = false, message = "Meta Ad Account ID is missing. It is the number after act_ in Ads Manager." });
+
+        var path = $"act_{account}"
+                 + "?fields=name,currency,account_status,balance,amount_spent,spend_cap,funding_source_details";
+
+        var (ok, body, err) = await Call(HttpMethod.Get, path);
+        if (!ok) return BadRequest(new { success = false, message = err });
+
+        try
+        {
+            var j = JsonSerializer.Deserialize<JsonElement>(body);
+
+            static decimal Minor(JsonElement j, string key)
+            {
+                if (!j.TryGetProperty(key, out var v)) return 0m;
+                var raw = v.ValueKind == JsonValueKind.String ? v.GetString() : v.ToString();
+                return decimal.TryParse(raw, System.Globalization.NumberStyles.Any,
+                    System.Globalization.CultureInfo.InvariantCulture, out var d) ? Math.Round(d / 100m, 2) : 0m;
+            }
+
+            var fundingType = 0;
+            if (j.TryGetProperty("funding_source_details", out var f)
+             && f.TryGetProperty("type", out var ft) && ft.TryGetInt32(out var fti))
+                fundingType = fti;
+
+            // Meta's own numbering: 1 is a prepaid balance, everything else
+            // bills afterwards. Anything unexpected is reported as unknown
+            // rather than labelled as one of the two.
+            var prepaid = fundingType == 1;
+
+            var cap = Minor(j, "spend_cap");
+
+            return Ok(new
+            {
+                success = true,
+                name = j.TryGetProperty("name", out var n) ? n.GetString() : null,
+                currency = j.TryGetProperty("currency", out var c) ? c.GetString() : "INR",
+                // 1 = active. The others are disabled, unsettled, pending review
+                // and so on — worth showing, because a stopped account explains
+                // a campaign that suddenly spends nothing.
+                accountStatus = j.TryGetProperty("account_status", out var st) && st.TryGetInt32(out var sti) ? sti : 0,
+                balance = Minor(j, "balance"),
+                balanceMeans = prepaid ? "credit_left" : (fundingType == 0 ? "unknown" : "owed_since_last_bill"),
+                amountSpent = Minor(j, "amount_spent"),
+                // 0 means no cap set, which is not the same as a cap of zero.
+                spendCap = cap > 0m ? cap : (decimal?)null,
+            });
+        }
+        catch (Exception ex)
+        {
+            _log.LogError(ex, "Could not read the Meta ad account");
+            return StatusCode(502, new { success = false, message = "Meta answered in a shape we could not read." });
+        }
+    }
+
     // ── daily spend and sales ────────────────────────────────────────────────
 
     [HttpGet("stats")]
