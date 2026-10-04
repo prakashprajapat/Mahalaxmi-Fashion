@@ -14,6 +14,7 @@ const SECTIONS = [
       { key: 'address', label: 'Store Address', type: 'textarea' },
       { key: 'phone', label: 'Phone Number', type: 'text' },
       { key: 'whatsapp', label: 'WhatsApp Number (with country code)', type: 'text' },
+      { key: 'admin_email', label: 'Alert email — where a new order, a new customer and a new lead are reported. Put more than one address here, separated by commas, and every one of them gets the alert. Leave it blank and the alerts go to the shop mailbox set on the server, which is easy to never open.', type: 'text' },
     ]
   },
   {

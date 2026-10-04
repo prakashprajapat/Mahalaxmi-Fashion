@@ -55,7 +55,7 @@ export default function FunnelPage() {
   return (
     <div className="adm-page">
       <PageHeader title="Where visitors stop"
-        sub="How far people got through the shop. Orders are counted from real orders, not from the browser." />
+        sub="How far people got through the shop. The Ordered column is read straight from the Orders list — every order of that day, whatever its status, a test order of your own included. If a number here surprises you, open Orders for that date and the row will be there." />
 
       <div style={{ display: 'flex', gap: '.5rem', flexWrap: 'wrap', marginBottom: '1.2rem' }}>
         {RANGES.map(d => (

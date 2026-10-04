@@ -5,7 +5,10 @@ namespace MahalaxmiApi.Services;
 
 /// <summary>
 /// Sends admin alert emails (new order, new customer, new lead, repeat-return, etc.).
-/// The admin recipient comes from Settings ('admin_email') or config ('Admin:Email').
+/// The admin recipients come from Settings ('admin_email') or config ('Admin:Email').
+/// More than one address may be listed, separated by a comma, semicolon or space:
+/// an order alert sitting unread in a mailbox nobody opens is the same as no alert
+/// at all, so the shop email and a phone's own inbox can both be on the list.
 /// The actual SMTP send is fire-and-forget so it never slows down or breaks the caller.
 /// </summary>
 public class AdminNotifier
@@ -32,19 +35,41 @@ public class AdminNotifier
         return !string.IsNullOrWhiteSpace(fromSettings) ? fromSettings.Trim() : (_config["Admin:Email"] ?? "").Trim();
     }
 
+    // "a@x.com, b@y.com" -> two recipients. Anything without an @ is dropped
+    // rather than handed to the SMTP server, which would reject the whole message
+    // and take the good addresses down with it.
+    private static List<string> Recipients(string raw) => raw
+        .Split(new[] { ',', ';', ' ', '\n', '\r', '\t' }, StringSplitOptions.RemoveEmptyEntries)
+        .Select(x => x.Trim())
+        .Where(x => x.Contains('@') && !x.StartsWith('@') && !x.EndsWith('@'))
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .ToList();
+
     // Resolves the admin email in-request (uses the DbContext), then sends in the background.
     // EmailService only reads config, so it's safe to use after the request scope ends.
     public async Task NotifyAsync(string subject, string htmlBody)
     {
-        string to;
-        try { to = await AdminEmailAsync(); }
-        catch { to = (_config["Admin:Email"] ?? "").Trim(); }
-        if (string.IsNullOrWhiteSpace(to)) return;
+        string raw;
+        try { raw = await AdminEmailAsync(); }
+        catch { raw = (_config["Admin:Email"] ?? "").Trim(); }
+
+        var to = Recipients(raw);
+        if (to.Count == 0)
+        {
+            // Loud on purpose. A silent return here is how a shop ends up believing
+            // no orders came in when the orders were there all along.
+            _logger.LogWarning("Admin alert '{Subject}' not sent — no admin email is set (Settings 'admin_email' / Admin:Email).", subject);
+            return;
+        }
 
         var email = _email;
         _ = Task.Run(async () =>
         {
-            try { await email.SendAsync(to, subject, htmlBody); }
+            try
+            {
+                var ok = await email.SendAsync(to, subject, htmlBody, null);
+                if (!ok) _logger.LogWarning("Admin alert '{Subject}' was not accepted by the mail server.", subject);
+            }
             catch (Exception ex) { _logger.LogWarning(ex, "Admin notification email failed."); }
         });
     }
