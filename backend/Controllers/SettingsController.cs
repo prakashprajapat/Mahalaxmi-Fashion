@@ -46,6 +46,13 @@ public class SettingsController : ControllerBase
     {
         "admin_email",
         "adminRecoveryPhone",   // the owner's private mobile
+
+        // What Meta last said about our Conversions API call. Operational notes
+        // for the shop, and an error body can echo back more than it should -
+        // neither belongs in a bundle every visitor downloads.
+        "metaCapiLastResult",
+        "metaCapiLastSentAt",
+        "metaCapiLastOkAt",
         "googleAdsOauthState",
 
         // What the hourly product-gate sweep last did. Nothing secret in it,

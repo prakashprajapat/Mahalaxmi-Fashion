@@ -58,6 +58,20 @@ public class OrdersController : ControllerBase
         _cache = cache;
     }
 
+    // A one-line note in SiteSettings. Used to record what the outside world said
+    // about our last attempt to tell it something, so the admin panel can show it.
+    private async Task RememberAsync(string key, string value)
+    {
+        try
+        {
+            var row = await _db.SiteSettings.FirstOrDefaultAsync(x => x.Key == key);
+            if (row is null) _db.SiteSettings.Add(new Models.SiteSetting { Key = key, Value = value });
+            else row.Value = value;
+            await _db.SaveChangesAsync();
+        }
+        catch { /* a note about analytics must never break an order */ }
+    }
+
     /// <summary>
     /// The receipt the buyer gets.
     ///
@@ -832,10 +846,19 @@ public class OrdersController : ControllerBase
                         price: c.Price))
                     .ToList();
 
-                await Services.MetaCapi.SendPurchaseAsync(
+                var capi = await Services.MetaCapi.SendPurchaseAsync(
                     metaPixel, metaToken, orderId, serverTotal, "INR",
                     req.CustomerEmail, req.CustomerPhone,
                     "https://www.mahalaxmifashionhub.com/checkout", metaItems);
+
+                // Write down what happened. Nothing did before, so a dead token
+                // and a working one looked identical from the admin panel, and
+                // the only way to find out was to notice months later that the
+                // ads had never learned anything. Admin -> Tracking reads this.
+                await RememberAsync("metaCapiLastResult", (capi.Ok ? "ok: " : "failed: ") + capi.Detail);
+                await RememberAsync("metaCapiLastSentAt", DateTimeOffset.UtcNow.ToString("o"));
+                if (capi.Ok) await RememberAsync("metaCapiLastOkAt", DateTimeOffset.UtcNow.ToString("o"));
+                if (!capi.Ok) _log.LogWarning("Meta CAPI purchase for {OrderId} was not accepted: {Detail}", orderId, capi.Detail);
             }
         }
 

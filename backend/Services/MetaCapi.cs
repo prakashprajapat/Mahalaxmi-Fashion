@@ -26,6 +26,17 @@ namespace MahalaxmiApi.Services;
 //
 // Safe by design: does nothing until the access token is set in Settings, and
 // every failure is swallowed so it can never break order placement.
+/// <summary>
+/// What Meta said. Until now nothing did: the POST's response was dropped on the
+/// floor, so a dead token, a wrong pixel id or a rejected payload all looked
+/// exactly like success, and the shop found out months later by noticing that
+/// its ads had never learned anything.
+/// </summary>
+public readonly record struct CapiResult(bool Ok, string Detail)
+{
+    public static CapiResult NotConfigured(string why) => new(false, why);
+}
+
 public static class MetaCapi
 {
     private static readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(5) };
@@ -58,7 +69,7 @@ public static class MetaCapi
     /// Purchase — ab bhi apna naam rakhta hai, kyunki checkout isi ko bulata
     /// hai, par andar wahi aam raasta chalta hai.
     /// </summary>
-    public static Task SendPurchaseAsync(
+    public static Task<CapiResult> SendPurchaseAsync(
         string pixelId,
         string accessToken,
         string orderId,
@@ -85,7 +96,7 @@ public static class MetaCapi
     /// ginta hai, aur ye dono server ke paas pehle se hote hain — browser se
     /// poochhne ki zaroorat nahi.
     /// </summary>
-    public static async Task SendEventAsync(
+    public static async Task<CapiResult> SendEventAsync(
         string pixelId,
         string accessToken,
         string eventName,
@@ -105,9 +116,12 @@ public static class MetaCapi
     {
         try
         {
-            if (string.IsNullOrWhiteSpace(pixelId) || string.IsNullOrWhiteSpace(accessToken))
-                return; // not configured yet — no-op
-            if (string.IsNullOrWhiteSpace(eventName)) return;
+            if (string.IsNullOrWhiteSpace(pixelId))
+                return CapiResult.NotConfigured("No Facebook Pixel ID is set in Settings.");
+            if (string.IsNullOrWhiteSpace(accessToken))
+                return CapiResult.NotConfigured("No Conversions API access token is set in Settings.");
+            if (string.IsNullOrWhiteSpace(eventName))
+                return CapiResult.NotConfigured("No event name.");
 
             var userData = new Dictionary<string, object?>();
             var em = Sha256(email);
@@ -117,7 +131,9 @@ public static class MetaCapi
             // fbp / fbc hashed NAHI hote — Meta inhe jaise ke taise mangta hai.
             if (!string.IsNullOrWhiteSpace(fbp)) userData["fbp"] = fbp;
             if (!string.IsNullOrWhiteSpace(fbc)) userData["fbc"] = fbc;
-            if (userData.Count == 0) return;   // Meta rejects an event with nothing to match on
+            // Meta drops an event it has nothing to match a person on.
+            if (userData.Count == 0)
+                return CapiResult.NotConfigured("Nothing to match the shopper on (no email, phone or Meta cookie).");
 
             if (!string.IsNullOrWhiteSpace(clientIp) && clientIp != "unknown")
                 userData["client_ip_address"] = clientIp;
@@ -167,11 +183,21 @@ public static class MetaCapi
                 + $"?access_token={Uri.EscapeDataString(accessToken)}";
 
             using var content = new StringContent(json, Encoding.UTF8, "application/json");
-            await _http.PostAsync(url, content);
+            var res = await _http.PostAsync(url, content);
+            var body = await res.Content.ReadAsStringAsync();
+
+            if (res.IsSuccessStatusCode) return new CapiResult(true, "Accepted by Meta.");
+
+            // Meta's own words, trimmed. They are specific and worth reading:
+            // "Invalid OAuth access token", "Unsupported post request", and so on.
+            var detail = body.Length > 400 ? body[..400] : body;
+            return new CapiResult(false, $"Meta refused it ({(int)res.StatusCode}): {detail}");
         }
-        catch
+        catch (Exception ex)
         {
-            // analytics is best-effort — never break the page because of it
+            // Still best-effort - a page must never break because of analytics -
+            // but the reason is handed back now instead of vanishing.
+            return new CapiResult(false, "Could not reach Meta: " + ex.Message);
         }
     }
 }
