@@ -21,6 +21,7 @@ export default function WelcomePopup() {
   // code, or empty it to turn the offer off, without a deploy.
   const [welcomeCode, setWelcomeCode] = useState('');
   const [loading, setLoading] = useState(false);
+  const [phoneError, setPhoneError] = useState('');
 
   useEffect(() => {
     // Never inside our own app (native Android shell, installed PWA or TWA).
@@ -49,12 +50,17 @@ export default function WelcomePopup() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    // The number is the whole point of this popup. An email address on a lead
+    // list is a maybe; a WhatsApp number is someone you can actually reach.
+    const digits = form.phone.replace(/\D/g, '').slice(-10);
+    if (digits.length !== 10) { setPhoneError('Please enter your 10-digit WhatsApp number.'); return; }
+    setPhoneError('');
     setLoading(true);
     try {
       await fetch('/api/popup-leads', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: form.name, email: form.email, phone: form.phone }),
+        body: JSON.stringify({ name: form.name, email: form.email, phone: digits }),
       });
       trackEvent('generate_lead', { source: 'welcome_popup' });   // GA4
     } catch { /* silent fail — popup is non-critical */ }
@@ -202,17 +208,30 @@ export default function WelcomePopup() {
                   </div>
                   <input
                     type="tel"
+                    required
                     placeholder="WhatsApp Number"
                     value={form.phone}
-                    onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
+                    onChange={e => {
+                      // Only digits go in, so a pasted "+91 94294 29880" does not
+                      // silently become a number that is eight characters long.
+                      setForm(f => ({ ...f, phone: e.target.value.replace(/\D/g, '').slice(0, 10) }));
+                      if (phoneError) setPhoneError('');
+                    }}
                     maxLength={10}
                     inputMode="numeric"
+                    aria-invalid={phoneError ? true : undefined}
                     style={{
-                      flex: 1, height: 50, border: '1.5px solid #ddd', borderRadius: 9,
+                      flex: 1, height: 50, borderRadius: 9,
+                      border: phoneError ? '1.5px solid #c0392b' : '1.5px solid #ddd',
                       padding: '0 1rem', fontSize: '.95rem', background: '#fafafa',
                       boxSizing: 'border-box', outline: 'none',
                     }} />
                 </div>
+                {phoneError && (
+                  <p style={{ margin: '-.3rem 0 0', fontSize: '.8rem', color: '#c0392b', fontWeight: 600 }}>
+                    {phoneError}
+                  </p>
+                )}
 
                 <button
                   type="submit"

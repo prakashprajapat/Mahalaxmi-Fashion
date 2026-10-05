@@ -1,6 +1,7 @@
 'use client';
 import { useState, useMemo, useEffect, useRef } from 'react';
 import ProductCard from '@/components/product/ProductCard';
+import NoResults from '@/components/products/NoResults';
 import { finalUnitPrice } from '@/lib/price';
 import { fuzzyScore, productHaystack } from '@/lib/fuzzy';
 
@@ -460,11 +461,14 @@ export default function ProductsClient({ products, title, initialQ = '', initial
 
           {/* Product Grid */}
           {filtered.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '3rem 1rem', color: '#888' }}>
-              <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🔍</div>
-              <p style={{ marginBottom: '1rem' }}>No products found.</p>
-              <button onClick={clearAll} style={{ padding: '.6rem 1.5rem', background: '#722f37', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 700 }}>Clear Filters</button>
-            </div>
+            <NoResults
+              q={q}
+              products={products}
+              subcategories={subcategories}
+              activeFilterCount={activeFilterCount}
+              onPickSubcat={sub => { setQ(''); setSelectedSubcat(sub); }}
+              onClearAll={clearAll}
+            />
           ) : (
             <>
               <div className="products-grid">

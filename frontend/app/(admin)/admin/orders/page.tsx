@@ -818,12 +818,19 @@ export default function AdminOrdersPage() {
                   {scans.length > 0 && (
                     <div style={{ marginTop: '.9rem', borderTop: '1px solid #f0f0f0', paddingTop: '.7rem' }}>
                       <p style={{ margin: '0 0 .5rem', fontWeight: 700, fontSize: '.85rem' }}>All updates ({scans.length})</p>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '.5rem' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '.4rem' }}>
+                        {/* One line per update. Two lines made four scans look like
+                            eight entries, and the eye had to travel twice for one fact. */}
                         {scans.map((sc, i) => (
-                          <div key={i} style={{ fontSize: '.8rem', borderLeft: '3px solid #eee', paddingLeft: '.6rem' }}>
-                            <p style={{ margin: 0, color: '#333' }}>{sc.remark}</p>
-                            <p style={{ margin: 0, color: '#999' }}>{(() => { const dt = new Date(sc.time); return isNaN(dt.getTime()) ? sc.time : dt.toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }); })()}{sc.location ? ` · ${sc.location}` : ''}</p>
-                          </div>
+                          <p key={i} style={{ margin: 0, fontSize: '.8rem', color: '#333', lineHeight: 1.5,
+                                              borderLeft: '3px solid #eee', paddingLeft: '.6rem' }}>
+                            {sc.remark}
+                            <span style={{ color: '#999' }}>
+                              {' \u00b7 '}
+                              {(() => { const dt = new Date(sc.time); return isNaN(dt.getTime()) ? sc.time : dt.toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }); })()}
+                              {sc.location ? ` \u00b7 ${sc.location}` : ''}
+                            </span>
+                          </p>
                         ))}
                       </div>
                     </div>

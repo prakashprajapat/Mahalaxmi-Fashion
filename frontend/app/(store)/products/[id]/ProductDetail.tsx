@@ -15,7 +15,6 @@ import RelatedProducts from '@/components/product/RelatedProducts';
 import BoughtTogether from '@/components/product/BoughtTogether';
 import RecentlyViewed from '@/components/product/RecentlyViewed';
 import DeliveryEstimate from '@/components/product/DeliveryEstimate';
-import SizeGuideButton from '@/components/product/SizeGuideButton';
 import { addRecentlyViewed } from '@/lib/recentlyViewed';
 import { trackEvent } from '@/lib/analytics';
 import { feedIdFor } from '@/lib/merchantFeed';
@@ -648,7 +647,6 @@ export default function ProductDetail({ params, initialProduct = null }: { param
               <div>
                 <div className="pdp-label-row">
                   <p className="pdp-label">Select Size</p>
-                  <SizeGuideButton />
                 </div>
                 <div style={{ display: 'flex', gap: '.5rem', flexWrap: 'wrap' }}>
                   {sizes.map(s => {

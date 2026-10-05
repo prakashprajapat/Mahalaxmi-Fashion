@@ -19,6 +19,7 @@ public class AppDbContext : DbContext
     public DbSet<Coupon>      Coupons      { get; set; }
     public DbSet<Influencer>  Influencers  { get; set; }
     public DbSet<PopupLead>   PopupLeads   { get; set; }
+    public DbSet<Feedback>    Feedbacks    { get; set; }
     public DbSet<StaffMember> StaffMembers { get; set; }
     public DbSet<SupplierApplication> SupplierApplications { get; set; }
     public DbSet<WishlistItem> Wishlists   { get; set; }

@@ -34,6 +34,7 @@ const ALL_NAV: { href?: string; label?: string; exact?: boolean; heading?: strin
   { href: '/admin/meta-ads',   label: '📱 Meta Ads' },
   { href: '/admin/audiences',  label: '🎯 Audiences (Target List)' },
   { href: '/admin/popup-leads', label: '📋 Popup Leads' },
+  { href: '/admin/feedback', label: '💬 Feedback' },
   { href: '/admin/campaigns',   label: '📣 Bulk Campaigns' },
   { href: '/admin/notifications', label: '🔔 Push Notifications' },
   { href: '/admin/influencers', label: '🌟 Influencer Marketing' },

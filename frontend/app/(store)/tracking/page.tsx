@@ -179,11 +179,15 @@ export default function TrackingPage() {
                     All updates ({scans.length})
                   </summary>
                   <div style={{ marginTop: '.6rem', display: 'flex', flexDirection: 'column', gap: '.55rem' }}>
+                    {/* One line per update - same as the admin modal. */}
                     {scans.map((sc, i) => (
-                      <div key={i} style={{ fontSize: '.84rem', borderLeft: '3px solid #eee', paddingLeft: '.7rem' }}>
-                        <p style={{ margin: 0, color: '#333' }}>{sc.remark}</p>
-                        <p style={{ margin: 0, color: '#999' }}>{fmtScanTime(sc.time)}{sc.location ? ` · ${sc.location}` : ''}</p>
-                      </div>
+                      <p key={i} style={{ margin: 0, fontSize: '.84rem', color: '#333', lineHeight: 1.5,
+                                          borderLeft: '3px solid #eee', paddingLeft: '.7rem' }}>
+                        {sc.remark}
+                        <span style={{ color: '#999' }}>
+                          {' \u00b7 '}{fmtScanTime(sc.time)}{sc.location ? ` \u00b7 ${sc.location}` : ''}
+                        </span>
+                      </p>
                     ))}
                   </div>
                 </details>

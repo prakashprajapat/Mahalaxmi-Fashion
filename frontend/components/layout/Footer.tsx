@@ -83,6 +83,7 @@ export default function Footer({ minimal = false }: { minimal?: boolean }) {
             <Link href="/terms-conditions">Terms</Link>
             <Link href="/return-policy">Returns</Link>
             <Link href="/contact">Contact</Link>
+            <Link href="/feedback">Feedback</Link>
           </nav>
         </div>
       </footer>
@@ -116,6 +117,7 @@ export default function Footer({ minimal = false }: { minimal?: boolean }) {
           <Link href="/">Home</Link>
           <Link href="/about-us">About Us</Link>
           <Link href="/contact">Contact Us</Link>
+          <Link href="/feedback">Give Feedback</Link>
           <Link href="/customer-reviews">Customer Reviews</Link>
           <a href="https://affiliate.mahalaxmifashionhub.com/">Earn With Us</a>
         </nav>

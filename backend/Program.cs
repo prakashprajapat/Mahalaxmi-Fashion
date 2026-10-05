@@ -281,6 +281,21 @@ using (var scope = app.Services.CreateScope())
             created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
         ALTER TABLE popup_leads ADD COLUMN IF NOT EXISTS name VARCHAR(255);
+        CREATE TABLE IF NOT EXISTS feedback (
+            id          SERIAL PRIMARY KEY,
+            name        VARCHAR(120),
+            email       VARCHAR(160),
+            phone       VARCHAR(20),
+            topic       VARCHAR(30)  NOT NULL DEFAULT 'other',
+            rating      INT          NOT NULL DEFAULT 0,
+            message     TEXT         NOT NULL,
+            page_url    VARCHAR(500),
+            customer_id INT,
+            is_handled  BOOLEAN      NOT NULL DEFAULT FALSE,
+            admin_note  TEXT,
+            created_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS ix_feedback_created ON feedback (created_at DESC);
         CREATE TABLE IF NOT EXISTS coupons (
             id          SERIAL PRIMARY KEY,
             code        VARCHAR(50)   NOT NULL,
