@@ -71,13 +71,13 @@ export default function ProductFacts({
         + `as long as the product is unused, unwashed and still has its tags and packaging. `
         + `If the fault is ours \u2014 damaged, defective, wrong item or wrong size sent \u2014 we reimburse the return postage up to `
         + `Rs. ${RETURNS.faultReturnShippingReimbursedUpTo} and you should report it within ${RETURNS.reportDamageWithinHours} hours with a parcel-opening video. `
-        + `If you simply changed your mind or picked the wrong size yourself, the return postage is yours. `
-        + `Checking the size chart on this page first saves everyone the trouble.`,
+        + `If you simply changed your mind or picked the wrong size yourself, the return postage is yours.`,
     },
     {
       q: `What sizes does this come in?`,
       a: `Readymade clothing at Mahalaxmi Fashion Hub is stocked from ${SIZES.range}. ${SIZES.note} `
-        + `The chart on this page gives bust, waist and hip measurements in inches for each size.`,
+        + `The sizes this particular product comes in are the ones shown on this page; `
+        + `if you are unsure which to pick, message us on WhatsApp and we will tell you.`,
     },
     ...(care ? [{
       q: `How should I wash and care for this?`,
@@ -101,27 +101,12 @@ export default function ProductFacts({
         <h2 id="pf-heading" className="pf-h2">Sizes, delivery and returns</h2>
 
         <div className="pf-grid">
-          {/* ── Naap ── */}
-          <div className="pf-card">
-            <h3 className="pf-h3">Size chart</h3>
-            <p className="pf-note">
-              Measurements in inches. Readymade clothing is stocked from {SIZES.range}. {SIZES.note}
-            </p>
-            <table className="pf-table">
-              <caption className="pf-caption">Women&apos;s clothing size chart, in inches</caption>
-              <thead>
-                <tr><th scope="col">Size</th><th scope="col">Bust</th><th scope="col">Waist</th><th scope="col">Hip</th></tr>
-              </thead>
-              <tbody>
-                <tr><th scope="row">S</th><td>32–34</td><td>26–28</td><td>35–37</td></tr>
-                <tr><th scope="row">M</th><td>34–36</td><td>28–30</td><td>37–39</td></tr>
-                <tr><th scope="row">L</th><td>36–38</td><td>30–32</td><td>39–41</td></tr>
-                <tr><th scope="row">XL</th><td>38–40</td><td>32–34</td><td>41–43</td></tr>
-                <tr><th scope="row">XXL</th><td>40–42</td><td>34–36</td><td>43–45</td></tr>
-              </tbody>
-            </table>
-          </div>
-
+          {/* The size chart was here. It was a women's bust, waist and hip table,
+              printed on EVERY product page - on men's boxer shorts, on shoes, on
+              perfume. One chart cannot describe a catalogue that sells sarees by
+              the metre and footwear by the number, and a chart that does not apply
+              is worse than none: it is a measurement somebody may actually order
+              against. Sizes stay where they belong, on the product's own variants. */}
           {/* ── Delivery ── */}
           <div className="pf-card">
             <h3 className="pf-h3">Delivery</h3>
