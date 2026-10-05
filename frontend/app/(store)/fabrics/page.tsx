@@ -23,11 +23,6 @@ export default async function FabricsPage() {
   const { products } = await productsApi.getAll({ category: 'fabrics', pageSize: 200 }).catch(() => ({ products: [] }));
   return (
     <>
-      <section className="page-hero">
-        <p className="eyebrow">Shop by Category</p>
-        <h1>Fabrics</h1>
-        <p>Premium fabrics & cloth materials</p>
-      </section>
       <CategoryPageContent products={toListingProducts(products as any[]) as any} category="Fabrics" icon="🧵" desc="Premium fabrics & cloth materials" allHref="/products?category=fabrics" />
       <CategorySeoBlock slug="fabrics" />
     </>

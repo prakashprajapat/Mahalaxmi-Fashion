@@ -9,6 +9,9 @@ interface Props {
   products: any[];
   title: string;
   initialQ?: string;
+  /** One line under the title. The category pages used to say this in a
+      full-screen band above the products; it is worth a sentence, not a screen. */
+  subtitle?: string;
   /** URL ka ?subcategory= — page khulte hi wahi filter laga hona chahiye. */
   initialSubcat?: string;
   banner?: React.ReactNode;
@@ -192,7 +195,7 @@ function FilterContent({
   );
 }
 
-export default function ProductsClient({ products, title, initialQ = '', initialSubcat = '', banner }: Props) {
+export default function ProductsClient({ products, title, subtitle = '', initialQ = '', initialSubcat = '', banner }: Props) {
   const [filterOpen, setFilterOpen] = useState(false);
   const [sortOpen, setSortOpen] = useState(false);
   const [genderOpen, setGenderOpen] = useState(false);
@@ -402,6 +405,9 @@ export default function ProductsClient({ products, title, initialQ = '', initial
           {title ? (
             <div className="pf-title" style={{ padding: '0 0 .75rem' }}>
               <h1 style={{ fontSize: '1.3rem', fontWeight: 800, color: '#1a1a1a', margin: 0 }}>{title}</h1>
+              {subtitle && (
+                <p style={{ margin: '.2rem 0 0', fontSize: '.85rem', color: '#8a7f76' }}>{subtitle}</p>
+              )}
             </div>
           ) : null}
 

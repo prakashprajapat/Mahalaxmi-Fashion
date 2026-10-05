@@ -27,11 +27,6 @@ export default async function MoreProductsPage() {
   const { products } = await productsApi.getAll({ category: 'more', pageSize: 200 }).catch(() => ({ products: [] }));
   return (
     <>
-      <section className="page-hero">
-        <p className="eyebrow">Shop by Category</p>
-        <h1>More Products</h1>
-        <p>Explore all our products & collections</p>
-      </section>
       <CategoryPageContent products={toListingProducts(products as any[]) as any} category="More Products" icon="🛍️" desc="Explore all our products & collections" allHref="/products" />
     </>
   );

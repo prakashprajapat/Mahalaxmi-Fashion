@@ -23,11 +23,6 @@ export default async function MenPage() {
   const { products } = await productsApi.getAll({ category: 'men', pageSize: 200 }).catch(() => ({ products: [] }));
   return (
     <>
-      <section className="page-hero">
-        <p className="eyebrow">Shop by Category</p>
-        <h1>Men</h1>
-        <p>Men&apos;s fabric and ethnic wear</p>
-      </section>
       <CategoryPageContent products={toListingProducts(products as any[]) as any} category="Men" icon="👔" desc="Men's fabric and ethnic wear" allHref="/products?category=men" />
       <CategorySeoBlock slug="men" />
     </>

@@ -31,11 +31,6 @@ export default async function KidsPage() {
   const { products } = await productsApi.getAll({ category: 'kids', pageSize: 200 }).catch(() => ({ products: [] }));
   return (
     <>
-      <section className="page-hero">
-        <p className="eyebrow">Shop by Category</p>
-        <h1>Kids</h1>
-        <p>Cute &amp; comfortable kids clothing</p>
-      </section>
       <CategoryPageContent products={toListingProducts(products as any[]) as any} category="Kids" icon="👶" desc="Cute & comfortable kids clothing" allHref="/products?category=kids" />
       <CategorySeoBlock slug="kids" />
     </>
