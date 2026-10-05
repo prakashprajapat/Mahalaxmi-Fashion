@@ -163,7 +163,13 @@ export default function TrackingPage() {
                             <p style={{ margin: '.1rem 0 0', color: '#777', fontSize: '.8rem' }}>{fmtScanTime(stageTimes[i])}</p>
                           )}
                           {i === stage && live?.courierStatus && (
-                            <p style={{ margin: '.15rem 0 0', color: '#2e7d32', fontSize: '.82rem', fontWeight: 600 }}>{live.courierStatus}</p>
+                            <p style={{ margin: '.15rem 0 0', color: '#2e7d32', fontSize: '.82rem', fontWeight: 600 }}>
+                              {live.courierStatus}
+                              {/* Where it was last seen, on the step itself. */}
+                              {scans[0]?.location && (
+                                <span style={{ color: '#8a8a8a', fontWeight: 500 }}>{` \u00b7 ${scans[0].location}`}</span>
+                              )}
+                            </p>
                           )}
                         </div>
                       </div>
@@ -172,8 +178,10 @@ export default function TrackingPage() {
                 </div>
               )}
 
-              {/* ── Latest courier updates (scan history) ── */}
-              {scans.length > 0 && (
+              {/* ── Latest courier updates (scan history) ──
+                  Shown only once there is more than one. A single scan is already
+                  on its step above, and "All updates (1)" repeated it word for word. */}
+              {scans.length > 1 && (
                 <details open style={{ marginTop: '.6rem', borderTop: '1px solid #f0f0f0', paddingTop: '.6rem' }}>
                   <summary style={{ cursor: 'pointer', fontWeight: 600, color: '#722f37', fontSize: '.9rem' }}>
                     All updates ({scans.length})

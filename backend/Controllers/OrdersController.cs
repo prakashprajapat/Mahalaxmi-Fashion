@@ -33,6 +33,8 @@ public class OrdersController : ControllerBase
     private readonly Services.AdminNotifier _notify;
     private readonly Services.SmsService _sms;
     private readonly Services.WalletService _wallet;
+    private readonly Services.EmailService _email;
+    private readonly ILogger<OrdersController> _log;
     private readonly IMemoryCache _cache;
 
     // Fraud/risk controls:
@@ -43,7 +45,7 @@ public class OrdersController : ControllerBase
     private const string PublicSettingsCacheKey = "public_settings";
     private const int HighRiskCancelThreshold = 2; // > 2 (i.e. 3+) cancelled orders ⇒ high risk
 
-    public OrdersController(AppDbContext db, IWebHostEnvironment env, Services.DelhiveryService delhivery, Services.AdminNotifier notify, Services.SmsService sms, Services.WalletService wallet, IMemoryCache cache)
+    public OrdersController(AppDbContext db, IWebHostEnvironment env, Services.DelhiveryService delhivery, Services.AdminNotifier notify, Services.SmsService sms, Services.WalletService wallet, Services.EmailService email, ILogger<OrdersController> log, IMemoryCache cache)
     {
         _db = db;
         _env = env;
@@ -51,7 +53,78 @@ public class OrdersController : ControllerBase
         _notify = notify;
         _sms = sms;
         _wallet = wallet;
+        _email = email;
+        _log = log;
         _cache = cache;
+    }
+
+    /// <summary>
+    /// The receipt the buyer gets.
+    ///
+    /// Until now nobody did. The shop was told about a new order and an SMS was
+    /// attempted, but the person who had just handed over money got nothing at
+    /// all - no order number, no list of what they bought, no way to check on it.
+    /// For a guest order that is the whole record of the purchase, and it did not
+    /// exist. A shop that takes money in silence is one a buyer does not come
+    /// back to.
+    ///
+    /// Fire-and-forget: a slow mail server must never hold up an order that has
+    /// already been paid for and committed.
+    /// </summary>
+    private void SendOrderEmailToCustomer(string orderId, decimal total, string method, PlaceOrderRequest req)
+    {
+        var to = (req.CustomerEmail ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(to) || !to.Contains('@')) return;
+
+        static string E(string? x) => System.Net.WebUtility.HtmlEncode(x ?? "");
+
+        var rows = new System.Text.StringBuilder();
+        foreach (var c in req.Cart ?? new List<CartLineDto>())
+        {
+            var qty = Math.Max(1, c.Quantity);
+            var bits = new List<string>();
+            if (!string.IsNullOrWhiteSpace(c.Size))  bits.Add("Size " + E(c.Size));
+            if (!string.IsNullOrWhiteSpace(c.Color)) bits.Add(E(c.Color));
+            var detail = bits.Count > 0 ? "<br><span style='color:#888;font-size:12px'>" + string.Join(" &middot; ", bits) + "</span>" : "";
+            rows.Append("<tr>")
+                .Append("<td style='padding:8px 0;border-bottom:1px solid #f0eae7'>").Append(E(c.Name)).Append(detail).Append("</td>")
+                .Append("<td style='padding:8px 0;border-bottom:1px solid #f0eae7;text-align:center;white-space:nowrap'>x").Append(qty).Append("</td>")
+                .Append("<td style='padding:8px 0;border-bottom:1px solid #f0eae7;text-align:right;white-space:nowrap'>Rs.")
+                .Append((c.Price * qty).ToString("0")).Append("</td>")
+                .Append("</tr>");
+        }
+
+        var ship = string.Join(", ", new[] { req.ShippingAddress, req.ShippingCity, req.ShippingState }
+            .Where(x => !string.IsNullOrWhiteSpace(x)).Select(E));
+        if (!string.IsNullOrWhiteSpace(req.ShippingPincode)) ship += " - " + E(req.ShippingPincode);
+
+        var pay = method == "cod" ? "Cash on Delivery" : "Paid online";
+        var name = string.IsNullOrWhiteSpace(req.CustomerName) ? "there" : E(req.CustomerName);
+
+        var html =
+            "<div style='font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;border:1px solid #eee;border-radius:12px;overflow:hidden'>"
+          + "<div style='background:#722f37;padding:18px 24px'><span style='color:#fff;font-size:17px;font-weight:700'>Thank you for your order</span></div>"
+          + "<div style='padding:22px 24px;color:#333;font-size:14px;line-height:1.65'>"
+          + "<p style='margin:0 0 14px'>Namaste " + name + ", we have your order and we are packing it.</p>"
+          + "<p style='margin:0 0 6px'><strong>Order number:</strong> " + E(orderId) + "</p>"
+          + "<p style='margin:0 0 16px'><strong>Payment:</strong> " + pay + "</p>"
+          + "<table style='width:100%;border-collapse:collapse;font-size:14px'>" + rows.ToString()
+          + "<tr><td style='padding:10px 0;font-weight:700'>Total</td><td></td>"
+          + "<td style='padding:10px 0;text-align:right;font-weight:700'>Rs." + total.ToString("0") + "</td></tr></table>"
+          + (string.IsNullOrWhiteSpace(ship) ? "" : "<p style='margin:16px 0 0'><strong>Delivering to:</strong><br>" + ship + "</p>")
+          + "<p style='margin:18px 0 0'><a href='https://www.mahalaxmifashionhub.com/tracking' style='background:#722f37;color:#fff;text-decoration:none;padding:11px 22px;border-radius:8px;font-weight:700;display:inline-block'>Track this order</a></p>"
+          + "<p style='margin:16px 0 0;font-size:13px;color:#666'>Every piece is checked by hand before it is packed. Anything wrong with it - reply to this email or message us on WhatsApp and we will put it right.</p>"
+          + "</div>"
+          + "<div style='padding:12px 24px;background:#faf6f2;color:#888;font-size:12px'>www.mahalaxmifashionhub.com &nbsp;|&nbsp; WhatsApp +91 94294 29880</div>"
+          + "</div>";
+
+        var email = _email;
+        var log = _log;
+        _ = Task.Run(async () =>
+        {
+            try { await email.SendAsync(to, "Your Mahalaxmi order " + orderId, html); }
+            catch (Exception ex) { log.LogWarning(ex, "Order confirmation email failed for {OrderId}.", orderId); }
+        });
     }
 
     // Parse a stored pincode list (any format — comma/space/JSON) into a set of 6-digit pins.
@@ -699,7 +772,12 @@ public class OrdersController : ControllerBase
         // (webhook-recovery completion bhi customer ke liye naya order hi hai).
         // No-op until msg91OrderTemplateId is configured in Settings; never throws.
         if (existing is null || isWebhookRecovery)
+        {
             await _sms.SendNewOrderSmsAsync(req.CustomerPhone, orderId, serverTotal);
+            // The buyer's own copy. Same guard as the SMS, so a retried PlaceOrder
+            // for one order never sends two receipts.
+            SendOrderEmailToCustomer(orderId, serverTotal, method, req);
+        }
 
         // GA4 server-side 'purchase' — guarantees every order is counted in Analytics even
         // when the buyer's browser blocked gtag / paid via the app / UPI redirect. GA4 dedupes

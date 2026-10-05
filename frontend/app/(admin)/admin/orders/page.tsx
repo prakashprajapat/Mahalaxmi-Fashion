@@ -108,6 +108,16 @@ function exportCSV(orders: Order[]) {
 }
 
 
+// A courier scan's timestamp, as a person would say it. Delhivery sometimes
+// sends something Date cannot read; then the raw string is better than "Invalid
+// Date", which tells the shop nothing at all.
+function scanWhen(raw: string): string {
+  const dt = new Date(raw);
+  return isNaN(dt.getTime())
+    ? raw
+    : dt.toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
+}
+
 export default function AdminOrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
@@ -645,6 +655,18 @@ export default function AdminOrdersPage() {
                                             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                 {first ? first.name : 'no items'}{lines.length > 1 ? ` +${lines.length - 1}` : ''}
                               </div>
+                              {/* The SKU, on the row itself. It was already searchable and
+                                  already in the expanded panel, but packing a parcel means
+                                  reading a code off a shelf - and opening every row to find
+                                  it is the slowest part of the morning. */}
+                              {first && (
+                                <div title={lines.map(c => c.sku || 'no SKU').join(', ')}
+                                     style={{ fontFamily: 'monospace', fontSize: '.72rem', color: '#8a7f76',
+                                              maxWidth: 210, overflow: 'hidden', textOverflow: 'ellipsis',
+                                              whiteSpace: 'nowrap' }}>
+                                  {first.sku || 'no SKU'}{lines.length > 1 ? ` +${lines.length - 1}` : ''}
+                                </div>
+                              )}
                               <button type="button" className="adm-oid" onClick={() => toggleOpen(o.id)}
                                       title="Open the full details of this order">
                                 {o.id} {isOpen ? '\u25b4' : '\u25be'}
@@ -809,13 +831,29 @@ export default function AdminOrdersPage() {
                         </div>
                         <div style={{ paddingBottom: isLast ? 0 : '.35rem' }}>
                           <p style={{ margin: 0, fontWeight: done ? 700 : 500, color: done ? '#1a1a1a' : '#999', fontSize: '.9rem' }}>{label}</p>
-                          {i === stage && d.courierStatus && <p style={{ margin: '.1rem 0 0', color: '#2e7d32', fontSize: '.78rem', fontWeight: 600 }}>{d.courierStatus}</p>}
+                          {i === stage && d.courierStatus && (
+                            <p style={{ margin: '.1rem 0 0', color: '#2e7d32', fontSize: '.78rem', fontWeight: 600 }}>
+                              {d.courierStatus}
+                              {/* When and where, right here on the step. The parcel has
+                                  moved once so far; repeating that one fact in a list
+                                  underneath was asking the eye to go and fetch it. */}
+                              {scans[0] && (
+                                <span style={{ color: '#8a8a8a', fontWeight: 500 }}>
+                                  {' \u00b7 '}{scanWhen(scans[0].time)}
+                                  {scans[0].location ? ` \u00b7 ${scans[0].location}` : ''}
+                                </span>
+                              )}
+                            </p>
+                          )}
                         </div>
                       </div>
                     );
                   })}
 
-                  {scans.length > 0 && (
+                  {/* Only once the parcel has actually been somewhere twice. A single
+                      scan is already on its step above, and "All updates (1)" under it
+                      was the same sentence printed a second time. */}
+                  {scans.length > 1 && (
                     <div style={{ marginTop: '.9rem', borderTop: '1px solid #f0f0f0', paddingTop: '.7rem' }}>
                       <p style={{ margin: '0 0 .5rem', fontWeight: 700, fontSize: '.85rem' }}>All updates ({scans.length})</p>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '.4rem' }}>
@@ -827,7 +865,7 @@ export default function AdminOrdersPage() {
                             {sc.remark}
                             <span style={{ color: '#999' }}>
                               {' \u00b7 '}
-                              {(() => { const dt = new Date(sc.time); return isNaN(dt.getTime()) ? sc.time : dt.toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }); })()}
+                              {scanWhen(sc.time)}
                               {sc.location ? ` \u00b7 ${sc.location}` : ''}
                             </span>
                           </p>

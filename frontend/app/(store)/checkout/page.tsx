@@ -841,8 +841,14 @@ export default function CheckoutPage() {
               </div>
               {/* Email */}
               <div>
-                <label style={{ fontSize: '.85rem', fontWeight: 600, display: 'block', marginBottom: '.3rem' }}>Email</label>
-                <input type="email" value={shipping.email} onChange={e => setShipping(s => ({ ...s, email: e.target.value }))}
+                {/* Left optional on purpose - a required field at checkout costs
+                    orders. But a blank one costs the buyer their receipt, so the
+                    label now says what it is for instead of just naming itself. */}
+                <label style={{ fontSize: '.85rem', fontWeight: 600, display: 'block', marginBottom: '.3rem' }}>
+                  Email <span style={{ fontWeight: 500, color: '#8a7f76' }}>— we send your order confirmation here</span>
+                </label>
+                <input type="email" placeholder="you@example.com" value={shipping.email}
+                  onChange={e => setShipping(s => ({ ...s, email: e.target.value }))}
                   style={{ width: '100%', border: '1.5px solid #ddd', borderRadius: '8px', padding: '.6rem .75rem', fontSize: '.9rem', boxSizing: 'border-box' }} />
               </div>
               {/* Phone */}
