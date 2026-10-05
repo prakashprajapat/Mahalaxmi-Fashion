@@ -320,16 +320,35 @@ public class ProductsController : ControllerBase
         return best;
     }
 
+    // Search a product, with the description kept in its place.
+    //
+    // Searching "t-shirt" returned formal shoes. Nothing was wrong with the
+    // matching itself - the description of those shoes mentions wearing them with
+    // a shirt, and the description sat in the same bag of words as the name,
+    // carrying the same weight. So a shoe that TALKS about shirts scored like a
+    // shirt, and the shop looked like it did not know what it sells.
+    //
+    // A description is written to sell a thing, not to name it: what to wear it
+    // with, what weather it suits, what someone might buy instead. Every one of
+    // those words is a trap for a shopper searching for that other thing.
+    //
+    // So the description can no longer make a product a result on its own. A
+    // product qualifies on its name, its shelf or its code; only then may its
+    // description nudge the ordering, and that nudge is capped at 3 against a
+    // name match worth 40 - a whisper, not a vote.
+    //
+    // The frontend's lib/fuzzy.ts does the same thing, deliberately: the two must
+    // agree or the same search gives two different answers.
     private static double ScoreProduct(Product p, string qNorm, List<string> qTokens)
     {
-        var haystackName = NormalizeText(p.Name);
-        var haystackAll  = NormalizeText($"{p.Name} {p.Category} {p.Subcategory} {p.Sku} {p.Description}");
-        var pExpanded = haystackAll.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+        var haystackName     = NormalizeText(p.Name);
+        var haystackIdentity = NormalizeText($"{p.Name} {p.Category} {p.Subcategory} {p.Sku}");
+        var pExpanded = haystackIdentity.Split(' ', StringSplitOptions.RemoveEmptyEntries)
             .Select(t => _synonyms.TryGetValue(t, out var c) ? c : t).ToArray();
 
         double score = 0;
         if (qNorm.Length >= 2 && haystackName.Contains(qNorm, StringComparison.Ordinal)) score += 40;
-        else if (qNorm.Length >= 2 && haystackAll.Contains(qNorm, StringComparison.Ordinal)) score += 20;
+        else if (qNorm.Length >= 2 && haystackIdentity.Contains(qNorm, StringComparison.Ordinal)) score += 20;
 
         int matchedTokens = 0;
         foreach (var qt in qTokens)
@@ -340,6 +359,16 @@ public class ProductsController : ControllerBase
         }
         if (matchedTokens == 0 && score < 20) return 0;                       // nothing relevant matched
         if (qTokens.Count > 0 && matchedTokens == qTokens.Count) score += 8;  // all words matched
+
+        // Only now, and only a little.
+        if (!string.IsNullOrWhiteSpace(p.Description))
+        {
+            var descExpanded = NormalizeText(p.Description).Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                .Select(t => _synonyms.TryGetValue(t, out var c) ? c : t).ToArray();
+            double inWords = qTokens.Sum(qt => (double)TokenScore(qt, descExpanded));
+            score += Math.Min(inWords * 0.1, 3);
+        }
+
         if (p.BestSeller) score += 1;
         return score;
     }

@@ -3,7 +3,7 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import ProductCard from '@/components/product/ProductCard';
 import NoResults from '@/components/products/NoResults';
 import { finalUnitPrice } from '@/lib/price';
-import { fuzzyScore, productHaystack } from '@/lib/fuzzy';
+import { fuzzyScoreProduct } from '@/lib/fuzzy';
 
 interface Props {
   products: any[];
@@ -303,7 +303,7 @@ export default function ProductsClient({ products, title, initialQ = '', initial
       // Typo-tolerant search (matches "sari"→saree, "peticoat"→petticoat, etc.). When no
       // explicit sort is chosen, order by relevance so the best matches come first.
       const scored = r
-        .map((p: any) => ({ p, s: fuzzyScore(q, productHaystack(p)) }))
+        .map((p: any) => ({ p, s: fuzzyScoreProduct(q, p) }))
         .filter(x => x.s > 0);
       if (sort === 'position') scored.sort((a, b) => b.s - a.s);
       r = scored.map(x => x.p);

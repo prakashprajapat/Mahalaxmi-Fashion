@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
 import ProductCard from '@/components/product/ProductCard';
-import { fuzzyScore, productHaystack } from '@/lib/fuzzy';
+import { fuzzyScoreProduct } from '@/lib/fuzzy';
 
 // An empty result used to be a full stop: a magnifying glass, "No products
 // found", and a Clear Filters button. Somebody who typed "red saree" and got
@@ -48,7 +48,7 @@ export default function NoResults({ q, products, subcategories, activeFilterCoun
       // Same search, no filters. This is the common case: the item exists and a
       // price slider or a size tick was hiding it.
       const scored = products
-        .map((p: any) => ({ p, s: fuzzyScore(term, productHaystack(p)) }))
+        .map((p: any) => ({ p, s: fuzzyScoreProduct(term, p) }))
         .filter(x => x.s > 0)
         .sort((a, b) => b.s - a.s);
       if (scored.length) return pick(scored.map(x => x.p));
@@ -58,7 +58,7 @@ export default function NoResults({ q, products, subcategories, activeFilterCoun
       const words = term.toLowerCase().split(/\s+/).filter(w => w.length > 2);
       if (words.length > 1) {
         const byWord = products
-          .map((p: any) => ({ p, s: Math.max(...words.map(w => fuzzyScore(w, productHaystack(p)))) }))
+          .map((p: any) => ({ p, s: Math.max(...words.map(w => fuzzyScoreProduct(w, p))) }))
           .filter(x => x.s > 0)
           .sort((a, b) => b.s - a.s);
         if (byWord.length) return pick(byWord.map(x => x.p));

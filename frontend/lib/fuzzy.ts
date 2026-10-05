@@ -96,3 +96,35 @@ export function productHaystack(p: {
 }): string {
   return [p.name, p.category, p.subcategory, p.sku, p.description].filter(Boolean).join(' ');
 }
+
+/** What a product IS: its name, its shelf, its code. Not what it is written about. */
+export function productIdentity(p: {
+  name?: string; category?: string; subcategory?: string; sku?: string;
+}): string {
+  return [p.name, p.category, p.subcategory, p.sku].filter(Boolean).join(' ');
+}
+
+// Search a product, with the description kept in its place.
+//
+// Searching "t-shirt" returned formal shoes. Nothing was broken in the matching
+// itself - the description of those shoes mentions wearing them with a shirt, and
+// the description sat in the same bag of words as the name, carrying the same
+// weight. So a shoe that TALKS about shirts scored like a shirt.
+//
+// A description is written to sell a thing, not to name it. It says what to wear
+// it with, what the weather suits it for, what someone might buy it instead of -
+// every one of those words a trap for a shopper searching for that other thing.
+//
+// So the description can no longer make a product a result on its own: a product
+// qualifies on its name, shelf or code, and only then may its description nudge
+// the ordering. That nudge is capped at 3 points against a name match worth 30 or
+// more, which is the difference between a whisper and a vote.
+export function fuzzyScoreProduct(
+  query: string,
+  p: { name?: string; category?: string; subcategory?: string; description?: string; sku?: string },
+): number {
+  const base = fuzzyScore(query, productIdentity(p));
+  if (base <= 0) return 0;
+  const inWords = p.description ? fuzzyScore(query, p.description) : 0;
+  return base + Math.min(inWords * 0.1, 3);
+}
