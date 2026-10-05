@@ -40,14 +40,21 @@ interface ExtraJson {
 }
 
 // Products have no dedicated fabric column yet, so read it out of the text the
-// merchant already writes (name / subcategory / description). Falls back to the
-// subcategory, and the Fabric cell is hidden when nothing is found.
+// merchant already writes (name / subcategory / description).
+//
+// It used to fall back to the SUBCATEGORY when it found nothing, which is how a
+// bottle of perfume came to be listed as "Fabric: Perfume" - and, since Type
+// falls back to the subcategory too, the same word twice. Shoes were made of
+// Formal Shoes. A fabric is either named or it is not known, and saying nothing
+// is the honest answer; the merchant can always type one in admin, which wins
+// over this guess anyway.
 const FABRIC_WORDS = ['Cotton', 'Rayon', 'Silk', 'Georgette', 'Chiffon', 'Satin', 'Linen',
   'Denim', 'Velvet', 'Crepe', 'Modal', 'Hosiery', 'Lycra', 'Viscose', 'Khadi', 'Chanderi',
-  'Organza', 'Muslin', 'Poplin', 'Net'];
+  'Organza', 'Muslin', 'Poplin', 'Jacquard', 'Tissue', 'Tussar', 'Malmal', 'Polyester',
+  'Nylon', 'Wool', 'Net'];
 function detectFabric(p: Product): string {
   const hay = `${p.name} ${p.subcategory ?? ''} ${p.description ?? ''}`.toLowerCase();
-  return FABRIC_WORDS.find(f => hay.includes(f.toLowerCase())) ?? (p.subcategory ?? '');
+  return FABRIC_WORDS.find(f => hay.includes(f.toLowerCase())) ?? '';
 }
 
 function Stars({ n, onClick }: { n: number; onClick?: (v: number) => void }) {
@@ -285,7 +292,12 @@ export default function ProductDetail({ params, initialProduct = null }: { param
     ['Ideal For',    specs.idealFor    || ''],
     ['Occasion',     specs.occasion    || ''],
     ['Size',         specs.size        || (extra.sizes ?? []).join(', ')],
-  ] as Array<[string, string]>).filter(([, v]) => v.trim().length > 0);
+  ] as Array<[string, string]>)
+    .filter(([, v]) => v.trim().length > 0)
+    // And never the same answer under two labels. Several of these rows fall back
+    // to the subcategory, so without this a nighty could read Fabric: Nighty,
+    // Type: Nighty, Ideal For: Nighty and look like a form filled in by a machine.
+    .filter(([, v], i, all) => all.findIndex(([, w]) => w.trim().toLowerCase() === v.trim().toLowerCase()) === i);
   const isPackProduct = Boolean(product.packOf && product.packOf > 1);
 
   const gallery: string[] = [];
