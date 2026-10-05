@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { getAdminToken } from '@/lib/auth';
 import { fetchAllPages, downloadCsv } from '@/lib/adminPaged';
 import { PageHeader, Card, Stat, StatGrid, Chips, Pill, Empty } from '@/components/admin/Ui';
+import DateFilter, { ANY_DATES, inDateWindow, describeDateWindow, type DateWindow } from '@/components/admin/DateFilter';
 
 interface Lead {
   id: number;
@@ -38,6 +39,9 @@ export default function PopupLeadsPage() {
   const [searchIn, setSearchIn] = useState('all');
   const [filterSource, setFilterSource] = useState('');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+  // "Came in" was a sort arrow only. Sorting answers "in what order"; a shop
+  // wants to ask "who came in this week", which is a different question.
+  const [dates, setDates] = useState<DateWindow>(ANY_DATES);
 
   const load = async () => {
     setLoading(true);
@@ -87,7 +91,8 @@ export default function PopupLeadsPage() {
     const matchTab = tab === 'all'
       || (tab === 'registered' && l.isRegistered)
       || (tab === 'not' && !l.isRegistered);
-    return matchSearch && matchSource && matchTab;
+    const matchDates = inDateWindow(l.createdAt, dates);
+    return matchSearch && matchSource && matchTab && matchDates;
   });
 
   // Jahan se lead aayi - har dukaan me do-teen jagah hi hoti hain, isliye naam
@@ -156,8 +161,9 @@ export default function PopupLeadsPage() {
             <option value="">Source: all</option>
             {sources.map(sc => <option key={sc} value={sc}>{sc}</option>)}
           </select>
-          {(search || filterSource) && (
-            <button className="adm-btn" onClick={() => { setSearch(''); setFilterSource(''); }}>Clear</button>
+          <DateFilter value={dates} onChange={setDates} label="Came in" />
+          {(search || filterSource || dates.key !== 'any') && (
+            <button className="adm-btn" onClick={() => { setSearch(''); setFilterSource(''); setDates(ANY_DATES); }}>Clear</button>
           )}
         </div>
         <Chips value={tab} onChange={setTab}
@@ -168,7 +174,7 @@ export default function PopupLeadsPage() {
                ]} />
       </Card>
 
-      <Card title={`${filtered.length} ${filtered.length === 1 ? 'lead' : 'leads'}`}>
+      <Card title={`${filtered.length} ${filtered.length === 1 ? 'lead' : 'leads'}${describeDateWindow(dates) ? ' \u00b7 ' + describeDateWindow(dates) : ''}`}>
         {loading ? (
           <Empty>Loading leads…</Empty>
         ) : filtered.length === 0 ? (

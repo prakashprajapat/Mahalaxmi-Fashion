@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { getAdminToken } from '@/lib/auth';
 import { downloadCsv } from '@/lib/adminPaged';
 import { PageHeader, Card, Stat, StatGrid, Chips, Pill, Empty } from '@/components/admin/Ui';
+import DateFilter, { ANY_DATES, inDateWindow, describeDateWindow, type DateWindow } from '@/components/admin/DateFilter';
 
 interface Row {
   id: number;
@@ -40,6 +41,7 @@ export default function AdminFeedbackPage() {
   const [search, setSearch] = useState('');
   const [filterTopic, setFilterTopic] = useState('');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+  const [dates, setDates] = useState<DateWindow>(ANY_DATES);
   const [noteFor, setNoteFor] = useState<number | null>(null);
   const [noteText, setNoteText] = useState('');
 
@@ -99,7 +101,7 @@ export default function AdminFeedbackPage() {
       || (tab === 'open' && !r.isHandled)
       || (tab === 'done' && r.isHandled)
       || (tab === 'unhappy' && r.rating > 0 && r.rating <= 2);
-    return matchSearch && matchTopic && matchTab;
+    return matchSearch && matchTopic && matchTab && inDateWindow(r.createdAt, dates);
   });
 
   const shown = [...filtered].sort((a, b) => {
@@ -163,8 +165,9 @@ export default function AdminFeedbackPage() {
             <option value="">Topic: any</option>
             {Object.entries(TOPIC_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
           </select>
-          {(search || filterTopic) && (
-            <button className="adm-btn" onClick={() => { setSearch(''); setFilterTopic(''); }}>Clear</button>
+          <DateFilter value={dates} onChange={setDates} label="Sent" />
+          {(search || filterTopic || dates.key !== 'any') && (
+            <button className="adm-btn" onClick={() => { setSearch(''); setFilterTopic(''); setDates(ANY_DATES); }}>Clear</button>
           )}
           <button className="adm-btn" onClick={() => setSortDir(d => (d === 'asc' ? 'desc' : 'asc'))}>
             {sortDir === 'desc' ? 'Newest first' : 'Oldest first'}
@@ -179,7 +182,7 @@ export default function AdminFeedbackPage() {
                ]} />
       </Card>
 
-      <Card title={`${shown.length} ${shown.length === 1 ? 'message' : 'messages'}`}>
+      <Card title={`${shown.length} ${shown.length === 1 ? 'message' : 'messages'}${describeDateWindow(dates) ? ' \u00b7 ' + describeDateWindow(dates) : ''}`}>
         {loading ? (
           <Empty>Loading feedback…</Empty>
         ) : shown.length === 0 ? (
