@@ -19,6 +19,9 @@ export default function RegisterPage() {
   const [savedCustomer, setSavedCustomer] = useState<Customer | null>(null);
   const [savedToken, setSavedToken] = useState('');
   const [birthdayForm, setBirthdayForm] = useState({ dob: '', anniv: '' });
+  // A mobile signup carries no name at all. Asking here costs one line and saves
+  // every later email and parcel from starting with "Dear ,".
+  const [birthdayName, setBirthdayName] = useState('');
 
   // OTP verification (mobile) — the account is created only after the code is verified.
   const [otp, setOtp] = useState('');
@@ -26,6 +29,22 @@ export default function RegisterPage() {
   const [otpInfo, setOtpInfo] = useState('');
 
   const [honeypot, setHoneypot] = useState('');
+
+  // Signing up with a mobile number, with no form at all.
+  //
+  // Google made an account in one tap; "Mobile" scrolled down to thirteen fields
+  // and a password. So the button that looked like the easy way was the long way,
+  // and the one route that needs no typing at all - a number and a code - was the
+  // only one the page did not offer.
+  //
+  // The backend has done this all along: verify-otp creates a passwordless
+  // account when the number belongs to nobody yet. Only this page never asked it.
+  const [quick, setQuick] = useState(false);
+  const [quickPhone, setQuickPhone] = useState('');
+  const [quickOtp, setQuickOtp] = useState('');
+  const [quickSent, setQuickSent] = useState(false);
+  const [quickBusy, setQuickBusy] = useState(false);
+  const [quickMsg, setQuickMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
 
   const [form, setForm] = useState({
     firstName: '', lastName: '', gender: '',
@@ -47,17 +66,44 @@ export default function RegisterPage() {
     } catch { /* no window/search — nothing to prefill */ }
   }, []);
 
-  // "Mobile" on this page is not a third provider - the form below IS the mobile
-  // route, since the account is created only after an OTP on that number. So the
-  // button takes them to it and puts the cursor in the first box.
-  const focusMobileForm = () => {
+  const openQuickMobile = () => {
+    setQuick(true);
+    setQuickMsg(null);
+    setTimeout(() => {
+      try { document.getElementById('mfh-quick-phone')?.focus(); } catch { /* fine */ }
+    }, 60);
+  };
+
+  const quickSendOtp = async () => {
+    const digits = quickPhone.replace(/\D/g, '').slice(-10);
+    if (digits.length !== 10) { setQuickMsg({ kind: 'err', text: 'Please enter your 10-digit mobile number.' }); return; }
+    setQuickBusy(true); setQuickMsg(null);
     try {
-      document.getElementById('mfh-reg-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      setTimeout(() => {
-        const el = document.getElementById('mfh-reg-phone') as HTMLInputElement | null;
-        el?.focus({ preventScroll: true });
-      }, 420);
-    } catch { /* an old browser just stays where it is */ }
+      await customersApi.sendOtp(digits, 'login');
+      setQuickSent(true);
+      setQuickMsg({ kind: 'ok', text: `Code sent to ${digits}.` });
+      setTimeout(() => { try { document.getElementById('mfh-quick-otp')?.focus(); } catch { /* fine */ } }, 60);
+    } catch (e) {
+      setQuickMsg({ kind: 'err', text: (e as Error).message || 'Could not send the code. Please try again.' });
+    } finally { setQuickBusy(false); }
+  };
+
+  const quickVerify = async () => {
+    if (!/^\d{6}$/.test(quickOtp)) { setQuickMsg({ kind: 'err', text: 'Please enter the 6-digit code.' }); return; }
+    setQuickBusy(true); setQuickMsg(null);
+    try {
+      const digits = quickPhone.replace(/\D/g, '').slice(-10);
+      const res = await customersApi.verifyOtp(digits, quickOtp);
+      if (!res.token || !res.customer) throw new Error('Could not verify that code.');
+      setToken(res.token); setCustomer(res.customer);
+      trackEvent('sign_up', { method: 'mobile_otp_quick' });
+      setSavedCustomer(res.customer);
+      setSavedToken(res.token);
+      setWelcome(res.welcomeCoupon ?? null);
+      setStep('birthday');
+    } catch (e) {
+      setQuickMsg({ kind: 'err', text: (e as Error).message || 'That code did not work. Please try again.' });
+    } finally { setQuickBusy(false); }
   };
 
   const setField = (field: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
@@ -166,7 +212,7 @@ export default function RegisterPage() {
     setLoading(true);
     try {
       await customersApi.updateProfile(savedCustomer.id, {
-        firstName: savedCustomer.firstName,
+        firstName: (savedCustomer.firstName || birthdayName).trim(),
         lastName: savedCustomer.lastName,
         dateOfBirth: birthdayForm.dob || undefined,
         marriageDate: birthdayForm.anniv || undefined,
@@ -201,7 +247,78 @@ export default function RegisterPage() {
               {/* Google / Mobile / Facebook first. Thirteen fields are a lot to
                   ask of someone who has an account with Google already, and the
                   ones who do not still have the form right underneath. */}
-              <SocialAuthRow mobileLabel="Mobile" onMobile={focusMobileForm} />
+              <SocialAuthRow mobileLabel="Mobile" mobileActive={quick} onMobile={openQuickMobile} />
+
+              {quick && (
+                <div style={{ marginTop: '1rem', border: '1.5px solid #e8d9dd', background: '#fdfafb',
+                              borderRadius: 12, padding: '1.1rem 1.15rem' }}>
+                  <p style={{ margin: '0 0 .2rem', fontWeight: 700, color: '#2d2724', fontSize: '.95rem' }}>
+                    Sign up with your mobile number
+                  </p>
+                  <p style={{ margin: '0 0 .9rem', fontSize: '.84rem', color: '#8a7f76', lineHeight: 1.6 }}>
+                    No form, no password. We send a 6-digit code and your account is ready.
+                  </p>
+
+                  <div style={{ display: 'flex', gap: '.5rem', marginBottom: '.6rem' }}>
+                    <div style={{ height: 48, border: '1.5px solid #e4dcd8', borderRadius: 9, padding: '0 .75rem',
+                                  background: '#fff', display: 'flex', alignItems: 'center', fontSize: '.92rem',
+                                  color: '#463d38', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                      +91
+                    </div>
+                    <input
+                      id="mfh-quick-phone" type="tel" inputMode="numeric" maxLength={10}
+                      placeholder="10-digit mobile" value={quickPhone} disabled={quickSent}
+                      onChange={e => { setQuickPhone(e.target.value.replace(/\D/g, '').slice(0, 10)); setQuickMsg(null); }}
+                      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); if (!quickSent) quickSendOtp(); } }}
+                      style={{ flex: 1, height: 48, border: '1.5px solid #e4dcd8', borderRadius: 9,
+                               padding: '0 .9rem', fontSize: '.95rem', background: quickSent ? '#f6f3f2' : '#fff',
+                               boxSizing: 'border-box', outline: 'none' }} />
+                  </div>
+
+                  {quickSent && (
+                    <input
+                      id="mfh-quick-otp" type="text" inputMode="numeric" maxLength={6}
+                      placeholder="______" value={quickOtp}
+                      onChange={e => { setQuickOtp(e.target.value.replace(/\D/g, '').slice(0, 6)); setQuickMsg(null); }}
+                      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); quickVerify(); } }}
+                      style={{ width: '100%', height: 52, border: '1.5px solid #e4dcd8', borderRadius: 9,
+                               textAlign: 'center', letterSpacing: '.5em', fontSize: '1.3rem', fontWeight: 700,
+                               background: '#fff', boxSizing: 'border-box', outline: 'none', marginBottom: '.6rem' }} />
+                  )}
+
+                  {quickMsg && (
+                    <p style={{ margin: '0 0 .6rem', fontSize: '.84rem', fontWeight: 650,
+                                color: quickMsg.kind === 'ok' ? '#2e7d32' : '#c0392b' }}>
+                      {quickMsg.text}
+                    </p>
+                  )}
+
+                  <div style={{ display: 'flex', gap: '.55rem', flexWrap: 'wrap' }}>
+                    {!quickSent ? (
+                      <button type="button" className="button primary" onClick={quickSendOtp} disabled={quickBusy}>
+                        {quickBusy ? 'Sending\u2026' : 'Send code'}
+                      </button>
+                    ) : (
+                      <>
+                        <button type="button" className="button primary" onClick={quickVerify} disabled={quickBusy}>
+                          {quickBusy ? 'Checking\u2026' : 'Verify & create account'}
+                        </button>
+                        <button type="button" className="button secondary" onClick={quickSendOtp} disabled={quickBusy}>
+                          Resend
+                        </button>
+                        <button type="button" className="button secondary"
+                                onClick={() => { setQuickSent(false); setQuickOtp(''); setQuickMsg(null); }}>
+                          Change number
+                        </button>
+                      </>
+                    )}
+                  </div>
+
+                  <p style={{ margin: '.8rem 0 0', fontSize: '.78rem', color: '#9a908a', lineHeight: 1.6 }}>
+                    Your address and email are asked for later, only when you order.
+                  </p>
+                </div>
+              )}
 
               <div style={{ margin: '1.1rem 0 1rem' }}>
                 <SocialDivider label="or sign up with your details" />
@@ -393,7 +510,9 @@ export default function RegisterPage() {
                 <span style={{ fontSize: '1.6rem' }}>✅</span>
                 <div>
                   <p style={{ fontWeight: 700, color: '#2e7d32', margin: 0 }}>Account Created Successfully!</p>
-                  <p style={{ color: '#555', fontSize: '.85rem', margin: '2px 0 0' }}>Welcome to Mahalaxmi Fashion Hub, {savedCustomer?.firstName}!</p>
+                  <p style={{ color: '#555', fontSize: '.85rem', margin: '2px 0 0' }}>
+                    Welcome to Mahalaxmi Fashion Hub{savedCustomer?.firstName ? `, ${savedCustomer.firstName}` : ''}!
+                  </p>
                 </div>
               </div>
 
@@ -412,7 +531,9 @@ export default function RegisterPage() {
                     {welcome.expiresAt ? ` \u00b7 till ${new Date(welcome.expiresAt).toLocaleDateString('en-IN')}` : ''}
                   </p>
                   <p style={{ margin: '.45rem 0 0', fontSize: '.78rem', color: '#8a7f76' }}>
-                    Also sent to your email. Type it in the Coupon box at checkout.
+                    {savedCustomer?.email
+                      ? 'Also sent to your email. Type it in the Coupon box at checkout.'
+                      : 'Write it down \u2014 type it in the Coupon box at checkout.'}
                   </p>
                 </div>
               )}
@@ -424,6 +545,20 @@ export default function RegisterPage() {
                 <p style={{ color: '#666', fontSize: '.88rem', marginBottom: '1.5rem', lineHeight: 1.5 }}>
                   Share your special dates to receive exclusive Birthday &amp; Anniversary discounts and surprises. This is completely optional!
                 </p>
+
+                {!savedCustomer?.firstName && (
+                  <div style={{ textAlign: 'left', marginBottom: '1.25rem' }}>
+                    <label style={{ fontWeight: 600, fontSize: '.88rem', display: 'block', marginBottom: '.35rem' }}>
+                      What should we call you?
+                    </label>
+                    <input
+                      value={birthdayName}
+                      onChange={e => setBirthdayName(e.target.value)}
+                      placeholder="Your name"
+                      style={{ width: '100%', border: '1.5px solid #ddd', borderRadius: 8,
+                               padding: '.65rem .75rem', fontSize: '.95rem', boxSizing: 'border-box' }} />
+                  </div>
+                )}
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', textAlign: 'left', marginBottom: '1.5rem' }}>
                   <label style={{ fontWeight: 600, fontSize: '.88rem', display: 'block' }}>

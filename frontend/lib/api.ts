@@ -285,7 +285,12 @@ export const customersApi = {
       body: JSON.stringify({ email, purpose }),
     }),
   verifyOtp: (phone: string, otp: string) =>
-    request<{ success: boolean; token?: string; customer?: import('@/types').Customer; newUser?: boolean }>(
+    request<{
+      success: boolean; token?: string; customer?: import('@/types').Customer;
+      /** True when this code created the account rather than signing in to one. */
+      newUser?: boolean;
+      welcomeCoupon?: { code: string; type: string; value: number; minOrder: number; expiresAt: string | null } | null;
+    }>(
       '/customers/verify-otp', { method: 'POST', body: JSON.stringify({ phone, otp }) }
     ),
   forgotPasswordSendOtp: (identifier: string) =>

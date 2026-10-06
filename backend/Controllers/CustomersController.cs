@@ -948,6 +948,7 @@ public class CustomersController : ControllerBase
             : await FindCustomerByIdentifier(phone);
 
         // First-time OTP login (mobile or email) auto-creates a passwordless account.
+        var justCreated = false;
         if (customer is null)
         {
             customer = new Customer
@@ -966,6 +967,7 @@ public class CustomersController : ControllerBase
             };
             _db.Customers.Add(customer);
             await _db.SaveChangesAsync();
+            justCreated = true;
         }
         // An account the shop has closed stays closed. Signing in with a password
         // checks this and so does social sign-in; the OTP door did not, so a
@@ -975,8 +977,36 @@ public class CustomersController : ControllerBase
             return Unauthorized(new { success = false, message = "This account is not active. Please contact us." });
         }
 
+        // A phone-only signup is a new customer like any other, so it gets the same
+        // welcome code. It was only being handed out on the long registration
+        // form, which meant the fastest way to join was also the one way to join
+        // that came with nothing.
+        Models.Coupon? welcome = null;
+        if (justCreated)
+        {
+            welcome = await WelcomeCouponAsync();
+            // The email only goes where there is an email. A mobile signup has
+            // none yet; they see the code on screen instead.
+            if (welcome is not null && !string.IsNullOrWhiteSpace(customer.Email))
+                SendWelcomeEmail(customer, welcome);
+        }
+
         var token = _auth.GenerateJwt(customer.Id.ToString(), customer.Email ?? "", "customer");
-        return Ok(new { success = true, token, customer = ToDto(customer) });
+        return Ok(new
+        {
+            success = true,
+            token,
+            customer = ToDto(customer),
+            newUser = justCreated,
+            welcomeCoupon = welcome is null ? null : (object?)new
+            {
+                code = welcome.Code,
+                type = welcome.Type,
+                value = welcome.Value,
+                minOrder = welcome.MinOrder,
+                expiresAt = welcome.ExpiresAt,
+            },
+        });
     }
 
     // POST /api/customers/forgot-password/send-otp
