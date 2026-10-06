@@ -49,6 +49,14 @@ Thumbs.db
 # Secrets & server-only configs — never commit (public repo)
 backend/appsettings.json
 backend/appsettings.Production.json
+
+# ...and every copy of them. A backup made before editing the live config holds
+# the same live keys, and a name like appsettings.json.before-jwt-rotation does
+# not match the two lines above - which is exactly how one of them reached a
+# commit. Anything that starts with appsettings. and is not the example file is
+# treated as the real thing.
+backend/appsettings.*
+!backend/appsettings.example.json
 backend/out/
 import_products.py
 
