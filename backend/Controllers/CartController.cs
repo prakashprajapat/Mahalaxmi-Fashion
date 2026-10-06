@@ -17,7 +17,8 @@ namespace MahalaxmiApi.Controllers;
 public class CartController : ControllerBase
 {
     private readonly AppDbContext _db;
-    public CartController(AppDbContext db) { _db = db; }
+    private readonly ILogger<CartController> _log;
+    public CartController(AppDbContext db, ILogger<CartController> log) { _db = db; _log = log; }
 
     public record CartLine(int? DbId, string? Name, int? Quantity, decimal? Price, string? Image);
     public record SyncRequest(List<CartLine>? Items, decimal? Value);
@@ -42,6 +43,31 @@ public class CartController : ControllerBase
     [Authorize]
     [EnableRateLimiting("events")]
     public async Task<IActionResult> Sync([FromBody] SyncRequest? req)
+    {
+        // Wrapped whole, and always answering OK.
+        //
+        // This endpoint exists so a basket left behind can earn one reminder
+        // email. That is a nicety. It is called from every page the shopper
+        // opens, so when something here goes wrong - a missing column, a
+        // migration not yet run - the result is a 500 on EVERY page view: red in
+        // the console, noise in the logs, a retry burning the shopper's data, and
+        // a shop owner reasonably wondering whether his checkout is broken.
+        //
+        // Nothing the shopper is doing depends on this succeeding. So a failure
+        // is written to the log, where it can be read deliberately, and the caller
+        // is told the truth in a quieter way: nothing was saved.
+        try
+        {
+            return await SyncCore(req);
+        }
+        catch (Exception ex)
+        {
+            _log.LogWarning(ex, "Cart sync failed for the current caller; the basket reminder will simply not fire.");
+            return Ok(new { success = false, saved = false });
+        }
+    }
+
+    private async Task<IActionResult> SyncCore(SyncRequest? req)
     {
         var customerId = CallerCustomerId();
         if (customerId is null) return Ok(new { success = true, skipped = true });

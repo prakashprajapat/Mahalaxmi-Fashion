@@ -64,7 +64,19 @@ export default function ProductCard({ product, priority = false }: { product: Pr
 
   return (
     <>
-      <Link href={href} className="product-card" aria-label={product.name}
+      {/* prefetch={false} is the difference between a grid that feels instant and
+          one that stutters. By default Next downloads the whole page behind EVERY
+          card the moment it scrolls into view: on /women that is 119 product pages
+          fetched speculatively, on a phone, competing for bandwidth with the
+          photos the shopper is actually looking at - and the tap they finally make
+          queues up behind all of it. That is the "click karte hi turant move nahi
+          karta" delay.
+
+          It does not turn prefetching off. Next still prefetches on hover, and on
+          a touch screen that fires as the finger lands, so the page is still being
+          fetched a moment before the tap completes - for ONE card instead of a
+          hundred. */}
+      <Link href={href} prefetch={false} className="product-card" aria-label={product.name}
         style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', height: '100%',
                  textDecoration: 'none', color: 'inherit' }}>
         {/* Image */}
