@@ -155,6 +155,12 @@ export default function AdminOrdersPage() {
     if (next.has(id)) next.delete(id); else next.add(id);
     return next;
   });
+  // Packing view: the order's photos, big enough to match against a shelf.
+  // The 34px thumbnail in the row proves a photo exists and nothing more - you
+  // cannot tell one navy nighty from another at that size, which is exactly the
+  // moment the wrong parcel gets taped shut.
+  const [packId, setPackId] = useState<string | null>(null);
+
   // Return-details modal (view media + approve/reject)
   const [returnModalId, setReturnModalId] = useState<string | null>(null);
   const [showReject, setShowReject] = useState(false);
@@ -646,15 +652,23 @@ export default function AdminOrdersPage() {
                         </td>
                         <td data-label="Order">
                           <div style={{ display: 'flex', gap: '.5rem', alignItems: 'center' }}>
-                            {thumb
-                              ? <img src={thumb} alt="" style={{ width: 34, height: 34, borderRadius: 6, objectFit: 'cover', flexShrink: 0, border: '1px solid #f0eae7' }} />
-                              : <div className="adm-item-thumb" style={{ width: 34, height: 34, fontSize: '.85rem', flexShrink: 0 }}>&mdash;</div>}
+                            <button type="button" onClick={() => setPackId(o.id)}
+                                    title="See the photos, big - for packing"
+                                    style={{ background: 'none', border: 0, padding: 0, flexShrink: 0,
+                                             cursor: 'zoom-in', lineHeight: 0, borderRadius: 6 }}>
+                              {thumb
+                                ? <img src={thumb} alt="" style={{ width: 34, height: 34, borderRadius: 6, objectFit: 'cover', border: '1px solid #f0eae7' }} />
+                                : <div className="adm-item-thumb" style={{ width: 34, height: 34, fontSize: '.85rem' }}>&mdash;</div>}
+                            </button>
                             <div style={{ minWidth: 0 }}>
-                              <div title={lines.map(c => c.name).join(', ')}
-                                   style={{ fontWeight: 650, color: '#2d2724', maxWidth: 210,
-                                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              <button type="button" onClick={() => setPackId(o.id)}
+                                      title="See the photos, big - for packing"
+                                      style={{ background: 'none', border: 0, padding: 0, textAlign: 'left',
+                                               cursor: 'zoom-in', fontWeight: 650, color: '#2d2724', maxWidth: 210,
+                                               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                                               display: 'block', fontSize: 'inherit', fontFamily: 'inherit' }}>
                                 {first ? first.name : 'no items'}{lines.length > 1 ? ` +${lines.length - 1}` : ''}
-                              </div>
+                              </button>
                               {/* The SKU, on the row itself. It was already searchable and
                                   already in the expanded panel, but packing a parcel means
                                   reading a code off a shelf - and opening every row to find
@@ -879,6 +893,73 @@ export default function AdminOrdersPage() {
           </div>
         </div>
       )}
+
+      {/* ── Packing view ──────────────────────────────────────────────
+          Every line of one order, with the photo big enough to recognise.
+          Everything a person needs while standing at the shelf with a parcel
+          open - picture, code, size, colour, how many - and nothing else. */}
+      {packId && (() => {
+        const o = filtered.find(x => x.id === packId) ?? orders.find(x => x.id === packId);
+        if (!o) return null;
+        const lines = o.cart ?? [];
+        const pieces = lines.reduce((n, c) => n + (c.quantity ?? 1), 0);
+        return (
+          <div onClick={() => setPackId(null)}
+               style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.55)', display: 'flex',
+                        alignItems: 'center', justifyContent: 'center', zIndex: 340, padding: '1rem' }}>
+            <div onClick={e => e.stopPropagation()}
+                 style={{ background: '#fff', borderRadius: 14, width: '100%', maxWidth: 560,
+                          maxHeight: '88vh', overflowY: 'auto', padding: '1.2rem 1.35rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '.75rem' }}>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1.05rem' }}>📦 Packing — {o.id}</h3>
+                  <p style={{ margin: '.2rem 0 0', fontSize: '.84rem', color: '#8a7f76' }}>
+                    {o.customerName || 'no name'} \u00b7 {pieces} {pieces === 1 ? 'piece' : 'pieces'}
+                    {o.shippingPincode ? ` \u00b7 ${o.shippingPincode}` : ''}
+                  </p>
+                </div>
+                <button onClick={() => setPackId(null)}
+                        style={{ background: 'none', border: 'none', fontSize: '1.3rem', cursor: 'pointer', color: '#888', lineHeight: 1 }}>
+                  \u2715
+                </button>
+              </div>
+
+              {lines.length === 0 ? (
+                <p style={{ color: '#8a7f76', fontSize: '.88rem', marginTop: '1rem' }}>This order has no items on it.</p>
+              ) : lines.map((c, i) => {
+                const big = productImageSrc(c.colorPhoto || c.image);
+                return (
+                  <div key={i} style={{ marginTop: '1rem', paddingTop: i === 0 ? 0 : '1rem',
+                                        borderTop: i === 0 ? 'none' : '1px solid #f0eae7' }}>
+                    {big ? (
+                      <img src={big} alt={c.name}
+                           style={{ width: '100%', maxHeight: 360, objectFit: 'contain',
+                                    borderRadius: 10, background: '#faf6f2', border: '1px solid #f0eae7' }} />
+                    ) : (
+                      <div style={{ padding: '2rem', textAlign: 'center', color: '#b3a9a3',
+                                    background: '#faf6f2', borderRadius: 10, fontSize: '.85rem' }}>
+                        No photo on this product
+                      </div>
+                    )}
+                    <p style={{ margin: '.6rem 0 .2rem', fontWeight: 700, color: '#2d2724', fontSize: '.95rem' }}>
+                      {c.name}
+                    </p>
+                    <p style={{ margin: 0, fontSize: '.86rem', color: '#6b615c', lineHeight: 1.7 }}>
+                      <span style={{ fontFamily: 'monospace', fontWeight: 700, color: '#722f37' }}>
+                        {c.sku || 'no SKU'}
+                      </span>
+                      {c.size ? ` \u00b7 Size ${c.size}` : ''}
+                      {c.color ? ` \u00b7 ${c.color}` : ''}
+                      {` \u00b7 \u00d7${c.quantity ?? 1}`}
+                      {c.shopName ? ` \u00b7 ${c.shopName}` : ''}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Assign AWB / Delivery Partner Modal (one or many orders) */}
       {awbModal && (() => {
