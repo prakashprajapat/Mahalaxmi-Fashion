@@ -24,6 +24,8 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
   // matched nothing, and why the Settings robots box never did anything.
   const disallow = Array.from(new Set([
     '/admin', '/api/',
+    // Not a page - the import screen's photo fetcher, which only answers POST.
+    '/tools/',
     ...extra,
   ]));
 
