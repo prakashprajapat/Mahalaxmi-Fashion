@@ -116,16 +116,16 @@ export default async function CollectionPage({ params }: { params: { slug: strin
 
   return (
     <>
-      <section className="page-hero">
-        <p className="eyebrow">{def.eyebrow}</p>
-        <h1>{def.h1}</h1>
-        <p>{def.sub}</p>
-      </section>
-
+      {/* No hero band here either. The keyword H1 it carried has not been lost -
+          it moved into the grid's own title, which is where the other listing
+          pages print theirs. The empty branch keeps an H1 of its own, because a
+          collection with no stock yet is still a page Google reads. */}
       {matched.length > 0 ? (
-        <CategoryPageContent products={toListingProducts(matched as any[]) as any} category={def.label} icon="🛍️" desc={def.sub} allHref="/products" />
+        <CategoryPageContent products={toListingProducts(matched as any[]) as any} category={def.h1} icon="🛍️" desc={def.sub} allHref="/products" />
       ) : (
-        <section style={{ textAlign: 'center', padding: '3rem 1.5rem' }}>
+        <section style={{ textAlign: 'center', padding: '2.5rem 1.5rem 3rem' }}>
+          <h1 style={{ fontSize: '1.3rem', fontWeight: 800, color: '#1a1a1a', margin: '0 0 .3rem' }}>{def.h1}</h1>
+          <p style={{ color: '#8a7f76', fontSize: '.85rem', margin: '0 0 1.25rem' }}>{def.sub}</p>
           <p style={{ color: '#777' }}>New products are being added to this collection soon.</p>
           <Link href="/products" className="button primary" style={{ display: 'inline-block', marginTop: '1rem' }}>
             Browse all products →

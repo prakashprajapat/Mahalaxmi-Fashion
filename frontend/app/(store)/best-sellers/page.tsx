@@ -13,14 +13,16 @@ export const metadata: Metadata = {
 
 export default async function BestSellersPage() {
   const { products } = await productsApi.getAll({ bestSeller: true, pageSize: 200 }).catch(() => ({ products: [] }));
+  // The hero band is gone, the same as on the category pages: it repeated the
+  // title the grid already prints, so every listing page opened with two H1s and
+  // a screen of empty colour above the first product.
   return (
-    <>
-      <section className="page-hero">
-        <p className="eyebrow">Curated Collection</p>
-        <h1>Best Sellers</h1>
-        <p>Most loved products — handpicked bestsellers</p>
-      </section>
-      <CategoryPageContent products={toListingProducts(products as any[]) as any} category="Best Sellers" icon="⭐" desc="Most loved products" allHref="/products?bestSeller=true" />
-    </>
+    <CategoryPageContent
+      products={toListingProducts(products as any[]) as any}
+      category="Best Sellers"
+      icon="⭐"
+      desc="Most loved products — handpicked bestsellers"
+      allHref="/products?bestSeller=true"
+    />
   );
 }
