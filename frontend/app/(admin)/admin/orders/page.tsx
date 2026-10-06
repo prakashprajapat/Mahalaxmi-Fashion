@@ -6,22 +6,35 @@ import { exportOrders } from '@/lib/exportExcel';
 import { productImageSrc } from '@/lib/productImages';
 import type { Order } from '@/types';
 import { openOrderLabels, openPicklist } from '@/lib/orderLabel';
-import { PageHeader, Card, Stat, StatGrid, Chips, Pill, Empty } from '@/components/admin/Ui';
+import { PageHeader, Card, Stat, StatGrid, Chips, Empty } from '@/components/admin/Ui';
 
 const ORDER_STATUS_TABS: { key: string; label: string; hidden?: boolean }[] = [
   { key: 'all',                  label: 'All Orders' },
   { key: 'Pending',              label: 'Pending' },
   { key: 'On Hold',              label: 'On Hold' },
   { key: 'Ready for Shipping',   label: 'Ready to Ship' },
-  // Delhivery AWB bante hi sync order ko Transit me le jata hai, par MANUAL courier
-  // (India Post/DTDC) wale "Shipped" par ruk jate the aur kisi tab me nahi dikhte the —
-  // isliye Shipped tab wapas rakha hai taki wo orphan na hon.
-  { key: 'Shipped',              label: 'Shipped' },
+  // "Shipped" has no chip of its own any more - it told the shop nothing the
+  // courier's own status did not tell it better, and sat next to Transit saying
+  // a weaker version of the same thing.
+  //
+  // But its orders cannot vanish with it. Delhivery moves an order to Transit as
+  // soon as the AWB syncs; a MANUAL courier (India Post, DTDC) stops at Shipped
+  // and never moves again. Without a chip that accepts them those orders would
+  // belong to no chip at all, which is how a parcel gets forgotten. So Transit
+  // now covers both - see TAB_MATCHES.
   { key: 'Transit',              label: 'Transit' },
   { key: 'Delivered',            label: 'Delivered' },
   { key: 'Cancel Requested',     label: 'Cancel Req.' },
   { key: 'Cancelled',            label: 'Cancelled' },
 ];
+
+// A chip may stand for more than one status. Only "Transit" does today, and it
+// does it because a manual courier's order stops at "Shipped" for good.
+const TAB_MATCHES: Record<string, string[]> = {
+  Transit: ['Transit', 'Shipped'],
+};
+const tabAccepts = (tabKey: string, status: string) =>
+  tabKey === 'all' || (TAB_MATCHES[tabKey] ?? [tabKey]).includes(status);
 
 const RETURN_STATUS_TABS: { key: string; label: string; hidden?: boolean }[] = [
   { key: 'all',              label: 'All Returns' },
@@ -295,9 +308,7 @@ export default function AdminOrdersPage() {
     mainTab === 'returns' ? RETURN_STATUSES.includes(o.status) : !RETURN_STATUSES.includes(o.status)
   );
 
-  const tabFiltered = mainFiltered.filter(o =>
-    activeTab === 'all' || o.status === activeTab
-  );
+  const tabFiltered = mainFiltered.filter(o => tabAccepts(activeTab, o.status));
 
   const filtered = tabFiltered.filter(o => {
     const q = search.toLowerCase();
@@ -334,7 +345,7 @@ export default function AdminOrdersPage() {
   });
 
   const countFor = (key: string) =>
-    key === 'all' ? mainFiltered.length : mainFiltered.filter(o => o.status === key).length;
+    key === 'all' ? mainFiltered.length : mainFiltered.filter(o => tabAccepts(key, o.status)).length;
 
   // Manual AWB / delivery-partner assignment for one or many orders.
   // `newStatus` holds the courier (same for all); `awbMap` holds each order's AWB.
@@ -633,7 +644,6 @@ export default function AdminOrdersPage() {
                   <th>Customer</th>
                   <th>Payment</th>
                   <th>Tracking</th>
-                  <th>Status</th>
                   <th>
                     <button type="button" className="adm-sort" onClick={() => toggleSort('date')}>Date{arrow('date')}</button>
                   </th>
@@ -647,10 +657,6 @@ export default function AdminOrdersPage() {
                   const lines = o.cart ?? [];
                   const pieces = lines.reduce((n, c) => n + (c.quantity ?? 1), 0);
                   const placed = new Date(o.placedAt ?? o.createdAt);
-                  const tone = o.status === 'Delivered' ? 'green'
-                    : o.status === 'Cancelled' ? 'grey'
-                    : o.status === 'Pending' || o.status === 'Return Requested' || o.status === 'Cancel Requested' ? 'red'
-                    : 'amber';
                   // Size ke andar rang bhi likha aata hai ("M / Red") — packer ko
                   // naap chahiye, isliye rang alag kar dete hain.
                   const sizeOf = (c: typeof lines[number]) =>
@@ -735,7 +741,6 @@ export default function AdminOrdersPage() {
                                                fontSize: '.74rem', color: '#1565c0', textDecoration: 'underline' }}>{o.awb}</button>
                             : <span style={{ color: '#c4bab5' }}>&mdash;</span>}
                         </td>
-                        <td data-label="Status"><Pill tone={tone}>{o.status}</Pill></td>
                         <td data-label="Date" style={{ whiteSpace: 'nowrap' }}>
                           {placed.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
                         </td>
