@@ -28,11 +28,17 @@ const LOW_STOCK = ['Out of Stock', 'Limited Stock'];
 const orderDate = (o: Order) => new Date(o.placedAt ?? o.createdAt ?? '');
 
 // key = the Orders screen's own tab, so the count and the page always agree.
-const STATUS_CARDS: { key: string; label: string; colour: string }[] = [
+//
+// `covers` is the list of statuses a card counts. In Transit counts "Shipped"
+// too, exactly as the Orders chip does: Delhivery moves an order to Transit as
+// soon as the AWB syncs, so "Shipped" is where an order by a MANUAL courier
+// (India Post, DTDC) stops for good. Drop the card without saying where its
+// orders go and they would be counted nowhere at all - which is how a parcel
+// gets forgotten.
+const STATUS_CARDS: { key: string; label: string; colour: string; covers?: string[] }[] = [
   { key: 'Pending',            label: 'Pending',      colour: '#c26a12' },
   { key: 'Ready for Shipping', label: 'Ready to Ship', colour: '#7a5cc4' },
-  { key: 'Shipped',            label: 'Shipped',      colour: '#1d74a8' },
-  { key: 'Transit',            label: 'In Transit',   colour: '#1d74a8' },
+  { key: 'Transit',            label: 'On the way',   colour: '#1d74a8', covers: ['Transit', 'Shipped'] },
   { key: 'Delivered',          label: 'Delivered',    colour: '#2e7d32' },
   { key: 'Cancelled',          label: 'Cancelled',    colour: '#c0392b' },
 ];
@@ -115,7 +121,7 @@ export default function AdminDashboard() {
       {/* Where the orders have reached */}
       <div className="adm-grid-6" style={{ display: 'grid', gap: '.6rem', marginBottom: '1.4rem' }}>
         {STATUS_CARDS.map(s => {
-          const n = os.filter(o => o.status === s.key).length;
+          const n = os.filter(o => (s.covers ?? [s.key]).includes(o.status)).length;
           return (
             <Link key={s.key} href={`/admin/orders?status=${encodeURIComponent(s.key)}`} style={{ ...cardBox, padding: '.7rem .75rem' }}>
               <div style={{ fontSize: '.64rem', fontWeight: 800, letterSpacing: '.09em', textTransform: 'uppercase', color: s.colour }}>

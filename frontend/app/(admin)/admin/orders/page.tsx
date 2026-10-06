@@ -500,7 +500,9 @@ export default function AdminOrdersPage() {
         <Stat label="Ready to ship" value={countFor('Ready for Shipping')}
               action="Print the picklist"
               onClick={() => { setMainTab('orders'); setActiveTab('Ready for Shipping'); }} />
-        <Stat label="On the way" value={countFor('Transit') + countFor('Shipped')}
+        {/* countFor('Transit') already counts Shipped - adding them again
+            counted every manual-courier parcel twice. */}
+        <Stat label="On the way" value={countFor('Transit')}
               action="Track these"
               onClick={() => { setMainTab('orders'); setActiveTab('Transit'); }} />
         <Stat label="Returns to decide" value={orders.filter(o => o.status === 'Return Requested').length}
