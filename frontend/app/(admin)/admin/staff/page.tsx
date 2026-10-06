@@ -2,7 +2,8 @@
 import { useState, useEffect } from 'react';
 import { authApi, staffApi } from '@/lib/api';
 import { getAdminToken } from '@/lib/auth';
-import { PageHeader, Card, Pill } from '@/components/admin/Ui';
+import { PageHeader, Card, Stat, StatGrid, Chips, Pill, Empty } from '@/components/admin/Ui';
+import { downloadCsv } from '@/lib/adminPaged';
 
 // Every section a staff account can be given, keyed by the first part of its
 // /admin/<key> route. A section missing from this list cannot be granted at
@@ -102,6 +103,20 @@ function PermissionPicker({ chosen, toggle, setAll }: {
   );
 }
 
+// "2026-07-08T11:15:21.376781+00:00" is a timestamp for a machine. A person
+// reading a list of logins wants to know how long ago, and in their own time.
+function signedIn(raw?: string): { text: string; days: number | null } {
+  if (!raw || raw === '—') return { text: 'Never', days: null };
+  const d = new Date(raw);
+  if (isNaN(d.getTime())) return { text: raw, days: null };
+  const days = Math.floor((Date.now() - d.getTime()) / 86400000);
+  const when = d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+  if (days <= 0) return { text: 'Today', days };
+  if (days === 1) return { text: 'Yesterday', days };
+  if (days < 30) return { text: `${days} days ago`, days };
+  return { text: when, days };
+}
+
 export default function AdminStaffPage() {
   const [extraStaff, setExtraStaff] = useState<any[]>([]);
   const [staffForm, setStaffForm] = useState({ name: '', username: '', password: '', role: 'staff', shopName: '', permissions: [] as string[] });
@@ -118,6 +133,11 @@ export default function AdminStaffPage() {
   const [editStaff, setEditStaff] = useState<any | null>(null);
   const [editForm, setEditForm] = useState({ name: '', role: 'staff', shopName: '', permissions: [] as string[] });
   const [editMsg, setEditMsg] = useState('');
+
+  // The same shape as Popup leads: cards that say what needs attention, a
+  // search, chips, and one row per login instead of a stack of loose blocks.
+  const [search, setSearch] = useState('');
+  const [tab, setTab] = useState('all');
 
   const togglePerm = (key: string) => setStaffForm(f => ({
     ...f,
@@ -226,15 +246,57 @@ export default function AdminStaffPage() {
   const permCountOf = (s: any) =>
     (s.permissions || '').split(',').map((p: string) => p.trim()).filter(Boolean).length;
 
+  // The three things worth noticing about a list of logins, counted once and
+  // read by both the cards and the chips so they can never disagree.
+  const isOwner = (s: any) => s.role === 'admin';
+  const noSections = allStaff.filter(s => !isOwner(s) && permCountOf(s) === 0).length;
+  const neverUsed  = allStaff.filter(s => !isOwner(s) && signedIn(s.lastLogin).days === null).length;
+  const quiet      = allStaff.filter(s => {
+    const d = signedIn(s.lastLogin).days;
+    return !isOwner(s) && d !== null && d >= 90;
+  }).length;
+
+  const shown = allStaff.filter(s => {
+    const q = search.trim().toLowerCase();
+    const matchSearch = !q
+      || (s.name || '').toLowerCase().includes(q)
+      || (s.username || '').toLowerCase().includes(q)
+      || (s.shopName || '').toLowerCase().includes(q);
+    const d = signedIn(s.lastLogin).days;
+    const matchTab = tab === 'all'
+      || (tab === 'nosections' && !isOwner(s) && permCountOf(s) === 0)
+      || (tab === 'never' && !isOwner(s) && d === null)
+      || (tab === 'quiet' && !isOwner(s) && d !== null && d >= 90);
+    return matchSearch && matchTab;
+  });
+
+  const exportCsv = () => {
+    downloadCsv(
+      [['Name', 'Username', 'Role', 'Sections', 'Shop', 'Last signed in'],
+       ...shown.map(s2 => [
+         s2.name || '', s2.username || '',
+         isOwner(s2) ? 'Owner' : (s2.role || ''),
+         isOwner(s2) ? 'everything' : String(permCountOf(s2)),
+         s2.shopName || '', signedIn(s2.lastLogin).text,
+       ])],
+      `staff-logins-${new Date().toISOString().slice(0, 10)}.csv`,
+    );
+  };
+
   return (
     <div className="admin-page">
       <PageHeader
         title="Staff"
         sub="Who can sign in to this panel, and which parts of it they see."
         right={
-          <button className="adm-btn adm-btn-primary" onClick={() => setShowForm(v => !v)}>
-            {showForm ? 'Close' : 'Add a login'}
-          </button>
+          <>
+            <button className="adm-btn" onClick={exportCsv} disabled={!shown.length}>
+              Export CSV ({shown.length})
+            </button>
+            <button className="adm-btn adm-btn-primary" onClick={() => setShowForm(v => !v)}>
+              {showForm ? 'Close' : 'Add a login'}
+            </button>
+          </>
         }
       />
 
@@ -245,37 +307,106 @@ export default function AdminStaffPage() {
         </div>
       )}
 
-      <Card title={`${allStaff.length} ${allStaff.length === 1 ? 'login' : 'logins'}`}>
-        {allStaff.map(s => {
-          const owner = s.role === 'admin';
-          const perms = permCountOf(s);
-          return (
-            <div key={s.id} className="adm-item" style={{ gridTemplateColumns: 'minmax(0,1fr) auto' }}>
-              <div style={{ minWidth: 0 }}>
-                <div className="adm-item-t" style={{ display: 'flex', gap: '.45rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                  {s.name}
-                  <Pill tone={owner ? 'green' : s.role === 'manager' ? 'amber' : 'grey'}>
-                    {owner ? 'Owner' : s.role}
-                  </Pill>
-                  {!owner && perms === 0 && <Pill tone="red">No sections</Pill>}
-                  {!owner && s.shopName && <Pill tone="grey">{s.shopName}</Pill>}
-                </div>
-                <div className="adm-item-s">
-                  <span style={{ fontFamily: 'monospace' }}>{s.username}</span>
-                  {owner ? ' · sees everything' : ` · ${perms} section${perms === 1 ? '' : 's'}`}
-                  {' · last signed in '}{s.lastLogin || '—'}
-                </div>
-                {!owner && (
-                  <div className="adm-actions" style={{ marginTop: '.35rem' }}>
-                    <button onClick={() => openEdit(s)}>Change access</button>
-                    <button onClick={() => handleRemoveStaff(s.id, s.username)} style={{ color: '#c0392b' }}>Remove</button>
-                  </div>
-                )}
-              </div>
-              <div />
-            </div>
-          );
-        })}
+      <StatGrid>
+        <Stat label="Logins" value={allStaff.length} />
+        <Stat label="See nothing but the Dashboard" value={noSections}
+              tone={noSections > 0 ? 'red' : undefined}
+              action={noSections > 0 && tab !== 'nosections' ? 'Give them access, or remove them' : undefined}
+              onClick={() => setTab('nosections')} />
+        <Stat label="Never signed in" value={neverUsed}
+              tone={neverUsed > 0 ? 'red' : undefined}
+              action={neverUsed > 0 && tab !== 'never' ? 'A login nobody uses is a way in' : undefined}
+              onClick={() => setTab('never')} />
+        <Stat label="Quiet for 90+ days" value={quiet}
+              tone={quiet > 0 ? 'red' : undefined}
+              action={quiet > 0 && tab !== 'quiet' ? 'Worth closing' : undefined}
+              onClick={() => setTab('quiet')} />
+      </StatGrid>
+
+      <Card>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '.5rem', alignItems: 'center', marginBottom: '.65rem' }}>
+          <span style={{ fontSize: '.72rem', fontWeight: 800, textTransform: 'uppercase',
+                         letterSpacing: '.04em', color: '#8a7f76' }}>Filter by</span>
+          <input className="adm-input" style={{ flex: '1 1 200px', maxWidth: 340 }}
+                 placeholder="Search a name, username or shop" value={search}
+                 onChange={e => setSearch(e.target.value)} />
+          {search && <button className="adm-btn" onClick={() => setSearch('')}>Clear</button>}
+        </div>
+        <Chips value={tab} onChange={setTab}
+               items={[
+                 { key: 'all', label: 'All', count: allStaff.length },
+                 { key: 'nosections', label: 'No sections', count: noSections },
+                 { key: 'never', label: 'Never signed in', count: neverUsed },
+                 { key: 'quiet', label: 'Quiet 90+ days', count: quiet },
+               ]} />
+      </Card>
+
+      <Card title={`${shown.length} ${shown.length === 1 ? 'login' : 'logins'}`}>
+        {shown.length === 0 ? (
+          <Empty>Nothing matches that.</Empty>
+        ) : (
+          <div className="adm-table-wrap">
+            <table className="adm-table adm-table-sticky">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Signs in as</th>
+                  <th>Role</th>
+                  <th>Sections</th>
+                  <th>Shop</th>
+                  <th>Last signed in</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {shown.map(s2 => {
+                  const owner = s2.role === 'admin';
+                  const perms = permCountOf(s2);
+                  const seen = signedIn(s2.lastLogin);
+                  return (
+                    <tr key={s2.id}>
+                      <td data-label="Name">
+                        <span style={{ fontWeight: 650, color: '#2d2724' }}>{s2.name}</span>
+                      </td>
+                      <td data-label="Signs in as" className="mono">{s2.username}</td>
+                      <td data-label="Role">
+                        <Pill tone={owner ? 'green' : s2.role === 'manager' ? 'amber' : 'grey'}>
+                          {owner ? 'Owner' : s2.role}
+                        </Pill>
+                      </td>
+                      <td data-label="Sections">
+                        {owner
+                          ? <span style={{ color: '#2e7d32', fontWeight: 650 }}>Everything</span>
+                          : perms === 0
+                            ? <Pill tone="red">None</Pill>
+                            : <span className="mono">{perms}</span>}
+                      </td>
+                      <td data-label="Shop">
+                        {s2.shopName || <span style={{ color: '#c4bab5' }}>&mdash;</span>}
+                      </td>
+                      <td data-label="Last signed in" style={{ whiteSpace: 'nowrap' }}>
+                        <span style={{ color: seen.days === null ? '#c0392b' : '#463d38',
+                                       fontWeight: seen.days === null ? 650 : 400 }}>
+                          {seen.text}
+                        </span>
+                      </td>
+                      <td data-label="Action">
+                        {owner ? (
+                          <span style={{ color: '#c4bab5', fontSize: '.8rem' }}>Cannot be changed here</span>
+                        ) : (
+                          <div className="adm-actions" style={{ flexWrap: 'wrap', margin: 0 }}>
+                            <button onClick={() => openEdit(s2)}>Change access</button>
+                            <button onClick={() => handleRemoveStaff(s2.id, s2.username)} style={{ color: '#c0392b' }}>Remove</button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </Card>
 
       {showForm && (
