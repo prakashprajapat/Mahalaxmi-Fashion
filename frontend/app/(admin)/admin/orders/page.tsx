@@ -108,6 +108,24 @@ function exportCSV(orders: Order[]) {
 }
 
 
+// Which step of the journey a courier scan is describing.
+//
+// Delhivery writes these in its own words - "Manifest uploaded", "Added to Bag",
+// "Shipment Recieved at Origin Center", misspelling and all - so the mapping is
+// by meaning, not by an exact phrase. Anything unrecognised falls to the first
+// step rather than being dropped: an update nobody has seen before is still an
+// update, and losing it silently is worse than putting it one row too early.
+function stepOfScan(remark: string): number {
+  const r = (remark || '').toLowerCase();
+  if (r.includes('delivered') && !r.includes('undelivered')) return 4;
+  if (r.includes('out for delivery') || r.includes('dispatched')) return 3;
+  if (r.includes('transit') || r.includes('reached') || r.includes('received at')
+   || r.includes('recieved at') || r.includes('added to bag') || r.includes('bag')
+   || r.includes('center') || r.includes('centre')) return 2;
+  if (r.includes('picked') || r.includes('manifest')) return 1;
+  return 0;
+}
+
 // A courier scan's timestamp, as a person would say it. Delhivery sometimes
 // sends something Date cannot read; then the raw string is better than "Invalid
 // Date", which tells the shop nothing at all.
@@ -826,10 +844,21 @@ export default function AdminOrdersPage() {
                 : (s.includes('picked') || s.includes('manifest')) ? 1 : 0;
               const steps = ['Order Placed', 'Picked Up', 'On the Way', 'Out for Delivery', 'Delivered'];
               const scans = (d.scans ?? []).slice().reverse();
+
+              // Every update belongs under the step it describes. Listed
+              // separately at the bottom, the four scans said the same four
+              // things the timeline above had already said, in a different
+              // order, so the box answered "where is my parcel" twice and
+              // agreed with itself by accident.
+              const scansFor = (i: number) => scans.filter(sc => stepOfScan(sc.remark) === i);
               return (
                 <>
                   <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '.4rem', marginBottom: '.9rem' }}>
-                    <span style={{ fontSize: '.85rem', color: '#555' }}>Order: <strong>{d.orderId}</strong> · Site status: <strong>{d.siteStatus}</strong></span>
+                    {/* "Site status: Shipped" sat here arguing with the timeline
+                        below it, which said In Transit. One of them is the courier
+                        and one of them is a word we wrote down when the label was
+                        printed; only one of them knows where the parcel is. */}
+                    <span style={{ fontSize: '.85rem', color: '#555' }}>Order: <strong>{d.orderId}</strong></span>
                     {d.expectedDate && <span style={{ color: '#2e7d32', fontWeight: 700, fontSize: '.85rem' }}>Expected: {new Date(d.expectedDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</span>}
                   </div>
 
@@ -845,18 +874,23 @@ export default function AdminOrdersPage() {
                         </div>
                         <div style={{ paddingBottom: isLast ? 0 : '.35rem' }}>
                           <p style={{ margin: 0, fontWeight: done ? 700 : 500, color: done ? '#1a1a1a' : '#999', fontSize: '.9rem' }}>{label}</p>
-                          {i === stage && d.courierStatus && (
-                            <p style={{ margin: '.1rem 0 0', color: '#2e7d32', fontSize: '.78rem', fontWeight: 600 }}>
+                          {scansFor(i).map((sc, k) => (
+                            <p key={k} style={{ margin: '.12rem 0 0', fontSize: '.78rem', lineHeight: 1.5,
+                                                color: i === stage && k === 0 ? '#2e7d32' : '#777',
+                                                fontWeight: i === stage && k === 0 ? 600 : 400 }}>
+                              {sc.remark}
+                              <span style={{ color: '#9a9a9a', fontWeight: 400 }}>
+                                {' \u00b7 '}{scanWhen(sc.time)}
+                                {sc.location ? ` \u00b7 ${sc.location}` : ''}
+                              </span>
+                            </p>
+                          ))}
+                          {/* The courier's own words, only when no scan has landed on
+                              the step it is talking about - otherwise it is the same
+                              sentence twice. */}
+                          {i === stage && d.courierStatus && scansFor(i).length === 0 && (
+                            <p style={{ margin: '.12rem 0 0', color: '#2e7d32', fontSize: '.78rem', fontWeight: 600 }}>
                               {d.courierStatus}
-                              {/* When and where, right here on the step. The parcel has
-                                  moved once so far; repeating that one fact in a list
-                                  underneath was asking the eye to go and fetch it. */}
-                              {scans[0] && (
-                                <span style={{ color: '#8a8a8a', fontWeight: 500 }}>
-                                  {' \u00b7 '}{scanWhen(scans[0].time)}
-                                  {scans[0].location ? ` \u00b7 ${scans[0].location}` : ''}
-                                </span>
-                              )}
                             </p>
                           )}
                         </div>
@@ -864,29 +898,6 @@ export default function AdminOrdersPage() {
                     );
                   })}
 
-                  {/* Only once the parcel has actually been somewhere twice. A single
-                      scan is already on its step above, and "All updates (1)" under it
-                      was the same sentence printed a second time. */}
-                  {scans.length > 1 && (
-                    <div style={{ marginTop: '.9rem', borderTop: '1px solid #f0f0f0', paddingTop: '.7rem' }}>
-                      <p style={{ margin: '0 0 .5rem', fontWeight: 700, fontSize: '.85rem' }}>All updates ({scans.length})</p>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '.4rem' }}>
-                        {/* One line per update. Two lines made four scans look like
-                            eight entries, and the eye had to travel twice for one fact. */}
-                        {scans.map((sc, i) => (
-                          <p key={i} style={{ margin: 0, fontSize: '.8rem', color: '#333', lineHeight: 1.5,
-                                              borderLeft: '3px solid #eee', paddingLeft: '.6rem' }}>
-                            {sc.remark}
-                            <span style={{ color: '#999' }}>
-                              {' \u00b7 '}
-                              {scanWhen(sc.time)}
-                              {sc.location ? ` \u00b7 ${sc.location}` : ''}
-                            </span>
-                          </p>
-                        ))}
-                      </div>
-                    </div>
-                  )}
                 </>
               );
             })()}

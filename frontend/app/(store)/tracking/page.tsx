@@ -96,6 +96,10 @@ export default function TrackingPage() {
     const seen = stageTimes[st] ? new Date(stageTimes[st]).getTime() : Infinity;
     if (t < seen) stageTimes[st] = sc.time;
   }
+  // The updates belonging to one step, newest first.
+  const stepScans = (i: number) =>
+    scans.filter(sc => scanStage(`${sc.remark ?? ''} ${sc.location ?? ''}`) === i);
+
   // An AWB with no live timeline means the courier API did not answer. Say so
   // instead of showing a full green ladder as if we had confirmed every step.
   const liveMissing = !!order?.awb && (live?.scans?.length ?? 0) === 0;
@@ -159,16 +163,25 @@ export default function TrackingPage() {
                         </div>
                         <div style={{ paddingBottom: isLast ? 0 : '.4rem' }}>
                           <p style={{ margin: 0, fontWeight: done ? 700 : 500, color: done ? '#1a1a1a' : '#999', fontSize: '.95rem' }}>{label}</p>
-                          {done && stageTimes[i] && (
+                          {/* Each update under the step it describes, instead of a
+                              separate list repeating the whole journey underneath. */}
+                          {stepScans(i).map((sc, k) => (
+                            <p key={k} style={{ margin: '.12rem 0 0', fontSize: '.82rem', lineHeight: 1.55,
+                                                color: i === stage && k === 0 ? '#2e7d32' : '#777',
+                                                fontWeight: i === stage && k === 0 ? 600 : 400 }}>
+                              {sc.remark}
+                              <span style={{ color: '#9a9a9a', fontWeight: 400 }}>
+                                {' \u00b7 '}{fmtScanTime(sc.time)}
+                                {sc.location ? ` \u00b7 ${sc.location}` : ''}
+                              </span>
+                            </p>
+                          ))}
+                          {done && stepScans(i).length === 0 && stageTimes[i] && (
                             <p style={{ margin: '.1rem 0 0', color: '#777', fontSize: '.8rem' }}>{fmtScanTime(stageTimes[i])}</p>
                           )}
-                          {i === stage && live?.courierStatus && (
+                          {i === stage && live?.courierStatus && stepScans(i).length === 0 && (
                             <p style={{ margin: '.15rem 0 0', color: '#2e7d32', fontSize: '.82rem', fontWeight: 600 }}>
                               {live.courierStatus}
-                              {/* Where it was last seen, on the step itself. */}
-                              {scans[0]?.location && (
-                                <span style={{ color: '#8a8a8a', fontWeight: 500 }}>{` \u00b7 ${scans[0].location}`}</span>
-                              )}
                             </p>
                           )}
                         </div>
@@ -178,28 +191,6 @@ export default function TrackingPage() {
                 </div>
               )}
 
-              {/* ── Latest courier updates (scan history) ──
-                  Shown only once there is more than one. A single scan is already
-                  on its step above, and "All updates (1)" repeated it word for word. */}
-              {scans.length > 1 && (
-                <details open style={{ marginTop: '.6rem', borderTop: '1px solid #f0f0f0', paddingTop: '.6rem' }}>
-                  <summary style={{ cursor: 'pointer', fontWeight: 600, color: '#722f37', fontSize: '.9rem' }}>
-                    All updates ({scans.length})
-                  </summary>
-                  <div style={{ marginTop: '.6rem', display: 'flex', flexDirection: 'column', gap: '.55rem' }}>
-                    {/* One line per update - same as the admin modal. */}
-                    {scans.map((sc, i) => (
-                      <p key={i} style={{ margin: 0, fontSize: '.84rem', color: '#333', lineHeight: 1.5,
-                                          borderLeft: '3px solid #eee', paddingLeft: '.7rem' }}>
-                        {sc.remark}
-                        <span style={{ color: '#999' }}>
-                          {' \u00b7 '}{fmtScanTime(sc.time)}{sc.location ? ` \u00b7 ${sc.location}` : ''}
-                        </span>
-                      </p>
-                    ))}
-                  </div>
-                </details>
-              )}
             </div>
           )}
 
