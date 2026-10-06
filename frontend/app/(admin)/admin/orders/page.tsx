@@ -925,13 +925,13 @@ export default function AdminOrdersPage() {
                 <div>
                   <h3 style={{ margin: 0, fontSize: '1.05rem' }}>📦 Packing — {o.id}</h3>
                   <p style={{ margin: '.2rem 0 0', fontSize: '.84rem', color: '#8a7f76' }}>
-                    {o.customerName || 'no name'} \u00b7 {pieces} {pieces === 1 ? 'piece' : 'pieces'}
-                    {o.shippingPincode ? ` \u00b7 ${o.shippingPincode}` : ''}
+                    {o.customerName || 'no name'} · {pieces} {pieces === 1 ? 'piece' : 'pieces'}
+                    {o.shippingPincode ? ` · ${o.shippingPincode}` : ''}
                   </p>
                 </div>
                 <button onClick={() => setPackId(null)}
                         style={{ background: 'none', border: 'none', fontSize: '1.3rem', cursor: 'pointer', color: '#888', lineHeight: 1 }}>
-                  \u2715
+                  ✕
                 </button>
               </div>
 
