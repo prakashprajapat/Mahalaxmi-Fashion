@@ -701,7 +701,26 @@ public class CustomersController : ControllerBase
         if (await _db.Customers.AnyAsync(c => c.Email == email))
             return Conflict(new { success = false, message = "Email already registered." });
 
-        if (!string.IsNullOrWhiteSpace(phone) && await _db.Customers.AnyAsync(c => c.Phone == phone))
+        // A number, not a string.
+        //
+        // This compared c.Phone == phone, exactly, and that is how one person
+        // ended up with two accounts: an OTP sign-in had stored +919352460180,
+        // then registration arrived with 9352460180, the strings did not match,
+        // and a second account was made for the same mobile. The shop then saw
+        // two rows for one customer, one of them nameless.
+        //
+        // The last ten digits are the number. Everything in front of them -
+        // the +91, the 0, the spaces, the brackets - is punctuation.
+        var phone10 = OutreachContact.Phone10(phone);
+        if (phone10 is not null)
+        {
+            var clash = await _db.Customers
+                .Where(c => c.Phone != null && c.Phone != "" && c.Phone.EndsWith(phone10))
+                .FirstOrDefaultAsync();
+            if (clash is not null)
+                return Conflict(new { success = false, message = "This mobile number already has an account. Sign in with an OTP instead." });
+        }
+        else if (!string.IsNullOrWhiteSpace(phone) && await _db.Customers.AnyAsync(c => c.Phone == phone))
             return Conflict(new { success = false, message = "Phone already registered." });
 
         // OTP verification is MANDATORY for public self-registration — the account is created
@@ -724,7 +743,7 @@ public class CustomersController : ControllerBase
             FirstName        = req.FirstName.Trim(),
             LastName         = req.LastName.Trim(),
             Email            = email,
-            Phone            = phone,
+            Phone            = phone10 ?? phone,
             Gender           = req.Gender ?? "",
             DateOfBirth      = ParseDate(req.DateOfBirth),
             MarriageDate     = ParseDate(req.MarriageDate ?? req.AnniversaryDate),
@@ -1017,7 +1036,11 @@ public class CustomersController : ControllerBase
                 LastName         = "",
                 // Phone-only signups start with no email; the customer adds it later via profile update.
                 Email            = isEmail ? phone.ToLower() : null,
-                Phone            = isEmail ? "" : phone,
+                // Stored as the ten digits. FindCustomerByIdentifier already
+                // looks past the +91 when searching, so this door was never the
+                // one letting duplicates in - but it was writing the awkward
+                // shape the other door then failed to recognise.
+                Phone            = isEmail ? "" : (OutreachContact.Phone10(phone) ?? phone),
                 PasswordHash     = "",
                 PasswordSalt     = "",
                 EmailVerified    = isEmail,
@@ -1181,9 +1204,14 @@ public class CustomersController : ControllerBase
 
         // NO DUPLICATES: reject if the new phone/email is already used by a DIFFERENT account.
         var newPhone = req.Phone?.Trim();
-        if (!string.IsNullOrWhiteSpace(newPhone) && newPhone != c.Phone
+        var newPhone10 = OutreachContact.Phone10(newPhone);
+        if (newPhone10 is not null && newPhone10 != OutreachContact.Phone10(c.Phone)
+            && await _db.Customers.AnyAsync(x => x.Id != id && x.Phone != null && x.Phone != "" && x.Phone.EndsWith(newPhone10)))
+            return Conflict(new { success = false, message = "This mobile number is already used by another account." });
+        else if (newPhone10 is null && !string.IsNullOrWhiteSpace(newPhone) && newPhone != c.Phone
             && await _db.Customers.AnyAsync(x => x.Id != id && x.Phone == newPhone))
             return Conflict(new { success = false, message = "This mobile number is already used by another account." });
+        if (newPhone10 is not null) newPhone = newPhone10;
 
         var newEmail = req.Email?.Trim().ToLower();
         if (!string.IsNullOrWhiteSpace(newEmail) && newEmail != c.Email

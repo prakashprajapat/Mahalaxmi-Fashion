@@ -288,20 +288,36 @@ using (var scope = app.Services.CreateScope())
             ON invite_sends (audience, person_id);
         CREATE INDEX IF NOT EXISTS ix_invite_sends_email ON invite_sends (email);
         CREATE INDEX IF NOT EXISTS ix_invite_sends_phone ON invite_sends (phone);
-        -- The rows written before the contact was stored. Guarded by IS NULL, so
-        -- this does its work once and then matches nothing.
-        UPDATE invite_sends s
-           SET email = NULLIF(lower(trim(c.email)), ''),
-               phone = NULLIF(right(regexp_replace(coalesce(c.phone,''), '\D', '', 'g'), 10), '')
-          FROM customers c
-         WHERE s.audience = 'customer' AND s.person_id = c.id
-           AND s.email IS NULL AND s.phone IS NULL;
-        UPDATE invite_sends s
-           SET email = NULLIF(lower(trim(l.email)), ''),
-               phone = NULLIF(right(regexp_replace(coalesce(l.phone,''), '\D', '', 'g'), 10), '')
-          FROM popup_leads l
-         WHERE s.audience = 'lead' AND s.person_id = l.id
-           AND s.email IS NULL AND s.phone IS NULL;
+        -- Three tidy-ups over tables that already exist, wrapped together so a
+        -- fresh database - where they do not yet - cannot stop the app starting.
+        -- Each is written to settle down to doing nothing once it has run.
+        DO $$
+        BEGIN
+            -- Mobile numbers, all in one shape: the last ten digits. They were
+            -- stored however they were typed, so +919352460180 and 9352460180
+            -- sat in the table as two different customers.
+            UPDATE customers
+               SET phone = right(regexp_replace(phone, '\D', '', 'g'), 10)
+             WHERE phone IS NOT NULL
+               AND length(regexp_replace(phone, '\D', '', 'g')) >= 10
+               AND phone <> right(regexp_replace(phone, '\D', '', 'g'), 10);
+
+            -- Invite rows written before the contact was stored on them.
+            UPDATE invite_sends s
+               SET email = NULLIF(lower(trim(c.email)), ''),
+                   phone = NULLIF(right(regexp_replace(coalesce(c.phone,''), '\D', '', 'g'), 10), '')
+              FROM customers c
+             WHERE s.audience = 'customer' AND s.person_id = c.id
+               AND s.email IS NULL AND s.phone IS NULL;
+            UPDATE invite_sends s
+               SET email = NULLIF(lower(trim(l.email)), ''),
+                   phone = NULLIF(right(regexp_replace(coalesce(l.phone,''), '\D', '', 'g'), 10), '')
+              FROM popup_leads l
+             WHERE s.audience = 'lead' AND s.person_id = l.id
+               AND s.email IS NULL AND s.phone IS NULL;
+        EXCEPTION WHEN OTHERS THEN
+            RAISE NOTICE 'invite/phone tidy-up skipped: %', SQLERRM;
+        END $$;
         CREATE TABLE IF NOT EXISTS popup_leads (
             id         SERIAL PRIMARY KEY,
             name       VARCHAR(255),
