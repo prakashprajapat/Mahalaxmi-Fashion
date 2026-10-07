@@ -15,10 +15,14 @@ public class PopupLeadsController : ControllerBase
 {
     private readonly AppDbContext _db;
     private readonly AdminNotifier _notify;
-    public PopupLeadsController(AppDbContext db, AdminNotifier notify)
+    private readonly EmailService _email;
+    private readonly ILogger<PopupLeadsController> _log;
+    public PopupLeadsController(AppDbContext db, AdminNotifier notify, EmailService email, ILogger<PopupLeadsController> log)
     {
         _db = db;
         _notify = notify;
+        _email = email;
+        _log = log;
     }
 
     // A phone as digits only, so the same number typed three ways is one number.
@@ -114,6 +118,55 @@ public class PopupLeadsController : ControllerBase
             .ToListAsync();
 
         return Ok(new { total, page, limit, leads });
+    }
+
+    // POST /api/popup-leads/{id}/shop-invite  (Admin, or staff who handle leads)
+    //
+    // The same "come and have a look" email the Customers screen sends, for
+    // somebody who left their address in the popup and never made an account.
+    // That is the better list of the two to write to: they asked to hear from
+    // the shop and then nothing came of it.
+    //
+    // The lead has to exist in the table. This deliberately does not take an
+    // address from the caller - an admin screen that will email whatever address
+    // it is handed, with a fixed template, is one misdirected request away from
+    // being somebody else's mailer.
+    [HttpPost("{id:int}/shop-invite")]
+    [Authorize]
+    [RequirePerm("popup-leads")]
+    public async Task<IActionResult> SendShopInvite(int id)
+    {
+        var lead = await _db.PopupLeads.FindAsync(id);
+        if (lead == null)
+            return NotFound(new { success = false, message = "That lead no longer exists." });
+
+        var to = (lead.Email ?? "").Trim();
+        if (to.Length == 0)
+            return BadRequest(new { success = false, message = "This lead left no email address. Send it on WhatsApp instead." });
+
+        if (!_email.IsConfigured)
+            return StatusCode(500, new { success = false, message = "Email is not set up on the server, so nothing was sent." });
+
+        try
+        {
+            // A lead's "name" is one box on a popup, so it may well hold the whole
+            // name. The email greets by first name only; the rest reads oddly.
+            var name = (lead.Name ?? "").Trim().Split(' ')[0];
+            var subject = name.Length > 0
+                ? name + ", your next favourite outfit is waiting"
+                : "Your next favourite outfit is waiting";
+
+            var sent = await _email.SendAsync(to, subject, EmailService.BuildShopInviteEmail(name));
+            if (!sent)
+                return StatusCode(502, new { success = false, message = "The mail server would not accept it. Try again in a minute." });
+
+            return Ok(new { success = true, sentTo = to, message = "Sent to " + to + "." });
+        }
+        catch (Exception ex)
+        {
+            _log.LogError(ex, "Shop invite could not be sent to lead {Id}", id);
+            return StatusCode(500, new { success = false, message = "The email could not be sent." });
+        }
     }
 
     // Admin — delete a lead

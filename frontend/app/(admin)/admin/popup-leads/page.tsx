@@ -4,6 +4,7 @@ import { getAdminToken } from '@/lib/auth';
 import { fetchAllPages, downloadCsv } from '@/lib/adminPaged';
 import { PageHeader, Card, Stat, StatGrid, Chips, Pill, Empty } from '@/components/admin/Ui';
 import DateFilter, { ANY_DATES, inDateWindow, describeDateWindow, type DateWindow } from '@/components/admin/DateFilter';
+import { whatsAppLink } from '@/lib/shopInvite';
 
 interface Lead {
   id: number;
@@ -43,6 +44,12 @@ export default function PopupLeadsPage() {
   // wants to ask "who came in this week", which is a different question.
   const [dates, setDates] = useState<DateWindow>(ANY_DATES);
 
+  // Which invite is in flight, and which have gone this sitting - enough to
+  // stop the same person being mailed twice in one go.
+  const [inviting, setInviting] = useState<number | null>(null);
+  const [invited, setInvited] = useState<Set<number>>(new Set());
+  const [inviteMsg, setInviteMsg] = useState('');
+
   const load = async () => {
     setLoading(true);
     try {
@@ -57,6 +64,37 @@ export default function PopupLeadsPage() {
   };
 
   useEffect(() => { load(); }, []);
+
+  // The two buttons on this row used to look like they did something and did
+  // not. WhatsApp opened a chat with an empty box, and Email was a mailto: that
+  // handed the job to whatever mail program the computer happened to open -
+  // which on this machine is nothing at all. So the shop clicked, saw a blank
+  // window, and the lead never heard from anybody.
+  //
+  // Now the WhatsApp link carries the message, and this sends the real email
+  // from the server, the same one the Customers screen sends.
+  const sendInvite = async (l: Lead) => {
+    if (!l.email) { setInviteMsg(`${l.name || 'This lead'} left no email address. Send it on WhatsApp instead.`); return; }
+    if (invited.has(l.id) && !confirm(`An invite has already gone to ${l.email} in this sitting. Send it again?`)) return;
+    setInviting(l.id); setInviteMsg('');
+    try {
+      const res = await fetch(`/api/popup-leads/${l.id}/shop-invite`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${getAdminToken()}` },
+      });
+      const body = await res.json().catch(() => ({}));
+      if (res.ok && body?.success) {
+        setInvited(prev => new Set(prev).add(l.id));
+        setInviteMsg(`Sent to ${body.sentTo ?? l.email}.`);
+      } else {
+        setInviteMsg(body?.message || 'The email could not be sent.');
+      }
+    } catch {
+      setInviteMsg('The email could not be sent.');
+    } finally {
+      setInviting(null);
+    }
+  };
 
   const handleDelete = async (id: number) => {
     if (!confirm('Delete this lead? It cannot be brought back.')) return;
@@ -175,6 +213,10 @@ export default function PopupLeadsPage() {
       </Card>
 
       <Card title={`${filtered.length} ${filtered.length === 1 ? 'lead' : 'leads'}${describeDateWindow(dates) ? ' \u00b7 ' + describeDateWindow(dates) : ''}`}>
+        {inviteMsg && (
+          <p style={{ fontSize: '.82rem', fontWeight: 700, margin: '0 0 .6rem',
+                      color: inviteMsg.startsWith('Sent to') ? '#2e7d32' : '#c0392b' }}>{inviteMsg}</p>
+        )}
         {loading ? (
           <Empty>Loading leads…</Empty>
         ) : filtered.length === 0 ? (
@@ -207,7 +249,7 @@ export default function PopupLeadsPage() {
               </thead>
               <tbody>
                 {shown.map(l => {
-                  const ph = (l.phone || '').replace(/\D/g, '');
+                  const wa = whatsAppLink(l.phone ?? undefined, l.name ?? undefined);
                   return (
                     <tr key={l.id}>
                       <td data-label="Name">
@@ -225,8 +267,14 @@ export default function PopupLeadsPage() {
                       <td data-label="Came in" style={{ whiteSpace: 'nowrap' }}>{formatDate(l.createdAt)}</td>
                       <td data-label="Action">
                         <div className="adm-actions" style={{ flexWrap: 'wrap', margin: 0 }}>
-                          {ph && <a href={`https://wa.me/91${ph.slice(-10)}`} target="_blank" rel="noopener noreferrer" style={{ color: '#128C7E' }}>WhatsApp</a>}
-                          {l.email && <a href={`mailto:${l.email}`}>Email</a>}
+                          {wa
+                            ? <a href={wa} target="_blank" rel="noopener noreferrer" style={{ color: '#128C7E', fontWeight: 650 }}>WhatsApp</a>
+                            : <span title="No usable mobile number on this lead" style={{ color: '#c4bab5' }}>WhatsApp</span>}
+                          {l.email
+                            ? <button onClick={() => sendInvite(l)} disabled={inviting === l.id} style={{ color: '#a7354d' }}>
+                                {inviting === l.id ? 'Sending…' : invited.has(l.id) ? 'Mailed ✓' : 'Mail'}
+                              </button>
+                            : <span title="No email address on this lead" style={{ color: '#c4bab5' }}>Mail</span>}
                           <button onClick={() => handleDelete(l.id)} style={{ color: '#c0392b' }}>Delete</button>
                         </div>
                       </td>
