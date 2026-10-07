@@ -567,17 +567,41 @@ export default function ProductDetail({ params, initialProduct = null }: { param
                   <div className="product-card-blurfill" aria-hidden="true"
                     style={{ backgroundImage: `url("${productImageThumb(activeImg).replace(/"/g, '%22')}")` }} />
                 )}
+                {/* Every photo of this product is rendered here, once, and
+                    switching between them only changes which one is opaque.
+                    
+                    It used to be one <Image> whose src changed on a click. That
+                    reads as a lag: the browser had never asked for that photo at
+                    this size - the thumbnail is a 64px copy, no use here - so it
+                    went and fetched a fresh one, and the customer sat looking at
+                    the old picture while it travelled. Amazon's does not do that,
+                    which is the whole point of the video the shop sent.
+                    
+                    They all load while the page is settling, in the background,
+                    and after that a tap costs nothing at all. Only the first is
+                    marked priority: the rest should not compete with it. */}
                 {!activeImg
                   ? <div className="product-card-placeholder" aria-hidden="true" />
                   : heroRaw
                     /* eslint-disable-next-line @next/next/no-img-element */
                     ? <img src={activeImg} alt={product.name}
                         style={{ position: 'relative', zIndex: 1, width: '100%', height: '100%', objectFit: 'contain' }} />
-                    : <Image src={activeImg} alt={product.name}
-                        width={900} height={1200} priority fetchPriority="high"
-                        sizes="(max-width: 768px) 100vw, 520px"
-                        onError={() => setHeroRaw(true)}
-                        style={{ position: 'relative', zIndex: 1, width: '100%', height: '100%', objectFit: 'contain' }} />}
+                    : gallery.map((img, i) => (
+                        <Image key={img} src={img} alt={i === 0 ? product.name : ''}
+                          width={900} height={1200}
+                          priority={i === 0}
+                          fetchPriority={i === 0 ? 'high' : 'low'}
+                          sizes="(max-width: 768px) 100vw, 520px"
+                          onError={() => { if (i === 0) setHeroRaw(true); }}
+                          aria-hidden={img !== activeImg}
+                          style={{
+                            position: 'absolute', inset: 0, zIndex: 1,
+                            width: '100%', height: '100%', objectFit: 'contain',
+                            opacity: img === activeImg ? 1 : 0,
+                            transition: 'opacity .12s linear',
+                            pointerEvents: 'none',
+                          }} />
+                      ))}
                 {product.bestSeller && <span className="badge badge-yellow" style={{ position: 'absolute', zIndex: 2, top: 12, left: 12 }}>Best Seller</span>}
                 {saving > 0 && <span className="badge badge-red" style={{ position: 'absolute', zIndex: 2, top: product.bestSeller ? 44 : 12, left: 12 }}>{saving}% off</span>}
               </div>
@@ -603,7 +627,15 @@ export default function ProductDetail({ params, initialProduct = null }: { param
             {gallery.length > 1 && (
               <div className="pdp-thumbs" style={{ display: 'flex', gap: '.5rem', flexWrap: 'wrap' }}>
                 {gallery.map((img, i) => (
-                  <button key={i} onClick={() => setActiveImg(img)} style={{
+                  <button key={i}
+                    onClick={() => setActiveImg(img)}
+                    // Hover switches as well, on a machine with a mouse. There is
+                    // nothing to wait for now, so making the customer click to
+                    // see a photo they are already pointing at is just a tax.
+                    onMouseEnter={() => { if (canHover) setActiveImg(img); }}
+                    onFocus={() => setActiveImg(img)}
+                    aria-label={`Show photo ${i + 1}`}
+                    style={{
                     width: '64px', height: '64px', borderRadius: '8px', overflow: 'hidden',
                     border: activeImg === img ? '2px solid #722f37' : '2px solid #eee',
                     padding: 0, cursor: 'pointer', background: '#f5f5f5', flexShrink: 0,
