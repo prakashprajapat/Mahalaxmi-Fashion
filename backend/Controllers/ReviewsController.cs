@@ -277,6 +277,98 @@ public class ReviewsController : ControllerBase
         return Ok(new { success = true, message = "Review submitted for approval." });
     }
 
+    // GET /api/reviews/mine?productId=12
+    //
+    // What this customer has already written about this product, whatever its
+    // state. The public list only carries approved reviews, so without this the
+    // form has no way of knowing a review is already there - which is how the
+    // product page came to offer "Write a Review" to somebody who had written
+    // one an hour earlier and was waiting for it to be approved.
+    [HttpGet("mine")]
+    [Authorize]
+    public async Task<IActionResult> Mine([FromQuery] int productId)
+    {
+        var customerId = CallerCustomerId();
+        if (customerId is null) return Ok(new { success = true, reviews = Array.Empty<object>() });
+
+        var mine = await _db.Reviews
+            .Where(r => r.ProductId == productId && r.CustomerId == customerId)
+            .OrderByDescending(r => r.CreatedAt)
+            .Select(r => new {
+                id = r.Id,
+                orderId = r.OrderId ?? r.Title,
+                rating = r.Rating,
+                text = r.Body ?? "",
+                status = r.Status,
+                imageUrls = r.ImageUrls,
+                createdAt = r.CreatedAt,
+                updatedAt = r.UpdatedAt,
+            })
+            .ToListAsync();
+
+        return Ok(new { success = true, reviews = mine });
+    }
+
+    // PUT /api/reviews/{id}
+    //
+    // A review can be changed; it cannot be doubled. One order and one product
+    // give the customer one review, and if they want to say something else they
+    // say it in that same review rather than beside it. The alternative - a
+    // second review from the same purchase - is how a product page fills up with
+    // one person's second thoughts.
+    //
+    // An edited review goes back into the approval queue. It has to: the words
+    // the shop approved are not the words that would now be on the page, and a
+    // one-star rewrite of an approved five-star review must not slip past
+    // unseen.
+    [HttpPut("{id:int}")]
+    [Authorize]
+    public async Task<IActionResult> Update(int id, [FromBody] ReviewUpdateRequest req)
+    {
+        var customerId = CallerCustomerId();
+        if (customerId is null)
+            return Unauthorized(new { success = false, message = "Please sign in again." });
+
+        var review = await _db.Reviews.FirstOrDefaultAsync(r => r.Id == id);
+        if (review is null)
+            return NotFound(new { success = false, message = "That review no longer exists." });
+
+        if (review.CustomerId != customerId)
+            return StatusCode(403, new { success = false, message = "That review belongs to somebody else." });
+
+        if (req.Rating < 1 || req.Rating > 5)
+            return BadRequest(new { success = false, message = "Rating must be between 1 and 5." });
+
+        if (string.IsNullOrWhiteSpace(req.Text))
+            return BadRequest(new { success = false, message = "Review text is required." });
+
+        // Photos the caller sends replace the ones that were there. Only paths
+        // this server issued are accepted, exactly as on the way in.
+        var images = (req.Images ?? new List<string>())
+            .Where(u => !string.IsNullOrWhiteSpace(u) && u.StartsWith("/api/reviews/image/", StringComparison.Ordinal))
+            .Distinct()
+            .Take(3)
+            .ToList();
+
+        review.Rating = (short)req.Rating;
+        review.Body = req.Text.Trim();
+        review.ImageUrls = images.Count > 0 ? System.Text.Json.JsonSerializer.Serialize(images) : null;
+        review.Status = "pending";
+        review.UpdatedAt = DateTimeOffset.UtcNow;
+        await _db.SaveChangesAsync();
+
+        return Ok(new { success = true, message = "Your review has been updated and sent for approval." });
+    }
+
+    /// <summary>The signed-in customer, from whichever claim carries the id.</summary>
+    private int? CallerCustomerId()
+    {
+        var raw = User.FindFirstValue(JwtRegisteredClaimNames.Sub)
+            ?? User.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? User.FindFirstValue("sub");
+        return int.TryParse(raw, out var id) && id > 0 ? id : null;
+    }
+
     // PATCH /api/reviews/{id}/approve
     [HttpPatch("{id:int}/approve")]
     [Authorize]
@@ -367,3 +459,7 @@ public class ReviewsController : ControllerBase
 }
 
 public record ReviewSubmitRequest(int ProductId, int Rating, string Text, string? OrderId, List<string>? Images = null);
+
+// No order id here: which purchase the review belongs to was settled when it
+// was written, and an edit must not be able to move it to a different one.
+public record ReviewUpdateRequest(int Rating, string Text, List<string>? Images = null);

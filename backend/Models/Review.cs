@@ -39,6 +39,13 @@ public class Review
     [Column("created_at")]
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 
+    // Null until the customer changes their mind. Kept apart from created_at so
+    // the review keeps its original date in the list - a review written in July
+    // and corrected in October is still a July review - while the shop can still
+    // see that it was touched.
+    [Column("updated_at")]
+    public DateTimeOffset? UpdatedAt { get; set; }
+
     public Product? Product { get; set; }
     public Customer? Customer { get; set; }
 }

@@ -128,7 +128,21 @@ export default function ProductDetail({ params, initialProduct = null }: { param
   }, []);
   const [zoomPos, setZoomPos] = useState({ x: 50, y: 50, cx: 0, cy: 0 });
 
-  const [canReview, setCanReview] = useState(false);
+  // Which delivered orders of this customer actually contain this product.
+  //
+  // This used to be a plain yes/no. The server, quite rightly, will not take a
+  // review that does not name the purchase it came from - so with only a yes,
+  // every submission from this page was refused with "Please choose which order
+  // this is about", and the form had no way of saying it. The orders are kept
+  // now, and the one being reviewed is named.
+  const [reviewableOrders, setReviewableOrders] = useState<string[]>([]);
+  const [reviewOrderId, setReviewOrderId] = useState('');
+  // What this customer has already written about this product, whatever its
+  // state - the public list carries only approved ones.
+  const [myReviews, setMyReviews] = useState<Array<{
+    id: number; orderId: string | null; rating: number; text: string; status: string; imageUrls: string | null;
+  }>>([]);
+  const canReview = reviewableOrders.length > 0;
   // Review form
   const [rating, setRating] = useState(5);
   const [shareMsg, setShareMsg] = useState('');
@@ -136,6 +150,26 @@ export default function ProductDetail({ params, initialProduct = null }: { param
   const [reviewFiles, setReviewFiles] = useState<File[]>([]);
   const [reviewMsg, setReviewMsg] = useState('');
   const [submittingReview, setSubmittingReview] = useState(false);
+
+  // The review already written for the order now selected, if there is one.
+  // Everything below keys off this: the heading, the button, and whether the
+  // form posts a new review or changes the one that is there.
+  const existingReview = myReviews.find(r => (r.orderId ?? '') === reviewOrderId) ?? null;
+
+  // Loading the existing words into the form, so an edit starts from what was
+  // written rather than from an empty box. Runs when the chosen order changes.
+  useEffect(() => {
+    if (existingReview) {
+      setRating(existingReview.rating);
+      setReviewText(existingReview.text);
+    } else {
+      setRating(5);
+      setReviewText('');
+    }
+    setReviewFiles([]);
+    setReviewMsg('');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [existingReview?.id, reviewOrderId]);
 
   // Canonical + SEO metadata are now provided server-side by layout.tsx
   // (generateMetadata), so no client-side canonical injection is needed here.
@@ -200,10 +234,18 @@ export default function ProductDetail({ params, initialProduct = null }: { param
             .then(r => {
               if (cancelled) return;
               const delivered = (r.orders ?? []).filter(o => o.status?.toLowerCase() === 'delivered');
-              const bought = delivered.some(o => (o.cart ?? []).some((line: any) => String(line.id) === String(loaded.dbId)));
-              setCanReview(bought);
+              const withIt = delivered
+                .filter(o => (o.cart ?? []).some((line: any) => String(line.id) === String(loaded.dbId)))
+                .map(o => o.id)
+                .filter(Boolean) as string[];
+              setReviewableOrders(withIt);
+              setReviewOrderId(prev => (prev && withIt.includes(prev) ? prev : withIt[0] ?? ''));
             })
             .catch(() => {});
+
+          reviewsApi.mine(loaded.dbId, token)
+            .then(r => !cancelled && setMyReviews(r.reviews ?? []))
+            .catch(() => !cancelled && setMyReviews([]));
         }
       } catch {
         if (!cancelled) {
@@ -434,6 +476,7 @@ export default function ProductDetail({ params, initialProduct = null }: { param
     }
   };
 
+
   const handleReviewSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const customer = getCustomer();
@@ -446,9 +489,24 @@ export default function ProductDetail({ params, initialProduct = null }: { param
       if (reviewFiles.length > 0) {
         images = await Promise.all(reviewFiles.slice(0, 3).map(f => reviewsApi.uploadImage(f, token)));
       }
-      await reviewsApi.submit({ productId: product.dbId, rating, text: reviewText.trim(), images }, token);
-      setReviewMsg('✅ Review submitted! It will appear after approval.');
-      setReviewText(''); setRating(5); setReviewFiles([]);
+
+      if (existingReview) {
+        // No new photos chosen means keep the ones that are there, rather than
+        // silently stripping them off an edit that only fixed a typo.
+        const keep = images.length > 0
+          ? images
+          : (() => { try { return JSON.parse(existingReview.imageUrls ?? '[]') as string[]; } catch { return []; } })();
+        await reviewsApi.update(existingReview.id, { rating, text: reviewText.trim(), images: keep }, token);
+        setReviewMsg('✅ Your review has been updated. It will appear again after approval.');
+      } else {
+        if (!reviewOrderId) { setReviewMsg('❌ Could not tell which order this is about. Reload the page.'); return; }
+        await reviewsApi.submit({ productId: product.dbId, rating, text: reviewText.trim(), orderId: reviewOrderId, images }, token);
+        setReviewMsg('✅ Review submitted! It will appear after approval.');
+      }
+
+      setReviewFiles([]);
+      const fresh = await reviewsApi.mine(product.dbId, token).catch(() => null);
+      if (fresh) setMyReviews(fresh.reviews ?? []);
     } catch (e) { setReviewMsg('❌ ' + (e as Error).message); }
     finally { setSubmittingReview(false); }
   };
@@ -804,8 +862,32 @@ export default function ProductDetail({ params, initialProduct = null }: { param
             {/* Write a Review — only after order delivered */}
             {canReview ? (
               <div style={{ background: '#f7eff0', borderRadius: '12px', padding: '1.25rem', border: '1.5px solid #f5c6cb' }}>
-                <h3 style={{ fontWeight: 700, marginBottom: '1rem', fontSize: '1rem', color: '#722f37' }}>Write a Review</h3>
+                <h3 style={{ fontWeight: 700, marginBottom: '.35rem', fontSize: '1rem', color: '#722f37' }}>
+                  {existingReview ? 'Edit your review' : 'Write a Review'}
+                </h3>
+                {existingReview && (
+                  <p style={{ fontSize: '.8rem', color: '#6b615c', margin: '0 0 .9rem', lineHeight: 1.55 }}>
+                    You have already reviewed this from order {reviewOrderId}
+                    {existingReview.status !== 'approved' && ' (waiting for approval)'}. Change it below -
+                    it will go back for approval once you save.
+                  </p>
+                )}
                 <form onSubmit={handleReviewSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '.75rem' }}>
+                  {/* Only shown when this product was bought more than once: each
+                      purchase gets its own review, so the form has to know which. */}
+                  {reviewableOrders.length > 1 && (
+                    <div>
+                      <label style={{ fontSize: '.82rem', fontWeight: 600, display: 'block', marginBottom: '.35rem' }}>Which order</label>
+                      <select value={reviewOrderId} onChange={e => setReviewOrderId(e.target.value)}
+                        style={{ width: '100%', border: '1.5px solid #ddd', borderRadius: '8px', padding: '.55rem .75rem', fontSize: '.86rem', background: '#fff' }}>
+                        {reviewableOrders.map(id => (
+                          <option key={id} value={id}>
+                            {id}{myReviews.some(r => (r.orderId ?? '') === id) ? ' — already reviewed' : ''}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                   <div>
                     <label style={{ fontSize: '.82rem', fontWeight: 600, display: 'block', marginBottom: '.35rem' }}>Your Rating</label>
                     <Stars n={rating} onClick={setRating} />
@@ -817,7 +899,11 @@ export default function ProductDetail({ params, initialProduct = null }: { param
                       style={{ width: '100%', border: '1.5px solid #ddd', borderRadius: '8px', padding: '.6rem .75rem', fontSize: '.88rem', resize: 'vertical', boxSizing: 'border-box', fontFamily: 'inherit' }} />
                   </div>
                   <div>
-                    <label style={{ fontSize: '.82rem', fontWeight: 600, display: 'block', marginBottom: '.35rem' }}>Add Photos <span style={{ color: '#888', fontWeight: 400 }}>(optional, up to 3)</span></label>
+                    <label style={{ fontSize: '.82rem', fontWeight: 600, display: 'block', marginBottom: '.35rem' }}>
+                      Add Photos <span style={{ color: '#888', fontWeight: 400 }}>
+                        (optional, up to 3{existingReview ? ' — choosing new ones replaces the old' : ''})
+                      </span>
+                    </label>
                     <input type="file" accept="image/*" multiple
                       onChange={e => setReviewFiles(Array.from(e.target.files ?? []).slice(0, 3))}
                       style={{ fontSize: '.82rem' }} />
@@ -832,7 +918,9 @@ export default function ProductDetail({ params, initialProduct = null }: { param
                   </div>
                   {reviewMsg && <p style={{ fontSize: '.85rem', color: reviewMsg.startsWith('✅') ? '#27ae60' : '#c0392b', fontWeight: 600 }}>{reviewMsg}</p>}
                   <button type="submit" disabled={submittingReview} className="button primary" style={{ alignSelf: 'flex-start' }}>
-                    {submittingReview ? 'Submitting…' : 'Submit Review'}
+                    {submittingReview
+                      ? (existingReview ? 'Saving…' : 'Submitting…')
+                      : (existingReview ? 'Update my review' : 'Submit Review')}
                   </button>
                 </form>
               </div>

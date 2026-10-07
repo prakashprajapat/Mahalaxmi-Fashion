@@ -644,6 +644,18 @@ export const reviewsApi = {
     request<{ success: boolean; total: number; reviews: PublicReview[] }>(`/reviews/recent?take=${take}`),
   submit: (data: { productId: number; rating: number; text: string; orderId?: string; images?: string[] }, token: string) =>
     request<{ success: boolean }>('/reviews', { method: 'POST', body: JSON.stringify(data) }, token),
+  /** What this customer has already written about this product, approved or not. */
+  mine: (productId: number, token: string) =>
+    request<{
+      success: boolean;
+      reviews: Array<{
+        id: number; orderId: string | null; rating: number; text: string;
+        status: string; imageUrls: string | null; createdAt: string; updatedAt: string | null;
+      }>;
+    }>(`/reviews/mine?productId=${productId}`, undefined, token),
+  /** Change a review already written. It goes back into the approval queue. */
+  update: (id: number, data: { rating: number; text: string; images?: string[] }, token: string) =>
+    request<{ success: boolean; message?: string }>(`/reviews/${id}`, { method: 'PUT', body: JSON.stringify(data) }, token),
   // Upload ONE review photo (called per file); returns its URL to include in submit().
   uploadImage: async (file: File, token: string): Promise<string> => {
     const fd = new FormData();
