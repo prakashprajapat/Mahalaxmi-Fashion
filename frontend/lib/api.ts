@@ -261,6 +261,13 @@ export const customersApi = {
     request<{ success: boolean; sent: number; failed: number; total: number; message: string }>(
       '/customers/campaign', { method: 'POST', body: JSON.stringify(data) }, token
     ),
+  // The one-customer "come and have a look" email, sent from the Customers
+  // screen. The words live on the server so the email and the WhatsApp message
+  // cannot drift apart; this only says who to send it to.
+  sendShopInvite: (id: number, token: string) =>
+    request<{ success: boolean; sentTo?: string; message?: string }>(
+      `/customers/${id}/shop-invite`, { method: 'POST' }, token
+    ),
   // token is passed when an ADMIN creates a customer from the panel (bypasses OTP).
   register: (data: unknown, token?: string) =>
     request<{

@@ -5,6 +5,8 @@ import { getAdminToken } from '@/lib/auth';
 import { exportCustomers } from '@/lib/exportExcel';
 import type { Customer } from '@/types';
 import { PageHeader, Card, Stat, StatGrid, Pill, Empty } from '@/components/admin/Ui';
+import DateFilter, { ANY_DATES, inDateWindow, describeDateWindow, type DateWindow } from '@/components/admin/DateFilter';
+import { whatsAppLink } from '@/lib/shopInvite';
 
 // The server hands out fifty at a time; the paging maths has to agree with it.
 const PAGE_SIZE = 50;
@@ -16,6 +18,16 @@ function formatDate(raw?: string) {
   const date = new Date(raw);
   if (Number.isNaN(date.getTime())) return raw;
   return date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
+}
+
+// The joined date carries its year. A birthday does not need one - it comes
+// round again - but "joined 14 Feb" with no year is useless for deciding who
+// signed up last week and never came back.
+function formatJoined(raw?: string) {
+  if (!raw) return '\u2014';
+  const date = new Date(raw);
+  if (Number.isNaN(date.getTime())) return raw;
+  return date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
 function isToday(raw?: string) {
@@ -39,8 +51,19 @@ export default function AdminCustomersPage() {
   // Dhoondhna server par hota hai (saare khaate), par ye chhanni is panne ke
   // 50 naamon par lagti hai - isliye iska naam bhi wahi kehta hai.
   const [showOnly, setShowOnly] = useState('');
-  const [sortBy, setSortBy] = useState<'name' | 'bday' | 'anniv' | ''>('');
+  const [sortBy, setSortBy] = useState<'name' | 'bday' | 'anniv' | 'joined' | ''>('');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+  // When they joined, as a window rather than a sort. "Who signed up this week"
+  // is a different question from "show me the newest first", and it is the one
+  // worth asking before sending anybody an invite.
+  const [dates, setDates] = useState<DateWindow>(ANY_DATES);
+
+  // Which invite is in flight, and which have already gone this sitting. The
+  // second is only remembered in the page: it exists to stop the same customer
+  // being mailed twice in one go, not to be a record.
+  const [inviting, setInviting] = useState<number | null>(null);
+  const [invited, setInvited] = useState<Set<number>>(new Set());
+  const [inviteMsg, setInviteMsg] = useState('');
 
   const [editCust, setEditCust] = useState<Customer | null>(null);
   const [editForm, setEditForm] = useState({ firstName: '', lastName: '', email: '', phone: '', dateOfBirth: '', marriageDate: '' });
@@ -139,6 +162,25 @@ export default function AdminCustomersPage() {
     } finally { setEditSaving(false); }
   };
 
+  const sendInvite = async (c: Customer) => {
+    if (!c.email) { setInviteMsg(`${c.firstName} has no email address. Send it on WhatsApp instead.`); return; }
+    if (invited.has(c.id) && !confirm(`An invite has already gone to ${c.email} in this sitting. Send it again?`)) return;
+    setInviting(c.id); setInviteMsg('');
+    try {
+      const r = await customersApi.sendShopInvite(c.id, getAdminToken() ?? '');
+      if (r.success) {
+        setInvited(prev => new Set(prev).add(c.id));
+        setInviteMsg(`Sent to ${r.sentTo ?? c.email}.`);
+      } else {
+        setInviteMsg(r.message || 'The email could not be sent.');
+      }
+    } catch (e) {
+      setInviteMsg((e as Error).message || 'The email could not be sent.');
+    } finally {
+      setInviting(null);
+    }
+  };
+
   const handleDelete = async (c: Customer) => {
     if (!confirm(`Delete customer "${c.firstName} ${c.lastName}" (${c.email || c.phone})?\nThis permanently removes the account.`)) return;
     try {
@@ -198,6 +240,7 @@ export default function AdminCustomersPage() {
     return Number.isNaN(d.getTime()) ? 9999 : d.getMonth() * 31 + d.getDate();
   };
   const onPage = customers.filter(c => {
+    if (!inDateWindow(c.createdAt, dates)) return false;
     if (!showOnly) return true;
     if (showOnly === 'bday')  return isToday(c.dateOfBirth);
     if (showOnly === 'anniv') return isToday(c.marriageDate);
@@ -211,9 +254,12 @@ export default function AdminCustomersPage() {
     if (sortBy === 'name') d = `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`);
     if (sortBy === 'bday')  d = dayKey(a.dateOfBirth) - dayKey(b.dateOfBirth);
     if (sortBy === 'anniv') d = dayKey(a.marriageDate) - dayKey(b.marriageDate);
+    // Joined is a real moment in time, not a day of the year, so it sorts on the
+    // timestamp - oldest first ascending, newest first descending.
+    if (sortBy === 'joined') d = new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime();
     return sortDir === 'asc' ? d : -d;
   });
-  const toggleSort = (k: 'name' | 'bday' | 'anniv') => {
+  const toggleSort = (k: 'name' | 'bday' | 'anniv' | 'joined') => {
     if (sortBy === k) setSortDir(d => (d === 'asc' ? 'desc' : 'asc'));
     else { setSortBy(k); setSortDir('asc'); }
   };
@@ -310,11 +356,12 @@ export default function AdminCustomersPage() {
             <option value="nophone">No mobile number</option>
             <option value="noemail">No email</option>
           </select>
-          {(search || showOnly) && (
-            <button className="adm-btn" onClick={() => { setSearch(''); setShowOnly(''); setPage(1); }}>Clear</button>
+          <DateFilter value={dates} onChange={setDates} label="Joined" />
+          {(search || showOnly || dates.key !== 'any') && (
+            <button className="adm-btn" onClick={() => { setSearch(''); setShowOnly(''); setDates(ANY_DATES); setPage(1); }}>Clear</button>
           )}
         </div>
-        {showOnly && (
+        {(showOnly || dates.key !== 'any') && (
           <p style={{ fontSize: '.75rem', color: '#8a7f76', margin: '.5rem 0 0' }}>
             Ye chhanni sirf is panne ke {customers.length} naamon par lagti hai. Saare khaato me dhoondhna ho to
             upar wale search ka istemal kijiye.
@@ -323,7 +370,7 @@ export default function AdminCustomersPage() {
       </Card>
 
       <Card
-        title={`${shown.length} shown${total > shown.length ? ` of ${total}` : ''}`}
+        title={`${shown.length} shown${total > shown.length ? ` of ${total}` : ''}${describeDateWindow(dates) ? ' \u00b7 ' + describeDateWindow(dates) : ''}`}
         right={total > PAGE_SIZE && (
           <span style={{ display: 'flex', gap: '.4rem', alignItems: 'center' }}>
             <button className="adm-btn" style={{ padding: '.3rem .6rem' }} disabled={page === 1}
@@ -334,6 +381,10 @@ export default function AdminCustomersPage() {
           </span>
         )}
       >
+        {inviteMsg && (
+          <p style={{ fontSize: '.82rem', fontWeight: 700, margin: '0 0 .6rem',
+                      color: inviteMsg.startsWith('Sent to') ? '#2e7d32' : '#c0392b' }}>{inviteMsg}</p>
+        )}
         {loading ? (
           <Empty>Loading customers…</Empty>
         ) : customers.length === 0 ? (
@@ -353,11 +404,13 @@ export default function AdminCustomersPage() {
                   <th>Place</th>
                   <th><button type="button" className="adm-sort" onClick={() => toggleSort('bday')}>Birthday{arrow('bday')}</button></th>
                   <th><button type="button" className="adm-sort" onClick={() => toggleSort('anniv')}>Anniversary{arrow('anniv')}</button></th>
+                  <th><button type="button" className="adm-sort" onClick={() => toggleSort('joined')}>Joined{arrow('joined')}</button></th>
                   <th>Action</th>
                 </tr>
               </thead>
               <tbody>
                 {shown.map(c => {
+                  const wa = whatsAppLink(c.phone, c.firstName);
                   const risky = highRiskIds.has(String(c.id));
                   const bday = isToday(c.dateOfBirth);
                   const anniv = isToday(c.marriageDate);
@@ -392,8 +445,17 @@ export default function AdminCustomersPage() {
                       <td data-label="Place">{[c.district, c.state].filter(Boolean).join(', ') || <span style={{ color: '#c4bab5' }}>&mdash;</span>}</td>
                       <td data-label="Birthday" style={{ whiteSpace: 'nowrap' }}>{formatDate(c.dateOfBirth)}</td>
                       <td data-label="Anniversary" style={{ whiteSpace: 'nowrap' }}>{formatDate(c.marriageDate)}</td>
+                      <td data-label="Joined" style={{ whiteSpace: 'nowrap' }}>{formatJoined(c.createdAt)}</td>
                       <td data-label="Action">
                         <div className="adm-actions" style={{ flexWrap: 'wrap', margin: 0 }}>
+                          {wa
+                            ? <a href={wa} target="_blank" rel="noopener noreferrer" style={{ color: '#128C7E', fontWeight: 650 }}>WhatsApp</a>
+                            : <span title="No usable mobile number on this account" style={{ color: '#c4bab5' }}>WhatsApp</span>}
+                          {c.email
+                            ? <button onClick={() => sendInvite(c)} disabled={inviting === c.id} style={{ color: '#a7354d' }}>
+                                {inviting === c.id ? 'Sending\u2026' : invited.has(c.id) ? 'Mailed \u2713' : 'Mail'}
+                              </button>
+                            : <span title="No email address on this account" style={{ color: '#c4bab5' }}>Mail</span>}
                           <button onClick={() => openEdit(c)}>Edit</button>
                           <button onClick={() => openWallet(c)} style={{ color: '#b26b00' }}>Wallet</button>
                           <button onClick={() => handleDelete(c)} style={{ color: '#c0392b' }}>Delete</button>

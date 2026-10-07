@@ -176,6 +176,51 @@ public class CustomersController : ControllerBase
         });
     }
 
+    // POST /api/customers/{id}/shop-invite  (Admin, or staff who handle customers)
+    //
+    // The "come and have a look" email, sent one customer at a time from the
+    // Customers screen.
+    //
+    // One at a time on purpose. A bulk send to everyone who ever made an account
+    // is how a shop teaches Gmail that its address is worth filtering, and the
+    // people worth writing to are the ones the owner has just looked at: signed
+    // up last week, never ordered. A mistake here costs one email.
+    [HttpPost("{id:int}/shop-invite")]
+    [Authorize]
+    [RequirePerm("customers","campaigns")]
+    public async Task<IActionResult> SendShopInvite(int id)
+    {
+        var customer = await _db.Customers.FirstOrDefaultAsync(c => c.Id == id);
+        if (customer is null)
+            return NotFound(new { success = false, message = "That customer no longer exists." });
+
+        var to = (customer.Email ?? "").Trim();
+        if (to.Length == 0)
+            return BadRequest(new { success = false, message = "This customer has no email address on their account. Send it on WhatsApp instead." });
+
+        if (!_email.IsConfigured)
+            return StatusCode(500, new { success = false, message = "Email is not set up on the server, so nothing was sent." });
+
+        try
+        {
+            var name = (customer.FirstName ?? "").Trim();
+            var subject = name.Length > 0
+                ? name + ", your next favourite outfit is waiting"
+                : "Your next favourite outfit is waiting";
+
+            var sent = await _email.SendAsync(to, subject, EmailService.BuildShopInviteEmail(name));
+            if (!sent)
+                return StatusCode(502, new { success = false, message = "The mail server would not accept it. Try again in a minute." });
+
+            return Ok(new { success = true, sentTo = to, message = "Sent to " + to + "." });
+        }
+        catch (Exception ex)
+        {
+            _log.LogError(ex, "Shop invite could not be sent to customer {Id}", id);
+            return StatusCode(500, new { success = false, message = "The email could not be sent." });
+        }
+    }
+
     // GET /api/customers/celebrations?days=15
     [HttpGet("celebrations")]
     [Authorize]

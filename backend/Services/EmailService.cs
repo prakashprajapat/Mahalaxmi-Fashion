@@ -195,4 +195,90 @@ public class EmailService
   </div>
 </div>";
     }
+
+    /// <summary>
+    /// The "come and have a look" email, sent by hand from the Customers screen
+    /// to somebody who made an account and has not been back since.
+    ///
+    /// Everything here is email-safe on purpose. Gmail throws away a &lt;style&gt;
+    /// block and Outlook ignores most of what a browser takes for granted, so
+    /// there is no flexbox, no grid, no background image and no web font: every
+    /// style is inline, the layout is stacked blocks that cannot break on a
+    /// narrow screen, and the only picture is the logo. A dark band and a little
+    /// space do the work that a stylesheet would do on the website.
+    /// </summary>
+    public static string BuildShopInviteEmail(string firstName)
+    {
+        var who = string.IsNullOrWhiteSpace(firstName) ? "there" : firstName.Trim();
+
+        const string site = "https://www.mahalaxmifashionhub.com";
+        const string tag  = "utm_source=email&utm_medium=invite&utm_campaign=shop_invite";
+
+        var shopUrl      = site + "/?" + tag;
+        var collectionUrl= site + "/products?" + tag;
+        var referUrl     = site + "/account/refer?" + tag;
+        const string appUrl       = "https://play.google.com/store/apps/details?id=com.mahalaxmifashionhub.www.twa";
+        const string affiliateUrl = "https://affiliate.mahalaxmifashionhub.com/";
+
+        // One row of the "there is more here" list. Kept as a local function so
+        // the three of them cannot drift apart.
+        static string Row(string title, string line, string label, string url) => $@"
+      <div style=""border:1px solid #efe6e2;border-radius:10px;padding:14px 16px;margin:0 0 10px"">
+        <p style=""color:#2d2724;font-size:14px;font-weight:700;margin:0 0 4px"">{title}</p>
+        <p style=""color:#6b615c;font-size:13px;line-height:1.55;margin:0 0 8px"">{line}</p>
+        <a href=""{url}"" style=""color:#a7354d;font-size:13px;font-weight:700;text-decoration:none"">{label} &rarr;</a>
+      </div>";
+
+        return $@"
+<div style=""background:#faf6f2;padding:24px 12px"">
+  <div style=""font-family:Georgia,'Times New Roman',serif;max-width:520px;margin:0 auto;background:#ffffff;border:1px solid #efe6e2;border-radius:14px;overflow:hidden"">
+
+    <div style=""padding:22px 24px;text-align:center;border-bottom:1px solid #f2ece9"">
+      <img src=""https://mahalaxmifashionhub.com/email-logo.png"" alt=""Mahalaxmi Fashion Hub"" width=""220"" style=""max-width:220px;width:220px;height:auto;display:inline-block"" />
+    </div>
+
+    <div style=""background:#722f37;padding:26px 24px;text-align:center"">
+      <p style=""color:#e8c9ce;font-size:11px;letter-spacing:.18em;text-transform:uppercase;margin:0 0 8px;font-family:Arial,Helvetica,sans-serif"">The new collection is in</p>
+      <p style=""color:#ffffff;font-size:25px;font-weight:normal;line-height:1.3;margin:0"">Something you will love<br/>is waiting for you</p>
+    </div>
+
+    <div style=""padding:26px 24px 8px"">
+      <p style=""color:#2d2724;font-size:16px;line-height:1.6;margin:0 0 14px;font-family:Arial,Helvetica,sans-serif"">Hello {who},</p>
+      <p style=""color:#5a514c;font-size:14px;line-height:1.75;margin:0 0 18px;font-family:Arial,Helvetica,sans-serif"">
+        You are already part of the Mahalaxmi family &mdash; thank you for that. We have been busy since,
+        and there is a good deal on the shelves now that was not there when you last looked.
+      </p>
+
+      <p style=""color:#8a7f76;font-size:12px;letter-spacing:.1em;text-transform:uppercase;margin:0 0 10px;font-family:Arial,Helvetica,sans-serif"">What is new</p>
+      <p style=""color:#2d2724;font-size:15px;line-height:1.9;margin:0 0 22px"">
+        Sarees &nbsp;&middot;&nbsp; Nighties &nbsp;&middot;&nbsp; Dresses<br/>
+        Kurti Sets &nbsp;&middot;&nbsp; Rajasthani Wear &nbsp;&middot;&nbsp; Fabrics
+      </p>
+
+      <p style=""text-align:center;margin:0 0 10px"">
+        <a href=""{collectionUrl}"" style=""background:#a7354d;color:#ffffff;text-decoration:none;font-size:15px;font-weight:700;padding:14px 34px;border-radius:9px;display:inline-block;font-family:Arial,Helvetica,sans-serif"">See the new collection</a>
+      </p>
+      <p style=""text-align:center;color:#8a7f76;font-size:12px;margin:0 0 24px;font-family:Arial,Helvetica,sans-serif"">
+        Hand-checked before it ships &middot; 7-day returns &middot; Delivered across India
+      </p>
+
+      <div style=""border-top:1px solid #f2ece9;padding-top:20px"">
+        <p style=""color:#8a7f76;font-size:12px;letter-spacing:.1em;text-transform:uppercase;margin:0 0 12px;font-family:Arial,Helvetica,sans-serif"">There is more here than the shop</p>
+{Row("Shop from the app", "Your orders, your addresses and your wallet in one place, and the app tells you the moment a parcel moves.", "Get it on Google Play", appUrl)}
+{Row("Refer &amp; Earn", "Send the shop to a friend. When they order, you both get something back.", "See your referral link", referUrl)}
+{Row("Earn as a creator", "Making content? Join the affiliate programme and earn on every order that comes through you.", "Join the programme", affiliateUrl)}
+      </div>
+    </div>
+
+    <div style=""background:#faf6f2;padding:20px 24px;text-align:center;border-top:1px solid #f2ece9"">
+      <p style=""color:#722f37;font-size:15px;margin:0 0 4px"">Mahalaxmi Fashion Hub</p>
+      <p style=""color:#8a7f76;font-size:11px;letter-spacing:.12em;text-transform:uppercase;margin:0 0 12px;font-family:Arial,Helvetica,sans-serif"">Fashion &middot; Quality &middot; Value</p>
+      <p style=""color:#9a908a;font-size:11px;line-height:1.6;margin:0;font-family:Arial,Helvetica,sans-serif"">
+        <a href=""{shopUrl}"" style=""color:#9a908a;text-decoration:none"">www.mahalaxmifashionhub.com</a><br/>
+        Balotra, Rajasthan
+      </p>
+    </div>
+  </div>
+</div>";
+    }
 }
