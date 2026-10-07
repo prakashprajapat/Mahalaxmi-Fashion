@@ -4,7 +4,7 @@ import { getAdminToken } from '@/lib/auth';
 import { fetchAllPages, downloadCsv } from '@/lib/adminPaged';
 import { PageHeader, Card, Stat, StatGrid, Chips, Pill, Empty } from '@/components/admin/Ui';
 import DateFilter, { ANY_DATES, inDateWindow, describeDateWindow, type DateWindow } from '@/components/admin/DateFilter';
-import { copyInviteAndOpenChat, whatsAppNumber } from '@/lib/shopInvite';
+import { whatsAppWebLink } from '@/lib/shopInvite';
 
 interface Lead {
   id: number;
@@ -49,17 +49,6 @@ export default function PopupLeadsPage() {
   const [inviting, setInviting] = useState<number | null>(null);
   const [invited, setInvited] = useState<Set<number>>(new Set());
   const [inviteMsg, setInviteMsg] = useState('');
-
-  // Saying what just happened to the clipboard. Without this the button copies
-  // in silence and the chat opens empty, which reads as broken.
-  const [waMsg, setWaMsg] = useState('');
-
-  const openWhatsApp = async (phone: string | undefined, firstName: string | undefined) => {
-    const copied = await copyInviteAndOpenChat(phone, firstName);
-    setWaMsg(copied
-      ? 'Message copied \u2014 press Ctrl+V in WhatsApp, then Enter.'
-      : 'WhatsApp opened with the message already in the box.');
-  };
 
 
   const load = async () => {
@@ -225,9 +214,10 @@ export default function PopupLeadsPage() {
       </Card>
 
       <Card title={`${filtered.length} ${filtered.length === 1 ? 'lead' : 'leads'}${describeDateWindow(dates) ? ' \u00b7 ' + describeDateWindow(dates) : ''}`}>
-        {waMsg && (
-          <p style={{ fontSize: '.82rem', fontWeight: 700, margin: '0 0 .4rem', color: '#128C7E' }}>{waMsg}</p>
-        )}
+        <p style={{ fontSize: '.75rem', color: '#8a7f76', margin: '0 0 .7rem' }}>
+          WhatsApp opens in a new tab with the message already written \u2014 just press Send. It uses
+          WhatsApp Web, so sign in there once from your phone and it stays signed in.
+        </p>
         {inviteMsg && (
           <p style={{ fontSize: '.82rem', fontWeight: 700, margin: '0 0 .6rem',
                       color: inviteMsg.startsWith('Sent to') ? '#2e7d32' : '#c0392b' }}>{inviteMsg}</p>
@@ -264,7 +254,7 @@ export default function PopupLeadsPage() {
               </thead>
               <tbody>
                 {shown.map(l => {
-                  const wa = whatsAppNumber(l.phone ?? undefined);
+                  const wa = whatsAppWebLink(l.phone ?? undefined, (l.name ?? '').split(' ')[0] || undefined);
                   return (
                     <tr key={l.id}>
                       <td data-label="Name">
@@ -283,7 +273,7 @@ export default function PopupLeadsPage() {
                       <td data-label="Action">
                         <div className="adm-actions" style={{ flexWrap: 'wrap', margin: 0 }}>
                           {wa
-                            ? <button onClick={() => openWhatsApp(l.phone ?? undefined, (l.name ?? '').split(' ')[0] || undefined)} style={{ color: '#128C7E', fontWeight: 650 }}>WhatsApp</button>
+                            ? <a href={wa} target="_blank" rel="noopener noreferrer" style={{ color: '#128C7E', fontWeight: 650 }}>WhatsApp</a>
                             : <span title="No usable mobile number on this lead" style={{ color: '#c4bab5' }}>WhatsApp</span>}
                           {l.email
                             ? <button onClick={() => sendInvite(l)} disabled={inviting === l.id} style={{ color: '#a7354d' }}>

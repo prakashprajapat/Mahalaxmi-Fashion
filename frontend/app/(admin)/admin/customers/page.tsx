@@ -6,7 +6,7 @@ import { exportCustomers } from '@/lib/exportExcel';
 import type { Customer } from '@/types';
 import { PageHeader, Card, Stat, StatGrid, Pill, Empty } from '@/components/admin/Ui';
 import DateFilter, { ANY_DATES, inDateWindow, describeDateWindow, type DateWindow } from '@/components/admin/DateFilter';
-import { copyInviteAndOpenChat, whatsAppNumber } from '@/lib/shopInvite';
+import { whatsAppWebLink } from '@/lib/shopInvite';
 
 // The server hands out fifty at a time; the paging maths has to agree with it.
 const PAGE_SIZE = 50;
@@ -64,17 +64,6 @@ export default function AdminCustomersPage() {
   const [inviting, setInviting] = useState<number | null>(null);
   const [invited, setInvited] = useState<Set<number>>(new Set());
   const [inviteMsg, setInviteMsg] = useState('');
-
-  // Saying what just happened to the clipboard. Without this the button copies
-  // in silence and the chat opens empty, which reads as broken.
-  const [waMsg, setWaMsg] = useState('');
-
-  const openWhatsApp = async (phone: string | undefined, firstName: string | undefined) => {
-    const copied = await copyInviteAndOpenChat(phone, firstName);
-    setWaMsg(copied
-      ? 'Message copied \u2014 press Ctrl+V in WhatsApp, then Enter.'
-      : 'WhatsApp opened with the message already in the box.');
-  };
 
 
   const [editCust, setEditCust] = useState<Customer | null>(null);
@@ -393,9 +382,10 @@ export default function AdminCustomersPage() {
           </span>
         )}
       >
-        {waMsg && (
-          <p style={{ fontSize: '.82rem', fontWeight: 700, margin: '0 0 .4rem', color: '#128C7E' }}>{waMsg}</p>
-        )}
+        <p style={{ fontSize: '.75rem', color: '#8a7f76', margin: '0 0 .7rem' }}>
+          WhatsApp opens in a new tab with the message already written \u2014 just press Send. It uses
+          WhatsApp Web, so sign in there once from your phone and it stays signed in.
+        </p>
         {inviteMsg && (
           <p style={{ fontSize: '.82rem', fontWeight: 700, margin: '0 0 .6rem',
                       color: inviteMsg.startsWith('Sent to') ? '#2e7d32' : '#c0392b' }}>{inviteMsg}</p>
@@ -425,7 +415,7 @@ export default function AdminCustomersPage() {
               </thead>
               <tbody>
                 {shown.map(c => {
-                  const wa = whatsAppNumber(c.phone);
+                  const wa = whatsAppWebLink(c.phone, c.firstName);
                   const risky = highRiskIds.has(String(c.id));
                   const bday = isToday(c.dateOfBirth);
                   const anniv = isToday(c.marriageDate);
@@ -464,7 +454,7 @@ export default function AdminCustomersPage() {
                       <td data-label="Action">
                         <div className="adm-actions" style={{ flexWrap: 'wrap', margin: 0 }}>
                           {wa
-                            ? <button onClick={() => openWhatsApp(c.phone, c.firstName)} style={{ color: '#128C7E', fontWeight: 650 }}>WhatsApp</button>
+                            ? <a href={wa} target="_blank" rel="noopener noreferrer" style={{ color: '#128C7E', fontWeight: 650 }}>WhatsApp</a>
                             : <span title="No usable mobile number on this account" style={{ color: '#c4bab5' }}>WhatsApp</span>}
                           {c.email
                             ? <button onClick={() => sendInvite(c)} disabled={inviting === c.id} style={{ color: '#a7354d' }}>

@@ -53,44 +53,30 @@ export function whatsAppNumber(phone?: string): string {
   return `91${ten}`;
 }
 
-/** Just the chat, with nothing typed into it. */
-export function whatsAppChatLink(phone?: string): string {
-  const num = whatsAppNumber(phone);
-  return num ? `https://wa.me/${num}` : '';
-}
-
 /**
- * Open this customer's chat with the message ready to paste.
+ * This customer's chat, with the message already in the box.
  *
- * The obvious way to do this is wa.me/<number>?text=<message>, and that is what
- * this did at first. On a phone it is perfect. On Windows it is not: the link
- * goes through the browser to the WhatsApp desktop app, and somewhere in that
- * handover anything outside the old Windows-1252 character set is replaced with
- * a question mark. The shop's first real send arrived with every emoji turned
- * into a black diamond — the em dash survived, because it happens to live in
- * that old set, which is what gave the cause away.
+ * Deliberately web.whatsapp.com rather than wa.me, and that is the whole point
+ * of this function.
  *
- * So the message goes to the clipboard, where nothing touches it, and the chat
- * opens empty. One Ctrl+V and it is exactly as written, on every machine.
+ * wa.me is the usual link and on a phone it is perfect. On Windows it is not:
+ * the link travels browser -> WhatsApp desktop app, and in that handover
+ * anything outside the old Windows-1252 character set is replaced. The shop's
+ * first real send arrived with every emoji turned into a black diamond, while
+ * the em dash came through intact — and the em dash is in that old set, which
+ * is what named the culprit.
  *
- * Returns true when the message is on the clipboard. False means the browser
- * refused — some do, outside a secure page or without a user gesture — and the
- * caller should fall back to ?text= rather than open an empty chat with nothing
- * to paste.
+ * Putting the message on the clipboard instead did keep the emoji, but it made
+ * a one-click job into copy, switch, paste, send, and an empty chat window
+ * reads as a broken button however clearly the screen explains itself.
+ *
+ * web.whatsapp.com never leaves the browser, so nothing converts anything: the
+ * message arrives exactly as written, in one click. The cost is that the
+ * browser has to be signed in to WhatsApp Web — scanned once from the phone,
+ * and it stays signed in.
  */
-export async function copyInviteAndOpenChat(phone?: string, firstName?: string): Promise<boolean> {
-  const chat = whatsAppChatLink(phone);
-  if (!chat) return false;
-
-  const text = shopInviteText(firstName);
-  let copied = false;
-  try {
-    await navigator.clipboard.writeText(text);
-    copied = true;
-  } catch {
-    copied = false;
-  }
-
-  window.open(copied ? chat : `${chat}?text=${encodeURIComponent(text)}`, '_blank', 'noopener');
-  return copied;
+export function whatsAppWebLink(phone?: string, firstName?: string): string {
+  const num = whatsAppNumber(phone);
+  if (!num) return '';
+  return `https://web.whatsapp.com/send?phone=${num}&text=${encodeURIComponent(shopInviteText(firstName))}`;
 }
