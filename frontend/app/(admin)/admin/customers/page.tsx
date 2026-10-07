@@ -6,7 +6,7 @@ import { exportCustomers } from '@/lib/exportExcel';
 import type { Customer } from '@/types';
 import { PageHeader, Card, Stat, StatGrid, Pill, Empty } from '@/components/admin/Ui';
 import DateFilter, { ANY_DATES, inDateWindow, describeDateWindow, type DateWindow } from '@/components/admin/DateFilter';
-import { whatsAppWebLink } from '@/lib/shopInvite';
+import { WhatsAppSendButton, WhatsAppModeNote } from '@/components/admin/WhatsAppSend';
 
 // The server hands out fifty at a time; the paging maths has to agree with it.
 const PAGE_SIZE = 50;
@@ -382,10 +382,7 @@ export default function AdminCustomersPage() {
           </span>
         )}
       >
-        <p style={{ fontSize: '.75rem', color: '#8a7f76', margin: '0 0 .7rem' }}>
-          WhatsApp opens in a new tab with the message already written \u2014 just press Send. It uses
-          WhatsApp Web, so sign in there once from your phone and it stays signed in.
-        </p>
+        <WhatsAppModeNote />
         {inviteMsg && (
           <p style={{ fontSize: '.82rem', fontWeight: 700, margin: '0 0 .6rem',
                       color: inviteMsg.startsWith('Sent to') ? '#2e7d32' : '#c0392b' }}>{inviteMsg}</p>
@@ -415,7 +412,6 @@ export default function AdminCustomersPage() {
               </thead>
               <tbody>
                 {shown.map(c => {
-                  const wa = whatsAppWebLink(c.phone, c.firstName);
                   const risky = highRiskIds.has(String(c.id));
                   const bday = isToday(c.dateOfBirth);
                   const anniv = isToday(c.marriageDate);
@@ -453,9 +449,7 @@ export default function AdminCustomersPage() {
                       <td data-label="Joined" style={{ whiteSpace: 'nowrap' }}>{formatJoined(c.createdAt)}</td>
                       <td data-label="Action">
                         <div className="adm-actions" style={{ flexWrap: 'wrap', margin: 0 }}>
-                          {wa
-                            ? <a href={wa} target="_blank" rel="noopener noreferrer" style={{ color: '#128C7E', fontWeight: 650 }}>WhatsApp</a>
-                            : <span title="No usable mobile number on this account" style={{ color: '#c4bab5' }}>WhatsApp</span>}
+                          <WhatsAppSendButton phone={c.phone} firstName={c.firstName} />
                           {c.email
                             ? <button onClick={() => sendInvite(c)} disabled={inviting === c.id} style={{ color: '#a7354d' }}>
                                 {inviting === c.id ? 'Sending\u2026' : invited.has(c.id) ? 'Mailed \u2713' : 'Mail'}
