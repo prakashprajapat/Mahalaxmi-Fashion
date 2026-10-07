@@ -59,6 +59,19 @@ public class SettingsController : ControllerBase
         // but the state of our own catalogue is not the world's business.
         "productGateLastSweep",
 
+        // The Instagram pull's own paperwork. instagramAccessToken and
+        // instagramTokenRefreshedAt are already private - the rule above catches
+        // anything with "token" in its name - but these four are not
+        // credential-shaped and would otherwise ride along in a bundle every
+        // visitor downloads, for no reason: nothing on the storefront reads
+        // them. instagramReels, instagramReelsOn and instagramHandle stay
+        // public, because the homepage is built from exactly those three.
+        "instagramAutoSync",
+        "instagramSyncCount",
+        "instagramOverrides",
+        "instagramLastSync",
+        "instagramLastResult",
+
         // Public writing, but far too big for this bundle — the navbar and
         // footer read it on every page load. Served by /api/seo-content
         // instead, which is cached separately and fetched only by the pages

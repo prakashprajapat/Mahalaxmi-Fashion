@@ -25,6 +25,16 @@
 // in the never-public list in SettingsController because it is meant to be seen.
 
 export interface Reel {
+  /**
+   * The Instagram post this came from, when it came from Instagram.
+   *
+   * It is what lets the six-hourly pull replace the row without losing the
+   * shop's own work on it. The product a reel opens and a caption written by
+   * hand are stored against this id, so a reel sliding from second place to
+   * fourth, or a new post pushing an old one off the end, keeps everything
+   * attached to the right tile. Tiles built by hand have no id and need none.
+   */
+  id?: string;
   /** The still frame. Required: it is what the tile shows before, and instead of, any video. */
   poster: string;
   /** A short clip, if there is one. Served from /api/settings/media/... */
@@ -58,6 +68,7 @@ export function parseReels(raw?: string | null): Reel[] {
   return data
     .filter((r): r is Record<string, unknown> => !!r && typeof r === 'object')
     .map(r => ({
+      id: typeof r.id === 'string' && r.id.trim() ? r.id.trim() : undefined,
       poster: isPath(r.poster) ? (r.poster as string).trim() : '',
       video: isPath(r.video) ? (r.video as string).trim() : undefined,
       href: typeof r.href === 'string' && r.href.trim() ? r.href.trim() : undefined,
@@ -73,6 +84,7 @@ export function serialiseReels(reels: Reel[]): string {
     .filter(r => isPath(r.poster))
     .slice(0, MAX_REELS)
     .map(r => ({
+      ...(r.id?.trim() ? { id: r.id.trim() } : {}),
       poster: r.poster.trim(),
       ...(r.video?.trim() ? { video: r.video.trim() } : {}),
       ...(r.href?.trim() ? { href: r.href.trim() } : {}),
@@ -92,4 +104,46 @@ export function handleOf(raw?: string | null): string {
 export function profileUrlOf(raw?: string | null): string {
   const h = handleOf(raw);
   return h ? `https://www.instagram.com/${h}/` : '';
+}
+
+/**
+ * The shop's own additions to an automatically-pulled row, by Instagram post id.
+ *
+ * Kept apart from the reels themselves because the two have different owners.
+ * The pull owns the photographs, the clips and the order; the shop owns which
+ * product a tile opens and, if the Instagram caption is thirty hashtags, what
+ * it says instead. Writing both into one setting would mean every pull either
+ * overwrote the shop's work or was blocked by it.
+ */
+export type ReelOverrides = Record<string, { href?: string; caption?: string }>;
+
+export function parseOverrides(raw?: string | null): ReelOverrides {
+  if (!raw || !raw.trim()) return {};
+  try {
+    const data = JSON.parse(raw);
+    if (!data || typeof data !== 'object' || Array.isArray(data)) return {};
+    const out: ReelOverrides = {};
+    Object.entries(data as Record<string, unknown>).forEach(([id, v]) => {
+      if (!v || typeof v !== 'object') return;
+      const o = v as Record<string, unknown>;
+      out[id] = {
+        href: typeof o.href === 'string' ? o.href.trim() : undefined,
+        caption: typeof o.caption === 'string' ? o.caption.trim().slice(0, CAPTION_LIMIT) : undefined,
+      };
+    });
+    return out;
+  } catch { return {}; }
+}
+
+/** Only the tiles he has actually written something on are stored. */
+export function serialiseOverrides(reels: Reel[]): string {
+  const out: ReelOverrides = {};
+  reels.forEach(r => {
+    if (!r.id) return;
+    const href = (r.href ?? '').trim();
+    const caption = (r.caption ?? '').trim();
+    if (!href && !caption) return;
+    out[r.id] = { ...(href ? { href } : {}), ...(caption ? { caption } : {}) };
+  });
+  return JSON.stringify(out);
 }

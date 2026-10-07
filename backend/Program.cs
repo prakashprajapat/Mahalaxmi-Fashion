@@ -24,6 +24,7 @@ builder.Services.AddScoped<WalletService>();
 builder.Services.AddHttpClient("razorpay");
 builder.Services.AddHttpClient("cashfree");
 builder.Services.AddHttpClient("delhivery");
+builder.Services.AddHttpClient("instagram");
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddMemoryCache(); // PERF-2: for settings caching
@@ -40,6 +41,13 @@ builder.Services.AddHostedService<DelhiveryTrackingSyncService>();
 builder.Services.AddHostedService<ProductGateSweepService>();
 builder.Services.AddHostedService<ReviewRequestService>();
 builder.Services.AddHostedService<AbandonedCartService>();
+
+// Pulls the shop's own reels off Instagram every six hours and keeps the
+// homepage strip filled. Singleton as well as a hosted service so the admin
+// screen's "Fetch now" button runs the same code the background job runs,
+// rather than a second path that drifts away from it.
+builder.Services.AddSingleton<InstagramSyncService>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<InstagramSyncService>());
 
 // Emails the database and the day's new photos every night at 11:59 PM IST.
 // Registered as a singleton as well as a hosted service so the admin

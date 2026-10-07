@@ -474,6 +474,34 @@ export const seoContentApi = {
   },
 };
 
+// The homepage Instagram strip's connection to Instagram itself.
+//
+// Reading the shop's OWN professional account needs no App Review and no
+// business verification - Meta calls that Standard Access. The whole secret is
+// one long-lived token, which the server renews on every pull so the 60-day
+// clock never runs out, and which never comes back out of this API.
+export const instagramApi = {
+  status: (token: string) =>
+    request<{
+      success: boolean;
+      connected: boolean;
+      handle: string;
+      auto: boolean;
+      count: number;
+      tokenRenewedAt: string | null;
+      tokenExpiresAt: string | null;
+      lastSyncAt: string | null;
+      lastResult: string | null;
+    }>('/instagram/status', undefined, token),
+
+  /** Pull now — the same code the six-hourly job runs. */
+  sync: (token: string) =>
+    request<{
+      success: boolean; message: string;
+      reels: number; clips: number; notes: string[];
+    }>('/instagram/sync', { method: 'POST' }, token),
+};
+
 // Roz do baar jane wala backup — chalane ka aur haal poochhne ka rasta.
 // Panel me iske bina koi bata hi nahi sakta tha ki backup chala ya nahi;
 // intezar karke inbox dekhna hi ek tarika tha, jo jawab dene me 12 ghante leta
