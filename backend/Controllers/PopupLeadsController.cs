@@ -160,6 +160,17 @@ public class PopupLeadsController : ControllerBase
             if (!sent)
                 return StatusCode(502, new { success = false, message = "The mail server would not accept it. Try again in a minute." });
 
+            // Written down only once the mail server has taken it.
+            _db.InviteSends.Add(new InviteSend
+            {
+                Audience = "lead",
+                PersonId = lead.Id,
+                Channel  = "email",
+                SentBy   = User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value ?? User.Identity?.Name,
+                SentAt   = DateTimeOffset.UtcNow,
+            });
+            await _db.SaveChangesAsync();
+
             return Ok(new { success = true, sentTo = to, message = "Sent to " + to + "." });
         }
         catch (Exception ex)

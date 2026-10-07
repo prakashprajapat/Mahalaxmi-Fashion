@@ -6,7 +6,8 @@ import { exportCustomers } from '@/lib/exportExcel';
 import type { Customer } from '@/types';
 import { PageHeader, Card, Stat, StatGrid, Pill, Empty } from '@/components/admin/Ui';
 import DateFilter, { ANY_DATES, inDateWindow, describeDateWindow, type DateWindow } from '@/components/admin/DateFilter';
-import { WhatsAppSendButton, WhatsAppModeNote } from '@/components/admin/WhatsAppSend';
+import { WhatsAppSendButton } from '@/components/admin/WhatsAppSend';
+import { fetchSends, recordSend, sendKey, shortDate, type SendMap } from '@/lib/outreach';
 
 // The server hands out fifty at a time; the paging maths has to agree with it.
 const PAGE_SIZE = 50;
@@ -64,6 +65,20 @@ export default function AdminCustomersPage() {
   const [inviting, setInviting] = useState<number | null>(null);
   const [invited, setInvited] = useState<Set<number>>(new Set());
   const [inviteMsg, setInviteMsg] = useState('');
+  // Who has already been written to, read from the database rather than kept
+  // in this page's memory - so the tick is still there after a logout, and
+  // still there on the other computer.
+  const [sends, setSends] = useState<SendMap>({});
+
+  const reloadSends = () => {
+    fetchSends('customer', getAdminToken() ?? '').then(setSends).catch(() => { /* ticks are not worth failing the page for */ });
+  };
+  useEffect(() => { reloadSends(); }, []);
+
+  const noteWhatsApp = async (id: number) => {
+    await recordSend('customer', id, 'whatsapp', getAdminToken() ?? '');
+    reloadSends();
+  };
 
 
   const [editCust, setEditCust] = useState<Customer | null>(null);
@@ -171,6 +186,7 @@ export default function AdminCustomersPage() {
       const r = await customersApi.sendShopInvite(c.id, getAdminToken() ?? '');
       if (r.success) {
         setInvited(prev => new Set(prev).add(c.id));
+        reloadSends();
         setInviteMsg(`Sent to ${r.sentTo ?? c.email}.`);
       } else {
         setInviteMsg(r.message || 'The email could not be sent.');
@@ -382,7 +398,10 @@ export default function AdminCustomersPage() {
           </span>
         )}
       >
-        <WhatsAppModeNote />
+        <p style={{ fontSize: '.75rem', color: '#8a7f76', margin: '0 0 .7rem' }}>
+          WhatsApp opens with the message already written — just press Send. A tick means this
+          person has been written to before; pressing again sends it a second time.
+        </p>
         {inviteMsg && (
           <p style={{ fontSize: '.82rem', fontWeight: 700, margin: '0 0 .6rem',
                       color: inviteMsg.startsWith('Sent to') ? '#2e7d32' : '#c0392b' }}>{inviteMsg}</p>
@@ -413,6 +432,8 @@ export default function AdminCustomersPage() {
               <tbody>
                 {shown.map(c => {
                   const risky = highRiskIds.has(String(c.id));
+                  const mailed = sends[sendKey(c.id, 'email')];
+                  const whatsApped = sends[sendKey(c.id, 'whatsapp')];
                   const bday = isToday(c.dateOfBirth);
                   const anniv = isToday(c.marriageDate);
                   return (
@@ -429,6 +450,9 @@ export default function AdminCustomersPage() {
                           <div style={{ minWidth: 0 }}>
                             <div style={{ fontWeight: 650, color: '#2d2724' }}>{c.firstName} {c.lastName}</div>
                             <div style={{ display: 'flex', gap: '.3rem', flexWrap: 'wrap' }}>
+                              {(mailed || whatsApped) && (
+                                <Pill tone="green">Invited {shortDate((mailed ?? whatsApped)!.sentAt)}</Pill>
+                              )}
                               {risky && <Pill tone="red">COD off</Pill>}
                               {bday && <Pill tone="amber">Birthday</Pill>}
                               {anniv && <Pill tone="amber">Anniversary</Pill>}
@@ -449,10 +473,12 @@ export default function AdminCustomersPage() {
                       <td data-label="Joined" style={{ whiteSpace: 'nowrap' }}>{formatJoined(c.createdAt)}</td>
                       <td data-label="Action">
                         <div className="adm-actions" style={{ flexWrap: 'wrap', margin: 0 }}>
-                          <WhatsAppSendButton phone={c.phone} firstName={c.firstName} />
+                          <WhatsAppSendButton phone={c.phone} firstName={c.firstName}
+                                              sentAt={whatsApped?.sentAt} onOpened={() => noteWhatsApp(c.id)} />
                           {c.email
-                            ? <button onClick={() => sendInvite(c)} disabled={inviting === c.id} style={{ color: '#a7354d' }}>
-                                {inviting === c.id ? 'Sending\u2026' : invited.has(c.id) ? 'Mailed \u2713' : 'Mail'}
+                            ? <button onClick={() => sendInvite(c)} disabled={inviting === c.id} style={{ color: '#a7354d' }}
+                                      title={mailed ? `Mailed on ${shortDate(mailed.sentAt)} - click to send again` : 'Send the invite by email'}>
+                                {inviting === c.id ? 'Sending\u2026' : (mailed || invited.has(c.id)) ? 'Mail \u2713' : 'Mail'}
                               </button>
                             : <span title="No email address on this account" style={{ color: '#c4bab5' }}>Mail</span>}
                           <button onClick={() => openEdit(c)}>Edit</button>

@@ -272,6 +272,16 @@ using (var scope = app.Services.CreateScope())
         );
         CREATE INDEX IF NOT EXISTS ix_site_event_log_created
             ON site_event_log (created_at DESC);
+        CREATE TABLE IF NOT EXISTS invite_sends (
+            id         SERIAL PRIMARY KEY,
+            audience   VARCHAR(16)  NOT NULL,
+            person_id  INT          NOT NULL,
+            channel    VARCHAR(16)  NOT NULL,
+            sent_by    VARCHAR(160),
+            sent_at    TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS ix_invite_sends_person
+            ON invite_sends (audience, person_id);
         CREATE TABLE IF NOT EXISTS popup_leads (
             id         SERIAL PRIMARY KEY,
             name       VARCHAR(255),

@@ -29,6 +29,7 @@ public class AppDbContext : DbContext
     public DbSet<WalletTransaction> WalletTransactions { get; set; }
     public DbSet<CustomerAddress> CustomerAddresses { get; set; }
     public DbSet<CelebrationSend> CelebrationSends { get; set; }
+    public DbSet<InviteSend>  InviteSends  { get; set; }
     public DbSet<SiteEventLog> SiteEventLogs { get; set; }
     public DbSet<AbandonedCart> AbandonedCarts { get; set; }
 

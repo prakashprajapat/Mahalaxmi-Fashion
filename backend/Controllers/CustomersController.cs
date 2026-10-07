@@ -212,6 +212,18 @@ public class CustomersController : ControllerBase
             if (!sent)
                 return StatusCode(502, new { success = false, message = "The mail server would not accept it. Try again in a minute." });
 
+            // Written down only once the mail server has taken it. A tick that
+            // appears when nothing was sent is worse than no tick at all.
+            _db.InviteSends.Add(new Models.InviteSend
+            {
+                Audience = "customer",
+                PersonId = customer.Id,
+                Channel  = "email",
+                SentBy   = User.FindFirst(ClaimTypes.Email)?.Value ?? User.Identity?.Name,
+                SentAt   = DateTimeOffset.UtcNow,
+            });
+            await _db.SaveChangesAsync();
+
             return Ok(new { success = true, sentTo = to, message = "Sent to " + to + "." });
         }
         catch (Exception ex)

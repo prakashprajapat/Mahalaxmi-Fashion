@@ -4,7 +4,8 @@ import { getAdminToken } from '@/lib/auth';
 import { fetchAllPages, downloadCsv } from '@/lib/adminPaged';
 import { PageHeader, Card, Stat, StatGrid, Chips, Pill, Empty } from '@/components/admin/Ui';
 import DateFilter, { ANY_DATES, inDateWindow, describeDateWindow, type DateWindow } from '@/components/admin/DateFilter';
-import { WhatsAppSendButton, WhatsAppModeNote } from '@/components/admin/WhatsAppSend';
+import { WhatsAppSendButton } from '@/components/admin/WhatsAppSend';
+import { fetchSends, recordSend, sendKey, shortDate, type SendMap } from '@/lib/outreach';
 
 interface Lead {
   id: number;
@@ -49,6 +50,16 @@ export default function PopupLeadsPage() {
   const [inviting, setInviting] = useState<number | null>(null);
   const [invited, setInvited] = useState<Set<number>>(new Set());
   const [inviteMsg, setInviteMsg] = useState('');
+  const [sends, setSends] = useState<SendMap>({});
+
+  const reloadSends = () => {
+    fetchSends('lead', getAdminToken() ?? '').then(setSends).catch(() => { /* ticks are not worth failing the page for */ });
+  };
+
+  const noteWhatsApp = async (id: number) => {
+    await recordSend('lead', id, 'whatsapp', getAdminToken() ?? '');
+    reloadSends();
+  };
 
 
   const load = async () => {
@@ -64,7 +75,7 @@ export default function PopupLeadsPage() {
     finally { setLoading(false); }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); reloadSends(); }, []);
 
   // The two buttons on this row used to look like they did something and did
   // not. WhatsApp opened a chat with an empty box, and Email was a mailto: that
@@ -86,6 +97,7 @@ export default function PopupLeadsPage() {
       const body = await res.json().catch(() => ({}));
       if (res.ok && body?.success) {
         setInvited(prev => new Set(prev).add(l.id));
+        reloadSends();
         setInviteMsg(`Sent to ${body.sentTo ?? l.email}.`);
       } else {
         setInviteMsg(body?.message || 'The email could not be sent.');
@@ -214,7 +226,10 @@ export default function PopupLeadsPage() {
       </Card>
 
       <Card title={`${filtered.length} ${filtered.length === 1 ? 'lead' : 'leads'}${describeDateWindow(dates) ? ' \u00b7 ' + describeDateWindow(dates) : ''}`}>
-        <WhatsAppModeNote />
+        <p style={{ fontSize: '.75rem', color: '#8a7f76', margin: '0 0 .7rem' }}>
+          WhatsApp opens with the message already written — just press Send. A tick means this
+          person has been written to before; pressing again sends it a second time.
+        </p>
         {inviteMsg && (
           <p style={{ fontSize: '.82rem', fontWeight: 700, margin: '0 0 .6rem',
                       color: inviteMsg.startsWith('Sent to') ? '#2e7d32' : '#c0392b' }}>{inviteMsg}</p>
@@ -251,12 +266,17 @@ export default function PopupLeadsPage() {
               </thead>
               <tbody>
                 {shown.map(l => {
+                  const mailed = sends[sendKey(l.id, 'email')];
+                  const whatsApped = sends[sendKey(l.id, 'whatsapp')];
                   return (
                     <tr key={l.id}>
                       <td data-label="Name">
                         <div style={{ fontWeight: 650, color: '#2d2724', display: 'flex', gap: '.4rem', alignItems: 'center', flexWrap: 'wrap' }}>
                           {l.name || 'No name given'}
                           {isToday(l.createdAt) && <Pill tone="grey">Today</Pill>}
+                          {(mailed || whatsApped) && (
+                            <Pill tone="green">Invited {shortDate((mailed ?? whatsApped)!.sentAt)}</Pill>
+                          )}
                         </div>
                       </td>
                       <td data-label="Email">{l.email || <span style={{ color: '#c4bab5' }}>&mdash;</span>}</td>
@@ -268,10 +288,12 @@ export default function PopupLeadsPage() {
                       <td data-label="Came in" style={{ whiteSpace: 'nowrap' }}>{formatDate(l.createdAt)}</td>
                       <td data-label="Action">
                         <div className="adm-actions" style={{ flexWrap: 'wrap', margin: 0 }}>
-                          <WhatsAppSendButton phone={l.phone ?? undefined} firstName={(l.name ?? '').split(' ')[0] || undefined} />
+                          <WhatsAppSendButton phone={l.phone ?? undefined} firstName={(l.name ?? '').split(' ')[0] || undefined}
+                                              sentAt={whatsApped?.sentAt} onOpened={() => noteWhatsApp(l.id)} />
                           {l.email
-                            ? <button onClick={() => sendInvite(l)} disabled={inviting === l.id} style={{ color: '#a7354d' }}>
-                                {inviting === l.id ? 'Sending…' : invited.has(l.id) ? 'Mailed ✓' : 'Mail'}
+                            ? <button onClick={() => sendInvite(l)} disabled={inviting === l.id} style={{ color: '#a7354d' }}
+                                      title={mailed ? `Mailed on ${shortDate(mailed.sentAt)} - click to send again` : 'Send the invite by email'}>
+                                {inviting === l.id ? 'Sending…' : (mailed || invited.has(l.id)) ? 'Mail ✓' : 'Mail'}
                               </button>
                             : <span title="No email address on this lead" style={{ color: '#c4bab5' }}>Mail</span>}
                           <button onClick={() => handleDelete(l.id)} style={{ color: '#c0392b' }}>Delete</button>
