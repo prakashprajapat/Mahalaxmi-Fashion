@@ -41,16 +41,56 @@ _Fashion • Quality • Value_ ❤️`;
 }
 
 /**
- * A wa.me link for this customer, or '' when there is no usable number.
- *
- * wa.me wants the country code and nothing else — no plus, no spaces, no
- * brackets. A ten-digit Indian number arrives in the database in all of those
- * shapes, so it is reduced to digits and given a 91 if it has not got one.
+ * The number WhatsApp wants: country code and digits, nothing else — no plus,
+ * no spaces, no brackets. A ten-digit Indian mobile arrives in the database in
+ * all of those shapes. Returns '' when there is nothing usable.
  */
-export function whatsAppLink(phone?: string, firstName?: string): string {
+export function whatsAppNumber(phone?: string): string {
   const digits = (phone ?? '').replace(/\D/g, '');
   if (digits.length < 10) return '';
   const ten = digits.slice(-10);
   if (!/^[6-9]/.test(ten)) return '';          // not an Indian mobile
-  return `https://wa.me/91${ten}?text=${encodeURIComponent(shopInviteText(firstName))}`;
+  return `91${ten}`;
+}
+
+/** Just the chat, with nothing typed into it. */
+export function whatsAppChatLink(phone?: string): string {
+  const num = whatsAppNumber(phone);
+  return num ? `https://wa.me/${num}` : '';
+}
+
+/**
+ * Open this customer's chat with the message ready to paste.
+ *
+ * The obvious way to do this is wa.me/<number>?text=<message>, and that is what
+ * this did at first. On a phone it is perfect. On Windows it is not: the link
+ * goes through the browser to the WhatsApp desktop app, and somewhere in that
+ * handover anything outside the old Windows-1252 character set is replaced with
+ * a question mark. The shop's first real send arrived with every emoji turned
+ * into a black diamond — the em dash survived, because it happens to live in
+ * that old set, which is what gave the cause away.
+ *
+ * So the message goes to the clipboard, where nothing touches it, and the chat
+ * opens empty. One Ctrl+V and it is exactly as written, on every machine.
+ *
+ * Returns true when the message is on the clipboard. False means the browser
+ * refused — some do, outside a secure page or without a user gesture — and the
+ * caller should fall back to ?text= rather than open an empty chat with nothing
+ * to paste.
+ */
+export async function copyInviteAndOpenChat(phone?: string, firstName?: string): Promise<boolean> {
+  const chat = whatsAppChatLink(phone);
+  if (!chat) return false;
+
+  const text = shopInviteText(firstName);
+  let copied = false;
+  try {
+    await navigator.clipboard.writeText(text);
+    copied = true;
+  } catch {
+    copied = false;
+  }
+
+  window.open(copied ? chat : `${chat}?text=${encodeURIComponent(text)}`, '_blank', 'noopener');
+  return copied;
 }
