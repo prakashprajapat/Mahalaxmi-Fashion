@@ -277,11 +277,31 @@ using (var scope = app.Services.CreateScope())
             audience   VARCHAR(16)  NOT NULL,
             person_id  INT          NOT NULL,
             channel    VARCHAR(16)  NOT NULL,
+            email      VARCHAR(255),
+            phone      VARCHAR(20),
             sent_by    VARCHAR(160),
             sent_at    TIMESTAMPTZ  NOT NULL DEFAULT NOW()
         );
+        ALTER TABLE invite_sends ADD COLUMN IF NOT EXISTS email VARCHAR(255);
+        ALTER TABLE invite_sends ADD COLUMN IF NOT EXISTS phone VARCHAR(20);
         CREATE INDEX IF NOT EXISTS ix_invite_sends_person
             ON invite_sends (audience, person_id);
+        CREATE INDEX IF NOT EXISTS ix_invite_sends_email ON invite_sends (email);
+        CREATE INDEX IF NOT EXISTS ix_invite_sends_phone ON invite_sends (phone);
+        -- The rows written before the contact was stored. Guarded by IS NULL, so
+        -- this does its work once and then matches nothing.
+        UPDATE invite_sends s
+           SET email = NULLIF(lower(trim(c.email)), ''),
+               phone = NULLIF(right(regexp_replace(coalesce(c.phone,''), '\D', '', 'g'), 10), '')
+          FROM customers c
+         WHERE s.audience = 'customer' AND s.person_id = c.id
+           AND s.email IS NULL AND s.phone IS NULL;
+        UPDATE invite_sends s
+           SET email = NULLIF(lower(trim(l.email)), ''),
+               phone = NULLIF(right(regexp_replace(coalesce(l.phone,''), '\D', '', 'g'), 10), '')
+          FROM popup_leads l
+         WHERE s.audience = 'lead' AND s.person_id = l.id
+           AND s.email IS NULL AND s.phone IS NULL;
         CREATE TABLE IF NOT EXISTS popup_leads (
             id         SERIAL PRIMARY KEY,
             name       VARCHAR(255),

@@ -38,6 +38,24 @@ public class InviteSend
     [Column("channel")]
     public string Channel { get; set; } = "email";
 
+    // The person's email and mobile as they were when the message went out.
+    //
+    // The row used to say only "lead number 12" or "customer number 51", and the
+    // same human being is often both: they leave an address in the popup, and
+    // later make an account with it. Written to from one screen, they looked
+    // untouched on the other, and got the same message twice.
+    //
+    // Matching on the contact rather than the id fixes that, and it has to be
+    // stored here rather than looked up later: a lead can be deleted, and an
+    // email can be edited, and neither should make a message that went out look
+    // as though it never did.
+    [Column("email")]
+    public string? Email { get; set; }
+
+    /// <summary>The last ten digits — the same number typed three ways is one number.</summary>
+    [Column("phone")]
+    public string? Phone { get; set; }
+
     [Column("sent_by")]
     public string? SentBy { get; set; }
 

@@ -219,6 +219,8 @@ public class CustomersController : ControllerBase
                 Audience = "customer",
                 PersonId = customer.Id,
                 Channel  = "email",
+                Email    = to.ToLowerInvariant(),
+                Phone    = OutreachContact.Phone10(customer.Phone),
                 SentBy   = User.FindFirst(ClaimTypes.Email)?.Value ?? User.Identity?.Name,
                 SentAt   = DateTimeOffset.UtcNow,
             });

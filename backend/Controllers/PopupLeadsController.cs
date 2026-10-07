@@ -166,6 +166,8 @@ public class PopupLeadsController : ControllerBase
                 Audience = "lead",
                 PersonId = lead.Id,
                 Channel  = "email",
+                Email    = to.ToLowerInvariant(),
+                Phone    = OutreachContact.Phone10(lead.Phone),
                 SentBy   = User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value ?? User.Identity?.Name,
                 SentAt   = DateTimeOffset.UtcNow,
             });
