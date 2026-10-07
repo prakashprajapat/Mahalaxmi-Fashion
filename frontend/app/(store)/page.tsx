@@ -7,6 +7,8 @@ import ProductEdit from '@/components/home/ProductEdit';
 import GoogleReviews from '@/components/reviews/GoogleReviews';
 import CustomerReviews from '@/components/reviews/CustomerReviews';
 import FaqSection from '@/components/home/FaqSection';
+import InstagramReels from '@/components/home/InstagramReels';
+import { handleOf, parseReels, profileUrlOf } from '@/lib/instagramReels';
 import { toListingProducts } from '@/lib/listingProduct';
 
 // Mukhya panna kitni der tak taiyaar rakha jata hai.
@@ -67,6 +69,18 @@ export default async function HomePage() {
   const heroImgs = Array.from({ length: 6 }, (_, i) => hs[`heroImg${i + 1}`])
     .filter(validMedia) as string[];
 
+  // The Instagram strip, and the one condition it was built under: it goes live
+  // from a button in the admin panel and from nowhere else.
+  //
+  // That switch is read HERE, on the server, which is what makes it a real
+  // switch rather than a hidden div. Off means the component is never rendered,
+  // so the page carries no heading, no tiles, no poster images and no video
+  // requests - there is nothing in the HTML for anyone to find. A section that
+  // shipped to every visitor and then hid itself in CSS would still cost them
+  // the download, and would still be on the page for Google to read.
+  const igOn = (hs.instagramReelsOn ?? '').trim() === 'true';
+  const igReels = igOn ? parseReels(hs.instagramReels) : [];
+
   // The homepage used to be the whole catalogue with a filter sidebar, which is
   // what a category page is for. It is a shop front now: where things are, then
   // two short runs of products, with the full filterable grid one tap away from
@@ -102,6 +116,19 @@ export default async function HomePage() {
         href="/best-sellers"
         hrefLabel="See all"
       />
+
+      {/* Reels, between the products and the reviews.
+          This is the handover from "here is the garment" to "here is somebody
+          else's word for it", and a short film of the cloth moving belongs on
+          that seam rather than at the bottom of the page where nobody reaches.
+          Admin: Settings -> As Seen on Instagram. */}
+      {igReels.length > 0 && (
+        <InstagramReels
+          reels={igReels}
+          handle={handleOf(hs.instagramHandle)}
+          profileUrl={profileUrlOf(hs.instagramHandle)}
+        />
+      )}
 
       {/* Desktop-only trust section below the listing */}
       <div className="home-desktop" style={{ marginTop: 'clamp(2.5rem, 5vw, 4.5rem)' }}>

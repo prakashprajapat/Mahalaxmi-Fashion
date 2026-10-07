@@ -131,6 +131,80 @@ public class SettingsController : ControllerBase
         return File(System.IO.File.OpenRead(full), mime, enableRangeProcessing: true);
     }
 
+    // POST /api/settings/upload-media - a short video, or an image, for the
+    // homepage Instagram strip.
+    //
+    // Separate from upload-image above because that one refuses anything whose
+    // content type is not image/*, which is correct for a hero photograph and
+    // useless for a reel. Same folder, same size envelope, same permission -
+    // only the list of what it will accept is wider.
+    //
+    // The cap is deliberately the same 8 MB as the image path: nginx in front
+    // of this is already configured to let a request that big through, and a
+    // reel that cannot fit in 8 MB is one nobody on a phone should be asked to
+    // download either. A 10-second 720p clip is one to three.
+    [HttpPost("upload-media")]
+    [Authorize]
+    [RequirePerm("settings")]
+    [RequestSizeLimit(9_000_000)]
+    [RequestFormLimits(MultipartBodyLengthLimit = 9_000_000)]
+    public async Task<IActionResult> UploadMedia([FromForm] IFormFile? file)
+    {
+        if (file is null || file.Length == 0)
+            return BadRequest(new { success = false, message = "No file received." });
+
+        var type = (file.ContentType ?? "").ToLowerInvariant();
+        if (!type.StartsWith("image/", StringComparison.Ordinal) && !type.StartsWith("video/", StringComparison.Ordinal))
+            return BadRequest(new { success = false, message = "Only an image or a video can be uploaded here." });
+
+        if (file.Length > 8L * 1024 * 1024)
+            return BadRequest(new { success = false, message = "File too large (max 8 MB). A 10-second clip at 720p is usually 1-3 MB." });
+
+        // The extension decides how it is served later, so it is checked against
+        // a list rather than merely cleaned. An unknown one is refused instead
+        // of being renamed to .jpg, which is what the image path does - harmless
+        // for a photograph, but a video saved as .jpg will not play anywhere.
+        var ext = Path.GetExtension(file.FileName ?? "").ToLowerInvariant();
+        string[] allowed = { ".jpg", ".jpeg", ".png", ".webp", ".gif", ".mp4", ".webm", ".mov" };
+        if (!allowed.Contains(ext))
+            return BadRequest(new { success = false, message = "Use a .jpg, .png, .webp, .mp4 or .webm file." });
+
+        Directory.CreateDirectory(SiteImagesRoot());
+        var name = $"site_{Guid.NewGuid():N}{ext}";
+        await using (var fs = System.IO.File.Create(Path.Combine(SiteImagesRoot(), name)))
+            await file.CopyToAsync(fs);
+
+        return Ok(new { success = true, url = $"/api/settings/media/{name}" });
+    }
+
+    // GET /api/settings/media/{file} - stream a stored site image or video (public).
+    //
+    // Range processing is what makes a video usable: without it the browser can
+    // only take the file from the beginning in one piece, so a tile that scrolls
+    // into view downloads whole before the first frame appears.
+    [HttpGet("media/{file}")]
+    [AllowAnonymous]
+    public IActionResult GetMedia(string file)
+    {
+        var safe = new string((file ?? "").Where(c => char.IsLetterOrDigit(c) || c == '_' || c == '.' || c == '-').ToArray());
+        if (string.IsNullOrEmpty(safe) || safe.Contains(".."))
+            return NotFound();
+        var full = Path.Combine(SiteImagesRoot(), safe);
+        if (!System.IO.File.Exists(full))
+            return NotFound();
+        var mime = Path.GetExtension(full).ToLowerInvariant() switch
+        {
+            ".png" => "image/png",
+            ".webp" => "image/webp",
+            ".gif" => "image/gif",
+            ".mp4" => "video/mp4",
+            ".webm" => "video/webm",
+            ".mov" => "video/quicktime",
+            _ => "image/jpeg"
+        };
+        return File(System.IO.File.OpenRead(full), mime, enableRangeProcessing: true);
+    }
+
     // GET /api/settings  (Public read)
     [HttpGet]
     public async Task<IActionResult> GetAll()

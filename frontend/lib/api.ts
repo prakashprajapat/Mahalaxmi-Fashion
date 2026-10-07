@@ -18,7 +18,19 @@ async function request<T>(
   // products/settings show up quickly on cached pages like the homepage).
   const isServer = typeof window === 'undefined';
   const isGet = !options?.method || options.method === 'GET';
-  const cacheOpts: RequestInit = isServer && isGet ? { next: { revalidate: 60 } } as RequestInit : {};
+  //
+  // A tag goes on alongside the minute, named after what is being fetched:
+  // "api:settings", "api:products". The minute is the floor - the longest a
+  // stale answer can survive on its own - and the tag is the lever, so an
+  // admin screen that has just changed something can clear exactly that answer
+  // and nothing else. Without it, pressing a button in the panel dropped the
+  // PAGE cache while the page then re-rendered from the same minute-old fetch
+  // underneath, and the change appeared up to a minute after the button said it
+  // was live.
+  const tag = `api:${path.replace(/^\//, '').split(/[/?]/)[0] || 'root'}`;
+  const cacheOpts: RequestInit = isServer && isGet
+    ? { next: { revalidate: 60, tags: [tag] } } as RequestInit
+    : {};
 
   const res = await fetch(`${API_BASE}${path}`, { ...cacheOpts, ...options, headers });
   if (!res.ok) {
@@ -516,6 +528,31 @@ export const settingsApi = {
     // anything already small is handed back untouched.
     fd.append('file', await compressImage(file));
     const res = await fetch(`${API_BASE}/settings/upload-image`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      body: fd,
+    });
+    if (!res.ok) {
+      const e = await res.json().catch(() => ({ message: res.statusText }));
+      throw new Error(e.message || `Upload failed (${res.status})`);
+    }
+    const j = await res.json();
+    return j.url as string;
+  },
+
+  // Upload a short video, or a still, for the Instagram strip - admin only;
+  // returns its URL.
+  //
+  // A second call rather than a flag on the one above, because the server side
+  // is a second endpoint: upload-image refuses anything that is not an image,
+  // and widening it would have quietly let a video be uploaded as a hero
+  // banner. compressImage still runs, and still leaves a video alone - so a
+  // poster photograph straight off a phone is shrunk, and the clip is not
+  // touched.
+  uploadMedia: async (file: File, token: string): Promise<string> => {
+    const fd = new FormData();
+    fd.append('file', await compressImage(file));
+    const res = await fetch(`${API_BASE}/settings/upload-media`, {
       method: 'POST',
       headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       body: fd,

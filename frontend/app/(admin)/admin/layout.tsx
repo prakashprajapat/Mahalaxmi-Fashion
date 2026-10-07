@@ -55,6 +55,10 @@ const ALL_NAV: { href?: string; label?: string; exact?: boolean; heading?: strin
   { href: '/admin/seo/collections',     label: '🏷️ Collection Pages' },
   { href: '/admin/seo/categories',      label: '📄 Category Copy' },
   { href: '/admin/seo/home-categories', label: '🏠 Home Categories' },
+  // Lives under /admin/settings because that is the permission it actually
+  // needs - it writes site settings, not SEO content - but it is listed here,
+  // beside Home Categories, because both are the homepage.
+  { href: '/admin/settings/instagram', label: '📸 As Seen on Instagram' },
 
   { heading: 'Accounts' },
   { href: '/admin/reports',     label: '📈 Reports & GSTR-1' },

@@ -25,6 +25,13 @@ export async function POST(req: NextRequest) {
   }
 
   revalidateTag('seo-content');
+  // The fetches the pages are built from, not just the pages. Dropping only the
+  // page cache left the next render reading a minute-old /api/settings answer,
+  // so a switch pressed in the panel could take a minute to show - which reads
+  // as a button that did nothing.
+  revalidateTag('api:settings');
+  revalidateTag('api:seo-content');
+  revalidateTag('api:products');
   for (const p of ['/', '/blog', '/collections', '/sitemap.xml', '/women', '/men', '/kids', '/beauty', '/fabrics']) {
     revalidatePath(p);
   }
