@@ -1,11 +1,12 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { getCustomer, getToken } from '@/lib/auth';
 import { ordersApi } from '@/lib/api';
 import { productImageSrc } from '@/lib/productImages';
 import { productSlug } from '@/lib/productSlug';
+import ExchangeModal from '@/components/orders/ExchangeModal';
 import type { Order, Customer } from '@/types';
 import { formatDateIst } from '@/lib/formatDate';
 
@@ -104,16 +105,22 @@ export default function OrdersPage() {
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'delivered' | 'cancelled'>('all');
   const [detailOrder, setDetailOrder] = useState<Order | null>(null);
 
-  useEffect(() => {
+  const fetchOrders = useCallback(() => {
     const c = getCustomer();
-    if (!c) { router.push('/account'); return; }
-    setCustomer(c);
+    if (!c) return;
     const token = getToken() ?? '';
     ordersApi.getAll({ phone: c.phone, email: c.email }, token)
       .then(r => setOrders(r.orders))
       .catch(() => setOrders([]))
       .finally(() => setLoading(false));
-  }, [router]);
+  }, []);
+
+  useEffect(() => {
+    const c = getCustomer();
+    if (!c) { router.push('/account'); return; }
+    setCustomer(c);
+    fetchOrders();
+  }, [router, fetchOrders]);
 
   const handleCancel = async (orderId: string) => {
     if (!confirm('Are you sure you want to cancel this order?')) return;
@@ -155,6 +162,12 @@ export default function OrdersPage() {
     if (which === 'open') setOpenPhotos(prev => prev.filter((_, i) => i !== idx));
     else setClosePhotos(prev => prev.filter((_, i) => i !== idx));
   };
+
+  // The order whose exchange form is open, and the ones already asked about,
+  // so the button does not invite a second request for a parcel we are already
+  // dealing with.
+  const [exchangeOrder, setExchangeOrder] = useState<Order | null>(null);
+  const [exchangeAsked, setExchangeAsked] = useState<string[]>([]);
 
   const resetReturnForm = () => {
     setReturnOrderId(''); setReturnReason(''); setReturnCallback('');
@@ -540,6 +553,19 @@ export default function OrdersPage() {
                         🔄 Request Return
                       </button>
                     )}
+                    {canReturn(order) && !exchangeAsked.includes(order.id) && (
+                      <button
+                        className="button secondary"
+                        onClick={() => setExchangeOrder(order)}
+                        style={{ fontSize: '.82rem', padding: '.4rem .85rem' }}>
+                        ⇄ Exchange
+                      </button>
+                    )}
+                    {(order.status === 'Exchange Requested' || order.status === 'Exchange Transit' || exchangeAsked.includes(order.id)) && (
+                      <span style={{ fontSize: '.8rem', color: '#8a5a1a', fontWeight: 650, alignSelf: 'center' }}>
+                        Exchange asked for — we will be in touch
+                      </span>
+                    )}
                     {order.status === 'Delivered' && order.cart[0] && (
                       <Link href={`/products/${productSlug(order.cart[0].name, order.cart[0].id)}`} className="button secondary" style={{ fontSize: '.82rem', padding: '.4rem .85rem', borderColor: '#f59e0b', color: '#c77800' }}>
                         ★ Write a Review
@@ -641,6 +667,21 @@ export default function OrdersPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {exchangeOrder && (
+        <ExchangeModal
+          order={exchangeOrder}
+          onClose={() => setExchangeOrder(null)}
+          onDone={() => {
+            setExchangeAsked(prev => [...prev, exchangeOrder.id]);
+            setExchangeOrder(null);
+            // Re-read the orders: the one just asked about now carries
+            // "Exchange Requested", and the page should say so rather than
+            // keep showing a button that would ask again.
+            fetchOrders();
+          }}
+        />
       )}
     </>
   );

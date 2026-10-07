@@ -13,6 +13,7 @@ const ALL_NAV: { href?: string; label?: string; exact?: boolean; heading?: strin
   { heading: 'Sales' },
   { href: '/admin/orders',      label: '📦 Orders' },
   { href: '/admin/risk',        label: '🛡️ Fraud & Risk' },
+  { href: '/admin/orders/exchanges', label: '⇄ Exchanges' },
 
   { heading: 'Catalogue' },
   { href: '/admin/products',    label: '👗 Products' },

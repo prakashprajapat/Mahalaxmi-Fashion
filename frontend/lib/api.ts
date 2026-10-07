@@ -633,6 +633,65 @@ export interface PublicReview {
   createdAt: string;
 }
 
+/** What a customer wants swapped for what, and where the shop has got to with it. */
+export interface Exchange {
+  id: number;
+  orderId: string;
+  customerId: number | null;
+  have: { productId: number; name: string; size: string | null; colour: string | null; price: number };
+  want: { productId: number; name: string; size: string | null; colour: string | null; price: number };
+  /** Positive: the customer owes it. Negative: the shop does. */
+  priceDifference: number;
+  reason: string;
+  description: string | null;
+  photos: string | null;
+  shippingPaidBy: 'shop' | 'customer';
+  status: string;
+  adminNote: string | null;
+  newAwb: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export const exchangesApi = {
+  /** The customer asks to swap one item of a delivered order for another. */
+  create: (
+    data: {
+      orderId: string;
+      haveProductId: number; haveSize?: string; haveColour?: string;
+      wantProductId: number; wantSize?: string; wantColour?: string;
+      reason: string; description?: string; photos?: string[];
+    },
+    token: string,
+  ) =>
+    request<{ success: boolean; exchange: Exchange }>(
+      '/exchanges', { method: 'POST', body: JSON.stringify(data) }, token,
+    ),
+
+  mine: (token: string, orderId?: string) =>
+    request<{ success: boolean; exchanges: Exchange[] }>(
+      `/exchanges/mine${orderId ? `?orderId=${encodeURIComponent(orderId)}` : ''}`, undefined, token,
+    ),
+
+  all: (token: string, status?: string) =>
+    request<{
+      success: boolean;
+      exchanges: Array<{
+        exchange: Exchange;
+        customer: { name: string | null; phone: string | null; email: string | null; awb: string | null; orderStatus: string } | null;
+      }>;
+    }>(`/exchanges${status ? `?status=${encodeURIComponent(status)}` : ''}`, undefined, token),
+
+  update: (
+    id: number,
+    data: { status?: string; adminNote?: string; shippingPaidBy?: 'shop' | 'customer'; newAwb?: string },
+    token: string,
+  ) =>
+    request<{ success: boolean; exchange: Exchange }>(
+      `/exchanges/${id}`, { method: 'PATCH', body: JSON.stringify(data) }, token,
+    ),
+};
+
 export const reviewsApi = {
   getPending: (token: string) =>
     request<{ success: boolean; reviews: import('@/types').Review[] }>('/reviews/pending', undefined, token),

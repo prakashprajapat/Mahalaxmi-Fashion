@@ -111,10 +111,20 @@ export default function ReturnExchangePage() {
         <article className="policy-card">
           <h2>7. Exchanges</h2>
           <p>
-            We handle an exchange as a return plus a fresh order, because it is faster than holding your money
-            while a parcel travels both ways. Place the new order whenever you like; we refund the first one as
-            soon as it reaches us. If we sent the wrong size, tell us and we will post the right one without
-            waiting for the first to come back.
+            Ask for an exchange from <strong>My Orders</strong>, on the order itself, within the same 7 days.
+            Choose the item you want to send back and what you would like instead &mdash; a different size or
+            colour of the same thing, or something else altogether. Your money stays on the order, so there is
+            nothing to pay again and nothing to wait for in your bank.
+          </p>
+          <p>
+            If the new item costs more, you pay only the difference; if it costs less, the difference comes back
+            to your wallet. We check the size is actually on the shelf before agreeing, and tell you either way.
+            Only the item you named comes back &mdash; the rest of the order stays with you.
+          </p>
+          <p>
+            Return postage follows the same rule as a return: if we sent the wrong thing, or it arrived damaged,
+            we pay the courier both ways. If the size did not suit or you changed your mind, the postage back
+            is yours.
           </p>
         </article>
 

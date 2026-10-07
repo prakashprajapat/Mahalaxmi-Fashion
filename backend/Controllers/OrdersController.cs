@@ -25,7 +25,10 @@ public class OrdersController : ControllerBase
         "Order Received", "Pending", "Pending confirmation", "Paid", "On Hold",
         "Order Packed", "Ready for Shipping",
         "Shipped", "Transit", "Delivered", "Return Requested", "Return Transit",
-        "Return", "Cancel Requested", "Cancelled"
+        "Return", "Cancel Requested", "Cancelled",
+        // An exchange keeps the money and swaps the goods, so it needs its own
+        // states: the order is neither returned nor still simply delivered.
+        "Exchange Requested", "Exchange Transit", "Exchanged"
     ];
 
     private readonly IWebHostEnvironment _env;

@@ -273,6 +273,33 @@ using (var scope = app.Services.CreateScope())
         CREATE INDEX IF NOT EXISTS ix_site_event_log_created
             ON site_event_log (created_at DESC);
         ALTER TABLE reviews ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ;
+        CREATE TABLE IF NOT EXISTS exchange_requests (
+            id               SERIAL PRIMARY KEY,
+            order_id         VARCHAR(64)  NOT NULL,
+            customer_id      INT,
+            have_product_id  INT          NOT NULL,
+            have_name        VARCHAR(300) NOT NULL DEFAULT '',
+            have_size        VARCHAR(60),
+            have_colour      VARCHAR(60),
+            have_price       NUMERIC(12,2) NOT NULL DEFAULT 0,
+            want_product_id  INT          NOT NULL,
+            want_name        VARCHAR(300) NOT NULL DEFAULT '',
+            want_size        VARCHAR(60),
+            want_colour      VARCHAR(60),
+            want_price       NUMERIC(12,2) NOT NULL DEFAULT 0,
+            price_difference NUMERIC(12,2) NOT NULL DEFAULT 0,
+            reason           VARCHAR(200) NOT NULL DEFAULT '',
+            description      TEXT,
+            photos           TEXT,
+            shipping_paid_by VARCHAR(16)  NOT NULL DEFAULT 'customer',
+            status           VARCHAR(24)  NOT NULL DEFAULT 'Requested',
+            admin_note       TEXT,
+            new_awb          VARCHAR(64),
+            created_at       TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+            updated_at       TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS ix_exchange_requests_order  ON exchange_requests (order_id);
+        CREATE INDEX IF NOT EXISTS ix_exchange_requests_status ON exchange_requests (status, created_at DESC);
         CREATE TABLE IF NOT EXISTS invite_sends (
             id         SERIAL PRIMARY KEY,
             audience   VARCHAR(16)  NOT NULL,
