@@ -8,6 +8,7 @@ import { productImageSrc } from '@/lib/productImages';
 import { productSlug } from '@/lib/productSlug';
 import { presetColourCode, swatchBackground } from '@/lib/presetColours';
 import { variantStockFor } from '@/lib/variantStock';
+import { allSlotPhotos } from '@/lib/photoExtras';
 
 interface ExtraJson {
   sizes?: string[];
@@ -96,24 +97,21 @@ export default function QuickViewModal({ product, onClose }: Props) {
     if (hasProductPhotos) {
       // productPhotos.front IS the main image — don't also add product.image
       // separately, that can show the main photo twice when file names differ.
-      ['front', 'side', 'back', 'zoomed'].forEach(key => addImage(extra.productPhotos?.[key]));
-      // And the numbered ones past those four, in the order they were added.
-      Object.keys(extra.productPhotos ?? {})
-        .filter(k => /^extra\d+$/.test(k))
-        .sort((a, b) => Number(a.slice(5)) - Number(b.slice(5)))
-        .forEach(k => addImage(extra.productPhotos?.[k]));
+      // The four named views, then the numbered ones after them.
+      allSlotPhotos(extra.productPhotos).forEach(addImage);
     } else {
       addImage(product.image);
       (extra.images ?? []).forEach(addImage);
     }
     // For a pack, also show each pack item's (column) photos.
     if (isPackProduct) {
-      // Show every photo the merchant filled for each pack item (column):
-      // front/side/back/zoomed. Duplicates are removed by file name above.
+      // Every photo the merchant filled for each pack item (column) - the four
+      // named views and the numbered ones after them. Duplicates are removed by
+      // file name above.
       const packPhotos = extra.packImages ?? extra.packColumnPhotos ?? extra.variantColumns ?? [];
       packPhotos.forEach(item => {
         if (typeof item === 'string') addImage(item);
-        else ['front', 'side', 'back', 'zoomed'].forEach(key => addImage(item[key]));
+        else allSlotPhotos(item).forEach(addImage);
       });
     }
     return imgs;

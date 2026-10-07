@@ -13,6 +13,7 @@ import TaxonomyCombo from '@/components/admin/TaxonomyCombo';
 import { PageHeader } from '@/components/admin/Ui';
 import { colourProblem, colourNameToHex } from '@/lib/googleColours';
 import { fetchAllProducts } from '@/lib/adminPaged';
+import { MAX_EXTRA, MAX_PHOTOS, asNumberedExtras } from '@/lib/photoExtras';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const CATEGORIES = ['Women','Men','Kids','Beauty','Fabrics','More'];
@@ -25,16 +26,13 @@ const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 // `photo` is the FRONT view (column thumbnail); side/back/zoomed are the rest of that
 // design's gallery (shown on the storefront when the customer picks this colour/design).
 type CustomColour = { name: string; code: string; photo: string; columnLetter: string; side?: string; back?: string; zoomed?: string };
-type PackColumn  = { letter: string; front: string; side: string; back: string; zoomed: string };
+type PackColumn  = { letter: string; front: string; side: string; back: string; zoomed: string; extra: string[] };
 // Front, side, back and zoomed are the four a product should always have, so
 // they keep their names and their places. Everything past them is just "another
 // photo" - a fabric close-up, the label, the same dress on a different person -
 // and those have no name worth giving, so they are a list.
 type MainPhotos  = { front: string; side: string; back: string; zoomed: string; extra: string[] };
 
-/** Four named views plus six more. Ten is where a customer stops scrolling. */
-const MAX_PHOTOS = 10;
-const MAX_EXTRA  = MAX_PHOTOS - 4;
 type AddOn       = { name: string; price: string };
 type Variant     = { name: string; price: string; stock: string };
 
@@ -53,15 +51,39 @@ function getPackOfNumber(value: string | number): number {
 }
 
 function hasPackPhoto(col: PackColumn): boolean {
-  return Boolean(col.front || col.side || col.back || col.zoomed);
+  return Boolean(col.front || col.side || col.back || col.zoomed || (col.extra ?? []).some(Boolean));
 }
 
 function normalizePackColumns(cols: PackColumn[], packOf: number): PackColumn[] {
   const extraCount = packOf >= 2 ? packOf - 1 : 0;
   return Array.from({ length: extraCount }, (_, i) => ({
-    ...(cols[i] ?? { front:'', side:'', back:'', zoomed:'' }),
+    ...(cols[i] ?? { front:'', side:'', back:'', zoomed:'', extra: [] }),
+    extra: cols[i]?.extra ?? [],
     letter: LETTERS[i] ?? String(i + 1),
   }));
+}
+
+/**
+ * A column on its way into extra_json: the four named views, then extra1..extraN.
+ *
+ * Exactly the shape the main Product Photos use, on purpose. The storefront
+ * gallery reads both out of the same helper, so a photo added to a pack column
+ * needs no second reader and cannot be the one that gets forgotten.
+ */
+function packColStored(col: PackColumn): Record<string, string> {
+  return {
+    letter: col.letter,
+    front:  col.front,
+    side:   col.side,
+    back:   col.back,
+    zoomed: col.zoomed,
+    ...asNumberedExtras(col.extra),
+  };
+}
+
+/** Every photo in a column, for the duplicate-photo check and the QC gate. */
+function packColPhotos(col: PackColumn): string[] {
+  return [col.front, col.side, col.back, col.zoomed, ...(col.extra ?? [])].filter(Boolean);
 }
 
 function splitList(value: string): string[] {
@@ -829,8 +851,24 @@ export default function AddProductPage() {
   };
 
   // ── Pack column photo update ──
-  const updateCol = (idx: number, field: keyof PackColumn, val: string) =>
+  const updateCol = (idx: number, field: 'front' | 'side' | 'back' | 'zoomed', val: string) =>
     setPackCols(prev => prev.map((c, i) => i === idx ? { ...c, [field]: val } : c));
+
+  // ── Pack column: the photos past the four named views ──
+  const updateColExtra = (idx: number, slot: number, val: string) =>
+    setPackCols(prev => prev.map((c, i) => i === idx
+      ? { ...c, extra: (c.extra ?? []).map((x, j) => (j === slot ? val : x)) }
+      : c));
+
+  const addColExtra = (idx: number) =>
+    setPackCols(prev => prev.map((c, i) => i === idx && c.extra.length < MAX_EXTRA
+      ? { ...c, extra: [...c.extra, ''] }
+      : c));
+
+  const removeColExtra = (idx: number, slot: number) =>
+    setPackCols(prev => prev.map((c, i) => i === idx
+      ? { ...c, extra: c.extra.filter((_, j) => j !== slot) }
+      : c));
 
   // ── Colour/Design gallery photo update (Front/Side/Back/Zoomed per photo-design) ──
   const updateDesignPhoto = (idx: number, field: 'photo' | 'side' | 'back' | 'zoomed', val: string) =>
@@ -855,7 +893,7 @@ export default function AddProductPage() {
       // ── QC GATE: Duplicate Name / Duplicate Photo / Description / SEO checks ──
       const allPhotos = [
         ...galleryImages,
-        ...filledPackCols.flatMap(c => [c.front, c.side, c.back, c.zoomed].filter(Boolean)),
+        ...filledPackCols.flatMap(packColPhotos),
       ];
       // Soochi panna khulte hi mangwa li gayi thi (neeche wala effect), isliye
       // yahan aam taur par intezar hota hi nahi. Pehle yeh poori soochi save
@@ -920,14 +958,14 @@ export default function AddProductPage() {
       const saveQty = stockKeys.length > 0
         ? (Number(totalQty) || stockKeys.reduce((sum, key) => sum + (Number(variantStock[key]) || 0), 0))
         : (Number(totalQty) || 0);
+      // packImages is the one the storefront reads FIRST (packImages ??
+      // packColumnPhotos ?? variantColumns), so the extra photos have to be in
+      // here as well. Writing them to packColumnPhotos alone would have saved
+      // them perfectly and shown none of them.
       const packImages = filledPackCols.map(col => ({
         label: col.letter,
-        letter: col.letter,
         url: col.front,
-        front: col.front,
-        side: col.side,
-        back: col.back,
-        zoomed: col.zoomed,
+        ...packColStored(col),
       }));
       // Only the rows the merchant actually filled in reach the site.
       const cleanSpecs = Object.fromEntries(Object.entries(specs).filter(([, v]) => v.trim()));
@@ -942,7 +980,7 @@ export default function AddProductPage() {
         customColors: customColours,
         images: galleryImages,
         packOf: packValue >= 2 ? packValue : undefined,
-        packColumnPhotos: packValue >= 2 ? normalizedPackCols : undefined,
+        packColumnPhotos: packValue >= 2 ? normalizedPackCols.map(packColStored) : undefined,
         packImages: packImages.length ? packImages : undefined,
         variantColumns: packImages.length ? packImages : undefined,
         variantMatrix: trackVariants ? stockMatrix : undefined,
@@ -950,7 +988,7 @@ export default function AddProductPage() {
         productPhotos: {
           front: mainPhotos.front, side: mainPhotos.side,
           back: mainPhotos.back, zoomed: mainPhotos.zoomed,
-          ...Object.fromEntries(mainPhotos.extra.filter(Boolean).map((v, i) => [`extra${i + 1}`, v])),
+          ...asNumberedExtras(mainPhotos.extra),
         },
         addOns: addOns.filter(a => a.name.trim()),
         variants: variants.filter(v => v.name.trim()),
@@ -1310,7 +1348,7 @@ export default function AddProductPage() {
               PACK COLUMN PHOTOS
             </p>
             <p style={{ fontSize:'.8rem', color:'#888', marginBottom:'1.25rem' }}>
-              For each item, Front, Side, Back and Zoomed photos are generated automatically based on the Pack of value. Pack of {getPackOfNumber(packOf)} = {packCols.map(c=>c.letter).join(', ')}
+              For each item, Front, Side, Back and Zoomed photos are generated automatically based on the Pack of value. Pack of {getPackOfNumber(packOf)} = {packCols.map(c=>c.letter).join(', ')}. Each item can carry up to {MAX_PHOTOS} photos of its own.
             </p>
             <div style={{ display:'flex', flexDirection:'column', gap:'1.5rem' }}>
               {packCols.map((col, idx) => (
@@ -1322,10 +1360,50 @@ export default function AddProductPage() {
                     <span style={{ fontWeight:700, fontSize:'.92rem' }}>{col.letter}</span>
                   </div>
                   <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:'.75rem' }}>
-                    <PhotoSlot label="FRONT"  value={col.front}  onChange={v => updateCol(idx,'front',v)}  isFirst />
-                    <PhotoSlot label="SIDE VIEW"   value={col.side}   onChange={v => updateCol(idx,'side',v)} />
-                    <PhotoSlot label="BACK VIEW"   value={col.back}   onChange={v => updateCol(idx,'back',v)} />
-                    <PhotoSlot label="ZOOMED IN"   value={col.zoomed} onChange={v => updateCol(idx,'zoomed',v)} />
+                    <PhotoSlot label="FRONT" value={col.front}  onChange={v => updateCol(idx,'front',v)}  isFirst />
+                    <PhotoSlot label="SIDE VIEW"  value={col.side}   onChange={v => updateCol(idx,'side',v)} />
+                    <PhotoSlot label="BACK VIEW"  value={col.back}   onChange={v => updateCol(idx,'back',v)} />
+                    <PhotoSlot label="ZOOMED IN"  value={col.zoomed} onChange={v => updateCol(idx,'zoomed',v)} />
+
+                    {/* The ones past the four named views, for THIS design.
+                        A pack of four designs is four garments sharing one
+                        page: a shopper who picks design C and sees four
+                        photographs of design A has been shown the wrong
+                        clothes. */}
+                    {col.extra.map((img, slot) => (
+                      <div key={slot} style={{ position:'relative' }}>
+                        <PhotoSlot
+                          label={`PHOTO ${slot + 5}`}
+                          value={img}
+                          onChange={v => updateColExtra(idx, slot, v)} />
+                        <button type="button"
+                          onClick={() => removeColExtra(idx, slot)}
+                          title="Remove this photo"
+                          style={{
+                            position:'absolute', top:4, right:4, zIndex:3,
+                            width:22, height:22, lineHeight:'20px', textAlign:'center',
+                            borderRadius:'50%', border:'none', background:'rgba(0,0,0,.55)',
+                            color:'#fff', fontSize:'.8rem', cursor:'pointer', padding:0,
+                          }}>
+                          &times;
+                        </button>
+                      </div>
+                    ))}
+
+                    {col.extra.length < MAX_EXTRA && (
+                      <button type="button"
+                        onClick={() => addColExtra(idx)}
+                        style={{
+                          minHeight:150, borderRadius:10, cursor:'pointer',
+                          border:'2px dashed #d8cfca', background:'#fcfaf9', color:'#722f37',
+                          fontWeight:700, fontSize:'.85rem',
+                        }}>
+                        + Add a photo
+                        <span style={{ display:'block', fontWeight:400, fontSize:'.72rem', color:'#8a7f76', marginTop:'.2rem' }}>
+                          {4 + col.extra.length} of {MAX_PHOTOS} used
+                        </span>
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}
