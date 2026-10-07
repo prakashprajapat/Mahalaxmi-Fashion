@@ -24,7 +24,14 @@ const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 // design's gallery (shown on the storefront when the customer picks this colour/design).
 type CustomColour = { name: string; code: string; photo: string; columnLetter: string; side?: string; back?: string; zoomed?: string };
 type PackColumn   = { letter: string; front: string; side: string; back: string; zoomed: string };
-type MainPhotos   = { front: string; side: string; back: string; zoomed: string };
+// Front, side, back and zoomed are the four a product should always have, so
+// they keep their names and their places. Everything past them is just "another
+// photo" and has no name worth giving, so it is a list.
+type MainPhotos   = { front: string; side: string; back: string; zoomed: string; extra: string[] };
+
+/** Four named views plus six more. Ten is where a customer stops scrolling. */
+const MAX_PHOTOS = 10;
+const MAX_EXTRA  = MAX_PHOTOS - 4;
 type AddOn        = { name: string; price: string };
 type Variant      = { name: string; price: string; stock: string };
 
@@ -653,7 +660,7 @@ export default function EditProductPage() {
   const [showColModal, setShowColModal] = useState(false);
 
   const [packCols, setPackCols]     = useState<PackColumn[]>([]);
-  const [mainPhotos, setMainPhotos] = useState<MainPhotos>({ front:'', side:'', back:'', zoomed:'' });
+  const [mainPhotos, setMainPhotos] = useState<MainPhotos>({ front:'', side:'', back:'', zoomed:'', extra: [] });
   const [addOns, setAddOns]         = useState<AddOn[]>([]);
 
   // Variants
@@ -752,6 +759,12 @@ export default function EditProductPage() {
             side:   pp.side   ?? '',
             back:   pp.back   ?? '',
             zoomed: pp.zoomed ?? '',
+            extra: Object.keys(pp)
+              .filter(k => /^extra\d+$/.test(k))
+              .sort((a, b) => Number(a.slice(5)) - Number(b.slice(5)))
+              .map(k => pp[k])
+              .filter(Boolean)
+              .slice(0, MAX_EXTRA),
           });
 
           // Qty
@@ -769,7 +782,7 @@ export default function EditProductPage() {
             (ex.variants ?? []).map((v: any) => ({ name: String(v.name ?? ''), price: String(v.price ?? ''), stock: String(v.stock ?? '') }))
           );
         } catch {
-          setMainPhotos({ front: p.image ?? '', side:'', back:'', zoomed:'' });
+          setMainPhotos({ front: p.image ?? '', side:'', back:'', zoomed:'', extra: [] });
           setTotalQty(String(p.qty ?? ''));
         }
       })
@@ -854,7 +867,7 @@ export default function EditProductPage() {
       const packValue     = getPackOfNumber(packOf);
       const normalizedPackCols = normalizePackColumns(packCols, packValue);
       const filledPackCols = normalizedPackCols.filter(hasPackPhoto);
-      const galleryImages  = [mainPhotos.front, mainPhotos.side, mainPhotos.back, mainPhotos.zoomed].filter(Boolean);
+      const galleryImages  = [mainPhotos.front, mainPhotos.side, mainPhotos.back, mainPhotos.zoomed, ...mainPhotos.extra].filter(Boolean);
 
       // ── QC GATE (edit) — LIGHT ──
       // PERF: On edit we deliberately SKIP the cross-catalogue duplicate scan.
@@ -928,7 +941,11 @@ export default function EditProductPage() {
         colorShades:      printColour && printShades.length > 1 ? { [printColour]: printShades } : undefined,
         customColors:     customColours,
         images:           galleryImages,
-        productPhotos:    mainPhotos,
+        productPhotos:    {
+          front: mainPhotos.front, side: mainPhotos.side,
+          back: mainPhotos.back, zoomed: mainPhotos.zoomed,
+          ...Object.fromEntries(mainPhotos.extra.filter(Boolean).map((v, i) => [`extra${i + 1}`, v])),
+        },
         addOns:           addOns.filter(a => a.name.trim()),
         variants:         variants.filter(v => v.name.trim()),
         availColours:     availColours.trim() || undefined,
@@ -1554,13 +1571,53 @@ export default function EditProductPage() {
         {/* ── Product Photos ── */}
         <div style={{ marginTop:'1.5rem', borderTop:'1px solid #f0f0f0', paddingTop:'1.5rem' }}>
           <p style={{ fontSize:'.82rem', fontWeight:600, color:'#444', marginBottom:'.25rem' }}>
-            Product Photos <span style={{ fontWeight:400, color:'#888' }}>Front · Side · Back · Zoomed</span>
+            Product Photos{' '}
+            <span style={{ fontWeight:400, color:'#888' }}>
+              Front · Side · Back · Zoomed, and up to {MAX_EXTRA} more
+            </span>
           </p>
           <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:'.75rem', marginTop:'.75rem' }}>
             <PhotoSlot label="FRONT VIEW" value={mainPhotos.front}  onChange={v => setMainPhotos(p => ({...p, front:v}))}  isFirst />
             <PhotoSlot label="SIDE VIEW"  value={mainPhotos.side}   onChange={v => setMainPhotos(p => ({...p, side:v}))} />
             <PhotoSlot label="BACK VIEW"  value={mainPhotos.back}   onChange={v => setMainPhotos(p => ({...p, back:v}))} />
             <PhotoSlot label="ZOOMED IN"  value={mainPhotos.zoomed} onChange={v => setMainPhotos(p => ({...p, zoomed:v}))} />
+
+            {mainPhotos.extra.map((img, i) => (
+              <div key={i} style={{ position:'relative' }}>
+                <PhotoSlot
+                  label={`PHOTO ${i + 5}`}
+                  value={img}
+                  onChange={v => setMainPhotos(p => ({
+                    ...p, extra: p.extra.map((x, j) => (j === i ? v : x)),
+                  }))} />
+                <button type="button"
+                  onClick={() => setMainPhotos(p => ({ ...p, extra: p.extra.filter((_, j) => j !== i) }))}
+                  title="Remove this photo"
+                  style={{
+                    position:'absolute', top:4, right:4, zIndex:3,
+                    width:22, height:22, lineHeight:'20px', textAlign:'center',
+                    borderRadius:'50%', border:'none', background:'rgba(0,0,0,.55)',
+                    color:'#fff', fontSize:'.8rem', cursor:'pointer', padding:0,
+                  }}>
+                  ×
+                </button>
+              </div>
+            ))}
+
+            {mainPhotos.extra.length < MAX_EXTRA && (
+              <button type="button"
+                onClick={() => setMainPhotos(p => ({ ...p, extra: [...p.extra, ''] }))}
+                style={{
+                  minHeight:150, borderRadius:10, cursor:'pointer',
+                  border:'2px dashed #d8cfca', background:'#fcfaf9', color:'#722f37',
+                  fontWeight:700, fontSize:'.85rem',
+                }}>
+                + Add a photo
+                <span style={{ display:'block', fontWeight:400, fontSize:'.72rem', color:'#8a7f76', marginTop:'.2rem' }}>
+                  {4 + mainPhotos.extra.length} of {MAX_PHOTOS} used
+                </span>
+              </button>
+            )}
           </div>
           <div style={{ display:'flex', alignItems:'center', gap:'.75rem', marginTop:'1rem' }}>
             <span style={{ fontSize:'.82rem', color:'#888', fontWeight:600, whiteSpace:'nowrap' }}>Or paste URL:</span>

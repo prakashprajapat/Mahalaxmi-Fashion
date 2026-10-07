@@ -97,6 +97,11 @@ export default function QuickViewModal({ product, onClose }: Props) {
       // productPhotos.front IS the main image — don't also add product.image
       // separately, that can show the main photo twice when file names differ.
       ['front', 'side', 'back', 'zoomed'].forEach(key => addImage(extra.productPhotos?.[key]));
+      // And the numbered ones past those four, in the order they were added.
+      Object.keys(extra.productPhotos ?? {})
+        .filter(k => /^extra\d+$/.test(k))
+        .sort((a, b) => Number(a.slice(5)) - Number(b.slice(5)))
+        .forEach(k => addImage(extra.productPhotos?.[k]));
     } else {
       addImage(product.image);
       (extra.images ?? []).forEach(addImage);

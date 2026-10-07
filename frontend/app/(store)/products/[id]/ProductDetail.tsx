@@ -362,6 +362,13 @@ export default function ProductDetail({ params, initialProduct = null }: { param
     // productPhotos.front IS the main image — don't also add product.image
     // separately, that can show the main photo twice when file names differ.
     ['front', 'side', 'back', 'zoomed'].forEach(key => addGalleryImage(extra.productPhotos?.[key]));
+    // Anything past the four named views, in the order it was added. Numbered
+    // rather than named because a fabric close-up and a label shot have no
+    // name worth giving, and the shop should not have to invent one.
+    Object.keys(extra.productPhotos ?? {})
+      .filter(k => /^extra\d+$/.test(k))
+      .sort((a, b) => Number(a.slice(5)) - Number(b.slice(5)))
+      .forEach(k => addGalleryImage(extra.productPhotos?.[k]));
   } else {
     addGalleryImage(product.image);
     (extra.images ?? []).forEach(addGalleryImage);
