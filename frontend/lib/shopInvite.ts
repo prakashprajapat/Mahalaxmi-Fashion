@@ -13,31 +13,42 @@ const SITE = 'https://www.mahalaxmifashionhub.com';
 const APP = 'https://play.google.com/store/apps/details?id=com.mahalaxmifashionhub.www.twa';
 const AFFILIATE = 'https://affiliate.mahalaxmifashionhub.com/';
 
-export function shopInviteText(firstName?: string): string {
+/**
+ * The same message, with or without the emoji.
+ *
+ * The plain version is not a lesser one. Somewhere between this page and the
+ * customer's phone the emoji have been arriving as black diamonds, and a
+ * diamond is worse than no emoji at all — it reads as a shop whose messages are
+ * broken. So the plain version carries the same words, with the bullet and the
+ * dash doing the decorating; both of those are old enough to survive anything.
+ */
+export function shopInviteText(firstName?: string, withEmoji = true): string {
   const hello = firstName?.trim() ? `Hello ${firstName.trim()}! ` : '';
+  const e = (emoji: string) => (withEmoji ? emoji + ' ' : '');
+  const tail = withEmoji ? ' ✨' : '';
 
-  return `🛍️ *Welcome to Mahalaxmi Fashion Hub!* ❤️
+  return `${e('🛍️')}*Welcome to Mahalaxmi Fashion Hub!*${withEmoji ? ' ❤️' : ''}
 
-${hello}You are already part of our fashion family — and there is a lot on the shelves now that was not there last time ✨
+${hello}You are already part of our fashion family — and there is a lot on the shelves now that was not there last time${tail}
 
-New in: *Sarees, Nighties, Dresses, Kurti Sets and Rajasthani Wear* 👗
+New in: *Sarees, Nighties, Dresses, Kurti Sets and Rajasthani Wear*${withEmoji ? ' 👗' : ''}
 
-🌐 *Shop now*
+${e('🌐')}*Shop now*
 ${SITE}/?utm_source=whatsapp&utm_medium=invite
 
-📱 *Shop easily on our app*
+${e('📱')}*Shop easily on our app*
 ${APP}
 
-💰 *Refer & Earn* — invite your friends and family, earn rewards
+${e('💰')}*Refer & Earn* — invite your friends and family, earn rewards
 ${SITE}/account/refer
 
-🤝 *Are you a creator?* Join our affiliate programme and earn by promoting our products
+${e('🤝')}*Are you a creator?* Join our affiliate programme and earn by promoting our products
 ${AFFILIATE}
 
-✨ Your next favourite outfit might be just one click away!
+${withEmoji ? '✨ ' : ''}Your next favourite outfit might be just one click away!
 
 *Mahalaxmi Fashion Hub*
-_Fashion • Quality • Value_ ❤️`;
+_Fashion • Quality • Value_${withEmoji ? ' ❤️' : ''}`;
 }
 
 /**
@@ -54,44 +65,34 @@ export function whatsAppNumber(phone?: string): string {
 }
 
 /**
- * This customer's chat, with the message already in the box.
+ * This customer's chat on WhatsApp Web, with the message already in the box.
  *
- * Deliberately web.whatsapp.com rather than wa.me, and that is the whole point
- * of this function.
+ * web.whatsapp.com is reached directly, and that is the point. The other route,
+ * wa.me, does not go to WhatsApp: it goes to a redirect that rewrites the link
+ * and hands it on, and the rewrite is where the emoji have been dying. The
+ * giveaway was in the address bar — spaces had become + and the asterisks %2A,
+ * which is not what this code produces, so something in between had taken the
+ * link apart and put it back together badly.
  *
- * wa.me is the usual link and on a phone it is perfect. On Windows it is not:
- * the link travels browser -> WhatsApp desktop app, and in that handover
- * anything outside the old Windows-1252 character set is replaced. The shop's
- * first real send arrived with every emoji turned into a black diamond, while
- * the em dash came through intact — and the em dash is in that old set, which
- * is what named the culprit.
- *
- * Putting the message on the clipboard instead did keep the emoji, but it made
- * a one-click job into copy, switch, paste, send, and an empty chat window
- * reads as a broken button however clearly the screen explains itself.
- *
- * web.whatsapp.com never leaves the browser, so nothing converts anything: the
- * message arrives exactly as written, in one click. The cost is that the
- * browser has to be signed in to WhatsApp Web — scanned once from the phone,
- * and it stays signed in.
+ * The cost is that the browser has to be signed in to WhatsApp Web, scanned once
+ * from the phone.
  */
-export function whatsAppWebLink(phone?: string, firstName?: string): string {
+export function whatsAppWebLink(phone?: string, firstName?: string, withEmoji = true): string {
   const num = whatsAppNumber(phone);
   if (!num) return '';
-  return `https://web.whatsapp.com/send?phone=${num}&text=${encodeURIComponent(shopInviteText(firstName))}`;
+  return `https://web.whatsapp.com/send?phone=${num}&text=${encodeURIComponent(shopInviteText(firstName, withEmoji))}`;
 }
 
 /**
  * The same chat in the WhatsApp app installed on this computer.
  *
  * Offered because that is where the shop already works all day, and signing in
- * to WhatsApp Web is a step some people would rather not take. The cost is the
- * handover described above: the words and the links arrive intact, the emoji
- * may not. Which of the two matters more is not a judgement to make on somebody
- * else's behalf, so the screen asks once and remembers.
+ * to WhatsApp Web is a step some people would rather not take. This is the route
+ * that goes through the rewriting redirect, so it is also the one where the
+ * emoji may not survive — which is why the plain-text choice exists beside it.
  */
-export function whatsAppDesktopLink(phone?: string, firstName?: string): string {
+export function whatsAppDesktopLink(phone?: string, firstName?: string, withEmoji = true): string {
   const num = whatsAppNumber(phone);
   if (!num) return '';
-  return `https://wa.me/${num}?text=${encodeURIComponent(shopInviteText(firstName))}`;
+  return `https://wa.me/${num}?text=${encodeURIComponent(shopInviteText(firstName, withEmoji))}`;
 }
