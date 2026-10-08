@@ -1073,8 +1073,21 @@ public class OrdersController : ControllerBase
             var cj0 = ParseJson(order.CustomerJson);
             var orderCustomerId = GetJsonStr(cj0, "id");
             var orderEmail = GetJsonStr(cj0, "email");
-            if (callerId != orderCustomerId &&
-                !string.Equals(callerEmail, orderEmail, StringComparison.OrdinalIgnoreCase))
+            // Dono taraf ka khali email "match" nahi hai.
+            //
+            // Phone-OTP se bane customer ka email claim "" hota hai, aur
+            // guest/COD order me email bhi "" hota hai. Purana shart
+            // `!string.Equals("", "")` false tha, `&&` wahin gir jata tha, aur
+            // Forbid() kabhi chalta hi nahi tha - yani sirf mobile se bana koi
+            // bhi customer kisi ka bhi bina-email order padh, cancel aur return
+            // kar sakta tha, invoice me naam, phone, pata aur PAN ke saath.
+            //
+            // Wahi shakl jo isi file ki line ~312 par aur ExchangesController
+            // me pehle se sahi hai: khali value kabhi pehchan nahi banti.
+            var idMatches = !string.IsNullOrEmpty(callerId) && callerId == orderCustomerId;
+            var emailMatches = !string.IsNullOrEmpty(callerEmail)
+                && string.Equals(callerEmail, orderEmail, StringComparison.OrdinalIgnoreCase);
+            if (!idMatches && !emailMatches)
                 return Forbid();
         }
 
@@ -1411,8 +1424,21 @@ public class OrdersController : ControllerBase
             var callerEmail = User.FindFirstValue("email");
             var orderCustomerId = GetJsonStr(ParseJson(order.CustomerJson), "id");
             var orderEmail = GetJsonStr(ParseJson(order.CustomerJson), "email");
-            if (callerId != orderCustomerId &&
-                !string.Equals(callerEmail, orderEmail, StringComparison.OrdinalIgnoreCase))
+            // Dono taraf ka khali email "match" nahi hai.
+            //
+            // Phone-OTP se bane customer ka email claim "" hota hai, aur
+            // guest/COD order me email bhi "" hota hai. Purana shart
+            // `!string.Equals("", "")` false tha, `&&` wahin gir jata tha, aur
+            // Forbid() kabhi chalta hi nahi tha - yani sirf mobile se bana koi
+            // bhi customer kisi ka bhi bina-email order padh, cancel aur return
+            // kar sakta tha, invoice me naam, phone, pata aur PAN ke saath.
+            //
+            // Wahi shakl jo isi file ki line ~312 par aur ExchangesController
+            // me pehle se sahi hai: khali value kabhi pehchan nahi banti.
+            var idMatches = !string.IsNullOrEmpty(callerId) && callerId == orderCustomerId;
+            var emailMatches = !string.IsNullOrEmpty(callerEmail)
+                && string.Equals(callerEmail, orderEmail, StringComparison.OrdinalIgnoreCase);
+            if (!idMatches && !emailMatches)
                 return Forbid();
         }
 
@@ -1454,8 +1480,21 @@ public class OrdersController : ControllerBase
             var callerEmail = User.FindFirstValue("email");
             var orderCustomerId = GetJsonStr(ParseJson(order.CustomerJson), "id");
             var orderEmail = GetJsonStr(ParseJson(order.CustomerJson), "email");
-            if (callerId != orderCustomerId &&
-                !string.Equals(callerEmail, orderEmail, StringComparison.OrdinalIgnoreCase))
+            // Dono taraf ka khali email "match" nahi hai.
+            //
+            // Phone-OTP se bane customer ka email claim "" hota hai, aur
+            // guest/COD order me email bhi "" hota hai. Purana shart
+            // `!string.Equals("", "")` false tha, `&&` wahin gir jata tha, aur
+            // Forbid() kabhi chalta hi nahi tha - yani sirf mobile se bana koi
+            // bhi customer kisi ka bhi bina-email order padh, cancel aur return
+            // kar sakta tha, invoice me naam, phone, pata aur PAN ke saath.
+            //
+            // Wahi shakl jo isi file ki line ~312 par aur ExchangesController
+            // me pehle se sahi hai: khali value kabhi pehchan nahi banti.
+            var idMatches = !string.IsNullOrEmpty(callerId) && callerId == orderCustomerId;
+            var emailMatches = !string.IsNullOrEmpty(callerEmail)
+                && string.Equals(callerEmail, orderEmail, StringComparison.OrdinalIgnoreCase);
+            if (!idMatches && !emailMatches)
                 return Forbid();
         }
 
@@ -1541,8 +1580,21 @@ public class OrdersController : ControllerBase
             var callerId = User.FindFirstValue("sub");
             var callerEmail = User.FindFirstValue("email");
             var oc = ParseJson(order.CustomerJson);
-            if (callerId != GetJsonStr(oc, "id") &&
-                !string.Equals(callerEmail, GetJsonStr(oc, "email"), StringComparison.OrdinalIgnoreCase))
+            // Dono taraf ka khali email "match" nahi hai.
+            //
+            // Phone-OTP se bane customer ka email claim "" hota hai, aur
+            // guest/COD order me email bhi "" hota hai. Purana shart
+            // `!string.Equals("", "")` false tha, `&&` wahin gir jata tha, aur
+            // Forbid() kabhi chalta hi nahi tha - yani sirf mobile se bana koi
+            // bhi customer kisi ka bhi bina-email order padh, cancel aur return
+            // kar sakta tha, invoice me naam, phone, pata aur PAN ke saath.
+            //
+            // Wahi shakl jo isi file ki line ~312 par aur ExchangesController
+            // me pehle se sahi hai: khali value kabhi pehchan nahi banti.
+            var idMatches = !string.IsNullOrEmpty(callerId) && callerId == GetJsonStr(oc, "id");
+            var emailMatches = !string.IsNullOrEmpty(callerEmail)
+                && string.Equals(callerEmail, GetJsonStr(oc, "email"), StringComparison.OrdinalIgnoreCase);
+            if (!idMatches && !emailMatches)
                 return Forbid();
         }
 
