@@ -720,6 +720,14 @@ export default function ProductDetail({ params, initialProduct = null }: { param
               <div style={{ minWidth: 0 }}>
                 <p className="pdp-eyebrow">{product.category}</p>
                 <h1 className="pdp-title">{product.name}</h1>
+                {/* Spelled out rather than abbreviated: "SKU" means nothing to
+                    a shopper, and this is the number they will quote on
+                    WhatsApp when they ask whether it is in stock. */}
+                {product.sku && (
+                  <p style={{ margin: '.3rem 0 0', fontSize: '.78rem', color: '#8a817b' }}>
+                    Product code: <strong style={{ color: '#5c534d', letterSpacing: '.02em' }}>{product.sku}</strong>
+                  </p>
+                )}
               </div>
               <div className="pdp-head-acts">
                 <button type="button" className={`pdp-ico${wishlisted ? ' on' : ''}`} onClick={handleWishlist}

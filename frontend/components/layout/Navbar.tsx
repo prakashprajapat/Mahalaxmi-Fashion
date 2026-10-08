@@ -12,6 +12,7 @@ import { stashWelcomeCode } from '@/lib/welcomeCode';
 import { productSlug } from '@/lib/productSlug';
 import { productImageSrc } from '@/lib/productImages';
 import { getWishlist } from '@/lib/wishlist';
+import { exactSkuMatch } from '@/lib/fuzzy';
 import type { Product } from '@/types';
 import SocialAuthRow, { SocialDivider } from '@/components/account/SocialAuthRow';
 
@@ -179,6 +180,11 @@ export default function Navbar() {
       _searchCachePromise ??= productsApi.getAll({ pageSize: 200 }).then(r => r.products ?? []).catch(() => []);
       _searchCache = await _searchCachePromise;
     }
+    // Same rule as the results page: a code that matches exactly is the only
+    // suggestion worth showing.
+    const exact = exactSkuMatch(query, _searchCache as { sku?: string }[]);
+    if (exact) { setSuggestions([exact as never]); return; }
+
     const matches = _searchCache.filter(p =>
       (p.name ?? '').toLowerCase().includes(query) ||
       (p.category ?? '').toLowerCase().includes(query) ||

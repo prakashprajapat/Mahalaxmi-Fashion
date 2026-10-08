@@ -3,7 +3,7 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import ProductCard from '@/components/product/ProductCard';
 import NoResults from '@/components/products/NoResults';
 import { finalUnitPrice } from '@/lib/price';
-import { fuzzyScoreProduct } from '@/lib/fuzzy';
+import { fuzzyScoreProduct, exactSkuMatch } from '@/lib/fuzzy';
 
 interface Props {
   products: any[];
@@ -301,6 +301,18 @@ export default function ProductsClient({ products, title, subtitle = '', initial
   }, [products]);
 
   const filtered = useMemo(() => {
+    // A product code is either right or it is not.
+    //
+    // Typing MFH1045 used to return twenty products - the right one first and
+    // every neighbouring code behind it, because the fuzzy matcher forgives
+    // two characters and MFH1042 is one away. Forgiveness is correct for
+    // "peticoat" and wrong for a number somebody copied off a bill, so an
+    // exact code is answered on its own, before anything else narrows it.
+    if (q) {
+      const only = exactSkuMatch(q, products as { sku?: string }[]);
+      if (only) return [only] as typeof products;
+    }
+
     let r = [...products];
     if (q) {
       // Typo-tolerant search (matches "sari"→saree, "peticoat"→petticoat, etc.). When no

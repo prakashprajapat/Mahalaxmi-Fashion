@@ -128,3 +128,37 @@ export function fuzzyScoreProduct(
   const inWords = p.description ? fuzzyScore(query, p.description) : 0;
   return base + Math.min(inWords * 0.1, 3);
 }
+
+// ── Product codes ───────────────────────────────────────────────────────────
+//
+// A code is not a word, and the fuzzy matcher treats it like one. Typing
+// MFH1045 used to return twenty products: the right one first, then every
+// neighbouring code behind it, because tokenScore forgives a Levenshtein
+// distance of two and MFH1042 is one character away. That forgiveness is the
+// right behaviour for "peticoat" and exactly the wrong behaviour for a number
+// somebody copied off an invoice - the whole point of a code is that it is
+// either right or it is not.
+//
+// So an exact code is matched before any of that runs, and when it hits, it is
+// the only answer.
+
+/** A code reduced to what it IS: letters and digits. "mfh 1045" and "MFH-1045" are the same code. */
+export function skuKey(s?: string): string {
+  return (s || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+}
+
+/**
+ * The single product whose code this is, or null.
+ *
+ * Null when two products somehow share a code, rather than picking one: a
+ * silent guess about which of two things the customer meant is worse than
+ * falling through to the ordinary search, which will show them both.
+ */
+export function exactSkuMatch<T extends { sku?: string }>(query: string, products: T[]): T | null {
+  const k = skuKey(query);
+  // Three characters is the shortest thing worth treating as a code. Below
+  // that, "m" or "mf" would start hijacking ordinary searches.
+  if (k.length < 3) return null;
+  const hits = products.filter(p => skuKey(p.sku) === k);
+  return hits.length === 1 ? hits[0] : null;
+}

@@ -142,9 +142,17 @@ export default function ProductCard({ product, priority = false }: { product: Pr
 
         {/* Body */}
         <div className="product-card-body" style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
-          {(product.subcategory || product.category) && (
-            <p className="product-card-cat">
-              {(product.subcategory || product.category).toUpperCase()}
+          {/* Shelf on the left, product code on the right.
+              The code is here because a customer cannot search by something
+              they have never been shown - and on the phone this card is where
+              the whole shop is browsed. Small and grey: it is a reference, not
+              a selling point. */}
+          {((product.subcategory || product.category) || product.sku) && (
+            <p className="product-card-cat" style={{ display: 'flex', justifyContent: 'space-between', gap: '.4rem' }}>
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {(product.subcategory || product.category || '').toUpperCase()}
+              </span>
+              {product.sku && <span style={{ opacity: .72, flexShrink: 0 }}>{product.sku}</span>}
             </p>
           )}
 

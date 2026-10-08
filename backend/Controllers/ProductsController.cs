@@ -271,23 +271,46 @@ public class ProductsController : ControllerBase
             .Where(p => p.StockStatus != "Inactive" && p.StockStatus != "Draft")
             .ToListAsync();
 
-        var qNorm   = NormalizeText(query);
-        var qTokens = ExpandSynonyms(Tokenize(query));
+        // A product code is either right or it is not.
+        //
+        // The fuzzy matcher forgives a couple of characters, which is what
+        // makes "peticoat" find petticoats - and what made MFH1045 return
+        // twenty products, because MFH1042 is one character away. A code
+        // somebody copied off a bill is not a word to be guessed at, so an
+        // exact one is answered alone, before any of the scoring runs.
+        //
+        // Two products sharing a code falls through to the ordinary search on
+        // purpose: showing both is honest, quietly picking one is not.
+        var skuKey = SkuKey(query);
+        List<Product> top;
+        var exact = skuKey.Length >= 3
+            ? items.Where(p => SkuKey(p.Sku) == skuKey).ToList()
+            : new List<Product>();
 
-        var scored = new List<(Product P, double Score)>();
-        foreach (var p in items)
+        if (exact.Count == 1)
         {
-            var score = ScoreProduct(p, qNorm, qTokens);
-            if (score > 0) scored.Add((p, score));
+            top = exact;
         }
+        else
+        {
+            var qNorm   = NormalizeText(query);
+            var qTokens = ExpandSynonyms(Tokenize(query));
 
-        var top = scored
-            .OrderByDescending(x => x.Score)
-            .ThenByDescending(x => x.P.BestSeller)
-            .ThenByDescending(x => x.P.Newest)
-            .Take(limit)
-            .Select(x => x.P)
-            .ToList();
+            var scored = new List<(Product P, double Score)>();
+            foreach (var p in items)
+            {
+                var score = ScoreProduct(p, qNorm, qTokens);
+                if (score > 0) scored.Add((p, score));
+            }
+
+            top = scored
+                .OrderByDescending(x => x.Score)
+                .ThenByDescending(x => x.P.BestSeller)
+                .ThenByDescending(x => x.P.Newest)
+                .Take(limit)
+                .Select(x => x.P)
+                .ToList();
+        }
 
         var reviews = await GetReviewAggAsync(top.Select(p => p.Id).ToList());
         var products = top.Select(p =>
@@ -324,6 +347,20 @@ public class ProductsController : ControllerBase
         ["cloths"] = "fabric", ["clothes"] = "fabric", ["material"] = "fabric", ["materials"] = "fabric",
         ["cotten"] = "cotton", ["coton"] = "cotton",
     };
+
+    /// <summary>
+    /// A code reduced to what it IS: letters and digits, lower case. So
+    /// "MFH-1045", "mfh 1045" and "MFH1045" are all the same code.
+    /// Mirrors skuKey() in lib/fuzzy.ts, which does this on the browser side.
+    /// </summary>
+    private static string SkuKey(string? s)
+    {
+        if (string.IsNullOrEmpty(s)) return "";
+        var sb = new System.Text.StringBuilder(s.Length);
+        foreach (var ch in s.ToLowerInvariant())
+            if (char.IsLetterOrDigit(ch)) sb.Append(ch);
+        return sb.ToString();
+    }
 
     private static string NormalizeText(string? s)
     {
