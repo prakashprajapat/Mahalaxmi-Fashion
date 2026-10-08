@@ -18,7 +18,7 @@ import DeliveryEstimate from '@/components/product/DeliveryEstimate';
 import { addRecentlyViewed } from '@/lib/recentlyViewed';
 import { trackEvent } from '@/lib/analytics';
 import { feedIdFor } from '@/lib/merchantFeed';
-import { allSlotPhotos } from '@/lib/photoExtras';
+import { allSlotPhotos, colourPhotos } from '@/lib/photoExtras';
 import type { Product, Review } from '@/types';
 import { variantStockFor } from '@/lib/variantStock';
 import { formatDateIst } from '@/lib/formatDate';
@@ -35,7 +35,12 @@ interface ExtraJson {
   packImages?: Array<string | Record<string, string>>;
   packColumnPhotos?: Array<Record<string, string>>;
   variantColumns?: Array<Record<string, string>>;
-  customColors?: Array<{ name?: string; code?: string; photo?: string; columnLetter?: string }>;
+  customColors?: Array<{
+    name?: string; code?: string; photo?: string; columnLetter?: string;
+    /** Us rang ke apne baaki view. Padhne ka tarika: lib/photoExtras ka colourPhotos. */
+    side?: string; back?: string; zoomed?: string;
+    [extraSlot: string]: string | undefined;
+  }>;
   /** Free-text spec rows the merchant fills in admin. Every one is optional. */
   specs?: Record<string, string>;
 }
@@ -380,8 +385,31 @@ export default function ProductDetail({ params, initialProduct = null }: { param
       gallery.push(image);
     }
   };
+  // ── Rang ki apni gallery ──
+  //
+  // Admin me har rang ke apne FRONT / SIDE / BACK / ZOOMED khaane pehle se
+  // hain, aur wahan likha bhi hai: "customer jab ye design chunega to uske ye
+  // photos dikhenge". Storefront unme se aaj tak sirf `photo` padhta tha, to
+  // swatch dabane par ek tasveer badalti thi, poori patti nahi.
+  //
+  // Shart jaanbujh kar "kam se kam do photo" rakhi hai. 193 me se 102 products
+  // me rang hain, par sirf EK me side/back bhara hai - kyunki bharne ka aaj
+  // tak koi asar hi nahi dikhta tha. Jis rang ke paas sirf apni ek `photo` hai,
+  // uske liye kuch nahi badalta: main gallery hi dikhti rahegi, bilkul aaj
+  // jaisi. Jis din shop us rang ka side aur back bharegi, usi din uski apni
+  // patti apne aap chalu ho jayegi. Na migration, na kisi purane product ka
+  // kuch kam.
+  const colourGallery: string[] = isPackProduct ? [] : (() => {
+    const picked = (extra.customColors ?? []).find(cc => (cc.name ?? '') === color);
+    const own = colourPhotos(picked);
+    return own.length >= 2 ? own : [];
+  })();
+
   const hasProductPhotos = Object.values(extra.productPhotos ?? {}).some(v => v);
-  if (hasProductPhotos) {
+  if (colourGallery.length > 0) {
+    // Sirf is rang ki photos - shop ne yahi chuna tha.
+    colourGallery.forEach(addGalleryImage);
+  } else if (hasProductPhotos) {
     // productPhotos.front IS the main image — don't also add product.image
     // separately, that can show the main photo twice when file names differ.
     // The four named views, then anything past them, in the order it was
@@ -403,12 +431,17 @@ export default function ProductDetail({ params, initialProduct = null }: { param
     });
   }
 
-  // Custom rang ke swatch ki photo bhi gallery me chahiye. Swatch dabane par
+  // Baaki rangon ki swatch-photo bhi gallery me chahiye. Swatch dabane par
   // activeImg wahi photo ban jati hai - agar wo gallery me na ho to neeche
   // wala shownImg use gallery[0] par laut dega aur galat tasveer dikhegi.
-  // (Aaj ye photo gallery me nahi jati thi, isliye swatch dabane par bhi wahi
-  // dhundhla dhabba reh jata tha.) Naam se dedupe upar ho chuka hai.
-  if (!isPackProduct) (extra.customColors ?? []).forEach(c => addGalleryImage(c.photo));
+  //
+  // Lekin jab oopar wali colourGallery chalu ho, tab nahi: us haalat me shop
+  // ne "sirf us rang ki photos" chuna hai, aur yahan baaki rangon ki tasveer
+  // jod dena usi ko tod dega. Tab clicked rang ki photo waise bhi gallery[0]
+  // hi hai, to kuch jodne ki zarurat nahi. Naam se dedupe upar ho chuka hai.
+  if (!isPackProduct && colourGallery.length === 0) {
+    (extra.customColors ?? []).forEach(c => addGalleryImage(c.photo));
+  }
 
   // Jo photo badi jagah par dikhegi. activeImg par seedha bharosa nahi kiya
   // ja sakta.

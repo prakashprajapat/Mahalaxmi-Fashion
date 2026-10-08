@@ -25,7 +25,7 @@ const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 // ─── Types ────────────────────────────────────────────────────────────────────
 // `photo` is the FRONT view (column thumbnail); side/back/zoomed are the rest of that
 // design's gallery (shown on the storefront when the customer picks this colour/design).
-type CustomColour = { name: string; code: string; photo: string; columnLetter: string; side?: string; back?: string; zoomed?: string };
+type CustomColour = { name: string; code: string; photo: string; columnLetter: string; side?: string; back?: string; zoomed?: string; extra?: string[] };
 type PackColumn   = { letter: string; front: string; side: string; back: string; zoomed: string; extra: string[] };
 // Front, side, back and zoomed are the four a product should always have, so
 // they keep their names and their places. Everything past them is just "another
@@ -760,7 +760,12 @@ export default function EditProductPage() {
           const exColors: string[] = ex.colors ?? [];
           const presetColSet = new Set(COLORS_PRESET);
           setSelColors(exColors.filter((c: string) => presetColSet.has(c)));
-          setCustomColours(ex.customColors ?? []);
+          // Store me rang ki baaki photos extra1..extraN hoti hain; admin me wo ek
+          // list hai. Wahi palatna jo pack column aur main photos ke saath hota hai.
+          setCustomColours((ex.customColors ?? []).map((c: Record<string, unknown>) => ({
+            ...(c as unknown as CustomColour),
+            extra: numberedExtras(c),
+          })));
           setAvailColours(ex.availColours ?? '');
           // Print wala colour wahi hai jisme "/" ho — Navy/White/Red.
           const printed = (exColors as string[]).find((c: string) => c.includes('/')) ?? '';
@@ -918,6 +923,18 @@ export default function EditProductPage() {
   const updateDesignPhoto = (idx: number, field: 'photo' | 'side' | 'back' | 'zoomed', val: string) =>
     setCustomColours(prev => prev.map((c, i) => i === idx ? { ...c, [field]: val } : c));
 
+  // Chaar naam wale view ke baad ki photos - wahi hisaab jo main photos aur
+  // pack columns ka hai, taki teeno jagah ek hi niyam rahe.
+  const setDesignExtra = (idx: number, slot: number, val: string) =>
+    setCustomColours(prev => prev.map((c, i) => i === idx
+      ? { ...c, extra: (c.extra ?? []).map((x, j) => (j === slot ? val : x)) } : c));
+  const addDesignExtra = (idx: number) =>
+    setCustomColours(prev => prev.map((c, i) => i === idx && (c.extra ?? []).length < MAX_EXTRA
+      ? { ...c, extra: [...(c.extra ?? []), ''] } : c));
+  const removeDesignExtra = (idx: number, slot: number) =>
+    setCustomColours(prev => prev.map((c, i) => i === idx
+      ? { ...c, extra: (c.extra ?? []).filter((_, j) => j !== slot) } : c));
+
   // ── Save ──
   const handleSave = async (force = false) => {
     setSaving(true);
@@ -1008,7 +1025,11 @@ export default function EditProductPage() {
         colors:           selectedColours,
         colorCodes:       Object.keys(colourCodeMap).length ? colourCodeMap : undefined,
         colorShades:      printColour && printShades.length > 1 ? { [printColour]: printShades } : undefined,
-        customColors:     customColours,
+        // `extra` admin me ek list hai, store me extra1..extraN - bilkul
+        // productPhotos aur har pack column ki tarah. Ek aakar, ek reader.
+        customColors:     customColours.map(({ extra: ex, ...c }) => ({
+          ...c, ...asNumberedExtras(ex ?? []),
+        })),
         images:           galleryImages,
         productPhotos:    {
           front: mainPhotos.front, side: mainPhotos.side,
@@ -1650,7 +1671,10 @@ export default function EditProductPage() {
                   COLOUR / DESIGN PHOTOS
                 </p>
                 <p style={{ fontSize:'.8rem', color:'#888', marginBottom:'1.25rem' }}>
-                  Pehla design (Column A) main Product Photos use karta hai. Extra design (Column B, C…) ke liye yahan Front, Side, Back aur Zoomed photo daalein — storefront par customer jab ye design chunega to uske ye photos dikhenge. (FRONT = column wala photo.)
+                  Pehla design (Column A) main Product Photos use karta hai. Extra design (Column B, C…) ke liye yahan Front, Side, Back, Zoomed aur {MAX_EXTRA} aur photo tak daal sakte hain — kul {MAX_PHOTOS}. (FRONT = column wala photo.)
+                </p>
+                <p style={{ fontSize:'.8rem', color:'#888', marginBottom:'1.25rem' }}>
+                  <b>Zaroori:</b> storefront par is design ki apni gallery tabhi chalu hoti hai jab FRONT ke alawa kam se kam ek aur photo bhari ho. Sirf FRONT bhara ho to customer ko main Product Photos hi dikhti rahengi — jaisa aaj hai.
                 </p>
                 <div style={{ display:'flex', flexDirection:'column', gap:'1.5rem' }}>
                   {extra.map(({ c, i }) => (
@@ -1664,6 +1688,33 @@ export default function EditProductPage() {
                         <PhotoSlot label="SIDE VIEW" value={c.side || ''}   onChange={v => updateDesignPhoto(i,'side',v)} />
                         <PhotoSlot label="BACK VIEW" value={c.back || ''}   onChange={v => updateDesignPhoto(i,'back',v)} />
                         <PhotoSlot label="ZOOMED IN" value={c.zoomed || ''} onChange={v => updateDesignPhoto(i,'zoomed',v)} />
+
+                        {(c.extra ?? []).map((img, slot) => (
+                          <div key={slot} style={{ position:'relative' }}>
+                            <PhotoSlot label={`PHOTO ${slot + 5}`} value={img}
+                              onChange={v => setDesignExtra(i, slot, v)} />
+                            <button type="button" onClick={() => removeDesignExtra(i, slot)}
+                              title="Remove this photo"
+                              style={{ position:'absolute', top:4, right:4, zIndex:3,
+                                width:22, height:22, lineHeight:'20px', textAlign:'center',
+                                borderRadius:'50%', border:'none', background:'rgba(0,0,0,.55)',
+                                color:'#fff', fontSize:'.8rem', cursor:'pointer', padding:0 }}>
+                              ×
+                            </button>
+                          </div>
+                        ))}
+
+                        {(c.extra ?? []).length < MAX_EXTRA && (
+                          <button type="button" onClick={() => addDesignExtra(i)}
+                            style={{ minHeight:150, borderRadius:10, cursor:'pointer',
+                              border:'2px dashed #d8cfca', background:'#fcfaf9', color:'#722f37',
+                              fontWeight:700, fontSize:'.85rem' }}>
+                            + Add a photo
+                            <span style={{ display:'block', fontWeight:400, fontSize:'.72rem', color:'#8a7f76', marginTop:'.2rem' }}>
+                              {4 + (c.extra ?? []).length} of {MAX_PHOTOS} used
+                            </span>
+                          </button>
+                        )}
                       </div>
                     </div>
                   ))}

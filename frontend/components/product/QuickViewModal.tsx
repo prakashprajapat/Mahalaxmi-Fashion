@@ -8,7 +8,7 @@ import { productImageSrc } from '@/lib/productImages';
 import { productSlug } from '@/lib/productSlug';
 import { presetColourCode, swatchBackground } from '@/lib/presetColours';
 import { variantStockFor } from '@/lib/variantStock';
-import { allSlotPhotos } from '@/lib/photoExtras';
+import { allSlotPhotos, colourPhotos } from '@/lib/photoExtras';
 
 interface ExtraJson {
   sizes?: string[];
@@ -21,7 +21,11 @@ interface ExtraJson {
   packImages?: Array<string | Record<string, string>>;
   packColumnPhotos?: Array<Record<string, string>>;
   variantColumns?: Array<Record<string, string>>;
-  customColors?: Array<{ name?: string; code?: string; photo?: string; columnLetter?: string }>;
+  customColors?: Array<{
+    name?: string; code?: string; photo?: string; columnLetter?: string;
+    side?: string; back?: string; zoomed?: string;
+    [extraSlot: string]: string | undefined;
+  }>;
   // Extended details (shown in expanded view)
   features?: string[];
   highlights?: string[];
@@ -93,8 +97,19 @@ export default function QuickViewModal({ product, onClose }: Props) {
       seen.add(key);
       imgs.push(src);
     };
+    // Rang ki apni gallery - wahi niyam jo product page par hai, taki do jagah
+    // do vyavhar na banein. Shart "kam se kam do photo": jis rang ke paas sirf
+    // apni ek photo hai, uske liye kuch nahi badalta. Dekhiye ProductDetail.
+    const colourGallery: string[] = isPackProduct ? [] : (() => {
+      const picked = (extra.customColors ?? []).find(cc => (cc.name ?? '') === colour);
+      const own = colourPhotos(picked);
+      return own.length >= 2 ? own : [];
+    })();
+
     const hasProductPhotos = Object.values(extra.productPhotos ?? {}).some(v => v);
-    if (hasProductPhotos) {
+    if (colourGallery.length > 0) {
+      colourGallery.forEach(addImage);
+    } else if (hasProductPhotos) {
       // productPhotos.front IS the main image — don't also add product.image
       // separately, that can show the main photo twice when file names differ.
       // The four named views, then the numbered ones after them.
@@ -116,6 +131,16 @@ export default function QuickViewModal({ product, onClose }: Props) {
     }
     return imgs;
   })();
+
+  // Rang badalne par patti badal jati hai, to jo photo khuli thi wo ho sakta
+  // hai ab is patti me ho hi na - tab hero aur patti alag-alag cheez dikhane
+  // lagte. Aisa hote hi pehli photo par laut jao. (Product page par yahi kaam
+  // shownImg karta hai.)
+  const imagesKey = images.join('|');
+  useEffect(() => {
+    if (images.length > 0 && !images.includes(activeImg)) setActiveImg(images[0]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [imagesKey, activeImg]);
 
   useEffect(() => {
     setWishlisted(isInWishlist(product.dbId));

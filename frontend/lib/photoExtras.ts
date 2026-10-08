@@ -62,3 +62,28 @@ export function allSlotPhotos(slots: Record<string, unknown> | null | undefined)
     .filter((v): v is string => typeof v === 'string' && v.trim() !== '');
   return [...named, ...numberedExtras(slots)];
 }
+
+/**
+ * Ek rang (custom colour) ki apni photos — wahi slot map jo productPhotos aur
+ * har pack column hai.
+ *
+ * Rang ka record sabse pehle sirf { name, code, photo } tha, isliye uski pehli
+ * photo aaj bhi `photo` me rehti hai, `front` me nahi. Naye slot (side, back,
+ * zoomed, extra1…) uske saath jude hain. Isse 102 purane products ka data
+ * waisa ka waisa chalta rehta hai — koi migration nahi — aur padhne wala
+ * reader wahi ek allSlotPhotos rehta hai.
+ */
+export function colourSlots(
+  c: Record<string, unknown> | null | undefined,
+): Record<string, unknown> {
+  if (!c) return {};
+  const extras = Object.fromEntries(
+    Object.entries(c).filter(([k]) => /^extra\d+$/.test(k)),
+  );
+  return { front: c.photo, side: c.side, back: c.back, zoomed: c.zoomed, ...extras };
+}
+
+/** Us rang ki saari photos, gallery ke kram me. Koi na ho to khali list. */
+export function colourPhotos(c: Record<string, unknown> | null | undefined): string[] {
+  return allSlotPhotos(colourSlots(c));
+}
