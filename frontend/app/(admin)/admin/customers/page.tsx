@@ -380,8 +380,8 @@ export default function AdminCustomersPage() {
         </div>
         {(showOnly || dates.key !== 'any') && (
           <p style={{ fontSize: '.75rem', color: '#8a7f76', margin: '.5rem 0 0' }}>
-            Ye chhanni sirf is panne ke {customers.length} naamon par lagti hai. Saare khaato me dhoondhna ho to
-            upar wale search ka istemal kijiye.
+            This filter only searches the {customers.length} names on this page. To search every
+            account, use the search box above.
           </p>
         )}
       </Card>

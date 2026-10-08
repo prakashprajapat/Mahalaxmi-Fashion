@@ -210,7 +210,7 @@ export default function HomeCategoriesPage() {
           .then(res => res.status !== 404)
           // Network hi na chale to rokna galat hoga — save hone dete hain.
           .catch(() => true);
-        if (!ok) broken.push(`${r.label.trim() || '(bina naam)'} → ${href}`);
+        if (!ok) broken.push(`${r.label.trim() || '(no label)'} → ${href}`);
       }
       if (broken.length > 0) {
         setMsg({

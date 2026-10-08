@@ -521,7 +521,7 @@ function CustomColourModal({
     const lbl = letter.trim() || nextLetter;
     // Do rang ka ek hi label order aur export dono me uljhan banata hai.
     if (usedLetters.some(l => (l ?? '').trim().toLowerCase() === lbl.toLowerCase())) {
-      alert(`Column "${lbl}" pehle se is product me hai. Koi dusra naam dein.`); return;
+      alert(`Column "${lbl}" is already used on this product. Please choose a different label.`); return;
     }
     // Colour Name is required only when NOT using a photo (i.e. a colour-code
     // colour). With a photo, auto-name from the column letter if left blank.
@@ -556,7 +556,7 @@ function CustomColourModal({
             <label style={{ display:'flex', alignItems:'center', gap:'.3rem', fontSize:'.72rem', color:'#888' }}>
               Column
               <input value={letter} onChange={e => setLetter(e.target.value.slice(0, 8))}
-                placeholder={nextLetter} title="Is design ka label - badal sakte hain"
+                placeholder={nextLetter} title="Label for this design - you can change it"
                 style={{ width:'54px', textAlign:'center', background:'#a7354d', color:'#fff',
                   border:'none', borderRadius:'4px', padding:'.18rem .3rem',
                   fontSize:'.72rem', fontWeight:700, boxSizing:'border-box' }} />
@@ -571,9 +571,9 @@ function CustomColourModal({
               style={{ width:'100%', marginTop:'.6rem', background:'#fff', color:'#722f37',
                 border:'1.5px dashed #d8cfca', borderRadius:'8px', padding:'.45rem',
                 fontSize:'.8rem', fontWeight:600, cursor:'pointer' }}>
-              + Aur photos daalein (Side, Back, Zoomed&hellip;)
+              + Add more photos (Side, Back, Zoomed&hellip;)
               <span style={{ display:'block', fontWeight:400, fontSize:'.7rem', color:'#8a7f76', marginTop:'.15rem' }}>
-                FRONT ke alawa ek bhi photo daali, to is rang ki apni gallery chalu ho jayegi
+                Add even one photo besides FRONT and this colour gets its own gallery
               </span>
             </button>
           )}
@@ -909,7 +909,7 @@ export default function AddProductPage() {
       ? p : [...p, { name: sc.name, code: sc.code || '', photo: '', columnLetter: LETTERS[p.length] ?? 'A' }]);
 
   const addCustomSize = () => {
-    const s = window.prompt('Enter custom size (multiple sizes comma se daalein, e.g. 42,41,63):');
+    const s = window.prompt('Enter custom size (separate several with commas, e.g. 42,41,63):');
     if (s?.trim()) {
       // Split on comma so "42,41,63" becomes three separate sizes: 42, 41, 63.
       const values = s.split(',').map(v => v.trim()).filter(Boolean);
@@ -1037,7 +1037,7 @@ export default function AddProductPage() {
         && (Number(totalQty) || 0) > 0;
       if (blankStockTable) qc.push({
         level: 'warn',
-        message: 'Size/colour stock table khaali hai — is product ka size-wise stock track NAHI hoga, sirf upar ka Total Qty chalega. Size-wise stock chahiye to table bhar dein.',
+        message: 'The size/colour stock table is empty — size-wise stock will NOT be tracked for this product, only the Total Qty above. Fill the table in if you want size-wise stock.',
       });
 
       // ── Google ke colour rules ──
@@ -1652,7 +1652,7 @@ export default function AddProductPage() {
             </button>
             <button onClick={addKidsSizes} title="20 (1-2 Years), 22 (2-3 Years), 24 (3-4 Years)…"
               style={{ border:'1.5px dashed #c9a227', background:'#fffdf5', color:'#8a6d1f', borderRadius:'20px', padding:'.28rem .7rem', fontSize:'.8rem', fontWeight:600, cursor:'pointer' }}>
-              + Kids (umar)
+              + Kids (by age)
             </button>
             <PickFilter label="Select sizes" options={allSizes.map(s => ({ value: s, label: s }))}
               selectedValues={selSizes} onToggle={toggleSize} />
@@ -1714,7 +1714,7 @@ export default function AddProductPage() {
                     ? <img src={c.photo} alt={c.name} style={{ width:'22px', height:'22px', borderRadius:'50%', objectFit:'cover', border:'1.5px solid #ddd', flexShrink:0 }} />
                     : <div style={{ width:'22px', height:'22px', borderRadius:'50%', background:c.code, border:'1.5px solid #ddd', flexShrink:0 }} />}
                   <input value={c.name}
-                    title="Colour ka naam - Google isi ko padhta hai"
+                    title="Colour name - this is what Google reads"
                     placeholder="Colour name"
                     onChange={e => renameCustomColour(i, e.target.value)}
                     style={{ width:'96px', background:'#fff', color:'#333',
@@ -1725,7 +1725,7 @@ export default function AddProductPage() {
                       sirf label hai: stock matrix colour ke NAAM par chalta hai,
                       isliye ise badalne se kisi ka hisaab nahi badalta. */}
                   <input value={c.columnLetter ?? ''}
-                    title="Column label - badal sakte hain"
+                    title="Column label - you can change it"
                     onChange={e => {
                       const v = e.target.value.slice(0, 8);
                       setCustomColours(p => p.map((x, j) => (j === i ? { ...x, columnLetter: v } : x)));
@@ -1735,7 +1735,7 @@ export default function AddProductPage() {
                       const clash = v !== '' && customColours.some((x, j) =>
                         j !== i && (x.columnLetter ?? '').trim().toLowerCase() === v.toLowerCase());
                       if (clash) {
-                        alert(`Column "${v}" pehle se is product me hai. Koi dusra naam dein.`);
+                        alert(`Column "${v}" is already used on this product. Please choose a different label.`);
                         setCustomColours(p => p.map((x, j) =>
                           (j === i ? { ...x, columnLetter: LETTERS[i] ?? '' } : x)));
                       }
@@ -1833,10 +1833,10 @@ export default function AddProductPage() {
                   COLOUR / DESIGN PHOTOS
                 </p>
                 <p style={{ fontSize:'.8rem', color:'#888', marginBottom:'1.25rem' }}>
-                  Pehla design (Column A) main Product Photos use karta hai. Extra design (Column B, C…) ke liye yahan Front, Side, Back, Zoomed aur {MAX_EXTRA} aur photo tak daal sakte hain — kul {MAX_PHOTOS}. (FRONT = column wala photo.)
+                  The first design (Column A) uses the main Product Photos. For the other designs (Column B, C…) you can add Front, Side, Back, Zoomed and up to {MAX_EXTRA} more here — {MAX_PHOTOS} in all. (FRONT = the column&apos;s own photo.)
                 </p>
                 <p style={{ fontSize:'.8rem', color:'#888', marginBottom:'1.25rem' }}>
-                  <b>Zaroori:</b> storefront par is design ki apni gallery tabhi chalu hoti hai jab FRONT ke alawa kam se kam ek aur photo bhari ho. Sirf FRONT bhara ho to customer ko main Product Photos hi dikhti rahengi — jaisa aaj hai.
+                  <b>Important:</b> a design only gets its own gallery on the storefront once at least one photo besides FRONT is filled in. With only FRONT filled, customers keep seeing the main Product Photos — exactly as today.
                 </p>
                 <div style={{ display:'flex', flexDirection:'column', gap:'1.5rem' }}>
                   {extra.map(({ c, i }) => (

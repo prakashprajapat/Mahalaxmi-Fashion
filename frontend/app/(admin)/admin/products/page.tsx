@@ -465,7 +465,7 @@ export default function AdminProductsPage() {
                                     <>
                                       {' '}
                                       <Link href="/admin/products/colour-fix" style={{ color: '#722f37', textDecoration: 'underline' }}>
-                                        Colour Fix me theek karein &rarr;
+                                        Fix in Colour Fix &rarr;
                                       </Link>
                                     </>
                                   )}

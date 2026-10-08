@@ -194,7 +194,7 @@ export default function ColourFixPage() {
         </p>
       </Card>
 
-      {loading && <Card><Empty>Products padh raha hoon… (photos ke saath, thoda waqt lagega)</Empty></Card>}
+      {loading && <Card><Empty>Loading products… (with photos, this takes a moment)</Empty></Card>}
       {err && <Card><Empty>{err}</Empty></Card>}
 
       {!loading && !err && rows.length === 0 && (
