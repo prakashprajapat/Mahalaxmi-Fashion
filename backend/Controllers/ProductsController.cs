@@ -134,9 +134,16 @@ public class ProductsController : ControllerBase
             adminQuery = adminQuery.Where(p => p.BestSeller == bestSeller.Value);
 
         var adminTotal = await adminQuery.CountAsync();
+        // Newest-first means the ID here, not the `newest` column.
+        //
+        // That column is a manual sort order for the shop front, and it is set
+        // when a product is created and never again. Sorting the ADMIN list by
+        // it meant a product the owner had saved thirty seconds ago could sit
+        // on the last page - live on the website, and nowhere he would think
+        // to look for it. The id only ever goes up, so this page now opens on
+        // the thing most likely to be wanted.
         var adminProducts = await adminQuery
-            .OrderByDescending(p => p.Newest)
-            .ThenByDescending(p => p.Id)
+            .OrderByDescending(p => p.Id)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .Select(p => ToDto(p))
@@ -468,15 +475,25 @@ public class ProductsController : ControllerBase
         var callerShop = await CallerShopAsync();
         var callerIsOwner = User.IsOwner();
 
+        // The sort order a brand-new product gets.
+        //
+        // It used to be its position in this batch - 1 for the first product.
+        // But `newest` is sorted DESCENDING, and products loaded earlier carry
+        // numbers in the hundreds, so "1" is not the front of the queue, it is
+        // the back of it. Every product added one at a time landed at the
+        // bottom of /products and of the admin list, while the homepage - which
+        // sorts by id - showed it at the top. Live on the website and missing
+        // from the panel, which is exactly how it was reported.
+        //
+        // Counting on from the highest number already in use puts a new
+        // product where the column's own name says it belongs.
+        var nextNewest = await _db.Products.MaxAsync(p => (int?)p.Newest) ?? 0;
+
         var created = 0;
         var updated = 0;
-        var i = 1;
 
         foreach (var dto in req.Products)
         {
-            // BUG-4: Increment counter before continue so skipped items don't break numbering
-            var currentI = i++;
-
             if (string.IsNullOrWhiteSpace(dto.Name) || string.IsNullOrWhiteSpace(dto.Category))
                 continue;
 
@@ -491,10 +508,11 @@ public class ProductsController : ControllerBase
                     return Conflict(new { success = false, message = $"SKU '{sku}' already exists for product '{existing.Name}'. Please use a unique SKU." });
             }
 
-            var product = await FindUpsertTarget(dto);
-            if (product is null)
+            var found = await FindUpsertTarget(dto);
+            var isNew = found is null;
+            var product = found ?? new Product();
+            if (isNew)
             {
-                product = new Product();
                 _db.Products.Add(product);
                 created++;
             }
@@ -503,7 +521,10 @@ public class ProductsController : ControllerBase
                 updated++;
             }
 
-            ApplyProduct(product, dto, currentI, callerShop, callerIsOwner);
+            // Only a new product takes a number. An edit keeps the place it
+            // already has, so saving a correction does not shuffle the shop
+            // front around.
+            ApplyProduct(product, dto, isNew ? ++nextNewest : 0, callerShop, callerIsOwner);
 
             var g = ProductQualityGate.Check(product);
             var problems = g.Blocking.Select(x => x.Message).ToList();

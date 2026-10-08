@@ -402,6 +402,28 @@ using (var scope = app.Services.CreateScope())
         EXCEPTION WHEN OTHERS THEN
             RAISE NOTICE 'invite/phone tidy-up skipped: %', SQLERRM;
         END $$;
+        -- products.newest, made to mean what it says.
+        --
+        -- It is the shop front's sort order, DESCENDING, and it was only ever
+        -- filled with a product's position inside the batch it was loaded in.
+        -- So a product added on its own got 1 - the BACK of the queue, under
+        -- everything from the first import - and disappeared to the last page
+        -- of the listing on the day it was created.
+        --
+        -- Nothing in the admin panel sets this column by hand, so there is no
+        -- arrangement here to preserve: lining it up with the id is the order
+        -- it was always trying to express, and the order the homepage already
+        -- sorts by. The WHERE makes it settle down to touching nothing once
+        -- it has run, and a new product taking max+1 keeps it that way.
+        DO $$
+        BEGIN
+            UPDATE products p
+               SET newest = r.rn
+              FROM (SELECT id, ROW_NUMBER() OVER (ORDER BY id) AS rn FROM products) r
+             WHERE p.id = r.id AND p.newest IS DISTINCT FROM r.rn;
+        EXCEPTION WHEN OTHERS THEN
+            RAISE NOTICE 'product newest realign skipped: %', SQLERRM;
+        END $$;
         CREATE TABLE IF NOT EXISTS popup_leads (
             id         SERIAL PRIMARY KEY,
             name       VARCHAR(255),
