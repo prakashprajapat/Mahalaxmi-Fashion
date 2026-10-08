@@ -5,6 +5,7 @@ import { getCart, cartTotal, clearCart, cartShipping, finalUnitPrice, unitBase, 
 import { productImageSrc } from '@/lib/productImages';
 import PincodeChecker from '@/components/checkout/PincodeChecker';
 import { getCustomer, getToken } from '@/lib/auth';
+import { takeWelcomeCode } from '@/lib/welcomeCode';
 import { storage } from '@/lib/safeStorage';
 import { ordersApi, paymentsApi, cashfreeApi, couponsApi, settingsApi, walletApi, addressesApi } from '@/lib/api';
 import type { SavedAddress } from '@/lib/api';
@@ -315,6 +316,16 @@ export default function CheckoutPage() {
     })();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [subtotal, couponApplied]);
+
+  // A customer whose account was just created on the way through checkout
+  // has a welcome code waiting. It is put IN THE BOX rather than applied, for
+  // two reasons: the referral effect above may already have put a better one
+  // on the order, and a discount that lands by itself is a discount nobody
+  // notices they were given.
+  useEffect(() => {
+    const code = takeWelcomeCode();
+    if (code) setCouponCode(code);
+  }, []);
 
   // COD availability for the entered pincode. The backend switches COD off for pincodes the
   // store has blocked (fraud/returns control) and for areas the courier doesn't do COD in.

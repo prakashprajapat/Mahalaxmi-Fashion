@@ -8,6 +8,7 @@ import { getCart, cartCount, finalUnitPrice } from '@/lib/cart';
 import { getCustomer, setCustomer as saveCustomer, setToken, logout } from '@/lib/auth';
 import { customersApi, settingsApi, productsApi } from '@/lib/api';
 import { trackEvent } from '@/lib/analytics';
+import { stashWelcomeCode } from '@/lib/welcomeCode';
 import { productSlug } from '@/lib/productSlug';
 import { productImageSrc } from '@/lib/productImages';
 import { getWishlist } from '@/lib/wishlist';
@@ -228,13 +229,26 @@ export default function Navbar() {
     setOtpLoading(true); setOtpMsg('');
     try {
       const res = await customersApi.verifyOtp(otpContact.trim(), otpCode.trim());
-      if (res.newUser || !res.token || !res.customer) {
-        setOtpMsg('No account found for this number/email. Please create a new account.');
+
+      // newUser is not a failure. It means the one-time code was right and
+      // there was no account yet, so the server made one and signed them in -
+      // a token and a customer come back exactly as they do for a returning
+      // shopper.
+      //
+      // This used to be read as "no account found", and the account was
+      // created anyway: the code was correct, the row was written, the token
+      // was thrown away, and the customer was told to go and create the
+      // account they had just been given. Mid-checkout, with a full cart, that
+      // was the end of the order - and the second attempt worked, because by
+      // then the account existed, which is what made it look intermittent.
+      if (!res.token || !res.customer) {
+        setOtpMsg('Could not sign you in. Please try again.');
         return;
       }
+      if (res.newUser) stashWelcomeCode(res.welcomeCoupon?.code);
       setToken(res.token);
       saveCustomer(res.customer);
-      trackEvent('login', { method: 'otp' });   // GA4
+      trackEvent(res.newUser ? 'sign_up' : 'login', { method: 'otp' });   // GA4
       setIsLoggedIn(true);
       setLoginOpen(false);
       resetLoginForm();
