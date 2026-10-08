@@ -1993,25 +1993,35 @@ a.footer-app-btn.footer-app-live:hover{ background:rgba(255,255,255,.16); transf
 /* ─── Product page on phones: premium stacked layout, no touch-zoom ─── */
 @media (max-width: 899px) {
   /* The gallery column's children join the stack directly, so the description
-     can sit AFTER the buy section instead of pushing it down the page. */
+     can sit AFTER the buy section instead of pushing it down the page.
+     That is why the rail below is placed on the OUTER grid rather than on
+     .pdp-gallery-col: this element has no box of its own down here. */
   .pdp-gallery-col { display: contents; }
-  .pdp-gallery-main { order: 1; margin-bottom: .6rem !important; }
-  .pdp-thumbs { order: 2; }
-  .pdp-col { order: 3; }
-  .pdp-desc { order: 4; }
+  .pdp-gallery-main { margin-bottom: 0 !important; grid-column: 2; grid-row: 1; }
+  .pdp-thumbs { grid-column: 1; grid-row: 1; }
+  .pdp-col { grid-column: 1 / -1; grid-row: 2; }
+  .pdp-desc { grid-column: 1 / -1; grid-row: 3; }
 
   .pdp-gallery-main > div { border-radius: 14px !important; box-shadow: 0 2px 14px rgba(0, 0, 0, .07); }
 
-  /* Thumbnails: one swipeable row rather than a wrapping block */
+  /* The rail, standing beside the photo on a phone too.
+     Capped at 280px rather than stretched: the row is as tall as its tallest
+     item, so a rail taller than the photo would not grow the rail, it would
+     grow the ROW and leave a band of nothing under the picture. 280px is
+     under the photo's height on even a 320px screen, so there is never a
+     gap - past five thumbnails it simply scrolls. */
   .pdp-thumbs {
+    flex-direction: column !important;
     flex-wrap: nowrap !important;
-    overflow-x: auto;
-    padding-bottom: .2rem;
+    max-height: 280px;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
     scrollbar-width: none;
     -ms-overflow-style: none;
   }
   .pdp-thumbs::-webkit-scrollbar { display: none; }
-  .pdp-thumbs button { width: 58px !important; height: 58px !important; border-radius: 10px !important; }
+  .pdp-thumbs button { width: 48px !important; height: 48px !important; border-radius: 9px !important; }
 
   .pdp-col { gap: 1rem; }
   .pdp-eyebrow { font-size: .7rem; margin-bottom: .3rem; }

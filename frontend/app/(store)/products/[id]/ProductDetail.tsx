@@ -557,7 +557,18 @@ export default function ProductDetail({ params, initialProduct = null }: { param
 
       <style>{`
         @media (max-width: 899px) {
-          .product-detail-grid { grid-template-columns: 1fr !important; }
+          /* Two tracks on a phone as well: the thumbnail rail, then the photo.
+             The buy box and the description span both, underneath.
+
+             This rule has to live here rather than in globals.css. The element
+             carries gridTemplateColumns inline, so the override needs
+             !important - and globals.css is in the head while this block is in
+             the body, so at equal weight the later one wins. Putting it in the
+             stylesheet would simply not take. */
+          .product-detail-grid {
+            grid-template-columns: auto minmax(0, 1fr) !important;
+            column-gap: .55rem !important;
+          }
         }
         @media (max-width: 700px) {
           .product-reviews-grid { grid-template-columns: 1fr !important; }
