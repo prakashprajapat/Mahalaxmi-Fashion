@@ -1072,6 +1072,15 @@ export default function EditProductPage() {
       setQcIssues(qc);
       setQcOpen(qc.length > 0);
       const holdAsDraft = fails.length > 0;
+      // Jawab panne ke sabse upar chhapta hai (QcPanel + PublishPanel), aur
+      // Save ka batan sabse neeche hai. Save dabane par kuch hota hua dikhta
+      // hi nahi tha: product chupchap Draft me chala jata aur jo soochi batati
+      // hai ki kyun, wo do hazar pixel upar padi rehti. Suchi me likha bhi
+      // yahi hai - "open it to see what Google is missing" - aur kholne par
+      // jawab parde se bahar. Isliye jab padhne ko kuch ho, tabhi upar le jao.
+      if (qc.length > 0 || holdAsDraft) {
+        if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
       const stockMatrix    = Object.fromEntries(stockKeys.map(key => [key, Number(variantStock[key]) || 0]));
       // An all-zero table is not stock data — save as untracked (see blankStockTable above).
       const trackVariants  = stockKeys.length > 0 && Object.values(stockMatrix).some(n => n > 0);

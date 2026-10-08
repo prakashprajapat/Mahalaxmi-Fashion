@@ -7,6 +7,7 @@ import { exportProducts } from '@/lib/exportExcel';
 import type { Product } from '@/types';
 import { PageHeader, Card, Stat, StatGrid, Chips, Empty, Pill } from '@/components/admin/Ui';
 import { fetchAllProducts } from '@/lib/adminPaged';
+import { draftHoldReasons } from '@/lib/productQC';
 
 const CATEGORIES = ['Women','Men','Kids','Beauty','Fabrics','More'];
 
@@ -450,7 +451,19 @@ export default function AdminProductsPage() {
                                            maxWidth: 230, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                               {p.name}
                             </Link>
-                            {isDraft && <span style={{ fontSize: '.7rem', color: '#b26b00', fontWeight: 700 }}>Held back &mdash; open it to see what Google is missing</span>}
+                            {isDraft && (() => {
+                              // Wajah yahin likh do. Pehle sirf "open it to see what Google
+                              // is missing" likha tha - aur khol kar dekhne par jawab panne
+                              // ke sabse upar hota tha, jabki Save ka batan sabse neeche.
+                              // Yeh wahi jaanch hai jo save ke waqt chalti hai, isliye dono
+                              // jagah jawab ek hi rehta hai.
+                              const why = draftHoldReasons(p);
+                              return (
+                                <span style={{ fontSize: '.7rem', color: '#b26b00', fontWeight: 700, display: 'block', whiteSpace: 'normal' }}>
+                                  Held back &mdash; {why.length > 0 ? why.join(' \u00b7 ') : 'open it to see what Google is missing'}
+                                </span>
+                              );
+                            })()}
                             {isInactive && <span style={{ fontSize: '.7rem', color: '#c0392b', fontWeight: 700 }}>Switched off &mdash; not on the website</span>}
                           </div>
                         </div>

@@ -135,3 +135,65 @@ export async function deepImageDuplicateCheck(
 
   return issues;
 }
+
+// ── Draft me kyun ruka — soochi me dikhane ke liye ───────────────────────────
+//
+// Products ki soochi me ab tak sirf "open it to see what Google is missing"
+// likha tha. Jawab product ke panne par hai, panne ke sabse upar, aur Save ka
+// batan sabse neeche - to kholne par bhi wo parde se bahar rehta tha.
+//
+// Yahi jaanch wahi hai jo save ke waqt chalti hai, isliye dono jagah ek hi
+// jawab aata hai. Duplicate-name wali jaanch yahan bhi nahi chalti, bilkul
+// edit screen ki tarah: wo saare products scan karti hai aur soochi me har
+// row par chalana bhaari pad jata.
+import { colourProblem } from './googleColours';
+import { allSlotPhotos } from './photoExtras';
+
+interface Draftish {
+  name?: string; description?: string; price?: number;
+  image?: string; extraJson?: string;
+}
+
+function photosOfProduct(p: Draftish): string[] {
+  const out: string[] = [];
+  if (p.image) out.push(p.image);
+  try {
+    const ex = p.extraJson ? JSON.parse(p.extraJson) : null;
+    if (!ex) return out;
+    (ex.images ?? []).forEach((im: unknown) => { if (typeof im === 'string' && im) out.push(im); });
+    allSlotPhotos(ex.productPhotos).forEach(im => out.push(im));
+    (ex.packImages ?? ex.packColumnPhotos ?? ex.variantColumns ?? []).forEach((col: unknown) => {
+      if (typeof col === 'string') out.push(col);
+      else allSlotPhotos(col as Record<string, unknown>).forEach(im => out.push(im));
+    });
+    (ex.customColors ?? []).forEach((c: { photo?: string }) => { if (c?.photo) out.push(c.photo); });
+  } catch { /* malformed extraJson — ignore */ }
+  return out;
+}
+
+function coloursOfProduct(extraJson?: string): string[] {
+  try {
+    const ex = extraJson ? JSON.parse(extraJson) : null;
+    if (!ex) return [];
+    return [...new Set([
+      ...((ex.colors ?? []) as string[]),
+      ...((ex.customColors ?? []) as { name?: string }[]).map(c => c?.name ?? ''),
+    ])].filter(Boolean);
+  } catch { return []; }
+}
+
+/** Product Draft me kyun roka gaya — wahi wajahen jo save ke waqt nikalti hain. */
+export function draftHoldReasons(p: Draftish): string[] {
+  const reasons = runProductQC({
+    name: p.name ?? '',
+    description: p.description ?? '',
+    price: Number(p.price) || 0,
+    photos: photosOfProduct(p),
+  }, []).filter(i => i.level === 'fail').map(i => i.message);
+
+  for (const c of coloursOfProduct(p.extraJson)) {
+    const problem = colourProblem(c);
+    if (problem) reasons.push(`Colour "${c}" — ${problem}`);
+  }
+  return reasons;
+}
