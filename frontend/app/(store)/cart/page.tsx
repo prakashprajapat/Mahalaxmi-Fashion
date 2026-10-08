@@ -4,6 +4,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { getCart, saveCart, removeFromCart, updateQuantity, cartTotal, finalUnitPrice } from '@/lib/cart';
 import { productsApi } from '@/lib/api';
+import { productImageSrc } from '@/lib/productImages';
 import type { CartItem } from '@/types';
 import { trackedVariantMatrix } from '@/lib/variantStock';
 
@@ -81,7 +82,9 @@ export default function CartPage() {
               <div key={`${item.dbId}-${item.selectedSize}-${item.selectedColor}`} className="card p-4 flex gap-4">
                 <div className="relative w-20 h-20 rounded-lg overflow-hidden bg-gray-50 shrink-0">
                   {item.image
-                    ? <Image src={item.image} alt={item.name} fill className="object-cover" />
+                    /* sizes ke bina Next sabse badi (1080px) copy bhejta hai - yahan dabba
+                       sirf 80px ka hai. Aur poora pata isliye, ki nayi upload hui photo bhi mile. */
+                    ? <Image src={productImageSrc(item.image)} alt={item.name} fill sizes="80px" className="object-cover" />
                     : <div className="w-full h-full flex items-center justify-center text-2xl">👗</div>}
                 </div>
                 <div className="flex-1">

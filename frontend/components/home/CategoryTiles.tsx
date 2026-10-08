@@ -2,6 +2,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import type { Product } from '@/types';
 import { getHomeTiles } from '@/lib/seoContent';
+import { productImageSrc } from '@/lib/productImages';
 
 // Five doors into the shop, at the top of the homepage.
 //
@@ -77,7 +78,7 @@ export default async function CategoryTiles({ products }: { products: Product[] 
               <div style={{ position: 'relative', aspectRatio: '3 / 4', overflow: 'hidden', background: '#efe9e2' }}>
                 {t.image && (
                   <Image
-                    src={t.image}
+                    src={productImageSrc(t.image)}
                     /* Khali alt ka matlab hai "yeh tasveer sirf sajawat hai".
                        Ye dukaan ki mukhya category ki tasveerein hain, sajawat
                        nahi - khali alt ke saath Google Images me inka koi naam

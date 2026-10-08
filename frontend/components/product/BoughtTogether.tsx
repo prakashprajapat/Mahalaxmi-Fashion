@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { productsApi } from '@/lib/api';
+import { productImageSrc } from '@/lib/productImages';
 import { addToCart } from '@/lib/cart';
 import type { Product } from '@/types';
 
@@ -79,7 +80,11 @@ export default function BoughtTogether({ product }: { product: Product }) {
         aria-label={isMain ? `${p.name} (this product)` : `Add ${p.name}`}
         style={{ width: 18, height: 18, accentColor: '#722f37', flexShrink: 0 }} />
       <span style={{ position: 'relative', width: 52, height: 62, flexShrink: 0, background: '#f5f5f5', borderRadius: 6, overflow: 'hidden' }}>
-        {p.image && <Image src={p.image} alt="" fill sizes="52px" style={{ objectFit: 'cover' }} />}
+        {/* Photo ka poora pata chahiye. Relative path par Next optimiser use apne
+            public/ folder me dhundhta hai, aur wo suchi server shuru hote waqt banti
+            hai - to aakhri deploy ke baad upload hui photo uske liye hai hi nahi, aur
+            jagah khali ya tooti hui tasveer reh jati hai. Dekhiye lib/productImages.ts. */}
+        {p.image && <Image src={productImageSrc(p.image)} alt="" fill sizes="52px" style={{ objectFit: 'cover' }} />}
       </span>
       <span style={{ flex: 1, minWidth: 0 }}>
         <span style={{ display: 'block', fontSize: '.84rem', color: '#1a1a1a', lineHeight: 1.35,
