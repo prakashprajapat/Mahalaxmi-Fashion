@@ -189,7 +189,41 @@ echo "   Warming the image cache..."
   URLS=$(mktemp); REQS=$(mktemp)
   curl -s "http://localhost:5000/api/products?pageSize=500" \
     | grep -oE '/?product-images/[A-Za-z0-9._%-]+\.(webp|jpg|jpeg|png|avif|gif)' \
-    | sed 's|^/*|/|' | sort -u | head -400 > "$URLS"
+    | sed 's|^/*|/|' | sort -u > "$URLS"
+  ORIGIN="${SITE_ORIGIN:-https://www.mahalaxmifashionhub.com}"
+
+  # ---- 1. Cloudflare ka kinara (edge) -- product panne ki badi photo ----
+  #
+  # 3b083df ke baad product panne ki pehli photo optimiser se nahi jaati
+  # (unoptimized). Browser sidha /product-images/xxx.webp maangta hai, aur wo
+  # Cloudflare se hokar aata hai. Live product par naapa gaya:
+  #     Cloudflare MISS  1393 ms
+  #     Cloudflare HIT    390 ms
+  # Yahi ek second ka farak wo dhundhlapan hai jo dukan rozana dekh rahi thi --
+  # aur purane products par bhi, kyunki jis photo ko aaj tak kisi ne khola hi
+  # nahi, uska kinara thanda pada hai. 2157f0b ne yeh sirf naye save hue
+  # product ke liye theek kiya tha; purane products ke liye jagah yahi hai.
+  #
+  # Isko localhost se garam nahi kiya ja sakta -- cache VPS par nahi, Cloudflare
+  # par hai. Isliye asli pate se maanga jata hai. Yeh pehle, kyunki shopper ki
+  # aankh isi par hai, aur yeh sirf network hai, VPS ka CPU nahi khata.
+  EDGE=$(mktemp)
+  while read -r img; do echo "$ORIGIN$img" >> "$EDGE"; done < "$URLS"
+  # Pehli photo par jaanch lo ki request waqai Cloudflare se guzri hai. Agar is
+  # machine par DNS/hosts domain ko khud par lauta deta hai to yeh header nahi
+  # aayega -- tab chup-chaap 400 bekaar request bhejne se behtar hai bata dena.
+  CF=$(curl -s -o /dev/null -D - --max-time 30 -H "Accept: $ACCEPT" "$(head -1 "$EDGE")" \
+        | tr -d '\r' | grep -i '^cf-cache-status:' | head -1 | awk '{print $2}')
+  if [ -n "$CF" ]; then
+    xargs -P 2 -n 1 curl -s -o /dev/null --max-time 30 -H "Accept: $ACCEPT" < "$EDGE"
+    echo "   Cloudflare edge warmed ($(wc -l < "$EDGE") photos; pehli par $CF)."
+  else
+    echo "   NOTE: $ORIGIN se cf-cache-status header nahi mila - yeh request"
+    echo "         Cloudflare tak nahi gayi. Badi photo ka kinara garam nahi hua."
+  fi
+  rm -f "$EDGE"
+
+  # ---- 2. VPS ka optimiser -- suchi ke cards aur thumbnails ----
   # The url= has to be the ABSOLUTE address, because that is what the browser
   # asks for and the cache is keyed on it.
   #
@@ -202,21 +236,22 @@ echo "   Warming the image cache..."
   # went into an entry nothing ever asked for, and every real visitor still
   # waited for the resize - which is the blurred photo the shop kept
   # reporting, on old products as well as new.
-  ORIGIN="${SITE_ORIGIN:-https://www.mahalaxmifashionhub.com}"
-  while read -r img; do
+  # Kinara garam karna sirf network hai, isliye upar poori suchi jaati hai.
+  # Resize VPS ka CPU khata hai, isliye yahan pehli 400 par hi rukte hain.
+  head -400 "$URLS" | while read -r img; do
     enc=$(printf %s "$ORIGIN$img" | sed 's|:|%3A|g; s|/|%2F|g')
     for w in 384 640 828 1080; do
       echo "http://localhost:3000/_next/image?url=$enc&w=$w&q=75" >> "$REQS"
     done
-  done < "$URLS"
+  done
   # Do ek saath. Isse zyada par deploy ke turant baad VPS ka CPU asli
   # shoppers se chhin jata hai.
   xargs -P 2 -n 1 curl -s -o /dev/null --max-time 30 -H "Accept: $ACCEPT" < "$REQS"
-  echo "   Image cache warmed ($(wc -l < "$URLS") photos, $(wc -l < "$REQS") sizes)."
+  echo "   Optimiser cache warmed ($(( $(wc -l < "$REQS") / 4 )) photos, $(wc -l < "$REQS") sizes)."
   rm -f "$URLS" "$REQS"
 ) &
 WARM_PID=$!
 # Never let warming hold up or fail a deploy.
-( sleep 420 && kill $WARM_PID 2>/dev/null ) >/dev/null 2>&1 &
+( sleep 600 && kill $WARM_PID 2>/dev/null ) >/dev/null 2>&1 &
 pm2 status
 echo "=== Deploy complete ==="
