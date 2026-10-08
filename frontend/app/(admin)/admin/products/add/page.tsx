@@ -14,6 +14,7 @@ import { PageHeader } from '@/components/admin/Ui';
 import { colourProblem, colourNameToHex } from '@/lib/googleColours';
 import { fetchAllProducts } from '@/lib/adminPaged';
 import { useOwnerView } from '@/lib/useOwnerView';
+import { warmProductImages } from '@/lib/warmImages';
 import { MAX_EXTRA, MAX_PHOTOS, asNumberedExtras } from '@/lib/photoExtras';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -1040,6 +1041,11 @@ export default function AddProductPage() {
         packOf: packValue >= 2 ? packValue : undefined,
         extraJson,
       }], getAdminToken() ?? '');
+      // Saved. Now get the server to build the resized copies of these
+      // photos, while he is still at this screen, rather than leaving the
+      // first shopper who opens the product to wait for it.
+      warmProductImages(galleryImages);
+
       // Remember last used HSN code, Category, Subcategory and Variant
       if (finalHsn) localStorage.setItem('mfh_lastHsnCode', finalHsn);
       localStorage.setItem('mfh_lastCategory', category);

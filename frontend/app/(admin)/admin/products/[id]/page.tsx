@@ -13,6 +13,7 @@ import TaxonomyCombo from '@/components/admin/TaxonomyCombo';
 import { colourProblem, colourNameToHex } from '@/lib/googleColours';
 import { MAX_EXTRA, MAX_PHOTOS, asNumberedExtras, numberedExtras } from '@/lib/photoExtras';
 import { useOwnerView } from '@/lib/useOwnerView';
+import { warmProductImages } from '@/lib/warmImages';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const CATEGORIES = ['Women','Men','Kids','Beauty','Fabrics','More'];
@@ -1052,6 +1053,11 @@ export default function EditProductPage() {
       }, getAdminToken() ?? '') as { gate?: { heldAsDraft?: boolean; errors?: { field: string; message: string }[] } };
 
       // The server decides whether this product is fit to be on the website.
+      // Saved. Build the resized copies of these photos now, while he is
+      // still here - a photo swapped in on an edit is as cold as a new one,
+      // and otherwise the next shopper pays for it.
+      warmProductImages(galleryImages);
+
       // When it is not, the work is still saved — but the product is held back
       // as a draft, and staying on this screen with the reasons in front of you
       // is more use than a tick and a redirect to a list it is no longer on.

@@ -190,8 +190,21 @@ echo "   Warming the image cache..."
   curl -s "http://localhost:5000/api/products?pageSize=500" \
     | grep -oE '/?product-images/[A-Za-z0-9._%-]+\.(webp|jpg|jpeg|png|avif|gif)' \
     | sed 's|^/*|/|' | sort -u | head -400 > "$URLS"
+  # The url= has to be the ABSOLUTE address, because that is what the browser
+  # asks for and the cache is keyed on it.
+  #
+  # This was warming url=%2Fproduct-images%2F... - the relative path. But
+  # lib/productImages.ts turns every product photo into the full
+  # https://www.mahalaxmifashionhub.com/... address before handing it to
+  # next/image (deliberately: the optimiser cannot see a file uploaded after
+  # the server started, so it fetches over HTTP from nginx instead). Two
+  # different strings, two different cache entries. Every size warmed here
+  # went into an entry nothing ever asked for, and every real visitor still
+  # waited for the resize - which is the blurred photo the shop kept
+  # reporting, on old products as well as new.
+  ORIGIN="${SITE_ORIGIN:-https://www.mahalaxmifashionhub.com}"
   while read -r img; do
-    enc=$(printf %s "$img" | sed 's|/|%2F|g')
+    enc=$(printf %s "$ORIGIN$img" | sed 's|:|%3A|g; s|/|%2F|g')
     for w in 384 640 828 1080; do
       echo "http://localhost:3000/_next/image?url=$enc&w=$w&q=75" >> "$REQS"
     done
