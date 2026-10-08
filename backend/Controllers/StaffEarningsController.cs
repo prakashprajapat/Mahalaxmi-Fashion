@@ -55,7 +55,7 @@ public class StaffEarningsController : ControllerBase
                 shop = (string?)null,
                 message = "No shop is set on your account, so there is nothing to show. Ask the owner to set one.",
                 rows = Array.Empty<object>(),
-                totals = Empty(),
+                totals = EmptyTotals(),
             });
 
         var q = _db.StaffPayouts.AsNoTracking().AsQueryable();
@@ -196,7 +196,9 @@ public class StaffEarningsController : ControllerBase
         });
     }
 
-    private static object Empty() => new
+    // Not named Empty(): ControllerBase already has one, and hiding it is a
+    // warning plus a trap for whoever reads this next.
+    private static object EmptyTotals() => new
     {
         payableNow = 0m, heldBack = 0m, paid = 0m, cancelled = 0m, toRecover = 0m,
         platformKept = (decimal?)null,

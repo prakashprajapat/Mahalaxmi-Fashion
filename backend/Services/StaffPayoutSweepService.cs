@@ -98,14 +98,14 @@ public class StaffPayoutSweepService : BackgroundService
 
         var delivered = await db.SiteOrders
             .Where(o => o.Status == "Delivered" && o.DeliveredAt != null && o.DeliveredAt >= since)
-            .Select(o => new { o.Id, o.DeliveredAt, o.CartJson, o.DiscountAmount })
+            .Select(o => new { o.OrderId, o.DeliveredAt, o.CartJson, o.DiscountAmount })
             .ToListAsync();
 
         var added = 0;
 
         if (delivered.Count > 0)
         {
-            var orderIds = delivered.Select(o => o.Id).ToList();
+            var orderIds = delivered.Select(o => o.OrderId).ToList();
 
             // Which lines already have a row. Fetched as one set rather than a
             // lookup per line, because a sweep that asks the database once per
@@ -120,7 +120,7 @@ public class StaffPayoutSweepService : BackgroundService
             foreach (var order in delivered)
             {
                 var rows = await BuildOrderRowsAsync(
-                    db, order.Id, order.CartJson, order.DeliveredAt!.Value,
+                    db, order.OrderId, order.CartJson, order.DeliveredAt!.Value,
                     order.DiscountAmount, holdDays, existing);
 
                 foreach (var row in rows)
@@ -137,7 +137,12 @@ public class StaffPayoutSweepService : BackgroundService
                 {
                     // The unique index did its job: another run got there first.
                     // Not a failure, and not worth a retry - the rows exist.
-                    log?.LogInformation(ex, "Staff payout sweep: {Added} rows collided and were left to the run that wrote them.", added);
+                    // Spelled out rather than log?.LogInformation(...): the
+                    // logging methods are extension methods, and this file
+                    // cannot be compiled where it is written, so it does not
+                    // take a bet on a null-conditional call it cannot check.
+                    if (log is not null)
+                        log.LogInformation(ex, "Staff payout sweep: {Added} rows collided and were left to the run that wrote them.", added);
                     added = 0;
                 }
             }
@@ -156,13 +161,13 @@ public class StaffPayoutSweepService : BackgroundService
         if (openIds.Count > 0)
         {
             var statuses = await db.SiteOrders
-                .Where(o => openIds.Contains(o.Id))
-                .Select(o => new { o.Id, o.Status })
+                .Where(o => openIds.Contains(o.OrderId))
+                .Select(o => new { o.OrderId, o.Status })
                 .ToListAsync();
 
             var gone = statuses
                 .Where(o => Undone.Contains(o.Status ?? ""))
-                .Select(o => o.Id)
+                .Select(o => o.OrderId)
                 .ToHashSet(StringComparer.Ordinal);
 
             if (gone.Count > 0)
@@ -195,11 +200,11 @@ public class StaffPayoutSweepService : BackgroundService
         if (paidIds.Count > 0)
         {
             var backAgain = (await db.SiteOrders
-                    .Where(o => paidIds.Contains(o.Id))
-                    .Select(o => new { o.Id, o.Status })
+                    .Where(o => paidIds.Contains(o.OrderId))
+                    .Select(o => new { o.OrderId, o.Status })
                     .ToListAsync())
                 .Where(o => Undone.Contains(o.Status ?? ""))
-                .Select(o => o.Id)
+                .Select(o => o.OrderId)
                 .ToHashSet(StringComparer.Ordinal);
 
             if (backAgain.Count > 0)
