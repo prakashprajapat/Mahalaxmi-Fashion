@@ -461,6 +461,14 @@ export default function AdminProductsPage() {
                               return (
                                 <span style={{ fontSize: '.7rem', color: '#b26b00', fontWeight: 700, display: 'block', whiteSpace: 'normal' }}>
                                   Held back &mdash; {why.length > 0 ? why.join(' \u00b7 ') : 'open it to see what Google is missing'}
+                                  {why.some(w => w.startsWith('Colour ')) && (
+                                    <>
+                                      {' '}
+                                      <Link href="/admin/products/colour-fix" style={{ color: '#722f37', textDecoration: 'underline' }}>
+                                        Colour Fix me theek karein &rarr;
+                                      </Link>
+                                    </>
+                                  )}
                                 </span>
                               );
                             })()}

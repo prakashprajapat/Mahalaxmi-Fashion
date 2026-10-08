@@ -990,6 +990,29 @@ export default function EditProductPage() {
       : c));
 
   // ── Colour/Design gallery photo update (Front/Side/Back/Zoomed per photo-design) ──
+  // Rang ka naam badalna.
+  //
+  // Ab tak jodne ke baad naam badla hi nahi ja sakta tha - sirf mitakar dobara
+  // jodna. Jab photo ke saath naam khali chhoda jaye to wo apne aap "Design A"
+  // ban jata hai, aur Google "Design A" ko colour nahi maanta: product Draft me
+  // ruk jata hai aur usi naam ko theek karne ka koi rasta nahi hota.
+  //
+  // Naam sirf label nahi hai - size x colour wale stock table ki keys usi se
+  // bani hoti hain ("Free Size|Design A"). Isliye naam ke saath wo keys bhi
+  // badalni padti hain, warna us variant ka stock peeche chhoot jata hai.
+  // (Yahi kaam Colour Fix screen bulk me karti hai.)
+  const renameCustomColour = (idx: number, next: string) => {
+    const prevName = (customColours[idx]?.name ?? '').trim();
+    setCustomColours(p => p.map((c, i) => (i === idx ? { ...c, name: next } : c)));
+    const nextName = next.trim();
+    if (!prevName || !nextName || prevName === nextName) return;
+    setVariantStock(prev => Object.fromEntries(Object.entries(prev).map(([k, v]) => {
+      const cut = k.lastIndexOf('|');
+      return cut >= 0 && k.slice(cut + 1) === prevName
+        ? [`${k.slice(0, cut)}|${nextName}`, v] : [k, v];
+    })));
+  };
+
   const updateDesignPhoto = (idx: number, field: 'photo' | 'side' | 'back' | 'zoomed', val: string) =>
     setCustomColours(prev => prev.map((c, i) => i === idx ? { ...c, [field]: val } : c));
 
@@ -1666,6 +1689,14 @@ export default function EditProductPage() {
                   {c.photo
                     ? <img src={c.photo} alt={c.name} style={{ width:'22px', height:'22px', borderRadius:'50%', objectFit:'cover', border:'1.5px solid #ddd', flexShrink:0 }} />
                     : <div style={{ width:'22px', height:'22px', borderRadius:'50%', background:c.code, border:'1.5px solid #ddd', flexShrink:0 }} />}
+                  <input value={c.name}
+                    title="Colour ka naam - Google isi ko padhta hai"
+                    placeholder="Colour name"
+                    onChange={e => renameCustomColour(i, e.target.value)}
+                    style={{ width:'96px', background:'#fff', color:'#333',
+                      border:`1.5px solid ${colourProblem(c.name) ? '#e0a200' : '#e4dedb'}`,
+                      borderRadius:'10px', padding:'.1rem .35rem',
+                      fontSize:'.72rem', fontWeight:600, boxSizing:'border-box' }} />
                   {/* Column ka label - jodne ke baad bhi badla ja sakta hai. Ye
                       sirf label hai: stock matrix colour ke NAAM par chalta hai,
                       isliye ise badalne se kisi ka hisaab nahi badalta. */}
