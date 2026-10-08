@@ -503,7 +503,15 @@ export default function ProductDetail({ params, initialProduct = null }: { param
   // code se bane hon aur paanchon par wahi ek front photo chipka den, to wo
   // paanchon ek jaise dikhenge - grahak ko bilkul pata hi nahi chalega kaunsa
   // rang kaunsa hai. Baaki bina-photo wale rang apna rang-gola hi rakhte hain.
-  const mainFrontPhoto = gallery[0] ?? '';
+  // MAIN Product Photos ki pehli photo - rang badalne par ye badalti nahi.
+  //
+  // Yahan pehle gallery[0] tha, aur wo galat tha: rang chunte hi gallery us
+  // rang ki ban jati hai (dekhiye colourGallery), to pehla swatch bhi wahi
+  // photo dikhane lagta tha - yani neela chunte hi dono swatch neele. Jo cheez
+  // "pehle rang ka kapda" hai, wo main photos hain, chuni hui gallery nahi.
+  const mainFrontPhoto = productImageSrc(
+    allSlotPhotos(extra.productPhotos)[0] || product.image,
+  ) || '';
   const firstPhotolessSwatch = swatchList.find(sw => !sw.photo)?.key;
 
   const variantKey = colors.length > 0 ? `${size}|${color}` : size;

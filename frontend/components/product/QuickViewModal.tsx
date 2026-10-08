@@ -83,6 +83,11 @@ export default function QuickViewModal({ product, onClose }: Props) {
         .map((cc, i) => ({ key: 'c' + i, name: cc.name ?? '', photo: cc.photo, code: cc.code || '#ddd' }))),
   ];
   const firstPhotolessSwatch = swatchList.find(sw => !sw.photo)?.key;
+  // MAIN photos ki pehli photo - chuni hui gallery ki nahi, warna rang chunte
+  // hi do swatch ek jaise ho jate. Dekhiye ProductDetail.
+  const mainFrontPhoto = productImageSrc(
+    allSlotPhotos(extra.productPhotos)[0] || product.image,
+  ) || '';
 
   const images: string[] = (() => {
     const imgs: string[] = [];
@@ -372,7 +377,7 @@ export default function QuickViewModal({ product, onClose }: Props) {
                   {swatchList.map(s => {
                     const swatchPhoto = s.photo
                       ? (productImageSrc(s.photo) || s.photo)
-                      : (s.key === firstPhotolessSwatch ? (images[0] ?? '') : '');
+                      : (s.key === firstPhotolessSwatch ? mainFrontPhoto : '');
                     return (
                     <button key={s.key} onClick={() => { setColour(s.name); if (s.photo) setActiveImg(productImageSrc(s.photo) || s.photo); }}
                       title={s.name}
