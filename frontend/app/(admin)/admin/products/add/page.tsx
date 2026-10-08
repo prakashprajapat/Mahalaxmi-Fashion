@@ -459,19 +459,27 @@ function hexToColorName(hex: string): string {
 
 // ─── Custom Colour Modal ──────────────────────────────────────────────────────
 function CustomColourModal({
-  nextLetter, onAdd, onClose,
-}: { nextLetter: string; onAdd: (c: CustomColour) => void; onClose: () => void }) {
+  nextLetter, usedLetters = [], onAdd, onClose,
+}: { nextLetter: string; usedLetters?: string[]; onAdd: (c: CustomColour) => void; onClose: () => void }) {
   const [colName, setColName]         = useState('');
   const [nameEdited, setNameEdited]   = useState(false);
   const [code, setCode]               = useState('#cccccc');
   const [colPhoto, setColPhoto]       = useState('');
-  const [colConverting, setColConverting] = useState(false);
-  const [showUrlBox, setShowUrlBox]   = useState(false);
-  const [urlVal, setUrlVal]           = useState('');
+  // Column ka naam ab tay nahi hai. Ye sirf ek label hai - stock matrix
+  // colour ke NAAM par chalta hai, letter par nahi - isliye ise badalna
+  // kisi hisaab ko nahi chhuta. Checkout ke order aur Excel export me yahi
+  // label jata hai, bas.
+  const [letter, setLetter]           = useState(nextLetter);
+  // Us rang ke baaki view. Shuru me chhupe rehte hain: zyadatar rang ke paas
+  // ek hi photo hoti hai, aur khali dabbe dikhana kaam nahi dikhana hai.
+  const [showMore, setShowMore]       = useState(false);
+  const [side, setSide]               = useState('');
+  const [back, setBack]               = useState('');
+  const [zoomed, setZoomed]           = useState('');
+  const [extraPhotos, setExtraPhotos] = useState<string[]>([]);
   const [eyedropSrc, setEyedropSrc]  = useState('');
   const [locked, setLocked]           = useState(false);
   const canvasRef  = useRef<HTMLCanvasElement>(null);
-  const colFileRef = useRef<HTMLInputElement>(null);
   const eyeFileRef = useRef<HTMLInputElement>(null);
 
   // Draw eyedrop image onto canvas
@@ -510,12 +518,20 @@ function CustomColourModal({
   };
 
   const handleAdd = () => {
+    const lbl = letter.trim() || nextLetter;
+    // Do rang ka ek hi label order aur export dono me uljhan banata hai.
+    if (usedLetters.some(l => (l ?? '').trim().toLowerCase() === lbl.toLowerCase())) {
+      alert(`Column "${lbl}" pehle se is product me hai. Koi dusra naam dein.`); return;
+    }
     // Colour Name is required only when NOT using a photo (i.e. a colour-code
     // colour). With a photo, auto-name from the column letter if left blank.
-    const name = colName.trim() || (colPhoto ? `Design ${nextLetter}` : '');
+    const name = colName.trim() || (colPhoto ? `Design ${lbl}` : '');
     if (!name) { alert('Colour Name is required when using a colour code.'); return; }
     // A custom colour is EITHER a photo (column) OR a colour code — not both.
-    onAdd({ name, code: colPhoto ? '' : code, photo: colPhoto, columnLetter: nextLetter });
+    onAdd({
+      name, code: colPhoto ? '' : code, photo: colPhoto, columnLetter: lbl,
+      side, back, zoomed, extra: extraPhotos.filter(v => v.trim() !== ''),
+    });
     onClose();
   };
 
@@ -529,46 +545,76 @@ function CustomColourModal({
           <button onClick={onClose} style={{ background:'none', border:'none', fontSize:'1.3rem', cursor:'pointer', color:'#888', lineHeight:1 }}>✕</button>
         </div>
 
-        {/* ── Colour Photo ── */}
+        {/* ── Colour Photo ──
+             Yahan pehle haath se banaye teen button the. Ab wahi PhotoSlot hai
+             jo neeche product form me chalta hai, to compress (server par sharp
+             se asli WebP), photo hatana aur "130KB -> 18KB" wali report teeno
+             apne aap mil jate hain - aur aage PhotoSlot sudhra to yeh bhi. */}
         <div style={{ background:'#f9f9f9', borderRadius:'10px', padding:'1rem', marginBottom:'1rem' }}>
-          <div style={{ display:'flex', alignItems:'center', gap:'.5rem', marginBottom:'.75rem' }}>
-            <span style={{ fontSize:'.85rem', fontWeight:700 }}>🖼️ Colour Photo</span>
-            <span style={{ background:'#a7354d', color:'#fff', fontSize:'.68rem', fontWeight:700, padding:'.15rem .45rem', borderRadius:'4px' }}>Column {nextLetter}</span>
+          <div style={{ display:'flex', alignItems:'center', gap:'.5rem', marginBottom:'.75rem', flexWrap:'wrap' }}>
+            <span style={{ fontSize:'.85rem', fontWeight:700 }}>&#128444;&#65039; Colour Photo</span>
+            <label style={{ display:'flex', alignItems:'center', gap:'.3rem', fontSize:'.72rem', color:'#888' }}>
+              Column
+              <input value={letter} onChange={e => setLetter(e.target.value.slice(0, 8))}
+                placeholder={nextLetter} title="Is design ka label - badal sakte hain"
+                style={{ width:'54px', textAlign:'center', background:'#a7354d', color:'#fff',
+                  border:'none', borderRadius:'4px', padding:'.18rem .3rem',
+                  fontSize:'.72rem', fontWeight:700, boxSizing:'border-box' }} />
+            </label>
             <span style={{ fontSize:'.72rem', color:'#888' }}>(product card par square box)</span>
           </div>
 
-          <div style={{ display:'flex', gap:'1rem', alignItems:'flex-start' }}>
-            {/* thumbnail */}
-            <div style={{ width:'72px', height:'72px', background:'#eee', borderRadius:'8px', overflow:'hidden', flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center', fontSize:'1.5rem' }}>
-              {colPhoto
-                ? <img src={colPhoto} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} />
-                : <span>{nextLetter}</span>}
-            </div>
+          <PhotoSlot label="FRONT" value={colPhoto} onChange={setColPhoto} isFirst />
 
-            <div style={{ flex:1, display:'flex', flexDirection:'column', gap:'.45rem' }}>
-              <button onClick={() => colFileRef.current?.click()}
-                style={{ background:'#fdecea', color:'#a7354d', border:'1.5px solid #f5c6cb', borderRadius:'8px', padding:'.45rem', fontSize:'.8rem', fontWeight:600, cursor:'pointer' }}>
-                {colConverting ? '⏳ Converting...' : '📤 Upload Photo'}
-              </button>
-              <button onClick={() => setShowUrlBox(v => !v)}
-                style={{ background:'#fff', color:'#555', border:'1.5px solid #ddd', borderRadius:'8px', padding:'.45rem', fontSize:'.8rem', fontWeight:600, cursor:'pointer' }}>
-                🔗 Use URL
-              </button>
-              <input ref={colFileRef} type="file" accept="image/*" hidden
-                onChange={e => { if (e.target.files?.[0]) { setColConverting(true); convertToAvif(e.target.files[0]).then(r => setColPhoto(r.dataUrl)).catch(() => alert('Could not read this image. Please try a JPG, PNG or WebP file (a phone HEIC photo may not work — save it as JPG first).')).finally(() => setColConverting(false)); } }} />
-            </div>
-          </div>
+          {!showMore && (
+            <button onClick={() => setShowMore(true)}
+              style={{ width:'100%', marginTop:'.6rem', background:'#fff', color:'#722f37',
+                border:'1.5px dashed #d8cfca', borderRadius:'8px', padding:'.45rem',
+                fontSize:'.8rem', fontWeight:600, cursor:'pointer' }}>
+              + Aur photos daalein (Side, Back, Zoomed&hellip;)
+              <span style={{ display:'block', fontWeight:400, fontSize:'.7rem', color:'#8a7f76', marginTop:'.15rem' }}>
+                FRONT ke alawa ek bhi photo daali, to is rang ki apni gallery chalu ho jayegi
+              </span>
+            </button>
+          )}
 
-          {showUrlBox && (
-            <input value={urlVal}
-              onChange={e => { setUrlVal(e.target.value); setColPhoto(e.target.value); }}
-              placeholder="https://..."
-              style={{ width:'100%', marginTop:'.5rem', border:'1.5px solid #ddd', borderRadius:'8px', padding:'.45rem .65rem', fontSize:'.8rem', boxSizing:'border-box' }} />
+          {showMore && (
+            <div style={{ display:'grid', gridTemplateColumns:'repeat(2,1fr)', gap:'.6rem', marginTop:'.6rem' }}>
+              <PhotoSlot label="SIDE VIEW" value={side}   onChange={setSide} />
+              <PhotoSlot label="BACK VIEW" value={back}   onChange={setBack} />
+              <PhotoSlot label="ZOOMED IN" value={zoomed} onChange={setZoomed} />
+
+              {extraPhotos.map((img, k) => (
+                <div key={k} style={{ position:'relative' }}>
+                  <PhotoSlot label={`PHOTO ${k + 5}`} value={img}
+                    onChange={v => setExtraPhotos(prev => prev.map((x, m) => (m === k ? v : x)))} />
+                  <button type="button"
+                    onClick={() => setExtraPhotos(prev => prev.filter((_, m) => m !== k))}
+                    title="Remove this photo"
+                    style={{ position:'absolute', top:4, right:4, zIndex:3, width:22, height:22,
+                      lineHeight:'20px', textAlign:'center', borderRadius:'50%', border:'none',
+                      background:'rgba(0,0,0,.55)', color:'#fff', fontSize:'.8rem', cursor:'pointer', padding:0 }}>
+                    &times;
+                  </button>
+                </div>
+              ))}
+
+              {extraPhotos.length < MAX_EXTRA && (
+                <button type="button" onClick={() => setExtraPhotos(prev => [...prev, ''])}
+                  style={{ minHeight:150, borderRadius:10, cursor:'pointer', border:'2px dashed #d8cfca',
+                    background:'#fcfaf9', color:'#722f37', fontWeight:700, fontSize:'.85rem' }}>
+                  + Add a photo
+                  <span style={{ display:'block', fontWeight:400, fontSize:'.72rem', color:'#8a7f76', marginTop:'.2rem' }}>
+                    {4 + extraPhotos.length} of {MAX_PHOTOS} used
+                  </span>
+                </button>
+              )}
+            </div>
           )}
 
           <button onClick={handleAdd}
             style={{ width:'100%', marginTop:'.75rem', background:'#a7354d', color:'#fff', border:'none', borderRadius:'8px', padding:'.5rem', fontSize:'.82rem', fontWeight:700, cursor:'pointer' }}>
-            ✓ Add Column {nextLetter}
+            &#10003; Add Column {letter.trim() || nextLetter}
           </button>
         </div>
 
@@ -1635,6 +1681,28 @@ export default function AddProductPage() {
                   {c.photo
                     ? <img src={c.photo} alt={c.name} style={{ width:'22px', height:'22px', borderRadius:'50%', objectFit:'cover', border:'1.5px solid #ddd', flexShrink:0 }} />
                     : <div style={{ width:'22px', height:'22px', borderRadius:'50%', background:c.code, border:'1.5px solid #ddd', flexShrink:0 }} />}
+                  {/* Column ka label - jodne ke baad bhi badla ja sakta hai. Ye
+                      sirf label hai: stock matrix colour ke NAAM par chalta hai,
+                      isliye ise badalne se kisi ka hisaab nahi badalta. */}
+                  <input value={c.columnLetter ?? ''}
+                    title="Column label - badal sakte hain"
+                    onChange={e => {
+                      const v = e.target.value.slice(0, 8);
+                      setCustomColours(p => p.map((x, j) => (j === i ? { ...x, columnLetter: v } : x)));
+                    }}
+                    onBlur={e => {
+                      const v = e.target.value.trim();
+                      const clash = v !== '' && customColours.some((x, j) =>
+                        j !== i && (x.columnLetter ?? '').trim().toLowerCase() === v.toLowerCase());
+                      if (clash) {
+                        alert(`Column "${v}" pehle se is product me hai. Koi dusra naam dein.`);
+                        setCustomColours(p => p.map((x, j) =>
+                          (j === i ? { ...x, columnLetter: LETTERS[i] ?? '' } : x)));
+                      }
+                    }}
+                    style={{ width:'46px', textAlign:'center', background:'#fff', color:'#555',
+                      border:'1.5px solid #e4dedb', borderRadius:'10px', padding:'.1rem .2rem',
+                      fontSize:'.7rem', fontWeight:700, boxSizing:'border-box' }} />
                   <button onClick={() => setCustomColours(p => p.filter((_,j) => j !== i))}
                     style={{ background:'none', border:'none', cursor:'pointer', color:'#c62828', fontSize:'.8rem', padding:'0 .15rem', lineHeight:1 }}>✕</button>
                 </div>
@@ -1949,6 +2017,7 @@ export default function AddProductPage() {
       {showColModal && (
         <CustomColourModal
           nextLetter={LETTERS[customColours.length] ?? 'A'}
+          usedLetters={customColours.map(c => c.columnLetter)}
           onAdd={c => {
             setCustomColours(p => [...p, c]);
             // Save the colour (name + code only, no photo) to the reusable catalog.
