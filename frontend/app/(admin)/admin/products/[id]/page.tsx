@@ -18,6 +18,15 @@ import { warmProductImages } from '@/lib/warmImages';
 // ─── Constants ────────────────────────────────────────────────────────────────
 const CATEGORIES = ['Women','Men','Kids','Beauty','Fabrics','More'];
 const SIZES_PRESET = ['XS','S','M','L','XL','XXL','XXXL','Free Size','28','30','32','34','36','38','40','42'];
+// Bachchon ke kapdon ka naap number se nahi, umar se chuna jata hai - maa ko
+// "24" se kuch pata nahi chalta, "24 (3-4 Years)" se chalta hai. Ye poora text
+// hi size ka naam hai, isliye order, label aur stock sab me wahi jata hai.
+//
+// Ye saved sizes ki saanjhi suchi me nahi daale jaate: button hamesha yahan
+// hai, to daalne ka koi fayada nahi - aur daal dete to saree ke product par
+// bhi aath bachchon wale chips lag jate.
+const KIDS_SIZES_PRESET = ['20 (1-2 Years)','22 (2-3 Years)','24 (3-4 Years)','26 (5-6 Years)',
+  '28 (7-8 Years)','30 (9-10 Years)','32 (11-12 Years)','34 (13-14 Years)'];
 const COLORS_PRESET = ['Red','Blue','Green','Black','White','Yellow','Pink','Orange','Purple','Grey','Navy','Maroon'];
 const GST_RATES = [0, 5, 12, 18];
 const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -900,6 +909,11 @@ export default function EditProductPage() {
     }
   };
 
+  // Ek click me bachchon ke saare naap chip ban jate hain; chunna phir bhi
+  // haath se, kyunki har product har umar me nahi hota.
+  const addKidsSizes = () =>
+    setCustomSizes(p => [...p, ...KIDS_SIZES_PRESET.filter(v => !p.includes(v) && !SIZES_PRESET.includes(v))]);
+
   const updateCol = (idx: number, field: 'front' | 'side' | 'back' | 'zoomed', val: string) =>
     setPackCols(prev => prev.map((c, i) => i === idx ? { ...c, [field]: val } : c));
 
@@ -1523,6 +1537,10 @@ export default function EditProductPage() {
             <button onClick={addCustomSize}
               style={{ border:'1.5px dashed #ddd', background:'#fff', color:'#888', borderRadius:'20px', padding:'.28rem .7rem', fontSize:'.8rem', cursor:'pointer' }}>
               + Custom
+            </button>
+            <button onClick={addKidsSizes} title="20 (1-2 Years), 22 (2-3 Years), 24 (3-4 Years)…"
+              style={{ border:'1.5px dashed #c9a227', background:'#fffdf5', color:'#8a6d1f', borderRadius:'20px', padding:'.28rem .7rem', fontSize:'.8rem', fontWeight:600, cursor:'pointer' }}>
+              + Kids (umar)
             </button>
             <PickFilter label="Select sizes" options={allSizes.map(s => ({ value: s, label: s }))}
               selectedValues={selSizes} onToggle={toggleSize} />

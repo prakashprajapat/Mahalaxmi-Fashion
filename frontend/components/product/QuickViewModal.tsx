@@ -399,6 +399,7 @@ export default function QuickViewModal({ product, onClose }: Props) {
                       <button key={s} onClick={() => !disabled && setSize(s)} disabled={disabled}
                         style={{
                           padding: '.35rem .75rem', borderRadius: '6px', fontSize: '.85rem', fontWeight: 600,
+                          whiteSpace: 'nowrap',
                           border: size === s ? '2px solid #722f37' : '1.5px solid #ddd',
                           background: disabled ? '#f5f5f5' : size === s ? '#f7eff0' : '#fff',
                           color: disabled ? '#bbb' : size === s ? '#722f37' : '#555',

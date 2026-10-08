@@ -901,6 +901,9 @@ export default function ProductDetail({ params, initialProduct = null }: { param
                     return (
                       <button key={s} onClick={() => !oos && setSize(s)} disabled={oos} style={{
                         minWidth: '44px', height: '40px', padding: '0 .75rem', borderRadius: '6px',
+                        // "24 (3-4 Years)" jaisa naam do line me toot kar 40px ke andar
+                        // kat jata; naap ka naam kabhi toota hua nahi dikhna chahiye.
+                        whiteSpace: 'nowrap',
                         border: size === s ? '2px solid #722f37' : '1.5px solid #ddd',
                         background: oos ? '#f5f5f5' : size === s ? '#722f37' : '#fff',
                         color: oos ? '#ccc' : size === s ? '#fff' : '#333',

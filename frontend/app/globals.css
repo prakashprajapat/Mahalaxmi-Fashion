@@ -883,7 +883,9 @@ button { cursor: pointer; font-family: inherit; }
 /* ─── Product Card (HTML design match) ─── */
 /* No border. On the cream page the white tile is its own edge; the 1.5px grey
    line was there to rescue white-on-white and now only adds noise. */
-.product-card { background: #fff; border-radius: 12px; border: 1px solid #f2ece9; overflow: hidden; display: flex; flex-direction: column; transition: box-shadow .2s, transform .2s; position: relative; }
+/* Seedhe kone. Shop ne yahi maanga: tile ka kinara mudna nahi chahiye.
+   overflow:hidden yahin rehta hai - wahi photo ko tile ke andar rokta hai. */
+.product-card { background: #fff; border-radius: 0; border: 1px solid #f2ece9; overflow: hidden; display: flex; flex-direction: column; transition: box-shadow .2s, transform .2s; position: relative; }
 .product-card:hover { box-shadow: 0 8px 28px rgba(0,0,0,.13); transform: translateY(-2px); z-index: 1; }
 .product-card-img { position: relative; aspect-ratio: 3/4; overflow: hidden; background: #f6f2f3; }
 /* Product photos are ALWAYS visible (opacity 1). The earlier opacity-fade relied on the
