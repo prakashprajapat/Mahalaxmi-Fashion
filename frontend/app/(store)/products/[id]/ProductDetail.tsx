@@ -403,6 +403,40 @@ export default function ProductDetail({ params, initialProduct = null }: { param
     });
   }
 
+  // Custom rang ke swatch ki photo bhi gallery me chahiye. Swatch dabane par
+  // activeImg wahi photo ban jati hai - agar wo gallery me na ho to neeche
+  // wala shownImg use gallery[0] par laut dega aur galat tasveer dikhegi.
+  // (Aaj ye photo gallery me nahi jati thi, isliye swatch dabane par bhi wahi
+  // dhundhla dhabba reh jata tha.) Naam se dedupe upar ho chuka hai.
+  if (!isPackProduct) (extra.customColors ?? []).forEach(c => addGalleryImage(c.photo));
+
+  // Jo photo badi jagah par dikhegi. activeImg par seedha bharosa nahi kiya
+  // ja sakta.
+  //
+  // activeImg hamesha product.image se shuru hota hai. Lekin jis product me
+  // productPhotos bhare hain, uski gallery sirf un slots se banti hai aur
+  // product.image usme jodi hi nahi jati (oopar wali tippani maanti hai ki
+  // "front hi main image hai"). Product 177 par ye galat nikla: main image
+  // product-img-...881.webp thi, aur gallery auto-img-9 se 16 tak. Matlab
+  // gallery ki kisi bhi photo ka `img === activeImg` sach nahi hua, isliye
+  // aathon <Image> opacity 0 par baithi rahin aur screen par sirf blurfill
+  // bacha - 64px ka dhundhla thumbnail, hamesha ke liye. Ye dheemi photo nahi
+  // thi, ye kabhi na aane wali photo thi; isiliye cache garam karne ke saat
+  // deploy se kuch nahi badla.
+  //
+  // Rang ke swatch par bhi yahi hota tha: bina custom photo wale rang par
+  // setActiveImg(product.image) chalta hai.
+  //
+  // Isliye dikhane ke liye activeImg nahi, ye lete hain - jo hamesha gallery
+  // ke andar ki hi photo hoti hai. Gallery me product.image jodte nahi, warna
+  // ek hi tasveer do baar dikh sakti hai jab uske do naam hon.
+  const shownImg: string = (() => {
+    if (gallery.length === 0) return activeImg;
+    if (!activeImg) return gallery[0];
+    const k = galleryKey(activeImg);
+    return gallery.find(g => galleryKey(g) === k) ?? gallery[0];
+  })();
+
   const sizes: string[] = [...new Set(extra.sizes ?? (extra.variantMatrix ? [...new Set(Object.keys(extra.variantMatrix).map(k => k.split('|')[0]))] : []))];
   const normalColors = extra.colors ?? (extra.variantMatrix ? [...new Set(Object.keys(extra.variantMatrix).map(k => k.split('|')[1]).filter(Boolean))] : []);
   const colors: string[] = isPackProduct ? [] : [...new Set([...normalColors, ...((extra.customColors ?? []).map(c => c.name ?? '').filter(Boolean))])];
@@ -583,7 +617,7 @@ export default function ProductDetail({ params, initialProduct = null }: { param
             {/* Outer wrapper: position:relative, NO overflow:hidden — magnifier can spill out */}
             <div
               className="pdp-gallery-main"
-              style={{ position: 'relative', aspectRatio: '3/4', marginBottom: '.75rem', cursor: imgHovered && activeImg ? 'crosshair' : 'default' }}
+              style={{ position: 'relative', aspectRatio: '3/4', marginBottom: '.75rem', cursor: imgHovered && shownImg ? 'crosshair' : 'default' }}
               onMouseEnter={() => { if (canHover) setImgHovered(true); }}
               onMouseLeave={() => setImgHovered(false)}
               onMouseMove={e => {
@@ -598,13 +632,13 @@ export default function ProductDetail({ params, initialProduct = null }: { param
             >
               {/* Inner: overflow:hidden clips the image only */}
               <div style={{ position: 'absolute', inset: 0, borderRadius: '12px', overflow: 'hidden', background: '#f5f5f5' }}>
-                {activeImg && (
+                {shownImg && (
                   /* Photos uploaded before the shop started reshaping them are
                      not all 3:4, and a wide one leaves grey bands here just as
                      it did on the cards. Same answer: a blurred copy of the
                      photo fills the gap, and the photo itself stays whole. */
                   <div className="product-card-blurfill" aria-hidden="true"
-                    style={{ backgroundImage: `url("${productImageThumb(activeImg).replace(/"/g, '%22')}")` }} />
+                    style={{ backgroundImage: `url("${productImageThumb(shownImg).replace(/"/g, '%22')}")` }} />
                 )}
                 {/* Every photo of this product is rendered here, once, and
                     switching between them only changes which one is opaque.
@@ -619,17 +653,17 @@ export default function ProductDetail({ params, initialProduct = null }: { param
                     They all load while the page is settling, in the background,
                     and after that a tap costs nothing at all. Only the first is
                     marked priority: the rest should not compete with it. */}
-                {!activeImg
+                {!shownImg
                   ? <div className="product-card-placeholder" aria-hidden="true" />
                   : heroRaw
                     /* eslint-disable-next-line @next/next/no-img-element */
-                    ? <img src={activeImg} alt={product.name}
+                    ? <img src={shownImg} alt={product.name}
                         style={{ position: 'relative', zIndex: 1, width: '100%', height: '100%', objectFit: 'contain' }} />
                     : gallery
                         // Before the first one has landed, the only photos on
                         // the page are it and whatever the customer has
                         // already tapped - never the whole set.
-                        .filter((img, i) => heroLoaded || i === 0 || img === activeImg)
+                        .filter((img, i) => heroLoaded || i === 0 || img === shownImg)
                         .map(img => {
                         const i = gallery.indexOf(img);
                         return (
@@ -660,11 +694,11 @@ export default function ProductDetail({ params, initialProduct = null }: { param
                           sizes="(max-width: 899px) calc(100vw - 105px), 390px"
                           onLoad={() => { if (i === 0) setHeroLoaded(true); }}
                           onError={() => { if (i === 0) { setHeroRaw(true); setHeroLoaded(true); } }}
-                          aria-hidden={img !== activeImg}
+                          aria-hidden={img !== shownImg}
                           style={{
                             position: 'absolute', inset: 0, zIndex: 1,
                             width: '100%', height: '100%', objectFit: 'contain',
-                            opacity: img === activeImg ? 1 : 0,
+                            opacity: img === shownImg ? 1 : 0,
                             transition: 'opacity .12s linear',
                             pointerEvents: 'none',
                           }} />
@@ -674,7 +708,7 @@ export default function ProductDetail({ params, initialProduct = null }: { param
                 {saving > 0 && <span className="badge badge-red" style={{ position: 'absolute', zIndex: 2, top: product.bestSeller ? 44 : 12, left: 12 }}>{saving}% off</span>}
               </div>
               {/* Circular magnifier — position:fixed so no overflow can clip it */}
-              {canHover && imgHovered && activeImg && (
+              {canHover && imgHovered && shownImg && (
                 <div style={{
                   position: 'fixed',
                   left: zoomPos.cx,
@@ -684,7 +718,7 @@ export default function ProductDetail({ params, initialProduct = null }: { param
                   borderRadius: '50%',
                   border: '2.5px solid rgba(167,53,77,.6)',
                   boxShadow: '0 4px 20px rgba(0,0,0,.25)',
-                  backgroundImage: `url(${activeImg})`,
+                  backgroundImage: `url(${shownImg})`,
                   backgroundSize: '350% 350%',
                   backgroundPosition: `${zoomPos.x}% ${zoomPos.y}%`,
                   pointerEvents: 'none',
@@ -705,7 +739,7 @@ export default function ProductDetail({ params, initialProduct = null }: { param
                     aria-label={`Show photo ${i + 1}`}
                     style={{
                     width: '64px', height: '64px', borderRadius: '8px', overflow: 'hidden',
-                    border: activeImg === img ? '2px solid #722f37' : '2px solid #eee',
+                    border: shownImg === img ? '2px solid #722f37' : '2px solid #eee',
                     padding: 0, cursor: 'pointer', background: '#f5f5f5', flexShrink: 0,
                   }}>
                     <Image src={img} alt={`${product.name} \u2014 photo ${i + 1}`} width={64} height={64} sizes="64px"
