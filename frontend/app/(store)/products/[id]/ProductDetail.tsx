@@ -637,7 +637,27 @@ export default function ProductDetail({ params, initialProduct = null }: { param
                           width={900} height={1200}
                           priority={i === 0}
                           fetchPriority={i === 0 ? 'high' : 'low'}
-                          sizes="(max-width: 768px) 100vw, 520px"
+                          // Straight from nginx, no optimiser in the way.
+                          //
+                          // These photos are already WebP, already about
+                          // 900px across, and mostly under 150KB - measured,
+                          // 529 of them. Sending one through /_next/image
+                          // buys a slightly smaller file and costs a round
+                          // trip out to Cloudflare for the original plus a
+                          // re-encode, and for a photo uploaded after the
+                          // last deploy nothing is warm, so the customer sits
+                          // looking at the blurred stand-in while that
+                          // happens. Serving the file itself is the faster
+                          // answer: Cloudflare already caches .webp at the
+                          // edge for a week.
+                          //
+                          // The 64px thumbnails keep the optimiser, where it
+                          // earns its place - 150KB down to about one.
+                          unoptimized
+                          // Describes the box it actually fills now that the
+                          // rail stands beside it. Unused while unoptimized
+                          // is set, and correct if that is ever removed.
+                          sizes="(max-width: 899px) calc(100vw - 105px), 390px"
                           onLoad={() => { if (i === 0) setHeroLoaded(true); }}
                           onError={() => { if (i === 0) { setHeroRaw(true); setHeroLoaded(true); } }}
                           aria-hidden={img !== activeImg}
