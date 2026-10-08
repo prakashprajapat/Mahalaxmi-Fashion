@@ -37,6 +37,21 @@ export function warmProductImages(paths: (string | null | undefined)[]): void {
     const src = productImageSrc((p ?? '').trim());
     if (!src || seen.has(src)) return;
     seen.add(src);
+    // The file itself, first - this is the one the customer waits on.
+    //
+    // The product page stopped sending its main photo through the optimiser
+    // (ProductDetail.tsx, `unoptimized`), so the URL it now asks for is the
+    // plain .webp. Warming only the /_next/image forms left that one cold,
+    // which is why the blur outlived two fixes aimed at it.
+    //
+    // Measured on the live site, same 50KB photo, three times over:
+    //   Cloudflare MISS  1393ms
+    //   Cloudflare HIT    394ms
+    //   Cloudflare HIT    390ms
+    // Nothing is wrong with the file or the server. The whole delay is the
+    // first request for a photo the edge has not seen, and that is a thing
+    // that can be spent here instead of on a customer.
+    jobs.push(src);
     WIDTHS.forEach(w => jobs.push(`/_next/image?url=${encodeURIComponent(src)}&w=${w}&q=${QUALITY}`));
   });
 
@@ -46,7 +61,13 @@ export function warmProductImages(paths: (string | null | undefined)[]): void {
   const pump = (): void => {
     const i = next++;
     if (i >= jobs.length) return;
-    fetch(jobs[i]).catch(() => {}).then(pump);
+    // Accept matches what an <img> sends. Next negotiates the output format
+    // on this header and keys its cache on the result, so a warm sent with
+    // the default */* can fill an entry the browser never asks for - the
+    // exact mistake the deploy-time warming made with its URL.
+    fetch(jobs[i], { headers: { Accept: 'image/webp,image/avif,*/*' } })
+      .catch(() => {})
+      .then(pump);
   };
   for (let i = 0; i < LANES; i++) pump();
 }
