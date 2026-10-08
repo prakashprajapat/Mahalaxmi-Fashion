@@ -109,6 +109,28 @@ export default function ProductDetail({ params, initialProduct = null }: { param
   const [activeImg, setActiveImg] = useState(() => firstPhotoOf(initialProduct));
   // Optimiser photo na padh paye to asli file dikhao — dekhiye ProductCard.
   const [heroRaw, setHeroRaw] = useState(false);
+
+  // Has the photo the customer is actually looking at arrived yet?
+  //
+  // Until it has, only that one is put on the page. Mounting all ten at once
+  // is what made the first one sit blurred: product photos are fetched by
+  // their full https address, so each one Next resizes is a round trip out
+  // through Cloudflare and back, and ten of those start together and finish
+  // together. The one in front of the customer waited behind nine nobody was
+  // looking at, and `priority` could not help - the queue was the server's,
+  // not the browser's.
+  //
+  // The moment it lands, the other nine mount and load quietly, so switching
+  // photos still costs nothing. Only the first paint stops paying for them.
+  const [heroLoaded, setHeroLoaded] = useState(false);
+
+  // If it neither loads nor errors - a dropped connection, a tab left in the
+  // background - the rest would never mount and the thumbnails would stop
+  // working. After three seconds they come in anyway.
+  useEffect(() => {
+    const t = setTimeout(() => setHeroLoaded(true), 3000);
+    return () => clearTimeout(t);
+  }, []);
   // Nayi photo chunte hi dobara optimiser ko mauka do.
   useEffect(() => { setHeroRaw(false); }, [activeImg]);
   const [added, setAdded] = useState(false);
@@ -592,13 +614,21 @@ export default function ProductDetail({ params, initialProduct = null }: { param
                     /* eslint-disable-next-line @next/next/no-img-element */
                     ? <img src={activeImg} alt={product.name}
                         style={{ position: 'relative', zIndex: 1, width: '100%', height: '100%', objectFit: 'contain' }} />
-                    : gallery.map((img, i) => (
+                    : gallery
+                        // Before the first one has landed, the only photos on
+                        // the page are it and whatever the customer has
+                        // already tapped - never the whole set.
+                        .filter((img, i) => heroLoaded || i === 0 || img === activeImg)
+                        .map(img => {
+                        const i = gallery.indexOf(img);
+                        return (
                         <Image key={img} src={img} alt={i === 0 ? product.name : ''}
                           width={900} height={1200}
                           priority={i === 0}
                           fetchPriority={i === 0 ? 'high' : 'low'}
                           sizes="(max-width: 768px) 100vw, 520px"
-                          onError={() => { if (i === 0) setHeroRaw(true); }}
+                          onLoad={() => { if (i === 0) setHeroLoaded(true); }}
+                          onError={() => { if (i === 0) { setHeroRaw(true); setHeroLoaded(true); } }}
                           aria-hidden={img !== activeImg}
                           style={{
                             position: 'absolute', inset: 0, zIndex: 1,
@@ -607,7 +637,8 @@ export default function ProductDetail({ params, initialProduct = null }: { param
                             transition: 'opacity .12s linear',
                             pointerEvents: 'none',
                           }} />
-                      ))}
+                        );
+                      })}
                 {product.bestSeller && <span className="badge badge-yellow" style={{ position: 'absolute', zIndex: 2, top: 12, left: 12 }}>Best Seller</span>}
                 {saving > 0 && <span className="badge badge-red" style={{ position: 'absolute', zIndex: 2, top: product.bestSeller ? 44 : 12, left: 12 }}>{saving}% off</span>}
               </div>
