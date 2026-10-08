@@ -1927,6 +1927,57 @@ a.footer-app-btn.footer-app-live:hover{ background:rgba(255,255,255,.16); transf
   .pdp-trust { padding-top: .8rem; }
 }
 
+/* ─── Product page on desktop: thumbnails beside the photo, not under it ───
+   The gallery column becomes a two-track grid: a thumbnail rail on the left,
+   the photo on its right, and the description spanning both underneath.
+
+   Done in CSS rather than by moving the markup, because the phone layout
+   depends on .pdp-gallery-main, .pdp-thumbs and .pdp-desc staying DIRECT
+   children of .pdp-gallery-col - `display: contents` below 900px drops them
+   into the page stack so the description can sit after the buy box. Rewrap
+   them in a div for the desktop rail and that breaks.
+
+   The first track is `auto`, so on a product with a single photo - where the
+   rail is not rendered at all - it collapses to nothing instead of leaving a
+   notch of empty space beside the picture.
+
+   The rail scrolls on its own: ten photos at 64px is taller than the frame
+   beside it, and ten is now what a product can carry. */
+@media (min-width: 900px) {
+  .pdp-gallery-col {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    column-gap: .8rem;
+    align-items: start;
+  }
+
+  .pdp-thumbs {
+    grid-column: 1;
+    grid-row: 1;
+    /* !important throughout: the element carries inline flex styles, and an
+       inline rule beats a class every time. */
+    flex-direction: column !important;
+    flex-wrap: nowrap !important;
+    max-height: min(62vh, 520px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: #e0d5d7 transparent;
+  }
+  .pdp-thumbs::-webkit-scrollbar { width: 4px; }
+  .pdp-thumbs::-webkit-scrollbar-thumb { background: #e0d5d7; border-radius: 4px; }
+
+  .pdp-gallery-main {
+    grid-column: 2;
+    grid-row: 1;
+    /* A little smaller than it was, to pay for the rail beside it. */
+    height: min(62vh, 520px);
+    margin-bottom: 0 !important;
+  }
+
+  .pdp-desc { grid-column: 1 / -1; grid-row: 2; }
+}
+
 /* ─── Product page: description under the photo ─── */
 .pdp-desc { margin-top: 1.25rem; }
 .pdp-desc h2 {
