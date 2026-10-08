@@ -17,7 +17,7 @@ import { downloadCsv } from '@/lib/adminPaged';
 // page says it rather than implying a lock that is not there.
 const ENFORCED = new Set([
   'orders', 'products', 'customers', 'reviews', 'reconcile',
-  'settings', 'suppliers', 'popup-leads', 'campaigns', 'birthday',
+  'settings', 'suppliers', 'popup-leads', 'campaigns', 'birthday', 'earnings',
 ]);
 
 const SECTIONS: { key: string; label: string; group: string }[] = [
@@ -43,6 +43,7 @@ const SECTIONS: { key: string; label: string; group: string }[] = [
   { key: 'seo',           label: 'SEO (all six screens)',  group: 'SEO' },
   { key: 'reports',       label: 'Reports & GSTR-1',       group: 'Accounts' },
   { key: 'reconcile',     label: 'Payment reconcile',      group: 'Accounts' },
+  { key: 'earnings',      label: 'Shop settlement',        group: 'Accounts' },
   { key: 'staff',         label: 'Staff management',       group: 'Settings' },
   { key: 'settings',      label: 'Settings',               group: 'Settings' },
 ];

@@ -2,7 +2,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
-import { productsApi, settingsApi } from '@/lib/api';
+import { productsApi, settingsApi, costingApi } from '@/lib/api';
 import { runProductQC, type QcIssue } from '@/lib/productQC';
 import QcPanel from '@/components/admin/QcPanel';
 import { getAdminToken } from '@/lib/auth';
@@ -12,6 +12,7 @@ import { PageHeader } from '@/components/admin/Ui';
 import TaxonomyCombo from '@/components/admin/TaxonomyCombo';
 import { colourProblem, colourNameToHex } from '@/lib/googleColours';
 import { MAX_EXTRA, MAX_PHOTOS, asNumberedExtras, numberedExtras } from '@/lib/photoExtras';
+import { useOwnerView } from '@/lib/useOwnerView';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const CATEGORIES = ['Women','Men','Kids','Beauty','Fabrics','More'];
@@ -682,6 +683,16 @@ export default function EditProductPage() {
   const [showColModal, setShowColModal] = useState(false);
 
   const [packCols, setPackCols]     = useState<PackColumn[]>([]);
+  const [staffPrice, setStaffPrice]   = useState('');
+  const [platformFee, setPlatformFee] = useState('');
+  const ownerView = useOwnerView();
+  // Staff price plus the owner's fee: what this is meant to sell for. The
+  // actual selling price is whatever is in the boxes above, which may differ -
+  // the warning below is for exactly that gap.
+  const suggestedPrice = Math.round((Number(staffPrice) || 0) + (Number(platformFee) || 0));
+  const staffUnit      = Number(staffPrice) || 0;
+  const actualSelling  = Number(discPrice || price || 0);
+
   const [mainPhotos, setMainPhotos] = useState<MainPhotos>({ front:'', side:'', back:'', zoomed:'', extra: [] });
   const [addOns, setAddOns]         = useState<AddOn[]>([]);
 
@@ -779,6 +790,19 @@ export default function EditProductPage() {
             extra:  numberedExtras(col as unknown as Record<string, unknown>),
           }));
           setPackCols(normalizePackColumns(existing, n));
+
+          // What this owes its shop. A second call on purpose: the money
+          // is not on the product record, so it is not in what we just
+          // loaded. It fails quietly - a staff member with no products
+          // permission on this product simply gets blanks, and the boxes
+          // being empty then means "not yours to see", which is also what
+          // the save does with them.
+          costingApi.get(productId, getAdminToken() ?? '')
+            .then(c => {
+              if (c.staffPrice != null) setStaffPrice(String(c.staffPrice));
+              if (c.platformFee != null) setPlatformFee(String(c.platformFee));
+            })
+            .catch(() => {});
 
           // Main product photos
           const pp = ex.productPhotos ?? {};
@@ -1007,6 +1031,12 @@ export default function EditProductPage() {
         subcategory:   sub.trim() || undefined,
         price:         Number(price),
         discountPrice: discPrice ? Number(discPrice) : undefined,
+        // Blank means "leave whatever is stored alone", not "set it to zero" -
+        // same rule as shopName just below. The Add screen shows a staff member
+        // no fee box at all, so without this an edit by staff would wipe the
+        // owner's fee every time they touched the product.
+        ...(staffPrice.trim() ? { staffPrice: Number(staffPrice) } : {}),
+        ...(platformFee.trim() ? { platformFee: Number(platformFee) } : {}),
         shippingCharge: shipCharge ? Number(shipCharge) : 0,
         stock:         holdAsDraft ? 'Draft' : stockStatusFromQty(saveQty),
         sku:           sku.trim() || undefined,
@@ -1257,6 +1287,63 @@ export default function EditProductPage() {
           <div>
             <label style={lbl}>Discount Price (₹)</label>
             <input type="number" value={discPrice} onChange={e => setDiscPrice(e.target.value)} placeholder="Optional" style={inp} />
+          </div>
+
+          {/* ── What the shop is owed, and what we keep ───────────────────
+              Neither number is ever sent to the storefront - they come back
+              through an admin-only call, not on the product record, so there is
+              no filter standing between a cost and the open internet.
+
+              The fee box is drawn for the owner alone. A staff member sees his
+              own price and the two read-only lines under it; the server drops a
+              fee he sends anyway, so hiding the box is politeness, not the
+              lock. */}
+          <div style={{ gridColumn: '1 / -1', background: '#fbf7f4', border: '1px solid #ecdfd8', borderRadius: 12, padding: '.9rem 1rem' }}>
+            <p style={{ margin: '0 0 .7rem', fontSize: '.78rem', fontWeight: 700, color: '#722f37', textTransform: 'uppercase', letterSpacing: '.05em' }}>
+              Shop settlement
+            </p>
+            <div style={{ display: 'grid', gap: '.8rem', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))' }}>
+              <div>
+                <label style={lbl}>Staff price (₹) <span style={{ fontWeight:400, color:'#888', fontSize:'.75rem' }}>per piece</span></label>
+                <input type="number" min={0} value={staffPrice} onChange={e => setStaffPrice(e.target.value)} placeholder="What the shop wants" style={inp} />
+              </div>
+              {ownerView && (
+                <div>
+                  <label style={lbl}>Platform fee (₹) <span style={{ fontWeight:400, color:'#888', fontSize:'.75rem' }}>your share</span></label>
+                  <input type="number" min={0} value={platformFee} onChange={e => setPlatformFee(e.target.value)} placeholder="0" style={inp} />
+                </div>
+              )}
+              <div>
+                <label style={lbl}>Should sell for</label>
+                <div style={{ padding: '.55rem .75rem', border: '1.5px solid #ecdfd8', borderRadius: 8, background: '#fff', fontSize: '.95rem', fontWeight: 700, color: '#2c2724' }}>
+                  {suggestedPrice > 0 ? `₹${suggestedPrice.toLocaleString('en-IN')}` : '—'}
+                </div>
+                {suggestedPrice > 0 && Number(discPrice || price || 0) !== suggestedPrice && (
+                  <button type="button"
+                    onClick={() => { if (discPrice) setDiscPrice(String(suggestedPrice)); else setPrice(String(suggestedPrice)); }}
+                    style={{ marginTop: '.35rem', border: '1px solid #722f37', background: '#fff', color: '#722f37', borderRadius: 8, padding: '.3rem .6rem', fontSize: '.75rem', fontWeight: 700, cursor: 'pointer' }}>
+                    Use this price
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* The line that earns this block. The arrangement is that the shop
+                gets its full price whatever happens, so a discount comes out of
+                the fee - and once the discount is deep enough, out of pocket.
+                Said here, before saving, rather than discovered on a
+                settlement screen next month. */}
+            {staffUnit > 0 && actualSelling > 0 && (
+              <p style={{ margin: '.7rem 0 0', fontSize: '.8rem', fontWeight: 600,
+                          color: actualSelling < staffUnit ? '#9c2f28' : '#2f6b3d' }}>
+                {actualSelling < staffUnit
+                  ? `Selling at ₹${actualSelling.toLocaleString('en-IN')} but the shop is owed ₹${staffUnit.toLocaleString('en-IN')} — you lose ₹${(staffUnit - actualSelling).toLocaleString('en-IN')} on every piece.`
+                  : `At ₹${actualSelling.toLocaleString('en-IN')} you keep ₹${(actualSelling - staffUnit).toLocaleString('en-IN')} a piece, the shop gets ₹${staffUnit.toLocaleString('en-IN')}.`}
+              </p>
+            )}
+            <p style={{ margin: '.5rem 0 0', fontSize: '.74rem', color: '#8a817b', lineHeight: 1.55 }}>
+              Customer never sees either number. The shop is paid once the order is delivered and its return window has closed.
+            </p>
           </div>
 
           <div>

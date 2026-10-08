@@ -39,6 +39,12 @@ builder.Services.AddHostedService<DelhiveryTrackingSyncService>();
 // runs at save time; this is what catches products that went live before it
 // existed, and ones that stop passing later.
 builder.Services.AddHostedService<ProductGateSweepService>();
+
+// Turns delivered parcels into money owed to the shop that supplied them. A
+// sweep rather than a hook on delivery, because three different paths mark an
+// order delivered and bookkeeping wired into all three is bookkeeping missing
+// from one of them.
+builder.Services.AddHostedService<StaffPayoutSweepService>();
 builder.Services.AddHostedService<ReviewRequestService>();
 builder.Services.AddHostedService<AbandonedCartService>();
 
@@ -308,6 +314,48 @@ using (var scope = app.Services.CreateScope())
         );
         CREATE INDEX IF NOT EXISTS ix_exchange_requests_order  ON exchange_requests (order_id);
         CREATE INDEX IF NOT EXISTS ix_exchange_requests_status ON exchange_requests (status, created_at DESC);
+        -- What a product costs us and what we keep. Per piece, and never sent
+        -- to the storefront: see the note on Product.StaffPrice.
+        ALTER TABLE products ADD COLUMN IF NOT EXISTS staff_price  NUMERIC(12,2);
+        ALTER TABLE products ADD COLUMN IF NOT EXISTS platform_fee NUMERIC(12,2);
+
+        -- One row per line of one delivered order: what that sale owes the shop
+        -- that supplied it. Written by StaffPayoutSweepService, never by hand.
+        --
+        -- The unique index is what makes the sweep safe to run as often as it
+        -- likes. Without it, two runs overlapping - or one re-run after a crash
+        -- halfway through - would write a second row for the same line and the
+        -- shop would be owed the money twice. The guard belongs here rather
+        -- than in the C#, because a check-then-insert in code has a gap between
+        -- the two halves and this does not.
+        CREATE TABLE IF NOT EXISTS staff_payouts (
+            id              SERIAL PRIMARY KEY,
+            order_id        VARCHAR(64)  NOT NULL,
+            line_index      INT          NOT NULL,
+            shop_name       VARCHAR(160) NOT NULL,
+            product_id      INT,
+            sku             VARCHAR(64),
+            product_name    VARCHAR(300) NOT NULL DEFAULT '',
+            qty             INT          NOT NULL DEFAULT 1,
+            sold_unit       NUMERIC(12,2) NOT NULL DEFAULT 0,
+            staff_unit      NUMERIC(12,2) NOT NULL DEFAULT 0,
+            staff_amount    NUMERIC(12,2) NOT NULL DEFAULT 0,
+            platform_amount NUMERIC(12,2) NOT NULL DEFAULT 0,
+            delivered_at    TIMESTAMPTZ  NOT NULL,
+            payable_at      TIMESTAMPTZ  NOT NULL,
+            status          VARCHAR(16)  NOT NULL DEFAULT 'pending',
+            paid_at         TIMESTAMPTZ,
+            paid_note       VARCHAR(300),
+            cancel_reason   VARCHAR(300),
+            created_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS ux_staff_payouts_line
+            ON staff_payouts (order_id, line_index);
+        CREATE INDEX IF NOT EXISTS ix_staff_payouts_shop
+            ON staff_payouts (shop_name, status);
+        CREATE INDEX IF NOT EXISTS ix_staff_payouts_payable
+            ON staff_payouts (status, payable_at);
+
         CREATE TABLE IF NOT EXISTS invite_sends (
             id         SERIAL PRIMARY KEY,
             audience   VARCHAR(16)  NOT NULL,

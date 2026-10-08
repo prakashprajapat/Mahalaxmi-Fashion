@@ -63,6 +63,9 @@ const ALL_NAV: { href?: string; label?: string; exact?: boolean; heading?: strin
   { heading: 'Accounts' },
   { href: '/admin/reports',     label: '📈 Reports & GSTR-1' },
   { href: '/admin/reconcile',   label: '💰 Payment Reconcile' },
+  // Listed for staff too, not just the owner: a vendor opening this sees
+  // only his own shop, which is the whole point of giving him a login.
+  { href: '/admin/earnings',    label: '🤝 Shop Settlement' },
 
   { heading: 'Settings' },
   { href: '/admin/staff',       label: '👤 Staff Management' },

@@ -31,6 +31,7 @@ public class AppDbContext : DbContext
     public DbSet<CelebrationSend> CelebrationSends { get; set; }
     public DbSet<InviteSend>  InviteSends  { get; set; }
     public DbSet<ExchangeRequest> ExchangeRequests { get; set; }
+    public DbSet<StaffPayout> StaffPayouts { get; set; }
     public DbSet<SiteEventLog> SiteEventLogs { get; set; }
     public DbSet<AbandonedCart> AbandonedCarts { get; set; }
 

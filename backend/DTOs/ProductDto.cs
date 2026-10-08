@@ -53,7 +53,16 @@ public record ProductCreateRequest(
     decimal ShippingCharge = 0,
     // Admin isse khud bhar sakta hai. Staff ke bheje hue request me yeh khali
     // hota hai - tab server uske apne khaate ki dukaan laga deta hai.
-    string? ShopName = null
+    string? ShopName = null,
+
+    // Jo daam dukaan wala apne maal ka maang raha hai, per piece. Staff khud
+    // bhar sakta hai; maalik bhi badal sakta hai.
+    decimal? StaffPrice = null,
+
+    // Uske upar maalik ka hissa, per piece. SIRF maalik - staff ki bheji hui
+    // value yahan chup-chaap gira di jati hai, warna apna commission khud tay
+    // karna uske haath me aa jata.
+    decimal? PlatformFee = null
 );
 
 public record BulkSaveRequest(List<ProductCreateRequest> Products, bool ReplaceAll = false);

@@ -117,3 +117,28 @@ export function isAdmin(): boolean {
     return false;
   }
 }
+
+/**
+ * The shop OWNER, as opposed to a staff member who is also signed into the panel.
+ *
+ * Only ever used to decide what a screen bothers to DRAW - the platform fee box,
+ * another shop's takings, the Mark paid button. Every one of those is enforced
+ * again on the server, which is the half that counts: this reads a token the
+ * browser is holding, and a browser will say whatever it is asked to.
+ */
+export function isOwnerAdmin(): boolean {
+  const token = getAdminToken();
+  if (!token) return false;
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    const role: string =
+      payload['role'] ||
+      payload['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'] ||
+      '';
+    const exp: number | undefined = payload['exp'];
+    if (exp && Date.now() / 1000 > exp) return false;
+    return role === 'admin';
+  } catch {
+    return false;
+  }
+}

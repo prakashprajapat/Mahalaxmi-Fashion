@@ -474,6 +474,84 @@ export const seoContentApi = {
   },
 };
 
+// What a product owes the shop that supplied it, and what we keep.
+//
+// A call of its own rather than fields on the product, because GET /api/products
+// is public: anything on that record is on the open internet. These two come
+// back only to an admin token, and a staff member gets only their own shop's
+// staff price - never the platform fee.
+export const costingApi = {
+  get: (productId: number, token: string) =>
+    request<{
+      success: boolean;
+      mine: boolean;
+      staffPrice: number | null;
+      platformFee: number | null;
+      sellingPrice?: number;
+      shopName?: string | null;
+    }>(`/products/${productId}/costing`, undefined, token),
+};
+
+// Shop-by-shop settlement: what is owed, what is still inside the return
+// window, and marking it paid.
+export const earningsApi = {
+  list: (token: string, opts?: { shop?: string; status?: string }) => {
+    const qs = new URLSearchParams();
+    if (opts?.shop) qs.set('shop', opts.shop);
+    if (opts?.status) qs.set('status', opts.status);
+    const tail = qs.toString();
+    return request<EarningsResponse>(`/staff-earnings${tail ? `?${tail}` : ''}`, undefined, token);
+  },
+
+  pay: (ids: number[], note: string, token: string) =>
+    request<{ success: boolean; paid: number; amount: number; skipped: number; message: string }>(
+      '/staff-earnings/pay', { method: 'POST', body: JSON.stringify({ ids, note }) }, token),
+
+  refresh: (token: string) =>
+    request<{ success: boolean; added: number; withdrawn: number; message: string }>(
+      '/staff-earnings/refresh', { method: 'POST' }, token),
+};
+
+export interface EarningRow {
+  id: number;
+  orderId: string;
+  productName: string;
+  sku: string | null;
+  qty: number;
+  soldUnit: number;
+  staffUnit: number;
+  staffAmount: number;
+  /** Owner only; null for a staff member. */
+  platformAmount: number | null;
+  shopName: string | null;
+  deliveredAt: string;
+  payableAt: string;
+  status: 'pending' | 'paid' | 'cancelled';
+  /** Worked out server-side from payableAt, so it is never a stale stored flag. */
+  payable: boolean;
+  paidAt: string | null;
+  paidNote: string | null;
+  note: string | null;
+}
+
+export interface EarningsResponse {
+  success: boolean;
+  isOwner: boolean;
+  shop: string | null;
+  shops: string[];
+  holdDays: number;
+  message?: string;
+  rows: EarningRow[];
+  totals: {
+    payableNow: number;
+    heldBack: number;
+    paid: number;
+    cancelled: number;
+    toRecover: number;
+    platformKept: number | null;
+  };
+}
+
 // The homepage Instagram strip's connection to Instagram itself.
 //
 // Reading the shop's OWN professional account needs no App Review and no

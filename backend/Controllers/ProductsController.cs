@@ -146,6 +146,62 @@ public class ProductsController : ControllerBase
     }
 
     // GET /api/products/next-sku  (Admin only)
+    // GET /api/products/{id}/costing — what this product owes its shop, and
+    // what we keep. Admin panel only.
+    //
+    // Its own endpoint rather than two more fields on ProductDto, because
+    // ProductDto is what GET /api/products hands to anybody who asks - no
+    // login, no token. Put a cost on that record and it is one forgotten
+    // `if (!isAdmin)` away from being public, forever, to every competitor who
+    // opens the network tab. Here there is no filter to forget: the numbers
+    // live behind [Authorize] and nowhere else.
+    //
+    // A staff member sees only their own shop's figures, and never the
+    // platform fee - what the owner keeps is not the vendor's business, and a
+    // vendor who can see it will negotiate against it rather than against the
+    // price.
+    [HttpGet("{id:int}/costing")]
+    [Authorize]
+    [RequirePerm("products","stock")]
+    public async Task<IActionResult> GetCosting(int id)
+    {
+        var p = await _db.Products
+            .AsNoTracking()
+            .Where(x => x.Id == id)
+            .Select(x => new { x.Id, x.StaffPrice, x.PlatformFee, x.ShopName, x.Price, x.DiscountPrice })
+            .FirstOrDefaultAsync();
+        if (p is null) return NotFound(new { success = false, message = "Product not found." });
+
+        var isOwner = User.IsOwner();
+        if (!isOwner)
+        {
+            var shop = await CallerShopAsync();
+            var mine = !string.IsNullOrWhiteSpace(shop)
+                    && string.Equals(shop, p.ShopName, StringComparison.OrdinalIgnoreCase);
+            if (!mine)
+                return Ok(new { success = true, staffPrice = (decimal?)null, platformFee = (decimal?)null, mine = false });
+
+            return Ok(new
+            {
+                success = true,
+                mine = true,
+                staffPrice = p.StaffPrice,
+                platformFee = (decimal?)null,
+                sellingPrice = p.DiscountPrice ?? p.Price,
+            });
+        }
+
+        return Ok(new
+        {
+            success = true,
+            mine = true,
+            staffPrice = p.StaffPrice,
+            platformFee = p.PlatformFee,
+            sellingPrice = p.DiscountPrice ?? p.Price,
+            shopName = p.ShopName,
+        });
+    }
+
     [HttpGet("next-sku")]
     [Authorize]
     [RequirePerm("products","stock")]
@@ -410,6 +466,7 @@ public class ProductsController : ControllerBase
 
         // Ek hi baar poochh lete hain - har product par dobara nahi.
         var callerShop = await CallerShopAsync();
+        var callerIsOwner = User.IsOwner();
 
         var created = 0;
         var updated = 0;
@@ -446,7 +503,7 @@ public class ProductsController : ControllerBase
                 updated++;
             }
 
-            ApplyProduct(product, dto, currentI, callerShop);
+            ApplyProduct(product, dto, currentI, callerShop, callerIsOwner);
 
             var g = ProductQualityGate.Check(product);
             var problems = g.Blocking.Select(x => x.Message).ToList();
@@ -507,7 +564,7 @@ public class ProductsController : ControllerBase
                 return Conflict(new { success = false, message = $"SKU '{sku}' is already used by product '{duplicate.Name}'. Please use a unique SKU." });
         }
 
-        ApplyProduct(p, req, 0, await CallerShopAsync());
+        ApplyProduct(p, req, 0, await CallerShopAsync(), User.IsOwner());
 
         // The gate runs on what is about to be saved, not on what was asked
         // for. A product that fails is still saved — nothing the owner typed is
@@ -711,7 +768,7 @@ public class ProductsController : ControllerBase
         return string.IsNullOrWhiteSpace(shop) ? null : shop.Trim();
     }
 
-    private static void ApplyProduct(Product p, ProductCreateRequest req, int fallbackNewest = 0, string? callerShop = null)
+    private static void ApplyProduct(Product p, ProductCreateRequest req, int fallbackNewest = 0, string? callerShop = null, bool callerIsOwner = false)
     {
         var sku = req.Sku?.Trim();
         p.Sku           = !string.IsNullOrWhiteSpace(sku)
@@ -750,6 +807,23 @@ public class ProductsController : ControllerBase
             p.ShopName = string.IsNullOrWhiteSpace(req.ShopName) ? null : req.ShopName.Trim();
         else if (string.IsNullOrWhiteSpace(p.ShopName) && !string.IsNullOrWhiteSpace(callerShop))
             p.ShopName = callerShop.Trim();
+
+        // ── What the shop is owed, and what we keep ─────────────────────────
+        //
+        // Same null-versus-sent rule as the shop name: a field the screen did
+        // not send is a field left alone, so the Add screen - which has no fee
+        // box for staff - cannot wipe a fee the owner set earlier.
+        //
+        // The fee is the owner's alone. A staff request carrying one is not an
+        // error and is not reported; it is simply not applied. Refusing the
+        // whole save would tell a curious staff member exactly which field the
+        // server is guarding, and there is nothing to gain from that
+        // conversation.
+        if (req.StaffPrice is not null)
+            p.StaffPrice = req.StaffPrice <= 0 ? null : Math.Round(req.StaffPrice.Value, 2);
+
+        if (callerIsOwner && req.PlatformFee is not null)
+            p.PlatformFee = req.PlatformFee < 0 ? null : Math.Round(req.PlatformFee.Value, 2);
 
         p.UpdatedAt     = DateTimeOffset.UtcNow;
     }
