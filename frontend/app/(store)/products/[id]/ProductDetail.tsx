@@ -493,6 +493,19 @@ export default function ProductDetail({ params, initialProduct = null }: { param
     }))),
   ];
 
+  // Jis rang ki apni photo nahi hai, uske dabbe me product ki apni FRONT photo.
+  //
+  // Dukaan ne yahi maanga: rang ka dabba khali gola na dikhe, usme kapda dikhe.
+  // Aur ye data ke hisaab se sahi bhi hai - main Product Photos Column A ke
+  // hain, yani pehle rang ke; wahi kapda us rang me dikh raha hai.
+  //
+  // Sirf PEHLE bina-photo wale rang ke liye, jaanbujh kar. Agar paanch rang
+  // code se bane hon aur paanchon par wahi ek front photo chipka den, to wo
+  // paanchon ek jaise dikhenge - grahak ko bilkul pata hi nahi chalega kaunsa
+  // rang kaunsa hai. Baaki bina-photo wale rang apna rang-gola hi rakhte hain.
+  const mainFrontPhoto = gallery[0] ?? '';
+  const firstPhotolessSwatch = swatchList.find(sw => !sw.photo)?.key;
+
   const variantKey = colors.length > 0 ? `${size}|${color}` : size;
   // A stock table of all zeros on a product that is not marked sold out is an
   // empty table, not "nothing left" — see lib/variantStock.
@@ -865,24 +878,29 @@ export default function ProductDetail({ params, initialProduct = null }: { param
               <div>
                 <p style={{ fontWeight: 600, fontSize: '.9rem', marginBottom: '.5rem' }}>Colour / Design</p>
                 <div style={{ display: 'flex', gap: '.5rem', flexWrap: 'wrap' }}>
-                  {swatchList.map(s => (
+                  {swatchList.map(s => {
+                  const swatchPhoto = s.photo
+                    ? (productImageSrc(s.photo) || s.photo)
+                    : (s.key === firstPhotolessSwatch ? mainFrontPhoto : '');
+                  return (
                     <button key={s.key} onClick={() => { setColor(s.name); setActiveImg(s.photo ? (productImageSrc(s.photo) || s.photo) : productImageSrc(product.image)); }}
                       title={s.name}
                       style={{
                         padding: 0, overflow: 'hidden',
-                        borderRadius: s.photo ? '8px' : '50%',
+                        borderRadius: swatchPhoto ? '8px' : '50%',
                         border: color === s.name ? '2.5px solid #722f37' : '1.5px solid #ddd',
                         background: '#fff', cursor: 'pointer', flexShrink: 0,
-                        width: s.photo ? '44px' : '36px',
-                        height: s.photo ? '44px' : '36px',
+                        width: swatchPhoto ? '44px' : '36px',
+                        height: swatchPhoto ? '44px' : '36px',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                       }}>
-                      {s.photo
-                        ? <Image src={productImageSrc(s.photo) || s.photo} alt={s.name} width={48} height={48} sizes="48px"
+                      {swatchPhoto
+                        ? <Image src={swatchPhoto} alt={s.name} width={48} height={48} sizes="48px"
                             style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         : <span style={{ width: 16, height: 16, borderRadius: '50%', background: s.code, border: '1px solid #bbb', display: 'inline-block' }} />}
                     </button>
-                  ))}
+                  );
+                  })}
                 </div>
               </div>
             )}

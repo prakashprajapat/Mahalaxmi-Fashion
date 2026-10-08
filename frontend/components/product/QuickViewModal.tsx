@@ -82,6 +82,8 @@ export default function QuickViewModal({ product, onClose }: Props) {
         .filter(cc => cc.photo || cc.code)
         .map((cc, i) => ({ key: 'c' + i, name: cc.name ?? '', photo: cc.photo, code: cc.code || '#ddd' }))),
   ];
+  const firstPhotolessSwatch = swatchList.find(sw => !sw.photo)?.key;
+
   const images: string[] = (() => {
     const imgs: string[] = [];
     const seen = new Set<string>();
@@ -365,23 +367,30 @@ export default function QuickViewModal({ product, onClose }: Props) {
               <div>
                 <p style={{ fontSize: '.85rem', fontWeight: 700, color: '#333', margin: '0 0 .4rem' }}>Colour / Design</p>
                 <div style={{ display: 'flex', gap: '.4rem', flexWrap: 'wrap' }}>
-                  {swatchList.map(s => (
+                  {/* Product page jaisa hi: bina apni photo wale PEHLE rang ke
+                      dabbe me product ki front photo. Dekhiye ProductDetail. */}
+                  {swatchList.map(s => {
+                    const swatchPhoto = s.photo
+                      ? (productImageSrc(s.photo) || s.photo)
+                      : (s.key === firstPhotolessSwatch ? (images[0] ?? '') : '');
+                    return (
                     <button key={s.key} onClick={() => { setColour(s.name); if (s.photo) setActiveImg(productImageSrc(s.photo) || s.photo); }}
                       title={s.name}
                       style={{
                         padding: 0, overflow: 'hidden',
-                        borderRadius: s.photo ? '8px' : '50%',
+                        borderRadius: swatchPhoto ? '8px' : '50%',
                         border: colour === s.name ? '2.5px solid #722f37' : '1.5px solid #ddd',
                         background: '#fff', cursor: 'pointer', flexShrink: 0,
-                        width: s.photo ? '42px' : '34px',
-                        height: s.photo ? '42px' : '34px',
+                        width: swatchPhoto ? '42px' : '34px',
+                        height: swatchPhoto ? '42px' : '34px',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                       }}>
-                      {s.photo
-                        ? <img src={productImageSrc(s.photo) || s.photo} alt={s.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      {swatchPhoto
+                        ? <img src={swatchPhoto} alt={s.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         : <span style={{ width: 18, height: 18, borderRadius: '50%', background: s.code, border: '1px solid rgba(0,0,0,.15)', display: 'inline-block' }} />}
                     </button>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}
