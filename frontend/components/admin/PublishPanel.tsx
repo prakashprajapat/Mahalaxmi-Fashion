@@ -38,7 +38,12 @@ export default function PublishPanel({
 }: {
   gate: GateResult;
   /** What the server replied on the last save — the authority, when it disagrees. */
-  serverSaid?: { heldAsDraft: boolean; errors: { field: string; message: string }[] } | null;
+  serverSaid?: {
+    heldAsDraft: boolean;
+    errors: { field: string; message: string }[];
+    savedName?: string;
+    savedSku?: string;
+  } | null;
 }) {
   const ready = gate.passed;
   const issues = gate.blocking;
@@ -102,8 +107,19 @@ export default function PublishPanel({
           a rule this file has not caught up with — its answer is the real one. */}
       {serverSaid?.heldAsDraft && serverSaid.errors.length > 0 && (
         <div style={{ marginTop: '.85rem', paddingTop: '.75rem', borderTop: '1px solid #f0e0c0' }}>
+          {/* Said before the list of problems, because the first thing to
+              know is that nothing was lost. The boxes are empty now, and
+              without this line an empty form after a save looks like the
+              save failed. */}
+          {serverSaid.savedName && (
+            <div style={{ fontSize: '.84rem', color: '#2e7d32', fontWeight: 700, marginBottom: '.5rem', lineHeight: 1.55 }}>
+              Saved{serverSaid.savedSku ? ` as ${serverSaid.savedSku}` : ''} — “{serverSaid.savedName}” is in{' '}
+              <a href="/admin/products/drafts" style={{ color: '#722f37', textDecoration: 'underline' }}>Drafts</a>,
+              not on the website. The form below is empty and ready for the next product; fix this one from Drafts.
+            </div>
+          )}
           <div style={{ fontSize: '.78rem', fontWeight: 800, color: '#c0392b', marginBottom: '.35rem' }}>
-            The server kept this as a draft on the last save:
+            Why it was held back:
           </div>
           <ul style={{ margin: 0, paddingLeft: '1.2rem' }}>
             {serverSaid.errors.map((e, k) => (

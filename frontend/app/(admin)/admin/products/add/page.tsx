@@ -713,7 +713,13 @@ export default function AddProductPage() {
     { key: 'size',        label: 'Size',         placeholder: 'blank = sizes chosen above' },
   ];
   const [specs, setSpecs] = useState<Record<string, string>>({});
-  const [serverGate, setServerGate] = useState<{ heldAsDraft: boolean; errors: { field: string; message: string }[] } | null>(null);
+  const [serverGate, setServerGate] = useState<{
+    heldAsDraft: boolean;
+    errors: { field: string; message: string }[];
+    /** Which product this was about — the form is empty by the time it is read. */
+    savedName?: string;
+    savedSku?: string;
+  } | null>(null);
 
   const [saving, setSaving]     = useState(false);
   const [qcIssues, setQcIssues] = useState<QcIssue[]>([]);
@@ -1043,9 +1049,27 @@ export default function AddProductPage() {
       if (held.length > 0) {
         // Saved, but not on the website. The panel above says why; a popup
         // would vanish the moment it was dismissed.
+        //
+        // And the form is emptied, because the product IS saved. It used to
+        // be left sitting there full, which reads as "that did not work" -
+        // so the natural thing to do is press Save again, on a product the
+        // shop already has. Fixing it belongs on the Drafts screen, where
+        // the saved record is; this screen's job is the next product.
+        //
+        // The subcategory and variant are put back afterwards: products are
+        // added a supplier batch at a time, and making him pick the same
+        // shelf again for every one of twenty is its own small tax.
+        const keepSub = sub;
+        const keepVariant = taxVariant;
+        clearAll();
+        setSub(keepSub);
+        setTaxVariant(keepVariant);
+
         setServerGate({
           heldAsDraft: true,
           errors: (held[0].errors ?? []).map(m => ({ field: '', message: m })),
+          savedName: held[0].name,
+          savedSku: sku.trim() || undefined,
         });
         window.scrollTo({ top: 0, behavior: 'smooth' });
         return;
