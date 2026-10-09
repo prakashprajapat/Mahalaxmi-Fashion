@@ -1119,6 +1119,30 @@ export default function EditProductPage() {
       }));
       // Only the rows the merchant actually filled in reach the site.
       const cleanSpecs = Object.fromEntries(Object.entries(specs).filter(([, v]) => v.trim()));
+
+      // Pack product ka rang kahin to likha jaye.
+      //
+      // selectedColours pack par jaanbujh kar khali rehta hai (neeche dekhiye) -
+      // kyunki pack ka stock sirf size se ginti hai, rang x size se nahi. Lekin
+      // Colour/Design wala picker pack par bhi dikhta hai aur chunne bhi deta
+      // hai, to shop rang chunti thi, save dabati thi, aur wo rang chupchap gir
+      // jata tha. Phir backend ka gate "No colour is set" kehkar product ko
+      // Draft me rok deta tha - theek usi cheez ki shikayat jo abhi bhari gayi
+      // thi. Ek aisi form jo input lekar phenk de, usse bura kuch nahi.
+      //
+      // Backend pack ke liye specs.Colour padhta hai (ProductQualityGate), to
+      // chuna hua rang wahin likh dete hain. Jo shop ne khud Colour box me
+      // likha ho use chhute nahi - uski baat upar rehti hai. Google zyada se
+      // zyada 3 rang leta hai, primary pehle, "/" se juda - isliye 3 par rok.
+      if (packValue >= 2 && !String(cleanSpecs.Colour ?? '').trim()) {
+        const packColours = [...new Set([
+          ...selColors,
+          ...customColours.map(c => c.name),
+          ...(printColour ? [printColour] : []),
+          ...splitList(availColours),
+        ])].map(c => String(c ?? '').trim()).filter(Boolean).slice(0, 3);
+        if (packColours.length > 0) cleanSpecs.Colour = packColours.join('/');
+      }
       const extraJson = JSON.stringify({
         specs: Object.keys(cleanSpecs).length ? cleanSpecs : undefined,
         // Only the currently-SELECTED sizes — using the union with customSizes re-added sizes
