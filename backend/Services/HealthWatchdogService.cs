@@ -69,6 +69,7 @@ public class HealthWatchdogService : BackgroundService
         using var scope = _scopeFactory.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var notifier = scope.ServiceProvider.GetRequiredService<AdminNotifier>();
+        var sms = scope.ServiceProvider.GetRequiredService<SmsService>();
 
         var problems = await HealthChecks.RunAsync(db, _env, ct);
 
@@ -103,6 +104,7 @@ public class HealthWatchdogService : BackgroundService
 <p style=""margin:0 0 12px"">Jo kharabi pehle batayi thi, wo ab nahi hai.</p>
 <p style=""margin:0;color:#666;font-size:13px"">Pehle: <b>{WebUtility.HtmlEncode(_lastSignature)}</b><br>
 Jaancha gaya: {IndiaTime.Now:dd MMM yyyy, h:mm tt} IST</p>"));
+                await TrySmsAsync(sms, "theek ho gaya - sab chalu hai");
                 _lastSignature = "";
                 _lastSentAt = DateTimeOffset.MinValue;
             }
@@ -129,8 +131,26 @@ Jaancha gaya: {IndiaTime.Now:dd MMM yyyy, h:mm tt} IST</p>"));
   Ye jaanch server ke andar se hui hai, yani server us waqt chal raha tha.
 </p>"));
 
+        // SMS me sirf pehli kharabi jati hai. Teen kharabi ek saath ho to
+        // teeno likhne par sandesh do-teen SMS me toot jata hai; pehla naam
+        // hi kaafi hai, byora mail me hai.
+        var first = problems[0];
+        await TrySmsAsync(sms, $"{first.Part} - {first.Detail}");
+
         _lastSignature = signature;
         _lastSentAt = now;
         _log.LogWarning("Health watchdog alert sent: {Signature}", signature);
+    }
+
+    /// <summary>
+    /// SMS koshish, par mail ke raaste me nahi. MSG91 ka template set na ho,
+    /// wallet khali ho, ya unka server hi na uthe - teenon haalat me mail to
+    /// ja hi chuki hai, aur usi ek kharabi ki wajah se doosri khabar rok dena
+    /// theek nahi.
+    /// </summary>
+    private async Task TrySmsAsync(SmsService sms, string line)
+    {
+        try { await sms.SendAlertSmsAsync(line); }
+        catch (Exception ex) { _log.LogWarning(ex, "Alert SMS could not be sent."); }
     }
 }

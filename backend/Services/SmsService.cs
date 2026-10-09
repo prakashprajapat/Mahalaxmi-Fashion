@@ -268,4 +268,103 @@ public class SmsService
 
         return new(true, sent, failed, failed > 0 ? "Some batches failed — check logs / MSG91 wallet balance." : null);
     }
+
+    // ── Website kharabi ka alert SMS ──────────────────────────────────────
+    //
+    // Admin Settings se chalta hai:
+    //   msg91AuthKey, msg91AlertTemplateId, msg91SenderId, alertSmsNumbers
+    //
+    // msg91AlertTemplateId set na ho to kuch nahi karta - bilkul order SMS ki
+    // tarah - taki DLT approval aane se pehle bhi ye code deploy ho sake aur
+    // kuch toote nahi.
+    //
+    // Do baatein jaanbujh kar aisi hain:
+    //
+    // 1. Sandesh ek hi variable me jata hai (##problem##). DLT har variable ko
+    //    alag se approve karta hai, aur jitne zyada variable, utni zyada baar
+    //    template reject hota hai. Ek chhoti si jagah bharna sabse aasaan
+    //    nikalta hai.
+    //
+    // 2. Teeno number ek hi call me jate hain. MSG91 ki Flow API recipients ki
+    //    list leti hai, aur alag-alag call karne par ek number ka fail hona
+    //    baaki do ko bhi le doobta.
+    //
+    // Aur wahi purani baat, yahan likhi rehni chahiye: ye SMS server ke ANDAR
+    // se jata hai. Jis din server hi band hoga, ye SMS bhi nahi jayega. Uske
+    // liye bahar wali uptime service hi ek raasta hai.
+    public async Task<bool> SendAlertSmsAsync(string problem)
+    {
+        var authKey    = await Setting("msg91AuthKey");
+        var templateId = await Setting("msg91AlertTemplateId");
+        var sender     = await Setting("msg91SenderId");
+        var rawNumbers = await Setting("alertSmsNumbers");
+        if (string.IsNullOrWhiteSpace(sender)) sender = "MAHFHB";
+
+        if (string.IsNullOrWhiteSpace(authKey) || string.IsNullOrWhiteSpace(templateId))
+        {
+            _logger.LogInformation("Alert SMS skipped - MSG91 alert template not configured (msg91AlertTemplateId).");
+            return false;
+        }
+
+        var numbers = (rawNumbers ?? "")
+            .Split(new[] { ',', ';', ' ', '\n', '\r', '\t' }, StringSplitOptions.RemoveEmptyEntries)
+            .Select(NormalisePhone)
+            .Where(n => !string.IsNullOrWhiteSpace(n))
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+
+        if (numbers.Count == 0)
+        {
+            _logger.LogWarning("Alert SMS skipped - no numbers in Settings 'alertSmsNumbers'.");
+            return false;
+        }
+
+        // SMS ek line ka hota hai. Lamba sandesh do-teen SMS me tootta hai,
+        // paisa bhi zyada lagta hai aur DLT ki lambai ki seema bhi hai.
+        var text = (problem ?? "").Replace('\n', ' ').Replace('\r', ' ').Trim();
+        if (text.Length > 90) text = text[..90];
+        if (text.Length == 0) text = "website me kharabi";
+
+        try
+        {
+            using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
+
+            var payload = new
+            {
+                template_id = templateId,
+                sender      = sender,
+                short_url   = "0",
+                recipients  = numbers.Select(n => new Dictionary<string, string>
+                {
+                    ["mobiles"] = n,
+                    ["problem"] = text,
+                    ["var1"]    = text,
+                }).ToArray(),
+            };
+
+            var json = System.Text.Json.JsonSerializer.Serialize(payload);
+
+            using var reqMsg = new HttpRequestMessage(HttpMethod.Post,
+                "https://control.msg91.com/api/v5/flow/")
+            {
+                Content = new StringContent(json, Encoding.UTF8, "application/json"),
+            };
+            reqMsg.Headers.Add("authkey", authKey);
+            reqMsg.Headers.Add("accept", "application/json");
+
+            var res      = await http.SendAsync(reqMsg);
+            var bodyText = await res.Content.ReadAsStringAsync();
+            var ok = res.IsSuccessStatusCode
+                && bodyText.Contains("success", StringComparison.OrdinalIgnoreCase);
+
+            if (ok) _logger.LogInformation("Alert SMS accepted for {Count} number(s).", numbers.Count);
+            else    _logger.LogWarning("Alert SMS rejected ({Status}): {Body}", (int)res.StatusCode, bodyText);
+            return ok;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Alert SMS failed.");
+            return false;
+        }
+    }
 }
