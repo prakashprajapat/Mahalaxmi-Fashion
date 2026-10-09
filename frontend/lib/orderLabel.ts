@@ -35,6 +35,9 @@ export const LABEL_CSS = `
       .taxrow{display:flex;justify-content:space-between;font-size:8px;padding:0}
       .taxrow.total{font-weight:800;border-top:1px solid #999;margin-top:2px;padding-top:2px}
       .foot{font-size:9.5px;font-weight:700;margin-top:5px;text-align:center}
+      .applink{display:flex;align-items:center;justify-content:center;gap:5px;margin-top:5px}
+      .playbadge{height:20px;width:auto;display:block}
+      .appname{font-size:9px;font-weight:800;letter-spacing:.01em}
       .foot .muted{font-weight:400;color:#555}
       @media print{body{margin:0;padding:5mm}.label{border:1px solid #111}}`;
 
@@ -131,6 +134,11 @@ export const buildLabelBody = (order: Order): string => {
       <div class="cols">
         <div class="box"><div class="lbl">SELLER / PICKUP</div><div class="txt">Mahalaxmi Fashion Hub, Balotra, Rajasthan - 344022</div></div>
         <div class="box"><div class="lbl">DELIVERY PARTNER</div><div class="txt">${showCourier ? esc(courier) + ' | ' : ''}AWB: ${esc(awb || 'PENDING')}</div></div>
+      </div>
+      <div class="applink">
+        <img class="playbadge" src="https://mahalaxmifashionhub.com/google-play-badge.png"
+             alt="Get it on Google Play" onerror="this.style.display='none'" />
+        <span class="appname">Mahalaxmi Online Shopping</span>
       </div>
       <div class="foot">Note: Please record a clear video before opening the parcel.</div>
     </div>`;

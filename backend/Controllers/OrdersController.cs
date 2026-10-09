@@ -1372,6 +1372,13 @@ public class OrdersController : ControllerBase
     <div class='thanks'>
       <div class='ty'>Thank You for Shopping with Us!</div>
       <div class='links'>www.mahalaxmifashionhub.com &nbsp;|&nbsp; Instagram: @mahalaxmifashionhub &nbsp;|&nbsp; WhatsApp: +91 94294 29880</div>
+      <div style='margin:8px 0 6px'>
+        <a href='https://play.google.com/store/apps/details?id=com.mahalaxmifashionhub.www.twa' style='text-decoration:none;color:inherit'>
+          <img src='https://mahalaxmifashionhub.com/google-play-badge.png' alt='Get it on Google Play'
+               style='height:26px;width:auto;vertical-align:middle;display:inline-block' />
+          <span style='font-weight:800;margin-left:6px;vertical-align:middle'>Mahalaxmi Online Shopping</span>
+        </a>
+      </div>
       <div class='fine'>This is a computer-generated invoice and does not require a signature.<br>&copy; {YEAR} Mahalaxmi Fashion Hub &bull; Downloadable for 12 months from the order date.</div>
     </div>
     <div class='brandline'>Mahalaxmi Fashion Hub | Premium Tax Invoice</div>
