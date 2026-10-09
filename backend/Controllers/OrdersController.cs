@@ -1377,7 +1377,7 @@ public class OrdersController : ControllerBase
           <img src='https://mahalaxmifashionhub.com/google-play-badge.png' alt=''
                onerror=""this.style.display='none'""
                style='height:26px;width:auto;vertical-align:middle;display:inline-block' />
-          <span style='font-weight:800;margin-left:6px;vertical-align:middle'>Mahalaxmi Online Shopping</span>
+          <span style='font-weight:800;margin-left:6px;vertical-align:middle'>Google Play &middot; Mahalaxmi Online Shopping</span>
         </a>
       </div>
       <div class='fine'>This is a computer-generated invoice and does not require a signature.<br>&copy; {YEAR} Mahalaxmi Fashion Hub &bull; Downloadable for 12 months from the order date.</div>

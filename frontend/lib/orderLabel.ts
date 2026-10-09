@@ -138,7 +138,7 @@ export const buildLabelBody = (order: Order): string => {
       <div class="applink">
         <img class="playbadge" src="https://mahalaxmifashionhub.com/google-play-badge.png"
              alt="Get it on Google Play" onerror="this.style.display='none'" />
-        <span class="appname">Mahalaxmi Online Shopping</span>
+        <span class="appname">Google Play &middot; Mahalaxmi Online Shopping</span>
       </div>
       <div class="foot">Note: Please record a clear video before opening the parcel.</div>
     </div>`;
