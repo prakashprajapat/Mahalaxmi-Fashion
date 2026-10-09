@@ -37,7 +37,7 @@ const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 // `photo` is the FRONT view (column thumbnail); side/back/zoomed are the rest of that
 // design's gallery (shown on the storefront when the customer picks this colour/design).
 type CustomColour = { name: string; code: string; photo: string; columnLetter: string; side?: string; back?: string; zoomed?: string; extra?: string[] };
-type PackColumn  = { letter: string; front: string; side: string; back: string; zoomed: string; extra: string[] };
+type PackColumn  = { letter: string; colour: string; front: string; side: string; back: string; zoomed: string; extra: string[] };
 // Front, side, back and zoomed are the four a product should always have, so
 // they keep their names and their places. Everything past them is just "another
 // photo" - a fabric close-up, the label, the same dress on a different person -
@@ -68,7 +68,7 @@ function hasPackPhoto(col: PackColumn): boolean {
 function normalizePackColumns(cols: PackColumn[], packOf: number): PackColumn[] {
   const extraCount = packOf >= 2 ? packOf - 1 : 0;
   return Array.from({ length: extraCount }, (_, i) => ({
-    ...(cols[i] ?? { front:'', side:'', back:'', zoomed:'', extra: [] }),
+    ...(cols[i] ?? { colour:'', front:'', side:'', back:'', zoomed:'', extra: [] }),
     extra: cols[i]?.extra ?? [],
     letter: LETTERS[i] ?? String(i + 1),
   }));
@@ -84,6 +84,10 @@ function normalizePackColumns(cols: PackColumn[], packOf: number): PackColumn[] 
 function packColStored(col: PackColumn): Record<string, string> {
   return {
     letter: col.letter,
+    // Is item ka rang. Pack ka stock size se ginta hai, rang se nahi, isliye
+    // ye colour picker me nahi aata - par Google har kapde par colour maangta
+    // hai, aur pack ka rang batane ki jagah sirf yahi hai.
+    colour: col.colour,
     front:  col.front,
     side:   col.side,
     back:   col.back,
@@ -932,6 +936,9 @@ export default function AddProductPage() {
   const updateCol = (idx: number, field: 'front' | 'side' | 'back' | 'zoomed', val: string) =>
     setPackCols(prev => prev.map((c, i) => i === idx ? { ...c, [field]: val } : c));
 
+  const updateColColour = (idx: number, val: string) =>
+    setPackCols(prev => prev.map((c, i) => i === idx ? { ...c, colour: val } : c));
+
   // ── Pack column: the photos past the four named views ──
   const updateColExtra = (idx: number, slot: number, val: string) =>
     setPackCols(prev => prev.map((c, i) => i === idx
@@ -1108,6 +1115,10 @@ export default function AddProductPage() {
       // zyada 3 rang leta hai, primary pehle, "/" se juda - isliye 3 par rok.
       if (packValue >= 2 && !String(cleanSpecs.Colour ?? '').trim()) {
         const packColours = [...new Set([
+          // Column ke rang pehle: pack ka asli rang wahi hai. Picker wale
+          // peechhe, taki jo product column se pehle bhara gaya tha wo bhi
+          // chalta rahe.
+          ...packCols.map(c => c.colour),
           ...selColors,
           ...customColours.map(c => c.name),
           ...(printColour ? [printColour] : []),
@@ -1597,6 +1608,17 @@ export default function AddProductPage() {
                       {col.letter}
                     </div>
                     <span style={{ fontWeight:700, fontSize:'.92rem' }}>{col.letter}</span>
+                    {/* Is item ka rang. Border peela ho jata hai jab Google is
+                        naam ko colour nahi maanega - galti save se pehle dikhe,
+                        baad me Draft me rukne par nahi. */}
+                    <input value={col.colour}
+                      onChange={e => updateColColour(idx, e.target.value)}
+                      placeholder="Colour name"
+                      title="This item's colour - Google needs it, and it is shown on the order"
+                      style={{ width:'150px', background:'#fff', color:'#333',
+                        border:`1.5px solid ${col.colour.trim() && colourProblem(col.colour) ? '#e0a200' : '#e4dedb'}`,
+                        borderRadius:'10px', padding:'.25rem .5rem',
+                        fontSize:'.8rem', fontWeight:600, boxSizing:'border-box' }} />
                   </div>
                   <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:'.75rem' }}>
                     <PhotoSlot label="FRONT" value={col.front}  onChange={v => updateCol(idx,'front',v)}  isFirst />
