@@ -72,6 +72,12 @@ rollback() {
   fi
   pm2 restart mahalaxmi-api >/dev/null 2>&1 || true
   pm2 restart mahalaxmi-frontend >/dev/null 2>&1 || true
+  # Rollback kaamyab hota hai - site chalti rehti hai - isliye bahar se kuch
+  # galat dikhta hi nahi, aur raat ko gire deploy ka subah tak kisi ko pata
+  # nahi chalta. Ye nishan HealthWatchdogService agli jaanch par uthakar mail
+  # kar deta hai, aur phir khud mita deta hai.
+  printf '%s\n' "Deploy $(date -u '+%Y-%m-%d %H:%M UTC') par fail hua aur $PREV par rollback ho gaya. Wajah: $1" \
+    > /var/www/mahalaxmi-backend/DEPLOY-FAILED 2>/dev/null || true
   echo "=== Deploy aborted. The site is back on the previous version. ==="
   echo "=== Fix the error and push again. ==="
   exit 1

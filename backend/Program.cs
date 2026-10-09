@@ -31,6 +31,11 @@ builder.Services.AddMemoryCache(); // PERF-2: for settings caching
 
 // Auto-deletes rejected return media after its 30-day retention window.
 builder.Services.AddHostedService<ReturnMediaCleanupService>();
+// Har paanch minute me database aur disk dekhta hai, aur deploy ke rollback ka
+// nishan bhi. Ye server ke ANDAR chalta hai, isliye "server hi band hai" wala
+// alert ye nahi bhej sakta - uske liye bahar wali uptime service hai. Dekhiye
+// HealthWatchdogService ki tippani.
+builder.Services.AddHostedService<HealthWatchdogService>();
 builder.Services.AddHostedService<DelhiveryTrackingSyncService>();
 
 // Re-checks every product against the quality gate once an hour: anything on
