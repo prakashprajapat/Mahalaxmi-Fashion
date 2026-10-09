@@ -10,7 +10,7 @@ import { checkProduct } from '@/lib/productGate';
 import PublishPanel from '@/components/admin/PublishPanel';
 import { PageHeader } from '@/components/admin/Ui';
 import TaxonomyCombo from '@/components/admin/TaxonomyCombo';
-import { colourProblem, colourNameToHex } from '@/lib/googleColours';
+import { colourProblem, colourNameToHex, pickColourNames } from '@/lib/googleColours';
 import { MAX_EXTRA, MAX_PHOTOS, asNumberedExtras, numberedExtras } from '@/lib/photoExtras';
 import { useOwnerView } from '@/lib/useOwnerView';
 import { warmProductImages } from '@/lib/warmImages';
@@ -81,9 +81,10 @@ function normalizePackColumns(cols: PackColumn[], packOf: number): PackColumn[] 
 function packColStored(col: PackColumn): Record<string, string> {
   return {
     letter: col.letter,
-    // Is item ka rang. Pack ka stock size se ginta hai, rang se nahi, isliye
-    // ye colour picker me nahi aata - par Google har kapde par colour maangta
-    // hai, aur pack ka rang batane ki jagah sirf yahi hai.
+    // This item's colour, which is also the column's name. A pack counts its
+    // stock by size alone, never by colour, so these never reach the colour
+    // picker - and Google wants a colour on every garment, so this is the only
+    // place a pack can say what colours are in it.
     colour: col.colour,
     front:  col.front,
     side:   col.side,
@@ -1145,16 +1146,16 @@ export default function EditProductPage() {
       // likha ho use chhute nahi - uski baat upar rehti hai. Google zyada se
       // zyada 3 rang leta hai, primary pehle, "/" se juda - isliye 3 par rok.
       if (packValue >= 2 && !String(cleanSpecs.Colour ?? '').trim()) {
-        const packColours = [...new Set([
-          // Column ke rang pehle: pack ka asli rang wahi hai. Picker wale
-          // peechhe, taki jo product column se pehle bhara gaya tha wo bhi
-          // chalta rahe.
-          ...packCols.map(c => c.colour),
+        // Column names first: for a pack, the column name IS the colour. The
+        // picker entries come behind them, so a product that was filled in
+        // before columns had names still keeps working.
+        const packColours = pickColourNames([
+          ...normalizedPackCols.map(c => c.colour),
           ...selColors,
           ...customColours.map(c => c.name),
           ...(printColour ? [printColour] : []),
           ...splitList(availColours),
-        ])].map(c => String(c ?? '').trim()).filter(Boolean).slice(0, 3);
+        ]);
         if (packColours.length > 0) cleanSpecs.Colour = packColours.join('/');
       }
       const extraJson = JSON.stringify({
@@ -1245,6 +1246,21 @@ export default function EditProductPage() {
                    ...(printColour ? [printColour] : []), ...splitList(availColours)])];
   // Colour ka naam → hex, taaki storefront ka swatch circle sahi rang se bhare.
   // Print wale colour ke liye saare shades bhi jaate hain (multi-colour circle).
+  // What a pack product is offering as colours: the column names.
+  //
+  // The gate and the save read this one list on purpose. They used to work it
+  // out separately, and the screen went on saying "no colour is set" over
+  // colours already typed into the columns - the save could see them, the
+  // warning could not.
+  const packColumnColours = packValue >= 2
+    ? pickColourNames([
+        ...packCols.map(c => c.colour),
+        ...selColors,
+        ...customColours.map(c => c.name),
+        ...(printColour ? [printColour] : []),
+        ...splitList(availColours),
+      ])
+    : [];
   const colourCodeMap: Record<string, string> = {};
   for (const c of customColours) if (c.name && c.code) colourCodeMap[c.name] = c.code;
   for (const n of selColors) { const h = colourNameToHex(n); if (h) colourCodeMap[n] = h; }
@@ -1287,7 +1303,8 @@ export default function EditProductPage() {
     category,
     subcategory: sub,
     sizes: uniqueSizes.length ? uniqueSizes : splitList(specs['Size'] ?? ''),
-    colours: selectedColours.length ? selectedColours : splitList(specs['Colour'] ?? ''),
+    colours: selectedColours.length ? selectedColours
+      : (splitList(specs['Colour'] ?? '').length ? splitList(specs['Colour'] ?? '') : packColumnColours),
     sku,
     hsnCode,
   });
@@ -1577,7 +1594,7 @@ export default function EditProductPage() {
               PACK COLUMN PHOTOS
             </p>
             <p style={{ fontSize:'.8rem', color:'#888', marginBottom:'1.25rem' }}>
-              Pack of {getPackOfNumber(packOf)} = columns {packCols.map(c=>c.letter).join(', ')}. Each column can carry up to {MAX_PHOTOS} photos of its own.
+              Pack of {getPackOfNumber(packOf)} = {packCols.length} items. Name each one by its colour &mdash; that name is what Google reads and what the customer sees. Each item can carry up to {MAX_PHOTOS} photos of its own.
             </p>
             <div style={{ display:'flex', flexDirection:'column', gap:'1.5rem' }}>
               {packCols.map((col, idx) => (
@@ -1586,18 +1603,23 @@ export default function EditProductPage() {
                     <div style={{ width:'34px', height:'34px', borderRadius:'50%', background:'#a7354d', color:'#fff', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:800, fontSize:'1rem', flexShrink:0 }}>
                       {col.letter}
                     </div>
-                    <span style={{ fontWeight:700, fontSize:'.92rem' }}>Column {col.letter}</span>
-                    {/* Is item ka rang. Border peela ho jata hai jab Google is
-                        naam ko colour nahi maanega - galti save se pehle dikhe,
-                        baad me Draft me rukne par nahi. */}
+                    {/* This item's colour, and the only name it has. The border
+                        turns amber the moment Google would refuse the name, so
+                        the mistake is seen while typing rather than days later
+                        with the product stuck in Draft. */}
                     <input value={col.colour}
                       onChange={e => updateColColour(idx, e.target.value)}
-                      placeholder="Colour name"
-                      title="This item's colour - Google needs it, and it is shown on the order"
-                      style={{ width:'150px', background:'#fff', color:'#333',
+                      placeholder={`Column ${col.letter} \u2014 type its colour`}
+                      title="This column's name is its colour. It goes to Google and it is what the customer sees."
+                      style={{ flex:1, maxWidth:'300px', background:'#fff', color:'#333',
                         border:`1.5px solid ${col.colour.trim() && colourProblem(col.colour) ? '#e0a200' : '#e4dedb'}`,
-                        borderRadius:'10px', padding:'.25rem .5rem',
-                        fontSize:'.8rem', fontWeight:600, boxSizing:'border-box' }} />
+                        borderRadius:'10px', padding:'.4rem .6rem',
+                        fontSize:'.92rem', fontWeight:700, boxSizing:'border-box' }} />
+                    {col.colour.trim() && colourProblem(col.colour) && (
+                      <span style={{ fontSize:'.74rem', color:'#8a6d1f' }}>
+                        {colourProblem(col.colour)}
+                      </span>
+                    )}
                   </div>
                   <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:'.75rem' }}>
                     <PhotoSlot label="FRONT VIEW" value={col.front}  onChange={v => updateCol(idx,'front',v)}  isFirst />

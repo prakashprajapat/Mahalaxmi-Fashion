@@ -121,12 +121,12 @@ export function splitColourValue(value?: string | null): string[] {
   return String(value ?? '').split('/').map(s => s.trim()).filter(Boolean);
 }
 
-/** ["Navy","White","Red"] → "Navy/White/Red" (Google ki 3-colour limit ke andar). */
+/** ["Navy","White","Red"] → "Navy/White/Red", inside Google's limit of three. */
 export function joinColourValue(names: string[]): string {
   return names.map(s => s.trim()).filter(Boolean).slice(0, 3).join('/');
 }
 
-// Google in generic values ko colour maanta hi nahi.
+// Google does not read any of these generic values as a colour at all.
 const BANNED = new Set([
   'multicolour', 'multicolor', 'multi', 'multicoloured', 'multicolored',
   'various', 'variety', 'assorted', 'mixed', 'random', 'any', 'other',
@@ -138,8 +138,8 @@ const BANNED = new Set([
 ]);
 
 /**
- * Ek colour value Google ke niyam pass karti hai ya nahi.
- * Pass hone par null, warna admin ke liye seedhi-saadi wajah.
+ * Whether a colour value passes Google's rules.
+ * null when it does; otherwise a plain reason the shop can act on.
  */
 export function colourProblem(value?: string | null): string | null {
   const raw = String(value ?? '').trim();
@@ -148,21 +148,49 @@ export function colourProblem(value?: string | null): string | null {
   if (raw.length > 100) return `Colour 100 characters se lamba hai (abhi ${raw.length}).`;
 
   const parts = splitColourValue(raw);
-  if (parts.length === 0) return 'Colour khali hai.';
-  if (parts.length > 3) return `${parts.length} colours diye hain — Google zyada se zyada 3 leta hai (primary pehle).`;
+  if (parts.length === 0) return 'No colour has been entered.';
+  if (parts.length > 3) return `${parts.length} colours given — Google accepts 3 at most, the main one first.`;
 
   for (const p of parts) {
-    if (p.length > 40) return `"${p}" 40 characters se lamba hai.`;
-    if (p.length < 2) return `"${p}" bahut chhota hai — Google akele ek letter ko colour nahi maanta.`;
-    if (!/^[\p{L}\p{N} .'-]+$/u.test(p)) return `"${p}" me special character hai — Google sirf letters/numbers maanta hai (hex code jaise #1B2A4A allowed nahi).`;
-    if (/^[\p{N} .'-]+$/u.test(p)) return `"${p}" sirf number hai — colour ka naam chahiye.`;
-    if (BANNED.has(key(p))) return `Google "${p}" ko colour nahi maanta. Iski jagah print ke asli colours dein, jaise Navy/White/Red.`;
+    if (p.length > 40) return `"${p}" is longer than 40 characters.`;
+    if (p.length < 2) return `"${p}" is too short — Google does not accept a single letter as a colour.`;
+    if (!/^[\p{L}\p{N} .'-]+$/u.test(p)) return `"${p}" contains a special character — Google accepts letters and numbers only, so a hex code such as #1B2A4A will not do.`;
+    if (/^[\p{N} .'-]+$/u.test(p)) return `"${p}" is only a number — a colour needs a name.`;
+    if (BANNED.has(key(p))) return `Google does not accept "${p}" as a colour. Give the real colours of the print instead, such as Navy/White/Red.`;
     if (/^(design|print|colou?r|style|model|shade|pattern)\b/i.test(p.trim()))
-      return `"${p}" colour ka naam nahi hai. Print ke asli colours dein, jaise Navy/White/Red.`;
+      return `"${p}" is not the name of a colour. Give the real colours of the print, such as Navy/White/Red.`;
   }
   return null;
 }
 
 export function isColourValid(value?: string | null): boolean {
   return colourProblem(value) === null;
+}
+
+/**
+ * The colour names a product is offering, in the order Google should read them:
+ * primary first, duplicates folded together, at most three.
+ *
+ * One reader for two callers that must not drift. The admin screen uses this to
+ * decide whether the product still needs a colour, and the save uses it to write
+ * `specs.Colour`. When those two disagree the form says "no colour is set" over
+ * a colour the shop has already typed — which is exactly how a filled-in pack
+ * product ended up held back in Draft.
+ *
+ * Case-insensitive, but the FIRST spelling wins, so "Navy" typed once and
+ * "navy" typed later stay one colour spelled the way the shop wrote it.
+ */
+export function pickColourNames(sources: Array<string | null | undefined>): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const raw of sources) {
+    const name = String(raw ?? '').trim();
+    if (!name) continue;
+    const k = key(name);
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push(name);
+    if (out.length === 3) break;
+  }
+  return out;
 }

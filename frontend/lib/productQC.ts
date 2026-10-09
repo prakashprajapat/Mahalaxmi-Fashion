@@ -146,7 +146,7 @@ export async function deepImageDuplicateCheck(
 // jawab aata hai. Duplicate-name wali jaanch yahan bhi nahi chalti, bilkul
 // edit screen ki tarah: wo saare products scan karti hai aur soochi me har
 // row par chalana bhaari pad jata.
-import { colourProblem } from './googleColours';
+import { colourProblem, splitColourValue } from './googleColours';
 import { allSlotPhotos } from './photoExtras';
 
 interface Draftish {
@@ -171,18 +171,30 @@ function photosOfProduct(p: Draftish): string[] {
   return out;
 }
 
+/**
+ * Every colour a product is claiming, wherever it was written.
+ *
+ * Three places, because a pack product never reaches the colour picker: its
+ * stock is counted by size alone, so its colours live in the column names and
+ * in `specs.Colour`. Reading only `colors` meant a pack could carry "Design A"
+ * -- a name Google refuses -- and this screen would report nothing wrong while
+ * the server quietly held the product in Draft.
+ */
 function coloursOfProduct(extraJson?: string): string[] {
   try {
     const ex = extraJson ? JSON.parse(extraJson) : null;
     if (!ex) return [];
+    const packCols = (ex.packColumnPhotos ?? ex.packImages ?? ex.variantColumns ?? []) as Array<{ colour?: string; colorName?: string; color?: string }>;
     return [...new Set([
       ...((ex.colors ?? []) as string[]),
       ...((ex.customColors ?? []) as { name?: string }[]).map(c => c?.name ?? ''),
-    ])].filter(Boolean);
+      ...packCols.map(c => c?.colour ?? c?.colorName ?? c?.color ?? ''),
+      ...splitColourValue(((ex.specs ?? {}) as Record<string, string>).Colour),
+    ])].map(c => String(c ?? '').trim()).filter(Boolean);
   } catch { return []; }
 }
 
-/** Product Draft me kyun roka gaya — wahi wajahen jo save ke waqt nikalti hain. */
+/** Why the product is being held in Draft: the same reasons the save works out. */
 export function draftHoldReasons(p: Draftish): string[] {
   const reasons = runProductQC({
     name: p.name ?? '',
