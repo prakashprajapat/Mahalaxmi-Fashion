@@ -1294,7 +1294,7 @@ public class OrdersController : ControllerBase
   .bs .body b{color:#111;font-size:11.5px}
   .bs .body .g{color:#888}
   table.it{width:100%;border-collapse:collapse;margin-top:16px}
-  table.it thead th{background:#1a1a1a;color:#fff;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.02em;padding:7px 6px;text-align:left}
+  table.it thead th{background:#f3ead3;color:#8a6a2f;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;padding:7px 6px;text-align:left;border-bottom:1px solid #e0d3b0}
   table.it tbody td{padding:7px 6px;border-bottom:1px solid #eee;font-size:10.5px;vertical-align:top}
   table.it td.c{text-align:center}table.it td.r{text-align:right}
   .inm{font-weight:700;color:#222;line-height:1.25}
@@ -1374,7 +1374,8 @@ public class OrdersController : ControllerBase
       <div class='links'>www.mahalaxmifashionhub.com &nbsp;|&nbsp; Instagram: @mahalaxmifashionhub &nbsp;|&nbsp; WhatsApp: +91 94294 29880</div>
       <div style='margin:8px 0 6px'>
         <a href='https://play.google.com/store/apps/details?id=com.mahalaxmifashionhub.www.twa' style='text-decoration:none;color:inherit'>
-          <img src='https://mahalaxmifashionhub.com/google-play-badge.png' alt='Get it on Google Play'
+          <img src='https://mahalaxmifashionhub.com/google-play-badge.png' alt=''
+               onerror=""this.style.display='none'""
                style='height:26px;width:auto;vertical-align:middle;display:inline-block' />
           <span style='font-weight:800;margin-left:6px;vertical-align:middle'>Mahalaxmi Online Shopping</span>
         </a>

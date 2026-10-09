@@ -155,10 +155,30 @@ function c128b(t){var codes=[104],s=104,i;for(i=0;i<t.length;i++){codes.push(t.c
 function drawBarcode(svg){var code=(svg.getAttribute("data-code")||"").replace(/[^ -~]/g,"");if(!code){return;}var w=c128b(code),total=0,i;for(i=0;i<w.length;i++){total+=+w[i];}var H=40,x=0,r="";for(i=0;i<w.length;i++){var ww=+w[i];if(i%2===0){r+="<rect x='"+x+"' y='0' width='"+ww+"' height='"+H+"'></rect>";}x+=ww;}svg.setAttribute("viewBox","0 0 "+total+" "+H);svg.setAttribute("preserveAspectRatio","none");svg.setAttribute("fill","#000");svg.innerHTML=r;}
 `;
 
+/**
+ * What the saved PDF is called.
+ *
+ * The browser takes the document title for the Save-as-PDF name, and the title
+ * was "Labels (1)" - so every label anyone ever saved was Labels_1.pdf, then
+ * Labels_1(1).pdf, and a folder of them told you nothing about which order was
+ * which. One order is named after that order. A batch is named by the moment
+ * it was printed, because a batch has no single order to be named after.
+ * MFH stays at the front either way, and the order id already begins with it.
+ */
+export const labelFileName = (list: Order[], now: Date = new Date()): string => {
+  if (list.length === 1) {
+    const id = String(list[0]?.id ?? '').trim();
+    if (id) return /^MFH/i.test(id) ? id : `MFH-${id}`;
+  }
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `MFH-${now.getFullYear()}-${p(now.getMonth() + 1)}-${p(now.getDate())}`
+       + `-${p(now.getHours())}${p(now.getMinutes())}${p(now.getSeconds())}`;
+};
+
 export const openOrderLabels = (list: Order[]) => {
     if (!list.length) return;
     const bodies = list.map(buildLabelBody).join('\n');
-    const html = `<!doctype html><html><head><meta charset="utf-8"><title>Labels (${list.length})</title>
+    const html = `<!doctype html><html><head><meta charset="utf-8"><title>${labelFileName(list)}</title>
     <style>${LABEL_CSS}</style>
     <script>${BARCODE_JS}</script></head>
     <body onload="try{document.querySelectorAll('.bc').forEach(drawBarcode);}catch(e){};setTimeout(function(){window.focus();window.print();},350);">
