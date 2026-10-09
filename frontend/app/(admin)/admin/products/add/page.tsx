@@ -11,11 +11,11 @@ import { runProductQC, type QcIssue } from '@/lib/productQC';
 import QcPanel from '@/components/admin/QcPanel';
 import TaxonomyCombo from '@/components/admin/TaxonomyCombo';
 import { PageHeader } from '@/components/admin/Ui';
-import { colourProblem, colourNameToHex, pickColourNames } from '@/lib/googleColours';
+import { colourProblem, colourNameToHex, pickColourNames, dedupeColourNames } from '@/lib/googleColours';
 import { fetchAllProducts } from '@/lib/adminPaged';
 import { useOwnerView } from '@/lib/useOwnerView';
 import { warmProductImages } from '@/lib/warmImages';
-import { MAX_EXTRA, MAX_PHOTOS, asNumberedExtras } from '@/lib/photoExtras';
+import { MAX_EXTRA, MAX_PHOTOS, asNumberedExtras, colourPhotos } from '@/lib/photoExtras';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const CATEGORIES = ['Women','Men','Kids','Beauty','Fabrics','More'];
@@ -1257,10 +1257,15 @@ export default function AddProductPage() {
   // customer picks one, so they are colours like any other: they belong in the
   // picker's list and the stock table counts size AND colour.
   const selectedColours = packValue >= 2
-    ? pickColourNames([
+    ? dedupeColourNames([
         ...(mainColour.trim() ? [mainColour] : []),
         ...packCols.map(c => c.colour),
-      ].concat(selColors, customColours.map(c => c.name)))
+      ].concat(
+        selColors,
+        customColours
+          .filter(c => !packCols.some(pc => pc.colour.trim()) || colourPhotos(c as unknown as Record<string, unknown>).length > 0)
+          .map(c => c.name),
+      ))
     : [...new Set([...selColors, ...customColours.map(c => c.name),
                    ...(printColour ? [printColour] : []), ...splitList(availColours)])];
   // Colour ka naam → hex, taaki storefront ka swatch circle sahi rang se bhare.

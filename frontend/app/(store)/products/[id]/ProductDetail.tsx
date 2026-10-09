@@ -361,10 +361,14 @@ export default function ProductDetail({ params, initialProduct = null }: { param
   // a field blank we fall back to something the product already knows, and a row
   // with nothing behind it is never rendered — no empty labels on the page.
   const specs = extra.specs ?? {};
-  const colourNames = [
-    ...(extra.colors ?? []),
-    ...((extra.customColors ?? []).map(c => c.name ?? '')),
-  ].filter(Boolean);
+  // Every colour this product offers, read once, here, for the whole page.
+  const colourSets = colourSetsOf(extra as unknown as Record<string, unknown>);
+  // The Colour row under Product Details must say what the swatches say. It
+  // used to read customColors raw, so MFH1202 listed Maroon - a name with no
+  // photograph and no stock behind it, which the swatches had already stopped
+  // offering. A page that lists a colour it will not sell is worse than one
+  // that lists none.
+  const colourNames = [...new Set([...(extra.colors ?? []), ...colourSets.map(c => c.name)])].filter(Boolean);
   const detailRows: Array<[string, string]> = ([
     ['Colour',       specs.color       || colourNames.join(', ')],
     ['Fabric',       specs.fabric      || fabric],
@@ -412,7 +416,6 @@ export default function ProductDetail({ params, initialProduct = null }: { param
   // jaisi. Jis din shop us rang ka side aur back bharegi, usi din uski apni
   // patti apne aap chalu ho jayegi. Na migration, na kisi purane product ka
   // kuch kam.
-  const colourSets = colourSetsOf(extra as unknown as Record<string, unknown>);
   const colourGallery: string[] = (() => {
     const picked = colourSets.find(cc => cc.name === color);
     const own = colourPhotos(picked);

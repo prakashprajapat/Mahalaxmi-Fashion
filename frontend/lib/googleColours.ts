@@ -181,6 +181,19 @@ export function isColourValid(value?: string | null): boolean {
  * "navy" typed later stay one colour spelled the way the shop wrote it.
  */
 export function pickColourNames(sources: Array<string | null | undefined>): string[] {
+  return dedupeColourNames(sources).slice(0, 3);
+}
+
+/**
+ * The same tidy-up WITHOUT Google's limit of three.
+ *
+ * The cap above exists because Google reads at most three colours. It has no
+ * business anywhere else: a product that genuinely comes in five colours has
+ * five, and running its colour list through the capped version drops the last
+ * two from the stock table and from the picker - the shop fills in five and
+ * saves three, silently.
+ */
+export function dedupeColourNames(sources: Array<string | null | undefined>): string[] {
   const seen = new Set<string>();
   const out: string[] = [];
   for (const raw of sources) {
@@ -190,7 +203,6 @@ export function pickColourNames(sources: Array<string | null | undefined>): stri
     if (seen.has(k)) continue;
     seen.add(k);
     out.push(name);
-    if (out.length === 3) break;
   }
   return out;
 }

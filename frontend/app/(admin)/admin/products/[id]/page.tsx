@@ -10,8 +10,8 @@ import { checkProduct } from '@/lib/productGate';
 import PublishPanel from '@/components/admin/PublishPanel';
 import { PageHeader } from '@/components/admin/Ui';
 import TaxonomyCombo from '@/components/admin/TaxonomyCombo';
-import { colourProblem, colourNameToHex, pickColourNames } from '@/lib/googleColours';
-import { MAX_EXTRA, MAX_PHOTOS, asNumberedExtras, numberedExtras } from '@/lib/photoExtras';
+import { colourProblem, colourNameToHex, pickColourNames, dedupeColourNames } from '@/lib/googleColours';
+import { MAX_EXTRA, MAX_PHOTOS, asNumberedExtras, numberedExtras, colourPhotos } from '@/lib/photoExtras';
 import { useOwnerView } from '@/lib/useOwnerView';
 import { warmProductImages } from '@/lib/warmImages';
 
@@ -1251,10 +1251,15 @@ export default function EditProductPage() {
   // customer picks one, so they are colours like any other: they belong in the
   // picker's list and the stock table counts size AND colour.
   const selectedColours = packValue >= 2
-    ? pickColourNames([
+    ? dedupeColourNames([
         ...(mainColour.trim() ? [mainColour] : []),
         ...packCols.map(c => c.colour),
-      ].concat(selColors, customColours.map(c => c.name)))
+      ].concat(
+        selColors,
+        customColours
+          .filter(c => !packCols.some(pc => pc.colour.trim()) || colourPhotos(c as unknown as Record<string, unknown>).length > 0)
+          .map(c => c.name),
+      ))
     : [...new Set([...selColors, ...customColours.map(c => c.name),
                    ...(printColour ? [printColour] : []), ...splitList(availColours)])];
   // Colour ka naam → hex, taaki storefront ka swatch circle sahi rang se bhare.
