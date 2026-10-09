@@ -18,7 +18,7 @@ import DeliveryEstimate from '@/components/product/DeliveryEstimate';
 import { addRecentlyViewed } from '@/lib/recentlyViewed';
 import { trackEvent } from '@/lib/analytics';
 import { feedIdFor } from '@/lib/merchantFeed';
-import { allSlotPhotos, colourPhotos } from '@/lib/photoExtras';
+import { allSlotPhotos, colourPhotos, colourSetsOf } from '@/lib/photoExtras';
 import type { Product, Review } from '@/types';
 import { variantStockFor } from '@/lib/variantStock';
 import { formatDateIst } from '@/lib/formatDate';
@@ -97,10 +97,16 @@ function firstPhotoOf(p: Product | null): string {
   if (!p) return '';
   let ex: ExtraJson = {};
   try { ex = JSON.parse((p as unknown as { extraJson?: string }).extraJson ?? '{}'); } catch { ex = {}; }
-  const isPack = Boolean(p.packOf && p.packOf > 1);
-  const firstColour = isPack ? '' : ((ex.colors ?? [])[0] ?? '');
-  const custom = (ex.customColors ?? []).find(c => c.name === firstColour);
-  return custom?.photo ? (productImageSrc(custom.photo) || custom.photo) : productImageSrc(p.image);
+  const sets = colourSetsOf(ex as unknown as Record<string, unknown>);
+  // The colour the page will open on is the first of the SAME list the swatches
+  // show - presets first, then the ones with photo sets. Reading only the photo
+  // sets would open on a colour the page had not selected, and a product whose
+  // colours are all plain presets has no photo set at all.
+  const firstColour = [...new Set([...(ex.colors ?? []), ...sets.map(c => c.name)])][0] ?? '';
+  const photo = sets.find(c => c.name === firstColour)?.photo;
+  return typeof photo === 'string' && photo
+    ? (productImageSrc(photo) || photo)
+    : productImageSrc(p.image);
 }
 
 export default function ProductDetail({ params, initialProduct = null }: { params: { id: string }; initialProduct?: Product | null }) {
@@ -237,12 +243,19 @@ export default function ProductDetail({ params, initialProduct = null }: { param
         let ex: ExtraJson = {};
         try { ex = JSON.parse((loaded as any).extraJson ?? '{}'); } catch { ex = {}; }
         setExtra(ex);
-        const loadedPack = Boolean(loaded.packOf && loaded.packOf > 1);
         const loadedSizes = ex.sizes ?? (ex.variantMatrix ? [...new Set(Object.keys(ex.variantMatrix).map(k => k.split('|')[0]))] : []);
-        const loadedColors = loadedPack ? [] : (ex.colors ?? (ex.variantMatrix ? [...new Set(Object.keys(ex.variantMatrix).map(k => k.split('|')[1]).filter(Boolean))] : []));
+        // A pack's colours live in its photo columns, so they come through the
+        // same reader as everyone else's now - see colourSetsOf. The list the
+        // page opens on must be the one the swatches show, presets included:
+        // a product whose colours are all presets has no photo set to read,
+        // and opening with no colour selected sends the stock lookup after a
+        // key like "M|" that no product has.
+        const loadedSets = colourSetsOf(ex as unknown as Record<string, unknown>);
+        const loadedNormal = ex.colors ?? (ex.variantMatrix ? [...new Set(Object.keys(ex.variantMatrix).map(k => k.split('|')[1]).filter(Boolean))] : []);
+        const loadedColors = [...new Set([...loadedNormal, ...loadedSets.map(c => c.name)])];
         setSize(loadedSizes[0] ?? '');
         const firstColor = loadedColors[0] ?? '';
-        const firstCustom = (ex.customColors ?? []).find(c => c.name === firstColor);
+        const firstCustom = loadedSets.find(c => c.name === firstColor) as { photo?: string } | undefined;
         setColor(firstColor);
         setActiveImg(
           firstCustom?.photo
@@ -399,8 +412,9 @@ export default function ProductDetail({ params, initialProduct = null }: { param
   // jaisi. Jis din shop us rang ka side aur back bharegi, usi din uski apni
   // patti apne aap chalu ho jayegi. Na migration, na kisi purane product ka
   // kuch kam.
-  const colourGallery: string[] = isPackProduct ? [] : (() => {
-    const picked = (extra.customColors ?? []).find(cc => (cc.name ?? '') === color);
+  const colourSets = colourSetsOf(extra as unknown as Record<string, unknown>);
+  const colourGallery: string[] = (() => {
+    const picked = colourSets.find(cc => cc.name === color);
     const own = colourPhotos(picked);
     return own.length >= 2 ? own : [];
   })();
@@ -421,13 +435,18 @@ export default function ProductDetail({ params, initialProduct = null }: { param
     addGalleryImage(product.image);
     (extra.images ?? []).forEach(addGalleryImage);
   }
-  // For a pack, show every photo the merchant filled for each item (column) -
-  // the four named views and the numbered ones after them, read by the same
-  // helper the main photos use. Duplicates are removed by file name above.
+  // A pack used to pour EVERY column's photos into one gallery, because the
+  // five garments were thought to ship together. They do not - the customer
+  // picks one - so showing all five colours at once was showing four she did
+  // not choose. Each colour's own photos come from colourGallery above, the
+  // same way every other colour on the site works. Only the unnamed columns
+  // are added here, so a half-filled pack still shows its pictures instead of
+  // nothing.
   if (isPackProduct) {
     (extra.packImages ?? extra.packColumnPhotos ?? extra.variantColumns ?? []).forEach(item => {
-      if (typeof item === 'string') addGalleryImage(item);
-      else allSlotPhotos(item).forEach(addGalleryImage);
+      if (typeof item === 'string') { addGalleryImage(item); return; }
+      const named = String((item as Record<string, string>).colour ?? '').trim();
+      if (!named) allSlotPhotos(item).forEach(addGalleryImage);
     });
   }
 
@@ -439,8 +458,8 @@ export default function ProductDetail({ params, initialProduct = null }: { param
   // ne "sirf us rang ki photos" chuna hai, aur yahan baaki rangon ki tasveer
   // jod dena usi ko tod dega. Tab clicked rang ki photo waise bhi gallery[0]
   // hi hai, to kuch jodne ki zarurat nahi. Naam se dedupe upar ho chuka hai.
-  if (!isPackProduct && colourGallery.length === 0) {
-    (extra.customColors ?? []).forEach(c => addGalleryImage(c.photo));
+  if (colourGallery.length === 0) {
+    colourSets.forEach(c => addGalleryImage(typeof c.photo === 'string' ? c.photo : undefined));
   }
 
   // Jo photo badi jagah par dikhegi. activeImg par seedha bharosa nahi kiya
@@ -472,25 +491,25 @@ export default function ProductDetail({ params, initialProduct = null }: { param
 
   const sizes: string[] = [...new Set(extra.sizes ?? (extra.variantMatrix ? [...new Set(Object.keys(extra.variantMatrix).map(k => k.split('|')[0]))] : []))];
   const normalColors = extra.colors ?? (extra.variantMatrix ? [...new Set(Object.keys(extra.variantMatrix).map(k => k.split('|')[1]).filter(Boolean))] : []);
-  const colors: string[] = isPackProduct ? [] : [...new Set([...normalColors, ...((extra.customColors ?? []).map(c => c.name ?? '').filter(Boolean))])];
+  const colors: string[] = [...new Set([...normalColors, ...colourSets.map(c => c.name)])];
   const colorCodes: Record<string, string> = {
     ...(extra.colorCodes ?? {}),
-    ...Object.fromEntries((extra.customColors ?? []).filter(c => c.name && c.code).map(c => [c.name!, c.code!])),
+    ...Object.fromEntries(colourSets.filter(c => c.code).map(c => [c.name, String(c.code)])),
   };
   // One swatch per colour (preset = circle, custom = photo) so ALL custom
   // colours show, even if they share a name, and without a text label.
-  const customNames = new Set((extra.customColors ?? []).map(c => c.name));
-  const swatchList: { key: string; name: string; photo?: string; code: string }[] = isPackProduct ? [] : [
+  const customNames = new Set(colourSets.map(c => c.name));
+  const swatchList: { key: string; name: string; photo?: string; code: string }[] = [
     // Print colour ("Navy/White/Red") ka circle hisson me banta hai, ek flat
     // rang me nahi — customer ko dikhna chahiye ki kapda multi-colour hai.
     ...normalColors.filter((n: string) => !customNames.has(n)).map((name: string, i: number) => ({
       key: 'p' + i, name,
       code: swatchBackground(name, extra.colorShades?.[name]) || colorCodes[name] || '#ddd',
     })),
-    ...((extra.customColors ?? []).map((cc, i) => ({
-      key: 'c' + i, name: cc.name ?? '', photo: cc.photo,
-      code: swatchBackground(cc.name, extra.colorShades?.[cc.name ?? '']) || cc.code || '#ddd',
-    }))),
+    ...colourSets.map((cc, i) => ({
+      key: 'c' + i, name: cc.name, photo: typeof cc.photo === 'string' ? cc.photo : undefined,
+      code: swatchBackground(cc.name, extra.colorShades?.[cc.name]) || String(cc.code ?? '') || '#ddd',
+    })),
   ];
 
   // Jis rang ki apni photo nahi hai, uske dabbe me product ki apni FRONT photo.
@@ -540,7 +559,22 @@ export default function ProductDetail({ params, initialProduct = null }: { param
 
   const handleAddToCart = () => {
     if (outOfStock) return;
-    addToCart(product, cappedQty, size || undefined, color || undefined, variantStock ?? undefined);
+    // The photo of the colour she picked, not the product's main photo.
+    //
+    // addToCart read product.image and nothing else, so every colour of every
+    // product arrived in the cart, in the WhatsApp message, on the order and
+    // on the shipping label wearing the same picture. A customer who chose
+    // Lavender was shown Cream all the way to the parcel, and the packer had
+    // nothing to check against.
+    const pickedPhoto = (() => {
+      const set = colourSets.find(c => c.name === color);
+      const own = typeof set?.photo === 'string' ? set.photo : '';
+      return own || colourPhotos(set)[0] || '';
+    })();
+    addToCart(
+      pickedPhoto ? { ...product, image: pickedPhoto } : product,
+      cappedQty, size || undefined, color || undefined, variantStock ?? undefined,
+    );
     // The one step of the funnel nothing was recording. Both Google and Meta
     // bid on what happens after the click, and this is the first sign of it.
     trackEvent('add_to_cart', {

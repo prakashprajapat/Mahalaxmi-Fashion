@@ -819,6 +819,10 @@ export default function AddProductPage() {
 
   // Main photos are used for normal products and as the primary image for pack products.
   const [mainPhotos, setMainPhotos] = useState<MainPhotos>({ front:'', side:'', back:'', zoomed:'', extra: [] });
+  // The colour of the main photos. Only asked for on a product with columns,
+  // where these photos are the first of several colours rather than the only
+  // ones there are.
+  const [mainColour, setMainColour] = useState('');
 
   // Add-ons
   const [addOns, setAddOns] = useState<AddOn[]>([]);
@@ -1153,6 +1157,7 @@ export default function AddProductPage() {
           back: mainPhotos.back, zoomed: mainPhotos.zoomed,
           ...asNumberedExtras(mainPhotos.extra),
         },
+        productPhotosColour: packValue >= 2 && mainColour.trim() ? mainColour.trim() : undefined,
         addOns: addOns.filter(a => a.name.trim()),
         variants: variants.filter(v => v.name.trim()),
         variant: getTaxonomy(category).length > 0 && taxVariant ? taxVariant : undefined,
@@ -1247,8 +1252,15 @@ export default function AddProductPage() {
   const allSizes = [...new Set([...SIZES_PRESET, ...savedSizes, ...customSizes])];
   const packValue = getPackOfNumber(packOf);
   const selectedSizes = [...new Set(selSizes)];
+  // A pack's colours used to be forced empty here, on the belief that every
+  // colour in the pack shipped together so there was nothing to choose. The
+  // customer picks one, so they are colours like any other: they belong in the
+  // picker's list and the stock table counts size AND colour.
   const selectedColours = packValue >= 2
-    ? []
+    ? pickColourNames([
+        ...(mainColour.trim() ? [mainColour] : []),
+        ...packCols.map(c => c.colour),
+      ].concat(selColors, customColours.map(c => c.name)))
     : [...new Set([...selColors, ...customColours.map(c => c.name),
                    ...(printColour ? [printColour] : []), ...splitList(availColours)])];
   // Colour ka naam → hex, taaki storefront ka swatch circle sahi rang se bhare.
@@ -2034,6 +2046,24 @@ export default function AddProductPage() {
               Front · Side · Back · Zoomed, and up to {MAX_EXTRA} more
             </span>
           </p>
+          {getPackOfNumber(packOf) >= 2 && (
+            <div style={{ display:'flex', alignItems:'center', gap:'.6rem', margin:'.5rem 0 0' }}>
+              <div style={{ width:'34px', height:'34px', borderRadius:'50%', background:'#722f37', color:'#fff', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:800, fontSize:'.8rem', flexShrink:0 }}>
+                1
+              </div>
+              <input value={mainColour}
+                onChange={e => setMainColour(e.target.value)}
+                placeholder="These photos&rsquo; colour &mdash; type it"
+                title="These photos are the first colour. Name it, or the customer cannot pick it."
+                style={{ flex:1, maxWidth:'300px', background:'#fff', color:'#333',
+                  border:`1.5px solid ${mainColour.trim() && colourProblem(mainColour) ? '#e0a200' : '#e4dedb'}`,
+                  borderRadius:'10px', padding:'.4rem .6rem',
+                  fontSize:'.92rem', fontWeight:700, boxSizing:'border-box' }} />
+              {mainColour.trim() && colourProblem(mainColour) && (
+                <span style={{ fontSize:'.74rem', color:'#8a6d1f' }}>{colourProblem(mainColour)}</span>
+              )}
+            </div>
+          )}
           <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:'.75rem', marginTop:'.75rem' }}>
             <PhotoSlot label="FRONT VIEW" value={mainPhotos.front}  onChange={v => setMainPhotos(p => ({...p, front:v}))}  isFirst />
             <PhotoSlot label="SIDE VIEW"  value={mainPhotos.side}   onChange={v => setMainPhotos(p => ({...p, side:v}))} />
