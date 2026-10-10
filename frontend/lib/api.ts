@@ -724,9 +724,12 @@ export interface ReconcileRow {
 
 // ── Coupons ───────────────────────────────────────────────────────────────────
 export const couponsApi = {
-  validate: (code: string, orderAmount: number, customerId?: number) =>
+  // Phone and email go with the check so a once-per-customer code can be
+  // refused HERE, while she can still change her mind, rather than silently
+  // dropping the discount at the moment the order is placed.
+  validate: (code: string, orderAmount: number, customerId?: number, phone?: string, email?: string) =>
     request<{ success: boolean; code: string; type: string; value: number; discount: number; message: string }>(
-      '/coupons/validate', { method: 'POST', body: JSON.stringify({ code, orderAmount, customerId }) }
+      '/coupons/validate', { method: 'POST', body: JSON.stringify({ code, orderAmount, customerId, phone, email }) }
     ),
   list: (token: string) =>
     request<unknown[]>('/coupons', undefined, token),

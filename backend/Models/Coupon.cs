@@ -40,6 +40,18 @@ public class Coupon
     [Column("used_count")]
     public int UsedCount { get; set; }
 
+    /// <summary>
+    /// One redemption per shopper, for ever — recognised by mobile number or by
+    /// email, either one being enough.
+    ///
+    /// Separate from MaxUses on purpose. MaxUses is a ceiling on the whole code;
+    /// this is a rule about each person. A welcome code wants both: everyone who
+    /// ever arrives gets it once, and the total still stops somewhere if the code
+    /// leaks.
+    /// </summary>
+    [Column("once_per_customer")]
+    public bool OncePerCustomer { get; set; }
+
     [Column("expires_at")]
     public DateTimeOffset? ExpiresAt { get; set; }
 

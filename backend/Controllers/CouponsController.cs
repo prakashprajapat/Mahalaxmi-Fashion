@@ -4,6 +4,7 @@ using MahalaxmiApi.Data;
 using MahalaxmiApi.Models;
 
 using MahalaxmiApi.Authorization;
+using MahalaxmiApi.Services;
 
 namespace MahalaxmiApi.Controllers;
 
@@ -81,6 +82,32 @@ public class CouponsController : ControllerBase
             }
         }
 
+        // Once per shopper, for ever.
+        //
+        // Checked by number AND by email: either one matching is enough. The
+        // same person keeps one of the two more often than she keeps both, and
+        // a rule that needed both to match would be no rule at all.
+        //
+        // An order that carries neither is let through. A rule that cannot
+        // recognise anybody must not pretend it can - refusing everyone
+        // anonymous would turn a welcome code into a code nobody can use.
+        if (coupon.OncePerCustomer)
+        {
+            var ids = CustomerKeys.Of(req.Phone, req.Email);
+            if (ids.Count > 0)
+            {
+                var codeKey = coupon.Code.ToLowerInvariant();
+                var phoneKey = ids.FirstOrDefault(i => i.Kind == "phone").Value;
+                var emailKey = ids.FirstOrDefault(i => i.Kind == "email").Value;
+                var used = await _db.CouponRedemptions.AnyAsync(r =>
+                    r.CodeLower == codeKey
+                    && ((phoneKey != null && r.IdKind == "phone" && r.IdValue == phoneKey)
+                     || (emailKey != null && r.IdKind == "email" && r.IdValue == emailKey)));
+                if (used)
+                    return BadRequest(new { success = false, message = "You have already used this code. It can be used once per customer." });
+            }
+        }
+
         if (req.OrderAmount < coupon.MinOrder)
             return BadRequest(new { success = false, message = $"Minimum order of ₹{coupon.MinOrder:0} required for this coupon." });
 
@@ -111,7 +138,7 @@ public class CouponsController : ControllerBase
         var coupons = await _db.Coupons.OrderByDescending(c => c.CreatedAt).ToListAsync();
         return Ok(coupons.Select(c => new {
             c.Id, c.Code, c.Type, c.Value, c.Occasion, c.MinOrder,
-            c.MaxUses, c.UsedCount, c.ExpiresAt, c.IsActive, c.CreatedAt
+            c.MaxUses, c.UsedCount, c.OncePerCustomer, c.ExpiresAt, c.IsActive, c.CreatedAt
         }));
     }
 
@@ -138,6 +165,7 @@ public class CouponsController : ControllerBase
             Occasion   = NormalizeOccasion(req.Occasion),
             MinOrder   = req.MinOrder,
             MaxUses    = req.MaxUses,
+            OncePerCustomer = req.OncePerCustomer,
             ExpiresAt  = req.ExpiresAt,
             IsActive   = true,
             CreatedAt  = DateTimeOffset.UtcNow,
@@ -170,6 +198,7 @@ public class CouponsController : ControllerBase
         coupon.Occasion  = NormalizeOccasion(req.Occasion);
         coupon.MinOrder  = req.MinOrder;
         coupon.MaxUses   = req.MaxUses;
+        coupon.OncePerCustomer = req.OncePerCustomer;
         coupon.ExpiresAt = req.ExpiresAt;
         coupon.IsActive  = req.IsActive;
         await _db.SaveChangesAsync();
@@ -193,8 +222,10 @@ public class CouponsController : ControllerBase
     }
 }
 
-public record ValidateCouponRequest(string Code, decimal OrderAmount, int? CustomerId = null);
+public record ValidateCouponRequest(
+    string Code, decimal OrderAmount, int? CustomerId = null,
+    string? Phone = null, string? Email = null);
 public record CouponRequest(
     string Code, string Type, decimal Value, decimal MinOrder,
     int? MaxUses, DateTimeOffset? ExpiresAt, bool IsActive = true,
-    string? Occasion = "none");
+    string? Occasion = "none", bool OncePerCustomer = false);

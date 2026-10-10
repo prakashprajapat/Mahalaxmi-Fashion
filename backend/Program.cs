@@ -499,6 +499,31 @@ using (var scope = app.Services.CreateScope())
         -- per-occasion 'used' flag so their special date locks only after the offer is redeemed.
         ALTER TABLE coupons   ADD COLUMN IF NOT EXISTS occasion VARCHAR(20) NOT NULL DEFAULT 'none';
         ALTER TABLE coupons   ADD COLUMN IF NOT EXISTS customer_id INT;
+        ALTER TABLE coupons   ADD COLUMN IF NOT EXISTS once_per_customer BOOLEAN NOT NULL DEFAULT FALSE;
+
+        -- Who has already used which code.
+        --
+        -- A coupon only ever had ONE counter: max_uses across everybody. So a
+        -- welcome code was a race - the first hundred shoppers took it and the
+        -- hundred-and-first was told the offer had reached its limit, while
+        -- nothing at all stopped the same person redeeming it over and over.
+        -- Both halves were wrong, and they were wrong in opposite directions.
+        --
+        -- One row per identity per code. The UNIQUE index is what enforces the
+        -- rule: not a SELECT that another order can slip past between the read
+        -- and the write, but the database refusing the second row outright.
+        CREATE TABLE IF NOT EXISTS coupon_redemptions (
+            id         SERIAL PRIMARY KEY,
+            code_lower VARCHAR(50)  NOT NULL,
+            id_kind    VARCHAR(10)  NOT NULL,    -- 'phone' | 'email'
+            id_value   VARCHAR(255) NOT NULL,    -- normalised: last 10 digits, or lower-cased email
+            order_id   VARCHAR(64),
+            created_at TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS ux_coupon_redemption
+            ON coupon_redemptions (code_lower, id_kind, id_value);
+        CREATE INDEX IF NOT EXISTS ix_coupon_redemption_order
+            ON coupon_redemptions (order_id);
         ALTER TABLE customers ADD COLUMN IF NOT EXISTS birthday_offer_used    BOOLEAN NOT NULL DEFAULT FALSE;
         ALTER TABLE customers ADD COLUMN IF NOT EXISTS anniversary_offer_used BOOLEAN NOT NULL DEFAULT FALSE;
         -- Customer-uploaded profile photo URL (served by the customers photo endpoint).

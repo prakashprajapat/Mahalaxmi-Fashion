@@ -310,7 +310,7 @@ export default function CheckoutPage() {
     refTried.current = true;
     (async () => {
       try {
-        const res = await couponsApi.validate(stored.code!, subtotal, customer?.id);
+        const res = await couponsApi.validate(stored.code!, subtotal, customer?.id, shipping.phone, shipping.email);
         setCouponApplied({ code: res.code, discount: res.discount, message: res.message });
       } catch { /* code not valid for this order — ignore */ }
     })();
@@ -368,7 +368,7 @@ export default function CheckoutPage() {
     if (!couponCode.trim()) return;
     setCouponError(''); setCouponLoading(true);
     try {
-      const res = await couponsApi.validate(couponCode, subtotal, customer?.id);
+      const res = await couponsApi.validate(couponCode, subtotal, customer?.id, shipping.phone, shipping.email);
       setCouponApplied({ code: res.code, discount: res.discount, message: res.message });
       setCouponError('');
     } catch (e) {

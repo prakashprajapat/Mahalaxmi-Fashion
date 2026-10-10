@@ -17,6 +17,7 @@ public class AppDbContext : DbContext
     public DbSet<SiteSetting> SiteSettings { get; set; }
     public DbSet<Review>      Reviews      { get; set; }
     public DbSet<Coupon>      Coupons      { get; set; }
+    public DbSet<CouponRedemption> CouponRedemptions { get; set; }
     public DbSet<Influencer>  Influencers  { get; set; }
     public DbSet<PopupLead>   PopupLeads   { get; set; }
     public DbSet<Feedback>    Feedbacks    { get; set; }

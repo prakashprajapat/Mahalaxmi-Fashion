@@ -7,11 +7,11 @@ import { PageHeader, Card, Stat, StatGrid, Chips, Pill, Empty } from '@/componen
 
 interface Coupon {
   id: number; code: string; type: string; value: number; occasion: string;
-  minOrder: number; maxUses: number | null; usedCount: number;
+  minOrder: number; maxUses: number | null; usedCount: number; oncePerCustomer?: boolean;
   expiresAt: string | null; isActive: boolean; createdAt: string;
 }
 
-const empty = { code: '', type: 'flat', value: '', occasion: 'none', minOrder: '0', maxUses: '', expiresAt: '', isActive: true };
+const empty = { code: '', type: 'flat', value: '', occasion: 'none', minOrder: '0', maxUses: '', expiresAt: '', isActive: true, oncePerCustomer: true };
 
 const OCCASION_LABEL: Record<string, string> = { none: 'Anyone', birthday: 'Birthday', anniversary: 'Anniversary' };
 
@@ -39,8 +39,9 @@ function inWords(f: typeof empty): string {
   const min = parseFloat(f.minOrder) > 0 ? ` on orders over ₹${parseFloat(f.minOrder).toLocaleString('en-IN')}` : '';
   const who = f.occasion === 'none' ? '' : ` — only in the customer's ${f.occasion} month`;
   const uses = f.maxUses ? `, usable ${f.maxUses} time${Number(f.maxUses) === 1 ? '' : 's'} in total` : '';
+  const each = f.oncePerCustomer ? ', once per customer' : ', as many times as one customer likes';
   const till = f.expiresAt ? `, until the end of ${new Date(f.expiresAt + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'long' })}` : ', with no end date';
-  return `${f.code.trim().toUpperCase()} gives ${off}${min}${who}${uses}${till}.`;
+  return `${f.code.trim().toUpperCase()} gives ${off}${min}${who}${each}${uses}${till}.`;
 }
 
 export default function CouponsPage() {
@@ -86,6 +87,7 @@ export default function CouponsPage() {
     setForm({
       code: c.code, type: c.type, value: String(c.value), occasion: c.occasion ?? 'none',
       minOrder: String(c.minOrder), maxUses: c.maxUses ? String(c.maxUses) : '',
+      oncePerCustomer: c.oncePerCustomer ?? false,
       expiresAt: c.expiresAt ? c.expiresAt.split('T')[0] : '', isActive: c.isActive,
     });
     setMsg(null);
@@ -107,6 +109,7 @@ export default function CouponsPage() {
         occasion: form.occasion,
         minOrder: parseFloat(form.minOrder) || 0,
         maxUses: form.maxUses ? parseInt(form.maxUses) : null,
+        oncePerCustomer: form.oncePerCustomer,
         // End of the chosen day, in local time. Set as UTC midnight, a coupon
         // marked "expires 31 Aug" stopped working at half past five that morning.
         expiresAt: form.expiresAt ? new Date(form.expiresAt + 'T23:59:59').toISOString() : null,
@@ -135,6 +138,7 @@ export default function CouponsPage() {
       await couponsApi.update(c.id, {
         code: c.code, type: c.type, value: c.value, occasion: c.occasion ?? 'none',
         minOrder: c.minOrder, maxUses: c.maxUses, expiresAt: c.expiresAt,
+        oncePerCustomer: c.oncePerCustomer ?? false,
         isActive: !c.isActive,
       }, getAdminToken() ?? '');
       setCoupons(list => list.map(x => (x.id === c.id ? { ...x, isActive: !x.isActive } : x)));
@@ -293,6 +297,19 @@ export default function CouponsPage() {
               <input className="adm-input" type="number" style={{ width: '100%', marginTop: '.2rem' }}
                      placeholder="No limit" value={form.maxUses}
                      onChange={e => setForm(f => ({ ...f, maxUses: e.target.value }))} />
+            </label>
+            <label style={{ display: 'flex', alignItems: 'flex-start', gap: '.5rem', gridColumn: '1 / -1', cursor: 'pointer' }}>
+              <input type="checkbox" checked={form.oncePerCustomer} style={{ marginTop: '.25rem' }}
+                     onChange={e => setForm(f => ({ ...f, oncePerCustomer: e.target.checked }))} />
+              <span>
+                <span className="adm-stat-l">One use per customer</span>
+                <span style={{ display: 'block', fontSize: '.78rem', color: '#777', marginTop: '.15rem' }}>
+                  Each customer may use this code once, whenever they like, and never again.
+                  Recognised by mobile number or email &mdash; either one is enough.
+                  Leave &ldquo;Total uses allowed&rdquo; blank, or set it high, so the code does not
+                  run out for everyone at once.
+                </span>
+              </span>
             </label>
             <label style={{ display: 'block' }}>
               <span className="adm-stat-l">Last day</span>

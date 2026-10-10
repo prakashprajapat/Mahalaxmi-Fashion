@@ -48,6 +48,87 @@ public class OrdersController : ControllerBase
     private const string PublicSettingsCacheKey = "public_settings";
     private const int HighRiskCancelThreshold = 2; // > 2 (i.e. 3+) cancelled orders ⇒ high risk
 
+    /// <summary>
+    /// Write down that this shopper has used this code, or report that she already had.
+    /// </summary>
+    /// <remarks>
+    /// The rule is enforced by the UNIQUE index on coupon_redemptions, not by a
+    /// SELECT before an INSERT: two orders placed in the same second would both
+    /// read "not used yet" and both be allowed. Here the second INSERT simply
+    /// does nothing, and inserting fewer rows than we tried IS the answer.
+    ///
+    /// An order carrying neither a usable number nor a usable email is let
+    /// through. A rule that cannot recognise anybody must not pretend it can.
+    /// </remarks>
+    private async Task<bool> TryClaimOncePerCustomerAsync(string code, string? phone, string? email, string orderId)
+    {
+        var codeKey = code.Trim().ToLowerInvariant();
+        var once = await _db.Coupons
+            .Where(c => c.Code.ToLower() == codeKey)
+            .Select(c => c.OncePerCustomer)
+            .FirstOrDefaultAsync();
+        if (!once) return true;
+
+        var ids = Services.CustomerKeys.Of(phone, email);
+        if (ids.Count == 0) return true;
+
+        var inserted = 0;
+        foreach (var (kind, value) in ids)
+        {
+            inserted += await _db.Database.ExecuteSqlInterpolatedAsync(
+                $@"INSERT INTO coupon_redemptions (code_lower, id_kind, id_value, order_id)
+                   VALUES ({codeKey}, {kind}, {value}, {orderId})
+                   ON CONFLICT (code_lower, id_kind, id_value) DO NOTHING");
+        }
+        if (inserted == ids.Count) return true;
+
+        // One of her two identities had used this code before. Whatever we just
+        // wrote belongs to an order that is not getting the discount after all.
+        await ReleaseOncePerCustomerAsync(orderId);
+        return false;
+    }
+
+    /// <summary>Take back the claims written for an order that did not get the discount.</summary>
+    private Task ReleaseOncePerCustomerAsync(string orderId) =>
+        _db.Database.ExecuteSqlInterpolatedAsync(
+            $"DELETE FROM coupon_redemptions WHERE order_id = {orderId}");
+
+    /// <summary>
+    /// Tell the shop when a code is four-fifths spent, once.
+    ///
+    /// A ceiling nobody is watching turns into a shopper being told the offer has
+    /// reached its limit - which is how this was found in the first place. Fired
+    /// on equality, so it is sent on exactly one order and never again.
+    /// </summary>
+    private async Task WarnIfCouponNearlySpentAsync(string code)
+    {
+        try
+        {
+            var codeKey = code.Trim().ToLowerInvariant();
+            var c = await _db.Coupons.AsNoTracking()
+                .Where(x => x.Code.ToLower() == codeKey)
+                .Select(x => new { x.Code, x.UsedCount, x.MaxUses })
+                .FirstOrDefaultAsync();
+            if (c?.MaxUses is not int max || max <= 0) return;
+
+            var threshold = (int)Math.Ceiling(max * 0.8);
+            if (c.UsedCount != threshold) return;
+
+            var safeCode = System.Net.WebUtility.HtmlEncode(c.Code);
+            await _notify.NotifyAsync(
+                $"Coupon {c.Code} is almost used up",
+                Services.AdminNotifier.Wrap("Coupon almost used up", $@"
+                    <p><strong>{safeCode}</strong> has been used <strong>{c.UsedCount}</strong> of <strong>{max}</strong> times.</p>
+                    <p>When it reaches {max}, shoppers will be told the offer has reached its limit.</p>
+                    <p>Raise the limit in Admin &rarr; Coupons, or leave Max Uses blank for no limit.</p>"));
+        }
+        catch (Exception ex)
+        {
+            // A warning that fails must never cost the shop an order.
+            _log.LogWarning(ex, "Could not send the coupon-nearly-spent warning for {Code}.", code);
+        }
+    }
+
     public OrdersController(AppDbContext db, IWebHostEnvironment env, Services.DelhiveryService delhivery, Services.AdminNotifier notify, Services.SmsService sms, Services.WalletService wallet, Services.EmailService email, ILogger<OrdersController> log, IMemoryCache cache)
     {
         _db = db;
@@ -684,8 +765,16 @@ public class OrdersController : ControllerBase
             // orders can never both slip past a MaxUses limit (the old read-then-write could).
             if (!string.IsNullOrWhiteSpace(serverCouponCode))
             {
-                var rows = await _db.Database.ExecuteSqlInterpolatedAsync(
-                    $"UPDATE coupons SET used_count = used_count + 1 WHERE lower(code) = lower({serverCouponCode}) AND (max_uses IS NULL OR used_count < max_uses)");
+                // Claim the code for this shopper BEFORE counting it. If she has
+                // used it before, the claim fails and the code is treated exactly
+                // as a code that has run out - no discount, order still placed.
+                var claimed = await TryClaimOncePerCustomerAsync(
+                    serverCouponCode!, req.CustomerPhone, req.CustomerEmail, orderId);
+
+                var rows = claimed
+                    ? await _db.Database.ExecuteSqlInterpolatedAsync(
+                        $"UPDATE coupons SET used_count = used_count + 1 WHERE lower(code) = lower({serverCouponCode}) AND (max_uses IS NULL OR used_count < max_uses)")
+                    : 0;
 
                 if (rows == 0)
                 {
@@ -697,10 +786,15 @@ public class OrdersController : ControllerBase
                         serverDiscount   = 0m;
                         serverTotal      = Math.Max(0m, serverSubtotal + serverShipping + serverCodFee);
                         serverCouponCode = null;
+                        // No discount given, so she has not used the code - the claim
+                        // goes back. A prepaid order KEEPS its discount, so its claim
+                        // stays: she has had the offer, and must not get it twice.
+                        await ReleaseOncePerCustomerAsync(orderId);
                     }
                 }
                 else
                 {
+                    await WarnIfCouponNearlySpentAsync(serverCouponCode!);
                     // Coupon consumed. A birthday/anniversary offer also locks that occasion.
                     var occasion = await _db.Coupons
                         .Where(c => c.Code.ToLower() == serverCouponCode!.ToLower())
