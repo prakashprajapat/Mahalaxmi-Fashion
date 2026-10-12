@@ -1,3 +1,4 @@
+import { colourSetsOf, colourPhotos } from './photoExtras';
 import { isColourValid } from './googleColours';
 // Deliberately a narrow structural type rather than the full Product: the two
 // feed routes fetch their products differently and one of them has its own
@@ -45,6 +46,30 @@ function names(v: unknown): string[] {
     .map(s => s.trim());
 }
 
+/**
+ * The photo that belongs on ONE feed row.
+ *
+ * Both feeds sent the product's main photo on every row. A dress in five
+ * colours therefore went to Meta and to Google as five rows that all showed
+ * the same colour - MFH1218's black row and its green row carry the identical
+ * image_link today. In a catalogue ad that is a shopper being shown a black
+ * dress under the word Green, and she finds out when the parcel opens.
+ *
+ * The colour's own front photo when the shop has filled one in, the product's
+ * main photo otherwise. Read through colourSetsOf, so a colour filled in on
+ * the pack-column screen counts exactly like one filled in on the picker.
+ */
+export function imageForColour(p: FeedInput, colour?: string): string | undefined {
+  if (!colour) return undefined;
+  try {
+    const e = (p.extraJson ? JSON.parse(p.extraJson) : {}) as Record<string, unknown>;
+    const set = colourSetsOf(e).find(c => c.name.toLowerCase() === colour.trim().toLowerCase());
+    if (!set) return undefined;
+    const own = typeof set.photo === 'string' ? set.photo : '';
+    return own || colourPhotos(set)[0] || undefined;
+  } catch { return undefined; }
+}
+
 export function sizesOf(p: FeedInput): string[] {
   try {
     const e = (p.extraJson ? JSON.parse(p.extraJson) : {}) as Extra;
@@ -56,7 +81,12 @@ export function coloursOf(p: FeedInput): string[] {
   try {
     const e = (p.extraJson ? JSON.parse(p.extraJson) : {}) as Extra;
     const c = names(e.colors);
-    const list = c.length > 0 ? c : names(e.colours);
+    const picked = c.length > 0 ? c : names(e.colours);
+    // A pack product's colours are its column names and reach neither of those
+    // two fields, so the feed was sending those products with no colour at all
+    // - the very gap that leaves apparel "Limited" in Merchant Center.
+    const fromSets = colourSetsOf(e as unknown as Record<string, unknown>).map(x => x.name);
+    const list = [...new Set([...picked, ...fromSets])];
     // Google jis value ko colour maanta hi nahi ("MultiColour", "Design C",
     // hex code, akela letter) wo bhejne se item disapprove ho jata hai. Aisi
     // value chhod dete hain — product row phir bhi jati hai, bas colour ke

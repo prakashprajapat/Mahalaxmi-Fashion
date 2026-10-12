@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server';
 import { productSlug } from '@/lib/productSlug';
 import {
-  isFeedable, variantsOf, googleCategoryOf, productTypeOf, genderOf, ageGroupOf,
-} from '@/lib/merchantFeed';
+  isFeedable, variantsOf, googleCategoryOf, productTypeOf, genderOf, ageGroupOf, imageForColour } from '@/lib/merchantFeed';
 
 /**
  * Google Merchant Center product feed (RSS 2.0)
@@ -94,7 +93,7 @@ export async function GET() {
     <g:title>${esc(p.name.slice(0, 150))}</g:title>
     <g:description>${esc(desc)}</g:description>
     <g:link>${BASE}/products/${productSlug(p.name, p.dbId)}</g:link>
-    <g:image_link>${esc(absImage(p.image))}</g:image_link>
+    <g:image_link>${esc(absImage(imageForColour(p, v.colour) ?? p.image))}</g:image_link>
     <g:availability>${outOfStock ? 'out_of_stock' : 'in_stock'}</g:availability>
     <g:price>${p.price.toFixed(2)} INR</g:price>${selling ? `
     <g:sale_price>${selling.toFixed(2)} INR</g:sale_price>` : ''}

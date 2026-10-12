@@ -3,6 +3,7 @@ import { productSlug } from '@/lib/productSlug';
 import { productImageSrc } from '@/lib/productImages';
 import {
   isFeedable, variantsOf, productTypeOf, genderOf, ageGroupOf, googleCategoryOf,
+  imageForColour,
 } from '@/lib/merchantFeed';
 
 // The Meta catalogue feed. Commerce Manager pulls this URL on a schedule to
@@ -72,7 +73,7 @@ export async function GET() {
     <g:title>${esc(String(p.name).slice(0, 150))}</g:title>
     <g:description>${esc(desc)}</g:description>
     <g:link>${esc(link)}</g:link>
-    <g:image_link>${esc(image)}</g:image_link>
+    <g:image_link>${esc(absImage(imageForColour(p, v.colour)) || image)}</g:image_link>
     <g:availability>${outOfStock ? 'out of stock' : 'in stock'}</g:availability>
     <g:condition>new</g:condition>
     <g:price>${price.toFixed(2)} INR</g:price>${selling ? `
