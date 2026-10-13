@@ -20,8 +20,16 @@ namespace MahalaxmiApi.Services;
 /// than it wants the customer to be happy.
 ///
 /// Rules it keeps:
-///   • once per order, ever — `review_asked_at` is stamped before the send is
-///     attempted, so a crash or a restart cannot turn one ask into two
+///   • up to THREE asks per order and no more: the first three days after
+///     delivery, then one every 48 hours. The shop asked for a reminder every
+///     48 hours "until a review arrives", and for the customer who is never
+///     going to write one that is fifteen emails a month — which is how a
+///     sending domain gets marked as spam, and then the mail that stops
+///     arriving is the order confirmation and the invoice
+///   • the moment a review exists for the order, the asking stops — checked
+///     against reviews.order_id on every sweep, whatever the count says
+///   • the count is written BEFORE the send is attempted, so a crash or a
+///     restart cannot turn one ask into two
 ///   • only orders that reached Delivered, and only where there is an email
 ///   • nothing is asked for in return and no rating is suggested; the link
 ///     opens the review page and the customer writes whatever is true
@@ -38,6 +46,12 @@ public class ReviewRequestService : BackgroundService
     // nothing; checking daily would make "three days" mean anything up to four.
     private static readonly TimeSpan Interval = TimeSpan.FromHours(6);
     private static readonly TimeSpan WaitAfterDelivery = TimeSpan.FromDays(3);
+
+    /// <summary>The gap between the reminders that follow the first ask.</summary>
+    private static readonly TimeSpan GapBetweenAsks = TimeSpan.FromHours(48);
+
+    /// <summary>The first ask plus two reminders. See the note at the top.</summary>
+    private const int MaxAsksPerOrder = 3;
 
     // One batch's worth. A shop that suddenly marks two hundred old orders
     // delivered should not send two hundred emails in one minute — that is how
@@ -75,24 +89,55 @@ public class ReviewRequestService : BackgroundService
             .Select(s => s.Value).FirstOrDefaultAsync(ct) ?? "";
         if (setting.Trim().ToLowerInvariant() is "0" or "false" or "no" or "off") return;
 
-        var ready = DateTimeOffset.UtcNow - WaitAfterDelivery;
+        var now = DateTimeOffset.UtcNow;
+        var firstAskReady = now - WaitAfterDelivery;
+        var reminderReady = now - GapBetweenAsks;
 
+        // Two clocks, not one. An order that has never been asked waits three
+        // days from delivery; one that has waits 48 hours from the last ask.
         var orders = await db.SiteOrders
-            .Where(o => o.Status == "Delivered" && o.ReviewAskedAt == null && o.UpdatedAt <= ready)
+            .Where(o => o.Status == "Delivered"
+                     && o.ReviewAsksSent < MaxAsksPerOrder
+                     && (o.ReviewAsksSent == 0
+                            ? o.UpdatedAt <= firstAskReady
+                            : o.ReviewAskedAt != null && o.ReviewAskedAt <= reminderReady))
             .OrderBy(o => o.UpdatedAt)
             .Take(MaxPerRun)
             .ToListAsync(ct);
+
+        // Which of these already have a review. One query for the batch rather
+        // than one per order, and it is the real stop condition: a customer who
+        // has written her review must not be asked again, whatever the count.
+        var ids = orders.Select(o => o.OrderId).ToList();
+        var reviewed = ids.Count == 0
+            ? new HashSet<string>()
+            : (await db.Reviews
+                .Where(r => r.OrderId != null && ids.Contains(r.OrderId))
+                .Select(r => r.OrderId!)
+                .Distinct()
+                .ToListAsync(ct)).ToHashSet();
 
         foreach (var o in orders)
         {
             if (ct.IsCancellationRequested) return;
 
+            // She has written one. Close the order off at the cap so it is never
+            // picked up again, and send nothing.
+            if (reviewed.Contains(o.OrderId))
+            {
+                o.ReviewAsksSent = MaxAsksPerOrder;
+                await db.SaveChangesAsync(ct);
+                continue;
+            }
+
             var (name, to) = Buyer(o.CustomerJson);
 
-            // Stamped FIRST, and for every order including the ones with no
-            // email. The stamp means "this order has had its turn", not "an
+            // Counted FIRST, and for every order including the ones with no
+            // email. The count means "this order has had its turn", not "an
             // email left the building" — otherwise an order with no address
             // would be picked up again every six hours forever.
+            var askNumber = o.ReviewAsksSent + 1;
+            o.ReviewAsksSent = askNumber;
             o.ReviewAskedAt = DateTimeOffset.UtcNow;
             await db.SaveChangesAsync(ct);
 
@@ -100,7 +145,8 @@ public class ReviewRequestService : BackgroundService
 
             try
             {
-                await email.SendAsync(to, "How was your order?", Body(name, o.OrderId));
+                var subject = askNumber == 1 ? "How was your order?" : "Still hoping to hear from you";
+                await email.SendAsync(to, subject, Body(name, o.OrderId, askNumber, MaxAsksPerOrder));
             }
             catch (Exception ex)
             {
@@ -127,10 +173,17 @@ public class ReviewRequestService : BackgroundService
         catch { return ("", null); }
     }
 
-    private static string Body(string name, string orderId)
+    private static string Body(string name, string orderId, int askNumber, int maxAsks)
     {
         var hello = string.IsNullOrWhiteSpace(name) ? "Hello" : $"Hello {System.Net.WebUtility.HtmlEncode(name)}";
         var id = System.Net.WebUtility.HtmlEncode(orderId);
+        // Built out here, not inside the template. A quoted string inside an
+        // interpolation hole of a verbatim string is a trap: the "" reads as an
+        // escaped quote rather than the start of a literal.
+        var lastWord = askNumber < maxAsks ? "" :
+            @"<p style=""color:#777;font-size:.9rem"">This is the last time we will write about
+                this order. If you would rather not review it, that is completely fine —
+                thank you for shopping with us either way.</p>";
         // Plain, short, and it asks for the truth rather than for stars. A mail
         // that begs for five stars is the one people report as spam.
         return AdminNotifier.Wrap("How was your order?", $@"
@@ -147,6 +200,7 @@ public class ReviewRequestService : BackgroundService
             </p>
             <p>And if something was wrong, tell us instead — reply to this email or call
                <strong>+91 94294 29880</strong>. Returns are open for 7 days, no reason needed.</p>
+            {lastWord}
             <p style=""color:#777;font-size:.9rem"">— Prakash, Mahalaxmi Fashion Hub, Balotra</p>");
     }
 }

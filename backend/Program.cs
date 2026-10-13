@@ -619,6 +619,14 @@ using (var scope = app.Services.CreateScope())
         CREATE UNIQUE INDEX IF NOT EXISTS uq_wallet_earn_order ON wallet_transactions (order_id) WHERE type = 'earn';
         ALTER TABLE site_orders ADD COLUMN IF NOT EXISTS wallet_used NUMERIC(12,2) NOT NULL DEFAULT 0;
         ALTER TABLE site_orders ADD COLUMN IF NOT EXISTS review_asked_at TIMESTAMPTZ;
+        -- How many times this order has been asked for a review. review_asked_at
+        -- used to mean "already asked, never again"; it now means "last asked at",
+        -- and this counts the asks. Orders stamped under the old rule have had
+        -- exactly one, so they are backfilled to 1 rather than starting over and
+        -- asking an old customer all over again.
+        ALTER TABLE site_orders ADD COLUMN IF NOT EXISTS review_asks_sent INT NOT NULL DEFAULT 0;
+        UPDATE site_orders SET review_asks_sent = 1
+         WHERE review_asked_at IS NOT NULL AND review_asks_sent = 0;
         ALTER TABLE cashfree_orders ADD COLUMN IF NOT EXISTS wallet_used NUMERIC(12,2) NOT NULL DEFAULT 0;
         ALTER TABLE cashfree_orders ADD COLUMN IF NOT EXISTS full_total NUMERIC(12,2) NOT NULL DEFAULT 0;
         ALTER TABLE coupons ADD COLUMN IF NOT EXISTS referrer_customer_id INTEGER;

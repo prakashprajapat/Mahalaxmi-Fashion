@@ -103,7 +103,7 @@ const SECTIONS = [
       { key: 'facebookDomainVerification', label: 'Meta domain verification token — Business Suite → Brand Safety → Domains → Meta-tag method; paste only the content value', type: 'text' },
       { key: 'welcomeCouponCode', label: 'Welcome popup coupon code — shown to anyone who leaves their details, so the popup has something to give. Create the coupon in Coupons first; leave this blank and no code is shown.', type: 'text' },
       { key: 'abandonedCartEnabled', label: 'Remind about a basket left behind — one email, two hours after a signed-in shopper stops changing their cart. Never twice for the same basket, and never after they order. Put "off" here to stop it.', type: 'text' },
-      { key: 'reviewRequestEnabled', label: 'Ask for a review after delivery — one email, three days after an order is marked Delivered. Put "off" here to stop it; anything else leaves it on.', type: 'text' },
+      { key: 'reviewRequestEnabled', label: 'Ask for a review after delivery — up to three emails: three days after Delivered, then one every 48 hours. Stops the moment a review arrives for that order. Put "off" here to stop it; anything else leaves it on.', type: 'text' },
       { key: 'metaCapiAccessToken', label: 'Meta Conversions API access token — makes EVERY order reach Meta even when the browser blocks the Pixel, the buyer pays in the app, or through a UPI redirect. Events Manager → your dataset → Settings → Conversions API → Generate access token. Counted once: the order id is sent as the event id on both sides.', type: 'password' },
       { key: 'robotsDisallow', label: 'Robots.txt — extra Disallow paths (one per line, e.g. /admin)', type: 'textarea' },
     ]

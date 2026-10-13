@@ -98,8 +98,21 @@ public class SiteOrder
     // When this order had its turn at being asked for a review — stamped once,
     // whether or not an email could actually be sent, so an order with no
     // address is not picked up again every six hours forever.
+    /// <summary>When the last review request went out — not "whether one did".</summary>
     [Column("review_asked_at")]
     public DateTimeOffset? ReviewAskedAt { get; set; }
+
+    /// <summary>
+    /// How many review requests this order has had. Capped at three.
+    ///
+    /// Three because the shop asked for a reminder every 48 hours until a
+    /// review arrives, and "until it arrives" has no end for the customer who
+    /// is simply never going to write one. Fifteen emails a month gets a
+    /// sending domain marked as spam, and the mail that then stops arriving is
+    /// the order confirmation and the invoice.
+    /// </summary>
+    [Column("review_asks_sent")]
+    public int ReviewAsksSent { get; set; }
 }
 
 [Table("razorpay_orders")]

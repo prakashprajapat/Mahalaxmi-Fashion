@@ -59,7 +59,7 @@ function waCustomerLink(
   orderId: string,
   total: number,
   awb: string | undefined,
-  kind: 'confirm' | 'shipped' | 'delivered' | 'chat',
+  kind: 'confirm' | 'shipped' | 'delivered' | 'review' | 'chat',
 ): string {
   const num = '91' + (phone || '').replace(/\D/g, '').slice(-10);
   const amt = 'Rs.' + (total ?? 0).toLocaleString('en-IN');
@@ -86,6 +86,18 @@ Your order has been delivered.
 Order ID: ${orderId}
 
 We hope you love it! Please share your feedback and review.
+- Mahalaxmi Fashion Hub`,
+    review:    `Hello ${who},
+
+We hope you are enjoying what you ordered.
+Order ID: ${orderId}
+
+If you have two minutes, please write what you thought of it:
+https://www.mahalaxmifashionhub.com/reviews
+
+New customers read those lines before they order, and for a small shop that matters a lot.
+
+And if anything was wrong, tell us instead - reply here or call +91 94294 29880. Returns are open for 7 days.
 - Mahalaxmi Fashion Hub`,
     chat:      `Hello ${who},
 
@@ -760,6 +772,7 @@ export default function AdminOrdersPage() {
                                   <a href={waCustomerLink(o.customerPhone, o.customerName, o.id, o.total, o.awb, 'confirm')} target="_blank" rel="noopener noreferrer" style={waItemStyle}>Confirm</a>
                                   <a href={waCustomerLink(o.customerPhone, o.customerName, o.id, o.total, o.awb, 'shipped')} target="_blank" rel="noopener noreferrer" style={waItemStyle}>Shipped</a>
                                   <a href={waCustomerLink(o.customerPhone, o.customerName, o.id, o.total, o.awb, 'delivered')} target="_blank" rel="noopener noreferrer" style={waItemStyle}>Delivered</a>
+                                  <a href={waCustomerLink(o.customerPhone, o.customerName, o.id, o.total, o.awb, 'review')} target="_blank" rel="noopener noreferrer" style={waItemStyle}>Review</a>
                                   <a href={waCustomerLink(o.customerPhone, o.customerName, o.id, o.total, o.awb, 'chat')} target="_blank" rel="noopener noreferrer" style={waItemStyle}>Open chat</a>
                                 </div>
                               </details>
