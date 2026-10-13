@@ -93,9 +93,8 @@ public class SiteEventsController : ControllerBase
         if (string.IsNullOrWhiteSpace(token))
             return Ok(new { success = true, skipped = true });   // band hai to chup rahna
 
-        var pixel = await _db.SiteSettings.Where(s => s.Key == "facebookPixelId")
-            .Select(s => s.Value).FirstOrDefaultAsync() ?? "";
-        if (string.IsNullOrWhiteSpace(pixel))
+        var pixels = await Services.MetaPixels.IdsAsync(_db);
+        if (pixels.Count == 0)
             return Ok(new { success = true, skipped = true });
 
         // Grahak ka email/phone body se NAHI liya jata. Khula hua pata hai -
@@ -124,19 +123,24 @@ public class SiteEventsController : ControllerBase
                 price: l.Price ?? 0m))
             .ToList();
 
-        await Services.MetaCapi.SendEventAsync(
-            pixel, token,
-            eventName,
-            string.IsNullOrWhiteSpace(req.EventId) ? null : req.EventId.Trim(),
-            req.Value,
-            string.IsNullOrWhiteSpace(req.Currency) ? "INR" : req.Currency.Trim(),
-            email, phone,
-            Fbp(), Fbc(SafeUrl(req.SourceUrl)),
-            CallerIp(), Request.Headers.UserAgent.ToString(),
-            SafeUrl(req.SourceUrl),
-            req.ContentType,
-            null,
-            items);
+        // Every configured pixel gets the same event with the same event id, so
+        // each one de-duplicates against its own browser copy independently.
+        foreach (var pixel in pixels)
+        {
+            await Services.MetaCapi.SendEventAsync(
+                pixel, token,
+                eventName,
+                string.IsNullOrWhiteSpace(req.EventId) ? null : req.EventId.Trim(),
+                req.Value,
+                string.IsNullOrWhiteSpace(req.Currency) ? "INR" : req.Currency.Trim(),
+                email, phone,
+                Fbp(), Fbc(SafeUrl(req.SourceUrl)),
+                CallerIp(), Request.Headers.UserAgent.ToString(),
+                SafeUrl(req.SourceUrl),
+                req.ContentType,
+                null,
+                items);
+        }
 
         return Ok(new { success = true });
     }

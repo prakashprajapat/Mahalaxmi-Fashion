@@ -100,6 +100,7 @@ const SECTIONS = [
       { key: 'bingSiteVerification', label: 'Bing Webmaster Verification Code (content value only)', type: 'text' },
       { key: 'gtmId', label: 'Google Tag Manager ID (e.g. GTM-XXXXXXX)', type: 'text' },
       { key: 'facebookPixelId', label: 'Facebook Pixel ID (numbers only) — leave blank if the Pixel is set up in Cloudflare Zaraz, or every event counts twice', type: 'text' },
+      { key: 'facebookPixelId2', label: 'Second Facebook Pixel ID (optional) — the site sends every event to this one as well. Use it when an ad account can only see a different pixel, so neither one misses anything. Leave blank if you only have one.', type: 'text' },
       { key: 'facebookDomainVerification', label: 'Meta domain verification token — Business Suite → Brand Safety → Domains → Meta-tag method; paste only the content value', type: 'text' },
       { key: 'welcomeCouponCode', label: 'Welcome popup coupon code — shown to anyone who leaves their details, so the popup has something to give. Create the coupon in Coupons first; leave this blank and no code is shown.', type: 'text' },
       { key: 'abandonedCartEnabled', label: 'Remind about a basket left behind — one email, two hours after a signed-in shopper stops changing their cart. Never twice for the same basket, and never after they order. Put "off" here to stop it.', type: 'text' },

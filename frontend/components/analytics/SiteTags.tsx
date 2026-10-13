@@ -27,7 +27,20 @@ async function getSeoSettings(): Promise<Record<string, string>> {
 export default async function SiteTags() {
   const s = await getSeoSettings();
   const gtmId = s.gtmId?.trim();
-  const fbPixelId = s.facebookPixelId?.trim();
+  // Two pixels, because one was never quite enough: the one carrying the
+  // history belongs to one ad account and the one a newer ad account can see
+  // started empty, and moving the site from one to the other threw away
+  // whichever side had the events. Meta takes the same event on both.
+  //
+  // Digits only, blanks dropped, duplicates folded - the same id typed into
+  // both boxes would otherwise fire everything twice into one pixel and double
+  // every number the shop reads. Same rule as backend/Services/MetaPixels.cs.
+  const fbPixelIds = [...new Set(
+    [s.facebookPixelId, s.facebookPixelId2]
+      .map(v => (v ?? '').replace(/\D/g, ''))
+      .filter(Boolean),
+  )];
+  const fbPixelId = fbPixelIds[0];
 
   // The switch that moves tracking into Tag Manager. Recreating these tags
   // inside the container while they also load here would count everything
@@ -90,7 +103,7 @@ export default async function SiteTags() {
         <script
           id="fb-pixel"
           dangerouslySetInnerHTML={{
-            __html: `!function(f,b,e,v){if(f.fbq)return;var n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];var t=b.createElement(e);t.async=!0;t.src=v;var add=function(){if(!t.parentNode)b.head.appendChild(t)};if(b.readyState==='complete')add();else f.addEventListener('load',add)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');fbq('init','${fbPixelId}');fbq('track','PageView');`,
+            __html: `!function(f,b,e,v){if(f.fbq)return;var n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];var t=b.createElement(e);t.async=!0;t.src=v;var add=function(){if(!t.parentNode)b.head.appendChild(t)};if(b.readyState==='complete')add();else f.addEventListener('load',add)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');${fbPixelIds.map(id => `fbq('init','${id}');`).join('')}fbq('track','PageView');`,
           }}
         />
       )}

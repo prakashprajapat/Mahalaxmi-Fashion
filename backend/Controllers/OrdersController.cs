@@ -925,8 +925,7 @@ public class OrdersController : ControllerBase
                 .Select(s => s.Value).FirstOrDefaultAsync() ?? "";
             if (!string.IsNullOrWhiteSpace(metaToken))
             {
-                var metaPixel = await _db.SiteSettings.Where(s => s.Key == "facebookPixelId")
-                    .Select(s => s.Value).FirstOrDefaultAsync() ?? "";
+                var metaPixels = await Services.MetaPixels.IdsAsync(_db);
 
                 // Pehle yahan akela SKU jata tha. Catalogue me ek row har size
                 // aur rang ki hai aur SKU sirf unka item_group_id hai, isliye
@@ -943,19 +942,37 @@ public class OrdersController : ControllerBase
                         price: c.Price))
                     .ToList();
 
-                var capi = await Services.MetaCapi.SendPurchaseAsync(
-                    metaPixel, metaToken, orderId, serverTotal, "INR",
-                    req.CustomerEmail, req.CustomerPhone,
-                    "https://www.mahalaxmifashionhub.com/checkout", metaItems);
+                // The purchase goes to every configured pixel, with the order id
+                // as the event id on each, so each de-duplicates on its own.
+                var results = new List<string>();
+                var anyOk = false;
+                foreach (var metaPixel in metaPixels)
+                {
+                    var capi = await Services.MetaCapi.SendPurchaseAsync(
+                        metaPixel, metaToken, orderId, serverTotal, "INR",
+                        req.CustomerEmail, req.CustomerPhone,
+                        "https://www.mahalaxmifashionhub.com/checkout", metaItems);
 
-                // Write down what happened. Nothing did before, so a dead token
-                // and a working one looked identical from the admin panel, and
-                // the only way to find out was to notice months later that the
-                // ads had never learned anything. Admin -> Tracking reads this.
-                await RememberAsync("metaCapiLastResult", (capi.Ok ? "ok: " : "failed: ") + capi.Detail);
-                await RememberAsync("metaCapiLastSentAt", DateTimeOffset.UtcNow.ToString("o"));
-                if (capi.Ok) await RememberAsync("metaCapiLastOkAt", DateTimeOffset.UtcNow.ToString("o"));
-                if (!capi.Ok) _log.LogWarning("Meta CAPI purchase for {OrderId} was not accepted: {Detail}", orderId, capi.Detail);
+                    anyOk |= capi.Ok;
+                    results.Add($"{metaPixel} {(capi.Ok ? "ok" : "failed")}: {capi.Detail}");
+                    if (!capi.Ok)
+                        _log.LogWarning("Meta CAPI purchase for {OrderId} on pixel {Pixel} was not accepted: {Detail}",
+                            orderId, metaPixel, capi.Detail);
+                }
+
+                // Write down what happened, per pixel. Nothing was written at
+                // all before, so a dead token and a working one looked identical
+                // from the admin panel, and the only way to find out was to
+                // notice months later that the ads had never learned anything.
+                // With two pixels it also has to say WHICH one refused, or a
+                // half-working setup reads as a working one.
+                // Admin -> Tracking reads this.
+                if (results.Count > 0)
+                {
+                    await RememberAsync("metaCapiLastResult", string.Join(" | ", results));
+                    await RememberAsync("metaCapiLastSentAt", DateTimeOffset.UtcNow.ToString("o"));
+                    if (anyOk) await RememberAsync("metaCapiLastOkAt", DateTimeOffset.UtcNow.ToString("o"));
+                }
             }
         }
 
