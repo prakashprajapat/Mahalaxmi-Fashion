@@ -45,7 +45,34 @@ class Scanner:
                 if j < 0: raise Bad(self.line, 'block comment never closed')
                 self.adv(j + 2); continue
             if s.startswith('"""', self.i):
-                raise Bad(self.line, 'raw string literal - scanner does not handle these')
+                # A raw string literal. Opened by N quotes (N >= 3) and closed by
+                # the first run of EXACTLY N quotes; nothing inside is escaped, so
+                # there is nothing to get wrong except finding the end.
+                #
+                # This used to bail out and report the file as a problem, which
+                # made the combined checker shout on a file that was perfectly
+                # fine - and a checker that cries wolf is one nobody runs. It is
+                # also the one I failed to run, which is how a double quote in a
+                # SQL comment reached the server and broke the build.
+                k = self.i
+                while k < n and s[k] == '"':
+                    k += 1
+                fence = k - self.i
+                # $"""..."""  - the $ run was already consumed as an identifier
+                # character by the caller, so only the quotes matter here.
+                j = k
+                while True:
+                    j = s.find('"' * fence, j)
+                    if j < 0:
+                        raise Bad(self.line, 'raw string literal never closed')
+                    run = j
+                    while run < n and s[run] == '"':
+                        run += 1
+                    if run - j == fence:
+                        self.adv(run)
+                        break
+                    j = run
+                continue
             interp = vb = False
             if s.startswith('@"', self.i): vb, off = True, 2
             elif s.startswith('$@"', self.i) or s.startswith('@$"', self.i): vb = interp = True; off = 3
