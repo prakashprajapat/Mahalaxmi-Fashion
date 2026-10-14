@@ -65,7 +65,12 @@ export const buildLabelBody = (order: Order): string => {
     const walletUsed = Number(order.walletUsed) || 0;
     const prepaidPart = advancePaid + walletUsed;
     const codCollect = Math.max(0, invoiceTotal - prepaidPart);
-    const payment = isCod ? (prepaidPart > 0 ? 'COD (PART PAID)' : 'COD') : 'Prepaid';
+    // What the delivery agent has to do, in one line. The amount is already
+    // net of anything paid online, so the old second and third lines - PART
+    // PAID, and a note saying how much NOT to collect - were explaining a
+    // subtraction that had already been done, on a box that gets read in a
+    // second while a parcel is being taped.
+    const payment = isCod ? `COD Collect ${money(codCollect)}` : 'Prepaid';
     const placed = new Date(order.placedAt ?? order.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
     const shipTo = [order.shippingAddress, order.shippingCity, order.shippingState, order.shippingPincode].filter(Boolean).map(esc).join(', ');
     const productRows = order.cart.map((it, i) => `
@@ -99,7 +104,7 @@ export const buildLabelBody = (order: Order): string => {
       </div>
       <div class="cols">
         <div class="box"><div class="lbl">ORDER ID</div><div class="big">${esc(order.id)}</div></div>
-        <div class="box"><div class="lbl">PAYMENT</div><div class="big">${esc(payment)}</div>${isCod ? `<div style="font-weight:800;font-size:11px;margin-top:2px">COLLECT ${money(codCollect)}</div>${prepaidPart > 0 ? `<div class="txt" style="font-size:8px">${money(prepaidPart)} already paid online \u2014 do NOT collect</div>` : ''}` : ''}</div>
+        <div class="box"><div class="lbl">PAYMENT</div><div class="big">${esc(payment)}</div></div>
       </div>
       <div class="box">
         <div><span class="lbl">CUSTOMER ADDRESS:</span> <span class="to">${esc(order.shippingName || order.customerName || '')}</span></div>
@@ -128,7 +133,7 @@ export const buildLabelBody = (order: Order): string => {
           ${isCod && prepaidPart > 0 ? `
           ${advancePaid > 0 ? `<div class="taxrow"><span>Advance paid online</span><span>- ${money(advancePaid)}</span></div>` : ''}
           ${walletUsed > 0 ? `<div class="taxrow"><span>Paid from wallet</span><span>- ${money(walletUsed)}</span></div>` : ''}
-          <div class="taxrow total" style="color:#a7354d"><span>COLLECT ON DELIVERY</span><span>${money(codCollect)}</span></div>` : ''}
+          <div class="taxrow total" style="color:#a7354d"><span>COD Collect</span><span>${money(codCollect)}</span></div>` : ''}
         </div>
       </div>
       <div class="cols">
