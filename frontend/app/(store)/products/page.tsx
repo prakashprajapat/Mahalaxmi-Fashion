@@ -27,10 +27,10 @@ const normSub = (s: string) =>
 // par hi rehte hain.
 const CATEGORY_ROUTES = new Set(['women', 'men', 'kids', 'beauty', 'fabrics', 'more']);
 
-// Kitne subcategory naam heading me likhe ja sakte hain. Do tak theek lagta
-// hai - "Kurtis & Kurta Sets". Teen se zyada likhne par heading ek paragraph
-// ban jati thi: Women wali tile me teis naam hain aur saare top par chhap
-// rahe the.
+// Jab kisi tile ka naam na mile - jaise sidebar se khud chhanti hui soochi -
+// tab kitne naam heading me likhe ja sakte hain. Do tak theek lagta hai:
+// "Kurtis & Kurta Sets". Teen se zyada likhne par heading ek paragraph ban
+// jati thi.
 const MAX_LABEL_SUBS = 2;
 
 // Subcategory ka naam jaisa catalogue me likha hai waisa hi heading me chala
@@ -51,17 +51,22 @@ function tidySub(name: string): string {
  * Is panne ka naam - heading, <title> aur neeche ki likhawat, teenon ek hi
  * jagah se.
  *
- * Pehle do jagah alag-alag banta tha aur dono bina ginti ke poori soochi jod
- * dete the. Ab lambi soochi ke liye pehle maalik ka diya naam (homepage tile
- * ka label, jaise "Women") poocha jata hai; na mile to pehle do naam aur
- * baaki ki ginti.
+ * Pehle do jagah alag-alag banta tha aur dono subcategory ke naam bina ginti
+ * ke jod dete the. Ab pehle maalik ka diya naam (homepage tile ka label -
+ * Women, Men, Kids, Beauty) poocha jata hai; na mile to subcategory ke naam,
+ * aur do se zyada hon to pehle do naam aur baaki ki ginti.
  */
 async function listingLabel(searchParams: Props['searchParams'], subs: string[]): Promise<string> {
   if (subs.length > 0) {
-    const names = subs.map(tidySub);
-    if (names.length <= MAX_LABEL_SUBS) return names.join(' & ');
+    // Pehla sawaal hamesha yahi: is soochi ka maalik kaun hai. Homepage par
+    // jis tile par shopper ne click kiya uska naam maalik ne khud likha hai -
+    // "Men", "Beauty" - aur wahi naam panne ke sar par aana chahiye, chahe
+    // tile ke andar ek subcategory ho ya bees.
     const owned = await homeTileLabelFor(subs).catch(() => '');
     if (owned) return owned;
+
+    const names = subs.map(tidySub);
+    if (names.length <= MAX_LABEL_SUBS) return names.join(' & ');
     return `${names.slice(0, MAX_LABEL_SUBS).join(' & ')} + ${names.length - MAX_LABEL_SUBS} more`;
   }
   if (searchParams.bestSeller === 'true') return 'Best Sellers';
