@@ -4,6 +4,7 @@ import { SHOP, SHIPPING, RETURNS, SIZES, DELIVERY_TOTAL_MIN, DELIVERY_TOTAL_MAX 
 import ProductsClient from '@/components/products/ProductsClient';
 import { toListingProducts } from '@/lib/listingProduct';
 import { fetchAllProducts } from '@/lib/adminPaged';
+import { homeTileLabelFor } from '@/lib/seoContent';
 
 export const revalidate = 300;
 
@@ -26,14 +27,54 @@ const normSub = (s: string) =>
 // par hi rehte hain.
 const CATEGORY_ROUTES = new Set(['women', 'men', 'kids', 'beauty', 'fabrics', 'more']);
 
+// Kitne subcategory naam heading me likhe ja sakte hain. Do tak theek lagta
+// hai - "Kurtis & Kurta Sets". Teen se zyada likhne par heading ek paragraph
+// ban jati thi: Women wali tile me teis naam hain aur saare top par chhap
+// rahe the.
+const MAX_LABEL_SUBS = 2;
+
+// Subcategory ka naam jaisa catalogue me likha hai waisa hi heading me chala
+// jata tha, aur catalogue me kuch naam poore bade akshar me hain - "FORMAL
+// SHOES", "NIGHTY" - aur kuch poore chhote me - "petticoat". Heading me ye
+// chillate hue dikhte the. Jo naam pehle se theek-thaak likha hai (jaise
+// "A-Line Dress") use chheda nahi jata.
+function tidySub(name: string): string {
+  const words = name.trim().split(/\s+/).map(w =>
+    w.length > 1 && /[A-Z]/.test(w) && w === w.toUpperCase()
+      ? w.charAt(0) + w.slice(1).toLowerCase()
+      : w
+  ).join(' ');
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+/**
+ * Is panne ka naam - heading, <title> aur neeche ki likhawat, teenon ek hi
+ * jagah se.
+ *
+ * Pehle do jagah alag-alag banta tha aur dono bina ginti ke poori soochi jod
+ * dete the. Ab lambi soochi ke liye pehle maalik ka diya naam (homepage tile
+ * ka label, jaise "Women") poocha jata hai; na mile to pehle do naam aur
+ * baaki ki ginti.
+ */
+async function listingLabel(searchParams: Props['searchParams'], subs: string[]): Promise<string> {
+  if (subs.length > 0) {
+    const names = subs.map(tidySub);
+    if (names.length <= MAX_LABEL_SUBS) return names.join(' & ');
+    const owned = await homeTileLabelFor(subs).catch(() => '');
+    if (owned) return owned;
+    return `${names.slice(0, MAX_LABEL_SUBS).join(' & ')} + ${names.length - MAX_LABEL_SUBS} more`;
+  }
+  if (searchParams.bestSeller === 'true') return 'Best Sellers';
+  if (searchParams.category) {
+    return searchParams.category.charAt(0).toUpperCase() + searchParams.category.slice(1).replace(/-/g, ' ');
+  }
+  return 'All Products';
+}
+
 export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
   const subs = subcategoriesFromQuery(searchParams.subcategory);
 
-  const label = subs.length > 0
-    ? subs.join(' & ')
-    : searchParams.category
-      ? searchParams.category.charAt(0).toUpperCase() + searchParams.category.slice(1).replace(/-/g, ' ')
-      : searchParams.bestSeller === 'true' ? 'Best Sellers' : 'All Products';
+  const label = await listingLabel(searchParams, subs);
 
   // A subcategory listing is its own page, so it gets its own canonical. Pointing
   // it at /products told Google every tile was the same page and dropped them all
@@ -141,13 +182,7 @@ export default async function ProductsPage({ searchParams }: Props) {
     ? (all as any[]).filter(p => wanted.has(normSub(p.subcategory ?? '')))
     : all;
 
-  const title = subs.length > 0
-    ? subs.join(' & ')
-    : searchParams.bestSeller === 'true'
-      ? 'Best Sellers'
-      : searchParams.category
-        ? searchParams.category.charAt(0).toUpperCase() + searchParams.category.slice(1).replace(/-/g, ' ')
-        : 'All Products';
+  const title = await listingLabel(searchParams, subs);
 
   // Khoj ke nateeje ka panna noindex hai, uspar likhne ka koi matlab nahi.
   const showCopy = !searchParams.q;

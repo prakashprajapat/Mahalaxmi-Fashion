@@ -188,6 +188,33 @@ export const DEFAULT_HOME_TILES: HomeTile[] = [
   { label: 'Perfume',        href: '/beauty',                             terms: ['perfume', 'fragrance', 'deo'] },
 ];
 
+const normTerm = (s: string) =>
+  s.toLowerCase().replace(/[^a-z0-9 ]/g, '').replace(/\s+/g, ' ').trim();
+
+/**
+ * The name the owner gave a group of subcategories, or '' if no tile owns them.
+ *
+ * A homepage tile points at ?subcategory=A,B,C..., and the listing used to build
+ * its heading by joining those names with " & ". With two that reads fine; the
+ * Women tile holds twenty-three, and the page opened with every one of them
+ * printed across the top. The tile already carries the only short name that is
+ * true for the whole group - its own label - so the listing asks for it here
+ * instead of inventing one.
+ */
+export async function homeTileLabelFor(subs: string[]): Promise<string> {
+  const wanted = new Set(subs.map(normTerm).filter(Boolean));
+  if (wanted.size === 0) return '';
+
+  for (const tile of await getHomeTiles()) {
+    const terms = new Set((tile.terms ?? []).map(normTerm).filter(Boolean));
+    if (terms.size !== wanted.size) continue;
+    let same = true;
+    for (const t of terms) if (!wanted.has(t)) { same = false; break; }
+    if (same) return tile.label;
+  }
+  return '';
+}
+
 export async function getHomeTiles(): Promise<HomeTile[]> {
   const { homeTiles } = await loadSeoContent();
   const source = homeTiles.length > 0 ? homeTiles : DEFAULT_HOME_TILES;
