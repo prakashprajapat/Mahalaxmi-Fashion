@@ -195,6 +195,48 @@ function trackMeta(name: string, params: Params): void {
   if (hasZaraz) w.zaraz!.track!(metaName, { ...payload, event_id: eventId });
 }
 
+// Ek kharid ki khabar — GA4, Meta aur Google Ads, teenon ko — aur sirf ek baar.
+//
+// Pehle ye kaam checkout ke andar teen jagah alag-alag likha tha, aur sabse
+// badi jagah par likha hi nahi tha: Cashfree (jo asli online gateway hai) se
+// laut kar aane wale raaste par na Meta ko kharid jati thi, na Google Ads ko.
+// Yani har prepaid order Meta ke liye hua hi nahi. Ab teenon raaste isi ek
+// darwaze se guzarte hain.
+//
+// "Ek baar" ka matlab: order id yaad rakhi jati hai. Grahak success wale panne
+// ko refresh kare, ya gateway do baar wapas bhej de, to bhi kharid dobara nahi
+// ginti. Pichhli 20 id kaafi hain; usse purani apne aap gir jati hain.
+const PURCHASE_SENT_KEY = 'mfh_purchase_sent';
+const PURCHASE_SENT_KEEP = 20;
+
+export function trackPurchaseOnce(p: {
+  orderId: string;
+  value: number;
+  coupon?: string;
+  items?: Array<Record<string, unknown>>;
+}): void {
+  if (typeof window === 'undefined') return;
+  const id = String(p.orderId ?? '').trim();
+  if (!id) return;
+
+  // Storage band ho (Safari "Block All Cookies") to pehra lagta hi nahi — par
+  // event phir bhi jata hai. Ek baar zyada ginna, kabhi na ginne se behtar hai.
+  try {
+    const seen = (storage.get(PURCHASE_SENT_KEY) ?? '').split(',').filter(Boolean);
+    if (seen.includes(id)) return;
+    storage.set(PURCHASE_SENT_KEY, [...seen, id].slice(-PURCHASE_SENT_KEEP).join(','));
+  } catch { /* pehra nahi laga — event phir bhi jayega */ }
+
+  trackEvent('purchase', {
+    transaction_id: id,
+    currency: 'INR',
+    value: p.value,
+    coupon: p.coupon || undefined,
+    items: p.items ?? [],
+  });
+  trackAdsConversion({ value: p.value, currency: 'INR', transactionId: id });
+}
+
 // Build a GA4 ecommerce "items" array from cart-like objects.
 export function toGa4Items(
   lines: Array<{

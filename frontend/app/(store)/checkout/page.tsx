@@ -10,10 +10,45 @@ import { storage } from '@/lib/safeStorage';
 import { ordersApi, paymentsApi, cashfreeApi, couponsApi, settingsApi, walletApi, addressesApi } from '@/lib/api';
 import type { SavedAddress } from '@/lib/api';
 import Link from 'next/link';
-import { trackEvent, toGa4Items, trackAdsConversion, getGaClientId } from '@/lib/analytics';
+import { trackEvent, toGa4Items, trackPurchaseOnce, getGaClientId } from '@/lib/analytics';
 import type { CartItem, Customer } from '@/types';
 
 // Map cart items → GA4 ecommerce items.
+// Gateway par jane se pehle kharid ka parcha rakh jana.
+//
+// Cashfree poora panna chhod kar apne yahan le jata hai aur wapas
+// /checkout?cf_order=... par bhejta hai. Us waqt tak React naya ho chuka hota
+// hai aur cart khaali — yani kis cheez ka, kitne ka order tha, ye batane wala
+// koi nahi bachta. Isliye jaane se theek pehle wahi do baatein yahan likh di
+// jati hain, aur laut kar aate hi padh li jati hain.
+//
+// sessionStorage isliye ki ye sirf isi tab me, isi safar ke liye hai — tab
+// band hua to parcha bhi gaya, aur dusre grahak ke saath kabhi nahi milta.
+const PENDING_PURCHASE = 'mfh-pending-purchase';
+
+interface PendingPurchase {
+  id: string;
+  value: number;
+  coupon?: string;
+  items: Array<Record<string, unknown>>;
+}
+
+const rememberPendingPurchase = (p: PendingPurchase) => {
+  try { sessionStorage.setItem(PENDING_PURCHASE, JSON.stringify(p)); }
+  catch { /* storage band — CAPI wala raasta phir bhi hai */ }
+};
+
+// Padho aur mita do: ek parcha ek hi baar kaam aata hai.
+const takePendingPurchase = (orderId: string): PendingPurchase | null => {
+  try {
+    const raw = sessionStorage.getItem(PENDING_PURCHASE);
+    sessionStorage.removeItem(PENDING_PURCHASE);
+    if (!raw) return null;
+    const p = JSON.parse(raw) as PendingPurchase;
+    return p && p.id === orderId ? p : null;
+  } catch { return null; }
+};
+
 const cartToItems = (lines: CartItem[]) =>
   toGa4Items(lines.map(i => ({
     dbId: i.dbId, sku: (i as any).sku, name: i.name,
@@ -202,6 +237,20 @@ export default function CheckoutPage() {
             } finally {
               try { sessionStorage.removeItem('mfh-pending-cod'); } catch {}
             }
+          }
+          // Yahi wo jagah thi jahan har prepaid order chup-chaap gir jata tha.
+          // Cashfree asli online gateway hai, aur is raaste par Meta ya Google
+          // Ads ko kabhi nahi bataya gaya ki bikri hui. Dono ke liye bikri
+          // hui hi nahi — isliye Meta ki algorithm ko aaj tak ek bhi kharidar
+          // ka udaharan nahi mila.
+          const bought = takePendingPurchase(cfOrder);
+          if (bought) {
+            trackPurchaseOnce({
+              orderId: cfOrder,
+              value: bought.value,
+              coupon: bought.coupon,
+              items: bought.items,
+            });
           }
           clearCart(); setOrderId(cfOrder); setStep('confirm');
         }
@@ -496,6 +545,15 @@ export default function CheckoutPage() {
       throw e;
     }
 
+    // Gateway par jane se pehle hi likh do ki kya bika aur kitne ka. Wapas
+    // aakar cart khaali milta hai, aur tab ye batane wala koi nahi hota.
+    rememberPendingPurchase({
+      id: res.localOrderId,
+      value: total,
+      coupon: attributionCode() || undefined,
+      items: cartToItems(cart),
+    });
+
     await ensureCashfreeSdk();
     // @ts-expect-error Cashfree SDK loaded via script tag
     const cashfree = window.Cashfree({ mode: res.mode === 'sandbox' ? 'sandbox' : 'production' });
@@ -587,14 +645,12 @@ export default function CheckoutPage() {
   };
 
   const finishCod = (localOrderId: string) => {
-    trackEvent('purchase', {
-      transaction_id: localOrderId,
-      currency: 'INR',
+    trackPurchaseOnce({
+      orderId: localOrderId,
       value: total,
       coupon: attributionCode() || undefined,
       items: cartToItems(cart),
     });
-    trackAdsConversion({ value: total, currency: 'INR', transactionId: localOrderId });
     clearCart();
     setOrderId(localOrderId);
     setStep('confirm');
@@ -630,6 +686,16 @@ export default function CheckoutPage() {
             payload: buildCodPayload(cf.localOrderId),
           }));
         } catch { /* private mode — the webhook still records the payment */ }
+
+        // COD par bhi wahi parcha. Yahan daam poore order ka jata hai, sirf
+        // advance ka nahi — Meta ko bikri ki asli keemat chahiye, us hisse ki
+        // nahi jo pehle liya gaya.
+        rememberPendingPurchase({
+          id: cf.localOrderId,
+          value: total,
+          coupon: attributionCode() || undefined,
+          items: cartToItems(cart),
+        });
 
         await ensureCashfreeSdk();
         // @ts-expect-error Cashfree SDK loaded via script tag
@@ -712,15 +778,13 @@ export default function CheckoutPage() {
               placedAt: new Date().toISOString(),
               gaClientId: getGaClientId(),
             }, getToken() ?? undefined);
-            // GA4: successful purchase (fired before clearing the cart so items are still available).
-            trackEvent('purchase', {
-              transaction_id: res.localOrderId,
-              currency: 'INR',
+            // Cart saaf karne se pehle, taki saaman abhi maujood ho.
+            trackPurchaseOnce({
+              orderId: res.localOrderId,
               value: total,
               coupon: attributionCode() || undefined,
               items: cartToItems(cart),
             });
-            trackAdsConversion({ value: total, currency: 'INR', transactionId: res.localOrderId });
             clearCart();
             setOrderId(res.localOrderId);
             setStep('confirm');

@@ -60,9 +60,11 @@ public class TrackingHealthController : ControllerBase
 
         string metaVerdict;
         if (capiToken.Length == 0)
-            metaVerdict = "Meta is NOT being told about your sales. The Conversions API token is empty, "
-                        + "and that is the only way a purchase can reach Meta - the browser pixel never sends one, on purpose, "
-                        + "so that a sale is not counted twice.";
+            metaVerdict = "No Conversions API token is set, so this server tells Meta nothing. "
+                        + "The shopper's browser does send the purchase, with the order id as the event id, "
+                        + "but only when it is still on the page at the end: an ad blocker, a gateway redirect "
+                        + "the shopper never returns from, or an order typed in by hand here reaches Meta not at all. "
+                        + "Set the token and the two paths cover each other - Meta counts the pair once.";
         else if (pixel.Length == 0)
             metaVerdict = "A token is set but no Pixel ID is, so there is nowhere to send the event.";
         else if (lastSentAt.Length == 0)
