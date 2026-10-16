@@ -920,13 +920,14 @@ public class OrdersController : ControllerBase
             // dropped by ad blockers, by the app, and by a UPI redirect, and Meta's
             // ads bid on purchases. The order id goes out as the event id and the
             // browser sends the same one, so the pair is counted once. No-op until
-            // metaCapiAccessToken is set in Settings; never throws.
-            var metaToken = await _db.SiteSettings.Where(s => s.Key == "metaCapiAccessToken")
-                .Select(s => s.Value).FirstOrDefaultAsync() ?? "";
-            if (!string.IsNullOrWhiteSpace(metaToken))
+            // a pixel and its token are both set in Settings; never throws.
+            //
+            // Har pixel apni chaabi ke saath. Pehle ek hi token dono par
+            // aazmaya jata tha, aur dusre pixel ne har baar mana kiya -
+            // "missing permissions" - kyunki wo dusre business ka hai.
+            var metaTargets = await Services.MetaPixels.TargetsAsync(_db);
+            if (metaTargets.Count > 0)
             {
-                var metaPixels = await Services.MetaPixels.IdsAsync(_db);
-
                 // Pehle yahan akela SKU jata tha. Catalogue me ek row har size
                 // aur rang ki hai aur SKU sirf unka item_group_id hai, isliye
                 // Meta ko kuch milta hi nahi tha. Ab wahi id banti hai jo feed
@@ -946,18 +947,18 @@ public class OrdersController : ControllerBase
                 // as the event id on each, so each de-duplicates on its own.
                 var results = new List<string>();
                 var anyOk = false;
-                foreach (var metaPixel in metaPixels)
+                foreach (var target in metaTargets)
                 {
                     var capi = await Services.MetaCapi.SendPurchaseAsync(
-                        metaPixel, metaToken, orderId, serverTotal, "INR",
+                        target.PixelId, target.Token, orderId, serverTotal, "INR",
                         req.CustomerEmail, req.CustomerPhone,
                         "https://www.mahalaxmifashionhub.com/checkout", metaItems);
 
                     anyOk |= capi.Ok;
-                    results.Add($"{metaPixel} {(capi.Ok ? "ok" : "failed")}: {capi.Detail}");
+                    results.Add($"{target.PixelId} {(capi.Ok ? "ok" : "failed")}: {capi.Detail}");
                     if (!capi.Ok)
                         _log.LogWarning("Meta CAPI purchase for {OrderId} on pixel {Pixel} was not accepted: {Detail}",
-                            orderId, metaPixel, capi.Detail);
+                            orderId, target.PixelId, capi.Detail);
                 }
 
                 // Write down what happened, per pixel. Nothing was written at

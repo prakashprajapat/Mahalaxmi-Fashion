@@ -88,14 +88,11 @@ public class SiteEventsController : ControllerBase
         }
         catch { /* a browser event must never fail because of our own bookkeeping */ }
 
-        var token = await _db.SiteSettings.Where(s => s.Key == "metaCapiAccessToken")
-            .Select(s => s.Value).FirstOrDefaultAsync() ?? "";
-        if (string.IsNullOrWhiteSpace(token))
+        // Pixel aur uski apni chaabi, jodi me. Jis pixel ka token nahi hai
+        // uspar bhejne ka matlab sirf ek refusal hai.
+        var targets = await Services.MetaPixels.TargetsAsync(_db);
+        if (targets.Count == 0)
             return Ok(new { success = true, skipped = true });   // band hai to chup rahna
-
-        var pixels = await Services.MetaPixels.IdsAsync(_db);
-        if (pixels.Count == 0)
-            return Ok(new { success = true, skipped = true });
 
         // Grahak ka email/phone body se NAHI liya jata. Khula hua pata hai -
         // koi bhi kisi ka bhi email bhej kar milan bigaad sakta tha. Jo khud
@@ -125,10 +122,10 @@ public class SiteEventsController : ControllerBase
 
         // Every configured pixel gets the same event with the same event id, so
         // each one de-duplicates against its own browser copy independently.
-        foreach (var pixel in pixels)
+        foreach (var target in targets)
         {
             await Services.MetaCapi.SendEventAsync(
-                pixel, token,
+                target.PixelId, target.Token,
                 eventName,
                 string.IsNullOrWhiteSpace(req.EventId) ? null : req.EventId.Trim(),
                 req.Value,
