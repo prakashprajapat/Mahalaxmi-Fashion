@@ -201,6 +201,11 @@ export default function MetaAdsPage() {
       {error && (
         <div className="adm-card" style={{ background: '#fdf3f2', borderColor: '#f0cdc9', color: '#c0392b', marginBottom: '.85rem', fontSize: '.86rem', fontWeight: 600 }}>
           {error}
+          {status?.adAccountId && (
+            <div style={{ marginTop: '.45rem', fontWeight: 600 }}>
+              Account tried: act_{status.adAccountId}
+            </div>
+          )}
         </div>
       )}
 
