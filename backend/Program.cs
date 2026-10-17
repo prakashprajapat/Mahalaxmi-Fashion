@@ -672,6 +672,37 @@ using (var scope = app.Services.CreateScope())
         -- Cash on Delivery advance: how much the customer already paid online. The courier
         -- must then collect only (total - wallet_used - advance_paid).
         ALTER TABLE site_orders ADD COLUMN IF NOT EXISTS advance_paid NUMERIC(12,2) NOT NULL DEFAULT 0;
+
+        -- Paisa jo grahak ko wapas dena hai. Wallet ka hissa to Return/Cancel
+        -- hote hi apne aap laut jata hai; ye row us DUSRE paise ki hai jo
+        -- grahak ne online diya tha -- prepaid total, ya COD ka advance.
+        -- Wo paisa dukaan se bahar jata hai, isliye chupchap nahi jata:
+        -- pehle pending row banti hai, phir malik rakam aur zariya tay karta
+        -- hai, tab payout hota hai.
+        CREATE TABLE IF NOT EXISTS order_refunds (
+            id                SERIAL PRIMARY KEY,
+            order_id          VARCHAR(64)   NOT NULL,
+            suggested_amount  NUMERIC(12,2) NOT NULL DEFAULT 0,
+            amount            NUMERIC(12,2) NOT NULL DEFAULT 0,
+            method            VARCHAR(16)   NOT NULL DEFAULT '',
+            gateway           VARCHAR(16),
+            gateway_refund_id VARCHAR(80),
+            status            VARCHAR(16)   NOT NULL DEFAULT 'pending',
+            note              TEXT,
+            failure_reason    TEXT,
+            created_at        TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+            settled_at        TIMESTAMPTZ,
+            settled_by        VARCHAR(120)
+        );
+        CREATE INDEX IF NOT EXISTS idx_order_refunds_status
+            ON order_refunds (status, created_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_order_refunds_order
+            ON order_refunds (order_id, id DESC);
+        -- Ek order par ek hi khuli (pending) refund row. Do baar status
+        -- Return par set karne se, ya do admin ek saath kaam karein to,
+        -- warna do refund ban jate the aur paisa do baar ja sakta tha.
+        CREATE UNIQUE INDEX IF NOT EXISTS uq_order_refund_open
+            ON order_refunds (order_id) WHERE status = 'pending';
     ");
 
     // Web Push VAPID keys.

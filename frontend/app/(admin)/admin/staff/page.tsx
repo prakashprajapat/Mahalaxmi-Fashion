@@ -16,13 +16,14 @@ import { downloadCsv } from '@/lib/adminPaged';
 // will answer them. That is worth knowing before handing out a login, so the
 // page says it rather than implying a lock that is not there.
 const ENFORCED = new Set([
-  'orders', 'products', 'customers', 'reviews', 'reconcile',
+  'orders', 'products', 'customers', 'reviews', 'reconcile', 'refunds',
   'settings', 'suppliers', 'popup-leads', 'campaigns', 'birthday', 'earnings',
 ]);
 
 const SECTIONS: { key: string; label: string; group: string }[] = [
   { key: 'orders',        label: 'Orders',                 group: 'Sales' },
   { key: 'risk',          label: 'Fraud & risk',           group: 'Sales' },
+  { key: 'refunds',       label: 'Refunds (pays money out)', group: 'Sales' },
   { key: 'products',      label: 'Products / Add product', group: 'Catalogue' },
   { key: 'stock',         label: 'Stock',                  group: 'Catalogue' },
   { key: 'categories',    label: 'Categories',             group: 'Catalogue' },

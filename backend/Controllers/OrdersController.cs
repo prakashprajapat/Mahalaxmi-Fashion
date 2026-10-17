@@ -1151,6 +1151,13 @@ public class OrdersController : ControllerBase
         if (!wasReturnedOrCancelled && nowReturnedOrCancelled)
         {
             try { await RefundWalletForOrderAsync(order); } catch { /* best-effort */ }
+            try { await OpenRefundForOrderAsync(order); } catch (Exception ex)
+            {
+                // Money owed is not a best-effort detail. If the row could not
+                // be written the owner would never see the refund at all, so
+                // it is logged loudly even though the status change stands.
+                _log.LogError(ex, "Could not open a refund row for order {Order}", order.OrderId);
+            }
         }
 
         return Ok(new { success = true, order = MapOrder(order) });
@@ -1165,6 +1172,74 @@ public class OrdersController : ControllerBase
         if (!int.TryParse(custId, out var cid) || cid <= 0) return;
         if (await _db.WalletTransactions.AnyAsync(t => t.Type == "refund" && t.OrderId == order.OrderId)) return;
         await _wallet.MoveAsync(cid, order.WalletUsed, "refund", order.OrderId, $"Wallet refund for {order.Status.ToLower()} order {order.OrderId}");
+    }
+
+    // What the customer paid ONLINE on this order, and so what can be sent
+    // back to them. Not the order total: the wallet part goes back through the
+    // wallet on its own, and the cash a courier collected was never ours to
+    // refund through a gateway.
+    //
+    //   prepaid  -> everything except the wallet part
+    //   COD      -> only the advance they paid before dispatch
+    //
+    // Public and static so the rule lives in one place and can be checked on
+    // its own rather than re-derived on each screen.
+    public static decimal OnlinePaidAmount(SiteOrder order)
+    {
+        var isCod = string.Equals(order.Method, "cod", StringComparison.OrdinalIgnoreCase);
+        var paid = isCod ? order.AdvancePaid : order.Total - order.WalletUsed;
+        return paid > 0m ? Math.Round(paid, 2) : 0m;
+    }
+
+    // Open a pending refund when an order is first returned or cancelled.
+    //
+    // Nothing is paid here. The row only says "this much is owed, decide what
+    // to do" — the amount and the destination are the owner's call on the
+    // Refunds screen, because once money leaves it does not come back.
+    private async Task OpenRefundForOrderAsync(SiteOrder order)
+    {
+        var owed = OnlinePaidAmount(order);
+        if (owed <= 0m) return;
+
+        // Already handled, or already being handled. A second Return -> Return
+        // save, or two admins at once, must not create a second payout.
+        var already = await _db.OrderRefunds
+            .AnyAsync(r => r.OrderId == order.OrderId && (r.Status == "pending" || r.Status == "paid"));
+        if (already) return;
+
+        var isCod = string.Equals(order.Method, "cod", StringComparison.OrdinalIgnoreCase);
+        var gateway = string.Equals(order.Method, "cashfree", StringComparison.OrdinalIgnoreCase) || isCod
+            ? "cashfree"
+            : "razorpay";
+
+        _db.OrderRefunds.Add(new OrderRefund
+        {
+            OrderId          = order.OrderId,
+            SuggestedAmount  = owed,
+            Amount           = 0m,
+            Method           = "",
+            Gateway          = gateway,
+            Status           = "pending",
+            Note             = isCod
+                ? "COD advance paid online before dispatch"
+                : "Prepaid order, wallet part returned separately",
+            CreatedAt        = DateTimeOffset.UtcNow,
+        });
+        await _db.SaveChangesAsync();
+
+        _log.LogWarning("Refund of Rs {Amount} opened for {Status} order {Order}",
+            owed, order.Status, order.OrderId);
+
+        try
+        {
+            await _notify.NotifyAsync($"Refund to pay - {order.OrderId} Rs.{owed:0}",
+                Services.AdminNotifier.Wrap("Refund to pay", $@"
+                    <p><strong>Order:</strong> {order.OrderId}</p>
+                    <p><strong>Now:</strong> {order.Status}</p>
+                    <p><strong>Owed back to the customer:</strong> Rs.{owed:0.00}</p>
+                    <p>Pay it from Admin &rarr; Refunds.</p>"));
+        }
+        catch { /* the row is written; the email is a courtesy */ }
     }
 
     // GET /api/orders/{orderId}/invoice — customer-downloadable HTML bill/invoice.

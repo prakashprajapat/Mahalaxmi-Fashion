@@ -35,6 +35,7 @@ public class AppDbContext : DbContext
     public DbSet<StaffPayout> StaffPayouts { get; set; }
     public DbSet<SiteEventLog> SiteEventLogs { get; set; }
     public DbSet<AbandonedCart> AbandonedCarts { get; set; }
+    public DbSet<OrderRefund> OrderRefunds { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

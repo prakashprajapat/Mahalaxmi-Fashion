@@ -63,6 +63,45 @@ function invoiceValid(order: Order): boolean {
   return Date.now() - placed <= 365 * 24 * 60 * 60 * 1000;
 }
 
+// What the shop tells a customer about their money. Deliberately small: no
+// internal notes, no gateway references, no figure the owner has not settled
+// on. "pending" means the shop owes it; "paid" means it has been sent.
+interface CustomerRefund {
+  status: 'pending' | 'paid';
+  amount: number;
+  method: string;
+  settledAt: string | null;
+}
+
+// Only these can have money owed on them. Everything else is never asked
+// about, so a normal order history makes no extra calls at all.
+const REFUNDABLE_STATUSES = ['Return', 'Return Transit', 'Return Requested', 'Cancelled'];
+
+// The refund line on an order card. Shown only when there is something to say.
+function RefundLine({ refund }: { refund: CustomerRefund }) {
+  const amount = '\u20b9' + Number(refund.amount).toLocaleString('en-IN');
+  const paid = refund.status === 'paid';
+  return (
+    <p style={{
+      margin: '.5rem 0 0', padding: '.5rem .7rem', borderRadius: 8, fontSize: '.84rem',
+      lineHeight: 1.6, fontWeight: 600,
+      background: paid ? '#f1f8f2' : '#fff8ec',
+      color: paid ? '#1b5e20' : '#8a5a00',
+    }}>
+      {paid ? (
+        <>
+          {amount} refunded
+          {refund.method === 'wallet'
+            ? ' to your wallet.'
+            : ' to the account you paid from. Banks usually show it within 5\u20137 working days.'}
+        </>
+      ) : (
+        <>Refund of {amount} is being processed.</>
+      )}
+    </p>
+  );
+}
+
 function canReturn(order: Order): boolean {
   if (order.status !== 'Delivered') return false;
   const delivered = order.deliveredAt ? new Date(order.deliveredAt).getTime() : null;
@@ -105,15 +144,41 @@ export default function OrdersPage() {
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'delivered' | 'cancelled'>('all');
   const [detailOrder, setDetailOrder] = useState<Order | null>(null);
 
+  // Where the customer's money is, for orders that came back or were called
+  // off. Only the shape the shop has settled on is shown: an amount and
+  // whether it has gone. Keyed by order id, missing means nothing is owed.
+  const [refunds, setRefunds] = useState<Record<string, CustomerRefund>>({});
+
+  // Asked only for the orders that can have a refund, one call each. A
+  // failure here is silent on purpose: a missing line is better than an error
+  // banner over somebody's order history.
+  const fetchRefunds = useCallback(async (list: Order[]) => {
+    const token = getToken() ?? '';
+    if (!token) return;
+    const wanted = list.filter(o => REFUNDABLE_STATUSES.includes(o.status));
+    if (wanted.length === 0) return;
+    const found: Record<string, CustomerRefund> = {};
+    await Promise.all(wanted.map(async o => {
+      try {
+        const res = await fetch(`/api/refunds/mine/${encodeURIComponent(o.id)}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await res.json();
+        if (res.ok && data.success && data.refund) found[o.id] = data.refund as CustomerRefund;
+      } catch { /* no line rather than a scary message */ }
+    }));
+    if (Object.keys(found).length > 0) setRefunds(prev => ({ ...prev, ...found }));
+  }, []);
+
   const fetchOrders = useCallback(() => {
     const c = getCustomer();
     if (!c) return;
     const token = getToken() ?? '';
     ordersApi.getAll({ phone: c.phone, email: c.email }, token)
-      .then(r => setOrders(r.orders))
+      .then(r => { setOrders(r.orders); fetchRefunds(r.orders); })
       .catch(() => setOrders([]))
       .finally(() => setLoading(false));
-  }, []);
+  }, [fetchRefunds]);
 
   useEffect(() => {
     const c = getCustomer();
@@ -397,7 +462,8 @@ export default function OrdersPage() {
                       })}
                       {order.cart.length > 3 && <span style={{ color: '#aaa', fontSize: '.82rem' }}>+{order.cart.length - 3} more item{order.cart.length - 3 !== 1 ? 's' : ''}</span>}
                     </div>
-                    <p style={{ fontSize: '.82rem', color: '#722f37', fontWeight: 600, marginBottom: '.75rem' }}>View full details →</p>
+                    {refunds[order.id] && <RefundLine refund={refunds[order.id]} />}
+                    <p style={{ fontSize: '.82rem', color: '#722f37', fontWeight: 600, marginBottom: '.75rem', marginTop: '.75rem' }}>View full details →</p>
                   </div>
 
                   {order.awb && (
