@@ -1,10 +1,10 @@
 'use client';
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
 import WhatsAppIcon from '@/components/icons/WhatsAppIcon';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? '';
 const SITE = 'https://www.mahalaxmifashionhub.com';
+const APP = 'https://play.google.com/store/apps/details?id=com.mahalaxmifashionhub.www.twa';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface DashboardData {
@@ -213,12 +213,23 @@ export default function InfluencerPage() {
       justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 100,
       boxShadow: '0 2px 8px rgba(167,53,77,.08)',
     }}>
-      <Link href="/" style={{ textDecoration: 'none' }}>
+      {/* This page is served from affiliate.mahalaxmifashionhub.com, where "/"
+          is this page itself — so a relative link here is a link to nowhere.
+          Every way back to the shop has to name the host. */}
+      <a href={SITE} style={{ textDecoration: 'none' }}>
         <span style={{ fontWeight: 800, fontSize: '1.1rem', color: BRAND }}>
           Mahalaxmi <span style={{ color: '#333' }}>Fashion Hub</span>
         </span>
-      </Link>
+      </a>
       <div style={{ display: 'flex', gap: '.75rem', alignItems: 'center' }}>
+        <a href={SITE} style={{
+          color: '#555', textDecoration: 'none', fontSize: '.82rem', fontWeight: 600,
+          whiteSpace: 'nowrap',
+        }}>Shop</a>
+        <a href={APP} target="_blank" rel="noopener noreferrer" style={{
+          color: '#555', textDecoration: 'none', fontSize: '.82rem', fontWeight: 600,
+          whiteSpace: 'nowrap',
+        }}>Get the app</a>
         {tab === 'dashboard' ? (
           <>
             <span style={{ fontSize: '.85rem', color: '#666' }}>👋 {dashData?.name}</span>
@@ -343,9 +354,11 @@ export default function InfluencerPage() {
           <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap', fontSize: '.85rem' }}>
             <button onClick={() => setTab('apply')} style={{ background: 'none', border: 'none', color: '#555', cursor: 'pointer', fontSize: '.85rem', padding: 0 }}>Become a Creator</button>
             <button onClick={() => setTab('login')} style={{ background: 'none', border: 'none', color: '#555', cursor: 'pointer', fontSize: '.85rem', padding: 0 }}>Creator Login</button>
-            <Link href="/terms-conditions" style={{ color: '#555', textDecoration: 'none' }}>Terms &amp; Conditions</Link>
-            <Link href="/privacy-policy" style={{ color: '#555', textDecoration: 'none' }}>Privacy Policy</Link>
-            <Link href="/contact" style={{ color: '#555', textDecoration: 'none' }}>Contact Us</Link>
+            <a href={SITE} style={{ color: '#555', textDecoration: 'none' }}>Visit the Shop</a>
+            <a href={APP} target="_blank" rel="noopener noreferrer" style={{ color: '#555', textDecoration: 'none' }}>Android App</a>
+            <a href={`${SITE}/terms-conditions`} style={{ color: '#555', textDecoration: 'none' }}>Terms &amp; Conditions</a>
+            <a href={`${SITE}/privacy-policy`} style={{ color: '#555', textDecoration: 'none' }}>Privacy Policy</a>
+            <a href={`${SITE}/contact`} style={{ color: '#555', textDecoration: 'none' }}>Contact Us</a>
           </div>
           <div style={{ fontSize: '.82rem', color: '#999' }}>© {new Date().getFullYear()} Mahalaxmi Fashion Hub</div>
         </div>
