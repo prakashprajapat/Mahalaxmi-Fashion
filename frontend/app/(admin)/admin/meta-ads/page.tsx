@@ -125,6 +125,18 @@ export default function MetaAdsPage() {
     } catch { /* the money strip is extra — never block the page for it */ }
   }, []);
 
+  // Asks Meta which ad accounts a slot's token can see at all. The only way
+  // to tell a wrong-portfolio token from a missing scope without anyone
+  // reading the token itself.
+  const fetchReach = useCallback(async (s: number) => {
+    try {
+      const res = await fetch(`/api/metaads/reachable?acct=${s}`, { headers: { Authorization: `Bearer ${getAdminToken()}` } });
+      const data = await res.json();
+      if (res.ok && data.success) return { asked: data.asked as string, list: (data.reachable ?? []) as Reachable[] };
+    } catch { /* a bonus diagnostic must never hide the real error */ }
+    return null;
+  }, []);
+
   const loadStats = useCallback(async (r: DateRange, s: number) => {
     setLoading(true);
     setError('');
@@ -134,6 +146,10 @@ export default function MetaAdsPage() {
       if (!res.ok || !data.success) {
         setRows([]); setTotals(null);
         setError(data.message || 'Could not load the Meta figures.');
+        // A failure here is nearly always the token pointing at the wrong
+        // Business portfolio, so answer that question straight away rather
+        // than waiting for someone to find the button.
+        setReach(await fetchReach(s));
         return;
       }
       setRows(data.rows ?? []);
@@ -143,7 +159,7 @@ export default function MetaAdsPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [fetchReach]);
 
   const loadCampaigns = useCallback(async (r: DateRange, s: number) => {
     try {
@@ -176,7 +192,7 @@ export default function MetaAdsPage() {
     if (s === slot) return;
     setSlot(s);
     setRows([]); setTotals(null); setCampaigns([]); setAcct(null);
-    setError(''); setNotice(''); setEditing(null); setConfirming(null);
+    setError(''); setNotice(''); setEditing(null); setConfirming(null); setReach(null);
     loadStats(range, s); loadCampaigns(range, s); loadAccount(s);
   };
 
@@ -220,20 +236,11 @@ export default function MetaAdsPage() {
     } finally { setBusy(''); setConfirming(null); }
   };
 
-  // Asks Meta which ad accounts this slot's token can see at all. The only
-  // way to tell a wrong-portfolio token from a missing scope without reading
-  // the token.
   const checkReach = async () => {
     setBusy('reach');
     setReach(null);
-    try {
-      const res = await fetch(`/api/metaads/reachable?acct=${slot}`, { headers: { Authorization: `Bearer ${getAdminToken()}` } });
-      const data = await res.json();
-      if (!res.ok || !data.success) { setError(data.message || 'Could not ask Meta.'); return; }
-      setReach({ asked: data.asked, list: data.reachable ?? [] });
-    } catch {
-      setError('Could not reach the server.');
-    } finally { setBusy(''); }
+    setReach(await fetchReach(slot));
+    setBusy('');
   };
 
   const disconnect = async () => {

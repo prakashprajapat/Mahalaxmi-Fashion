@@ -146,17 +146,27 @@ public class MetaAdsController : ControllerBase
             if (json.TryGetProperty("error", out var e))
             {
                 var code = e.TryGetProperty("code", out var c) && c.TryGetInt32(out var ci) ? ci : 0;
+                var sub = e.TryGetProperty("error_subcode", out var sc) && sc.TryGetInt32(out var sci) ? sci : 0;
                 var msg = e.TryGetProperty("message", out var m) ? m.GetString() ?? "" : "";
 
+                // Meta's own words ride along on every line. The friendly
+                // sentence is a guess at the cause, and when the guess is wrong
+                // only the raw message says what actually happened — chasing the
+                // wrong cause costs far more than one extra line on screen.
+                // Nothing here is secret: Meta never echoes the token back.
+                var raw = string.IsNullOrWhiteSpace(msg)
+                    ? ""
+                    : $" — Meta said: \"{msg}\" (code {code}" + (sub > 0 ? $", subcode {sub}" : "") + ")";
+
                 if (code == 190)
-                    return "The Meta access token is no longer valid. Create a fresh System User token in Business Settings and paste it in Settings → Meta Ads.";
+                    return "The Meta access token is no longer valid. Create a fresh System User token in Business Settings and paste it in Settings → Meta Ads." + raw;
                 if (code == 200 || code == 10 || msg.Contains("permission", StringComparison.OrdinalIgnoreCase))
-                    return "That token cannot manage this ad account. It needs ads_management, and the System User must be assigned to the ad account.";
+                    return "That token cannot manage this ad account. It needs ads_management, and the System User must be assigned to the ad account." + raw;
                 if (code == 100 && msg.Contains("act_", StringComparison.OrdinalIgnoreCase))
-                    return "Meta does not recognise that Ad Account ID. It is the number after act_ in Ads Manager.";
+                    return "Meta does not recognise that Ad Account ID. It is the number after act_ in Ads Manager." + raw;
                 if (code == 4 || code == 17 || code == 613)
-                    return "Meta is rate-limiting this account. Try again in a few minutes.";
-                if (!string.IsNullOrWhiteSpace(msg)) return "Meta said: " + msg;
+                    return "Meta is rate-limiting this account. Try again in a few minutes." + raw;
+                if (!string.IsNullOrWhiteSpace(msg)) return "Meta said: " + msg + $" (code {code})";
             }
         }
         catch { /* fall through to the generic line */ }
