@@ -14,6 +14,11 @@ namespace MahalaxmiApi.Controllers;
 [Route("api/influencers")]
 public class InfluencersController : ControllerBase
 {
+    // The most a creator may be paid per sale, as a percentage. One place, so
+    // raising it is one edit rather than a hunt through the controller and the
+    // admin form for the number 3.
+    private const decimal MaxCommissionPct = 10m;
+
     private readonly AppDbContext _db;
     private readonly EmailService _email;
     private readonly SmsService _sms;
@@ -568,8 +573,14 @@ public class InfluencersController : ControllerBase
         if (influencer is null) return NotFound();
 
         influencer.Status         = req.Status ?? influencer.Status;
-        // Commission is capped at 3% — influencers can never get more than 3%.
-        influencer.CommissionRate = Math.Min(req.CommissionRate ?? influencer.CommissionRate, 3m);
+        // The ceiling on what a creator can be paid per sale. It is enforced
+        // here and not only in the form, because the form is just a browser:
+        // a crafted PUT would otherwise set any rate at all, and nothing would
+        // look wrong until the payout run.
+        //
+        // A negative rate is refused for the same reason — it would quietly
+        // subtract from the creator's earnings instead of adding.
+        influencer.CommissionRate = Math.Clamp(req.CommissionRate ?? influencer.CommissionRate, 0m, MaxCommissionPct);
         influencer.AdminNotes     = req.AdminNotes ?? influencer.AdminNotes;
         // Admin can set / reset the creator's login password.
         if (!string.IsNullOrWhiteSpace(req.NewPassword))

@@ -6,6 +6,13 @@ import { PageHeader, Stat } from '@/components/admin/Ui';
 const API = process.env.NEXT_PUBLIC_API_URL ?? '';
 const SC = { pending:{bg:'#fff8e1',color:'#e65100'}, approved:{bg:'#e8f5e9',color:'#2e7d32'}, rejected:{bg:'#fce4ec',color:'#c62828'} };
 
+// The most a creator may be paid per sale, and what a blank box means. These
+// must match MaxCommissionPct in InfluencersController.cs: the server clamps
+// anyway, so a mismatch does not cost money, it just lets the form promise a
+// rate the server will quietly cut.
+const MAX_COMMISSION_PCT = 10;
+const DEFAULT_COMMISSION_PCT = 3;
+
 export default function InfluencersAdminPage() {
   const [list, setList] = useState([]);
   const [filter, setFilter] = useState('all');
@@ -150,7 +157,11 @@ export default function InfluencersAdminPage() {
   const save = async () => {
     if (!selected) return; setSaving(true);
     try {
-      const cappedComm = Math.min(parseFloat(editComm) || 3, 3);
+      // parseFloat('') is NaN and parseFloat('0') is 0 — both are falsy, so the
+      // old `|| 3` turned a deliberate 0% commission into 3%. Blank means the
+      // default; a typed zero means zero.
+      const typedComm = parseFloat(editComm);
+      const cappedComm = Math.min(Math.max(Number.isFinite(typedComm) ? typedComm : DEFAULT_COMMISSION_PCT, 0), MAX_COMMISSION_PCT);
       await fetch(`${API}/api/influencers/${selected.id}`, { method:'PUT', headers, body:JSON.stringify({ status:editStatus, couponCode:editCode||null, commissionRate:cappedComm, couponDiscountPct:parseFloat(editDisc)||10, adminNotes:editNotes||null, newPassword:editPassword||null }) });
       await load();
       loadReport();
@@ -441,8 +452,8 @@ export default function InfluencersAdminPage() {
                 </div>
               </div>
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'.75rem'}}>
-                <div><label style={{fontWeight:700,fontSize:'.82rem',display:'block',marginBottom:'.3rem'}}>Commission % (you pay) <span style={{fontWeight:400,color:'#888'}}>(max 3%)</span></label>
-                  <input type="number" value={editComm} onChange={e=>{ const n=parseFloat(e.target.value); setEditComm(isNaN(n)?e.target.value:String(Math.min(n,3))); }} min="0" max="3" step="0.5" style={{width:'100%',padding:'.55rem .75rem',borderRadius:'8px',border:'1.5px solid #ddd',fontSize:'.88rem',boxSizing:'border-box'}} />
+                <div><label style={{fontWeight:700,fontSize:'.82rem',display:'block',marginBottom:'.3rem'}}>Commission % (you pay) <span style={{fontWeight:400,color:'#888'}}>(max {MAX_COMMISSION_PCT}%)</span></label>
+                  <input type="number" value={editComm} onChange={e=>{ const n=parseFloat(e.target.value); setEditComm(isNaN(n)?e.target.value:String(Math.min(n,MAX_COMMISSION_PCT))); }} min="0" max={MAX_COMMISSION_PCT} step="0.5" style={{width:'100%',padding:'.55rem .75rem',borderRadius:'8px',border:'1.5px solid #ddd',fontSize:'.88rem',boxSizing:'border-box'}} />
                 </div>
                 <div><label style={{fontWeight:700,fontSize:'.82rem',display:'block',marginBottom:'.3rem'}}>Coupon Discount %</label>
                   <input type="number" value={editDisc} onChange={e=>setEditDisc(e.target.value)} min="0" max="50" step="1" style={{width:'100%',padding:'.55rem .75rem',borderRadius:'8px',border:'1.5px solid #ddd',fontSize:'.88rem',boxSizing:'border-box'}} />
