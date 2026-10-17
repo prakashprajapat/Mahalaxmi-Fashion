@@ -62,6 +62,28 @@ interface Status {
   apiVersion: string;
 }
 
+// Meta's own numbering. Only 1 means the account can spend; the rest explain
+// a campaign that suddenly stopped, so they are named rather than shown as a
+// bare number.
+const ACCOUNT_STATUS: Record<number, string> = {
+  1: 'active',
+  2: 'disabled',
+  3: 'unsettled',
+  7: 'pending risk review',
+  8: 'pending settlement',
+  9: 'in grace period',
+  100: 'pending closure',
+  101: 'closed',
+  201: 'any active review',
+  202: 'any closed',
+};
+
+interface Reachable {
+  id: string;
+  name: string;
+  status: number;
+}
+
 const RANGES = [7, 30, 90];
 
 const money = (n: number) => '₹' + n.toLocaleString('en-IN', { maximumFractionDigits: 2 });
@@ -84,6 +106,9 @@ export default function MetaAdsPage() {
   const [busy, setBusy] = useState('');
   // Which configured ad account is on screen. 1-based, to match the API.
   const [slot, setSlot] = useState(1);
+  // The answer to "is this token even from the right Business?" — null until
+  // asked, so an untouched page shows nothing.
+  const [reach, setReach] = useState<{ asked: string; list: Reachable[] } | null>(null);
 
   const loadStatus = useCallback(async () => {
     const res = await fetch('/api/metaads/status', { headers: { Authorization: `Bearer ${getAdminToken()}` } });
@@ -195,6 +220,22 @@ export default function MetaAdsPage() {
     } finally { setBusy(''); setConfirming(null); }
   };
 
+  // Asks Meta which ad accounts this slot's token can see at all. The only
+  // way to tell a wrong-portfolio token from a missing scope without reading
+  // the token.
+  const checkReach = async () => {
+    setBusy('reach');
+    setReach(null);
+    try {
+      const res = await fetch(`/api/metaads/reachable?acct=${slot}`, { headers: { Authorization: `Bearer ${getAdminToken()}` } });
+      const data = await res.json();
+      if (!res.ok || !data.success) { setError(data.message || 'Could not ask Meta.'); return; }
+      setReach({ asked: data.asked, list: data.reachable ?? [] });
+    } catch {
+      setError('Could not reach the server.');
+    } finally { setBusy(''); }
+  };
+
   const disconnect = async () => {
     if (!confirm('Disconnect Meta Ads? The figures will stop loading until you paste a token again.')) return;
     await fetch('/api/metaads/disconnect', { method: 'POST', headers: { Authorization: `Bearer ${getAdminToken()}` } });
@@ -265,6 +306,36 @@ export default function MetaAdsPage() {
         </div>
       )}
 
+      {reach && (
+        <div className="adm-card" style={{ marginBottom: '.85rem', fontSize: '.86rem', lineHeight: 1.7 }}>
+          <b>This token can reach {reach.list.length} ad account{reach.list.length === 1 ? '' : 's'}:</b>
+          {reach.list.length === 0 ? (
+            <p style={{ margin: '.4rem 0 0', color: '#c0392b' }}>
+              None. The token has no ads permission at all, or it belongs to a Business portfolio with no ad accounts.
+            </p>
+          ) : (
+            <ul style={{ margin: '.4rem 0 0', paddingLeft: '1.1rem' }}>
+              {reach.list.map(a => (
+                <li key={a.id} style={{ color: a.id === reach.asked ? '#1b5e20' : '#555' }}>
+                  act_{a.id} — {a.name || 'unnamed'} ({ACCOUNT_STATUS[a.status] ?? `status ${a.status}`})
+                  {a.id === reach.asked && <b> ← the one this screen is showing</b>}
+                </li>
+              ))}
+            </ul>
+          )}
+          {reach.list.length > 0 && !reach.list.some(a => a.id === reach.asked) && (
+            <p style={{ margin: '.5rem 0 0', color: '#c0392b' }}>
+              act_{reach.asked} is not in that list — this token is from a different Business portfolio.
+              Make a System User token in the portfolio that owns act_{reach.asked}.
+            </p>
+          )}
+          <button onClick={() => setReach(null)}
+            style={{ marginTop: '.5rem', border: 'none', background: 'none', color: '#999', fontSize: '.8rem', cursor: 'pointer', textDecoration: 'underline' }}>
+            Hide
+          </button>
+        </div>
+      )}
+
       {status?.connected && (
         <>
           {accountIds.length > 1 && (
@@ -290,6 +361,10 @@ export default function MetaAdsPage() {
             <button onClick={() => { loadStats(range, slot); loadCampaigns(range, slot); loadAccount(slot); }}
               className="adm-btn" style={{ padding: '.35rem .8rem', fontSize: '.8rem' }}>
               Refresh
+            </button>
+            <button onClick={checkReach} disabled={busy === 'reach'}
+              className="adm-btn" style={{ padding: '.35rem .8rem', fontSize: '.8rem' }}>
+              {busy === 'reach' ? 'Asking Meta…' : 'What can this token see?'}
             </button>
             <button onClick={disconnect}
               style={{ border: 'none', background: 'none', color: '#999', fontSize: '.82rem', cursor: 'pointer', textDecoration: 'underline' }}>

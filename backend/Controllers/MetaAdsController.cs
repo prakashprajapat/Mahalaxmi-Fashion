@@ -251,6 +251,42 @@ public class MetaAdsController : ControllerBase
         });
     }
 
+    // GET /api/metaads/reachable?acct=1
+    //
+    // "That token cannot manage this ad account" cannot say WHY: wrong Business
+    // portfolio, or the right one with a scope missing. This asks Meta which ad
+    // accounts the token can actually see, which settles it in one click
+    // without anyone having to read the token itself.
+    [HttpGet("reachable")]
+    [Authorize]
+    [RequirePerm("settings")]
+    public async Task<IActionResult> Reachable([FromQuery] int acct = 1)
+    {
+        var (picked, ad, pickErr) = await PickAsync(acct);
+        if (!picked) return BadRequest(new { success = false, message = pickErr });
+
+        var (ok, body, err) = await Call(HttpMethod.Get, ad.Token,
+            "me/adaccounts?fields=account_id,name,account_status&limit=100");
+        if (!ok) return BadRequest(new { success = false, message = err });
+
+        var list = new List<object>();
+        try
+        {
+            var j = JsonSerializer.Deserialize<JsonElement>(body);
+            if (j.TryGetProperty("data", out var data) && data.ValueKind == JsonValueKind.Array)
+                foreach (var r in data.EnumerateArray())
+                    list.Add(new
+                    {
+                        id = Str(r, "account_id"),
+                        name = Str(r, "name"),
+                        status = r.TryGetProperty("account_status", out var st) && st.TryGetInt32(out var si) ? si : 0,
+                    });
+        }
+        catch { /* an empty list is itself the answer */ }
+
+        return Ok(new { success = true, asked = ad.Id, reachable = list });
+    }
+
     [HttpPost("disconnect")]
     [Authorize]
     [RequirePerm("settings")]
