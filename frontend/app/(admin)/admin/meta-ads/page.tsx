@@ -55,6 +55,10 @@ interface Campaign {
 interface Status {
   connected: boolean;
   adAccountId: string;
+  // Every ad account that has both an ID and a token saved in Settings, in the
+  // order they are configured. One entry is the usual case; two makes the
+  // account chips appear. Optional because an older server will not send it.
+  accounts?: string[];
   apiVersion: string;
 }
 
@@ -78,6 +82,8 @@ export default function MetaAdsPage() {
   const [editing, setEditing] = useState<{ id: string; value: string } | null>(null);
   const [confirming, setConfirming] = useState<{ c: Campaign; next: number } | null>(null);
   const [busy, setBusy] = useState('');
+  // Which configured ad account is on screen. 1-based, to match the API.
+  const [slot, setSlot] = useState(1);
 
   const loadStatus = useCallback(async () => {
     const res = await fetch('/api/metaads/status', { headers: { Authorization: `Bearer ${getAdminToken()}` } });
@@ -86,19 +92,19 @@ export default function MetaAdsPage() {
     return data as Status;
   }, []);
 
-  const loadAccount = useCallback(async () => {
+  const loadAccount = useCallback(async (s: number) => {
     try {
-      const res = await fetch('/api/metaads/account', { headers: { Authorization: `Bearer ${getAdminToken()}` } });
+      const res = await fetch(`/api/metaads/account?acct=${s}`, { headers: { Authorization: `Bearer ${getAdminToken()}` } });
       const data = await res.json();
       if (res.ok && data.success) setAcct(data as AccountInfo);
     } catch { /* the money strip is extra — never block the page for it */ }
   }, []);
 
-  const loadStats = useCallback(async (r: DateRange) => {
+  const loadStats = useCallback(async (r: DateRange, s: number) => {
     setLoading(true);
     setError('');
     try {
-      const res = await fetch(`/api/metaads/stats?${rangeQuery(r)}`, { headers: { Authorization: `Bearer ${getAdminToken()}` } });
+      const res = await fetch(`/api/metaads/stats?${rangeQuery(r)}&acct=${s}`, { headers: { Authorization: `Bearer ${getAdminToken()}` } });
       const data = await res.json();
       if (!res.ok || !data.success) {
         setRows([]); setTotals(null);
@@ -114,9 +120,9 @@ export default function MetaAdsPage() {
     }
   }, []);
 
-  const loadCampaigns = useCallback(async (r: DateRange) => {
+  const loadCampaigns = useCallback(async (r: DateRange, s: number) => {
     try {
-      const res = await fetch(`/api/metaads/campaigns?${rangeQuery(r)}`, { headers: { Authorization: `Bearer ${getAdminToken()}` } });
+      const res = await fetch(`/api/metaads/campaigns?${rangeQuery(r)}&acct=${s}`, { headers: { Authorization: `Bearer ${getAdminToken()}` } });
       const data = await res.json();
       if (res.ok && data.success) {
         setCampaigns(data.campaigns ?? []);
@@ -128,7 +134,7 @@ export default function MetaAdsPage() {
   useEffect(() => {
     (async () => {
       const st = await loadStatus().catch(() => null);
-      if (st?.connected) { await loadStats(range); await loadCampaigns(range); loadAccount(); }
+      if (st?.connected) { await loadStats(range, 1); await loadCampaigns(range, 1); loadAccount(1); }
       else setLoading(false);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -136,7 +142,17 @@ export default function MetaAdsPage() {
 
   const changeRange = (r: DateRange) => {
     setRange(r);
-    if (status?.connected) { loadStats(r); loadCampaigns(r); }
+    if (status?.connected) { loadStats(r, slot); loadCampaigns(r, slot); }
+  };
+
+  // Switching account swaps every figure on the page, so the old one's numbers
+  // are cleared first rather than left showing under the new account's name.
+  const changeSlot = (s: number) => {
+    if (s === slot) return;
+    setSlot(s);
+    setRows([]); setTotals(null); setCampaigns([]); setAcct(null);
+    setError(''); setNotice(''); setEditing(null); setConfirming(null);
+    loadStats(range, s); loadCampaigns(range, s); loadAccount(s);
   };
 
   const toggleStatus = async (c: Campaign) => {
@@ -147,7 +163,7 @@ export default function MetaAdsPage() {
       const res = await fetch(`/api/metaads/campaigns/${c.id}/status`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${getAdminToken()}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: next }),
+        body: JSON.stringify({ status: next, acct: slot }),
       });
       const data = await res.json();
       if (!res.ok || !data.success) { setError(data.message || 'Could not change the campaign.'); return; }
@@ -167,7 +183,7 @@ export default function MetaAdsPage() {
       const res = await fetch('/api/metaads/budget', {
         method: 'POST',
         headers: { Authorization: `Bearer ${getAdminToken()}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ campaignId: c.id, amount: next }),
+        body: JSON.stringify({ campaignId: c.id, amount: next, acct: slot }),
       });
       const data = await res.json();
       if (!res.ok || !data.success) { setError(data.message || 'Could not change the budget.'); return; }
@@ -186,6 +202,9 @@ export default function MetaAdsPage() {
     loadStatus();
   };
 
+  const accountIds = status?.accounts ?? [];
+  const currentAccountId = accountIds[slot - 1] || status?.adAccountId || '';
+
   return (
     <div className="admin-page" style={{ maxWidth: 1100 }}>
       <PageHeader
@@ -201,9 +220,9 @@ export default function MetaAdsPage() {
       {error && (
         <div className="adm-card" style={{ background: '#fdf3f2', borderColor: '#f0cdc9', color: '#c0392b', marginBottom: '.85rem', fontSize: '.86rem', fontWeight: 600 }}>
           {error}
-          {status?.adAccountId && (
+          {currentAccountId && (
             <div style={{ marginTop: '.45rem', fontWeight: 600 }}>
-              Account tried: act_{status.adAccountId}
+              Account tried: act_{currentAccountId}
             </div>
           )}
         </div>
@@ -248,10 +267,27 @@ export default function MetaAdsPage() {
 
       {status?.connected && (
         <>
+          {accountIds.length > 1 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '.4rem', flexWrap: 'wrap', marginBottom: '.75rem' }}>
+              <span style={{ fontSize: '.8rem', color: '#777', fontWeight: 600, marginRight: '.2rem' }}>Ad account</span>
+              {accountIds.map((id, i) => (
+                <button key={id} onClick={() => changeSlot(i + 1)} className="adm-btn"
+                  style={{
+                    padding: '.3rem .8rem', fontSize: '.8rem', fontWeight: 700, borderRadius: 999,
+                    background: slot === i + 1 ? '#a7354d' : '#fff',
+                    color: slot === i + 1 ? '#fff' : '#555',
+                    borderColor: slot === i + 1 ? '#a7354d' : undefined,
+                  }}>
+                  act_{id}
+                </button>
+              ))}
+            </div>
+          )}
+
           <div style={{ display: 'flex', alignItems: 'center', gap: '.5rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
             <DateRangeChips value={range} onChange={changeRange} options={RANGES} />
             <span style={{ flex: 1 }} />
-            <button onClick={() => { loadStats(range); loadCampaigns(range); loadAccount(); }}
+            <button onClick={() => { loadStats(range, slot); loadCampaigns(range, slot); loadAccount(slot); }}
               className="adm-btn" style={{ padding: '.35rem .8rem', fontSize: '.8rem' }}>
               Refresh
             </button>
@@ -476,7 +512,7 @@ export default function MetaAdsPage() {
               )}
 
               <p style={{ margin: '1rem 0 0', fontSize: '.78rem', color: '#999', lineHeight: 1.7 }}>
-                These are Meta&apos;s own figures for account act_{status.adAccountId}. &ldquo;Sales from ads&rdquo;
+                These are Meta&apos;s own figures for account act_{currentAccountId}. &ldquo;Sales from ads&rdquo;
                 counts only the purchases Meta could attribute to an ad, so it will not match{' '}
                 <Link href="/admin/reports" style={{ color: '#a7354d' }}>Reports</Link> exactly — that page counts every order.
               </p>

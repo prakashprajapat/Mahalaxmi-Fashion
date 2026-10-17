@@ -64,12 +64,53 @@ public class MetaAdsController : ControllerBase
         return decimal.TryParse(raw, out var v) && v > 0 ? v : 5000m;
     }
 
+    // ── the ad accounts this panel manages ───────────────────────────────────
+    //
+    // The shop runs ads from two ad accounts, and they sit in different
+    // Business portfolios — a System User can only reach its own portfolio, so
+    // each account carries its own token. A blank second token means the first
+    // one reaches both, which is the common case and saves a second paste.
+    public readonly record struct AdAccount(string Id, string Token);
+
+    private async Task<List<AdAccount>> AccountsAsync()
+    {
+        var t1 = (await Get("metaAdsAccessToken") ?? "").Trim();
+        var t2 = (await Get("metaAdsAccessToken2") ?? "").Trim();
+        if (t2.Length == 0) t2 = t1;
+
+        var list = new List<AdAccount>();
+        void Add(string id, string token)
+        {
+            // An account with no token is not reachable, and the same id pasted
+            // into both boxes is one account, not two.
+            if (id.Length < 5 || token.Length == 0) return;
+            if (list.Any(x => x.Id == id)) return;
+            list.Add(new AdAccount(id, token));
+        }
+        Add(Digits(await Get("metaAdsAccountId")), t1);
+        Add(Digits(await Get("metaAdsAccountId2")), t2);
+        return list;
+    }
+
+    /// Picks the account the screen asked for. `which` is 1-based and arrives
+    /// from the query string, so it is clamped back to the first account rather
+    /// than trusted — a stale bookmark should show figures, not an error.
+    private async Task<(bool ok, AdAccount account, string? error)> PickAsync(int which)
+    {
+        var all = await AccountsAsync();
+        if (all.Count == 0)
+            return (false, default, "Meta Ads is not connected. Paste a System User access token and the Ad Account ID in Settings → Meta Ads.");
+
+        var i = which - 1;
+        if (i < 0 || i >= all.Count) i = 0;
+        return (true, all[i], null);
+    }
+
     // ── shared request plumbing ──────────────────────────────────────────────
 
-    private async Task<(bool ok, string body, string? error)> Call(HttpMethod method, string path,
+    private async Task<(bool ok, string body, string? error)> Call(HttpMethod method, string token, string path,
         IEnumerable<KeyValuePair<string, string>>? form = null)
     {
-        var token = await Get("metaAdsAccessToken");
         if (string.IsNullOrWhiteSpace(token))
             return (false, "", "Meta Ads is not connected. Paste a System User access token in Settings → Meta Ads.");
 
@@ -196,13 +237,19 @@ public class MetaAdsController : ControllerBase
     [HttpGet("status")]
     [Authorize]
     [RequirePerm("settings")]
-    public async Task<IActionResult> Status() => Ok(new
+    public async Task<IActionResult> Status()
     {
-        success = true,
-        connected = !string.IsNullOrWhiteSpace(await Get("metaAdsAccessToken")),
-        adAccountId = Digits(await Get("metaAdsAccountId")),
-        apiVersion = await Version(),
-    });
+        var all = await AccountsAsync();
+        return Ok(new
+        {
+            success = true,
+            connected = all.Count > 0,
+            // Kept for older screens that only ever knew about one account.
+            adAccountId = all.Count > 0 ? all[0].Id : Digits(await Get("metaAdsAccountId")),
+            accounts = all.Select(x => x.Id).ToArray(),
+            apiVersion = await Version(),
+        });
+    }
 
     [HttpPost("disconnect")]
     [Authorize]
@@ -210,6 +257,7 @@ public class MetaAdsController : ControllerBase
     public async Task<IActionResult> Disconnect()
     {
         await Set("metaAdsAccessToken", "");
+        await Set("metaAdsAccessToken2", "");
         return Ok(new { success = true });
     }
 
@@ -230,16 +278,15 @@ public class MetaAdsController : ControllerBase
     [HttpGet("account")]
     [Authorize]
     [RequirePerm("settings")]
-    public async Task<IActionResult> Account()
+    public async Task<IActionResult> Account([FromQuery] int acct = 1)
     {
-        var account = Digits(await Get("metaAdsAccountId"));
-        if (account.Length < 5)
-            return BadRequest(new { success = false, message = "Meta Ad Account ID is missing. It is the number after act_ in Ads Manager." });
+        var (picked, ad, pickErr) = await PickAsync(acct);
+        if (!picked) return BadRequest(new { success = false, message = pickErr });
 
-        var path = $"act_{account}"
+        var path = $"act_{ad.Id}"
                  + "?fields=name,currency,account_status,balance,amount_spent,spend_cap,funding_source_details";
 
-        var (ok, body, err) = await Call(HttpMethod.Get, path);
+        var (ok, body, err) = await Call(HttpMethod.Get, ad.Token, path);
         if (!ok) return BadRequest(new { success = false, message = err });
 
         try
@@ -269,6 +316,7 @@ public class MetaAdsController : ControllerBase
             return Ok(new
             {
                 success = true,
+                adAccountId = ad.Id,
                 name = j.TryGetProperty("name", out var n) ? n.GetString() : null,
                 currency = j.TryGetProperty("currency", out var c) ? c.GetString() : "INR",
                 // 1 = active. The others are disabled, unsettled, pending review
@@ -294,20 +342,19 @@ public class MetaAdsController : ControllerBase
     [HttpGet("stats")]
     [Authorize]
     [RequirePerm("settings")]
-    public async Task<IActionResult> Stats([FromQuery] int days = 30, [FromQuery] string? from = null, [FromQuery] string? to = null)
+    public async Task<IActionResult> Stats([FromQuery] int days = 30, [FromQuery] string? from = null, [FromQuery] string? to = null, [FromQuery] int acct = 1)
     {
-        var account = Digits(await Get("metaAdsAccountId"));
-        if (account.Length < 5)
-            return BadRequest(new { success = false, message = "Meta Ad Account ID is missing. It is the number after act_ in Ads Manager." });
+        var (picked, ad, pickErr) = await PickAsync(acct);
+        if (!picked) return BadRequest(new { success = false, message = pickErr });
 
         var timeRange = Range(days, from, to, out var since, out var until);
-        var path = $"act_{account}/insights"
+        var path = $"act_{ad.Id}/insights"
                  + "?level=account&time_increment=1"
                  + "&fields=spend,impressions,clicks,actions,action_values"
                  + "&time_range=" + Uri.EscapeDataString(timeRange)
                  + "&limit=200";
 
-        var (ok, body, err) = await Call(HttpMethod.Get, path);
+        var (ok, body, err) = await Call(HttpMethod.Get, ad.Token, path);
         if (!ok) return BadRequest(new { success = false, message = err });
 
         var rows = new List<object>();
@@ -390,18 +437,17 @@ public class MetaAdsController : ControllerBase
     [HttpGet("campaigns")]
     [Authorize]
     [RequirePerm("settings")]
-    public async Task<IActionResult> Campaigns([FromQuery] int days = 30, [FromQuery] string? from = null, [FromQuery] string? to = null)
+    public async Task<IActionResult> Campaigns([FromQuery] int days = 30, [FromQuery] string? from = null, [FromQuery] string? to = null, [FromQuery] int acct = 1)
     {
-        var account = Digits(await Get("metaAdsAccountId"));
-        if (account.Length < 5)
-            return BadRequest(new { success = false, message = "Meta Ad Account ID is missing." });
+        var (picked, ad, pickErr) = await PickAsync(acct);
+        if (!picked) return BadRequest(new { success = false, message = pickErr });
 
         // Every campaign, including the paused ones with no spend — those are
         // exactly the ones the owner came here to switch back on.
-        var listPath = $"act_{account}/campaigns"
+        var listPath = $"act_{ad.Id}/campaigns"
                      + "?fields=id,name,status,effective_status,objective,daily_budget,lifetime_budget"
                      + "&limit=200";
-        var (ok1, listBody, e1) = await Call(HttpMethod.Get, listPath);
+        var (ok1, listBody, e1) = await Call(HttpMethod.Get, ad.Token, listPath);
         if (!ok1) return BadRequest(new { success = false, message = e1 });
 
         var byId = new Dictionary<string, Row>();
@@ -443,12 +489,12 @@ public class MetaAdsController : ControllerBase
         }
 
         var timeRange = Range(days, from, to, out _, out _);
-        var insightsPath = $"act_{account}/insights"
+        var insightsPath = $"act_{ad.Id}/insights"
                          + "?level=campaign"
                          + "&fields=campaign_id,spend,impressions,clicks,actions,action_values"
                          + "&time_range=" + Uri.EscapeDataString(timeRange)
                          + "&limit=200";
-        var (ok2, insightsBody, e2) = await Call(HttpMethod.Get, insightsPath);
+        var (ok2, insightsBody, e2) = await Call(HttpMethod.Get, ad.Token, insightsPath);
         if (!ok2) return BadRequest(new { success = false, message = e2 });
 
         try
@@ -494,7 +540,7 @@ public class MetaAdsController : ControllerBase
         });
     }
 
-    public record StatusRequest(string? Status);
+    public record StatusRequest(string? Status, int Acct = 1);
 
     [HttpPost("campaigns/{id}/status")]
     [Authorize]
@@ -511,7 +557,10 @@ public class MetaAdsController : ControllerBase
         if (status != "ACTIVE" && status != "PAUSED")
             return BadRequest(new { success = false, message = "Status must be ACTIVE or PAUSED." });
 
-        var (ok, _, err) = await Call(HttpMethod.Post, campaignId,
+        var (picked, ad, pickErr) = await PickAsync(req.Acct);
+        if (!picked) return BadRequest(new { success = false, message = pickErr });
+
+        var (ok, _, err) = await Call(HttpMethod.Post, ad.Token, campaignId,
             new[] { new KeyValuePair<string, string>("status", status) });
         if (!ok) return BadRequest(new { success = false, message = err });
 
@@ -519,7 +568,7 @@ public class MetaAdsController : ControllerBase
         return Ok(new { success = true, status });
     }
 
-    public record BudgetRequest(string? CampaignId, decimal Amount);
+    public record BudgetRequest(string? CampaignId, decimal Amount, int Acct = 1);
 
     [HttpPost("budget")]
     [Authorize]
@@ -538,7 +587,10 @@ public class MetaAdsController : ControllerBase
         if (amount > cap)
             return BadRequest(new { success = false, message = $"₹{amount:0} is above the ₹{cap:0} daily limit. Raise the limit in Settings → Meta Ads if you really mean it." });
 
-        var (ok, _, err) = await Call(HttpMethod.Post, campaignId,
+        var (picked, ad, pickErr) = await PickAsync(req.Acct);
+        if (!picked) return BadRequest(new { success = false, message = pickErr });
+
+        var (ok, _, err) = await Call(HttpMethod.Post, ad.Token, campaignId,
             new[] { new KeyValuePair<string, string>("daily_budget", RupeesToPaise(amount).ToString()) });
         if (!ok) return BadRequest(new { success = false, message = err });
 

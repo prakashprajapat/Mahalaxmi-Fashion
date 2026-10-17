@@ -164,6 +164,8 @@ const SECTIONS = [
     fields: [
       { key: 'metaAdsAccessToken',   label: 'Meta System User access token', type: 'password' },
       { key: 'metaAdsAccountId',     label: 'Ad Account ID (only the digits after act_ in Ads Manager)', type: 'text' },
+      { key: 'metaAdsAccessToken2',  label: 'Second Meta System User access token (leave blank if the first one also reaches the second account)', type: 'password' },
+      { key: 'metaAdsAccountId2',    label: 'Second Ad Account ID (leave blank if you run ads from one account)', type: 'text' },
       { key: 'metaAdsMaxDailyBudget', label: 'Highest daily budget admin may set (\u20b9, default 5000)', type: 'text' },
       { key: 'metaAdsApiVersion',    label: 'Graph API version (leave blank for v25.0)', type: 'text' },
     ]
