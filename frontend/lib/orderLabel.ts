@@ -1,6 +1,7 @@
 import type { Order } from '@/types';
 import { LABEL_LOGO } from './labelLogo';
 import { invoiceDateOf } from './price';
+import { taxHeads, taxHeadLabel } from './gst';
 
 // Shared 4x6 "TAX INVOICE / SHIPPING LABEL" generator — used by BOTH the admin
 // orders page and the customer orders page (so the customer invoice is IDENTICAL
@@ -86,7 +87,10 @@ export const buildLabelBody = (order: Order): string => {
     const invoiceTotal = Number(order.total) || 0;
     const taxable = invoiceTotal / (1 + gstRate / 100);
     const totalTax = invoiceTotal - taxable;
-    const cgst = totalTax / 2;
+    // CGST + SGST inside Rajasthan, IGST everywhere else. The label printed
+    // the local heads on every parcel, which is wrong on every interstate
+    // sale - and almost every sale is interstate.
+    const heads = taxHeads(totalTax, order.shippingState);
     const totalQty = order.cart.reduce((s, i) => s + i.quantity, 0);
     const isCod = (order.method || '').toLowerCase() === 'cod';
     // Money already settled before delivery: paid online as a COD advance, or from
@@ -154,12 +158,14 @@ export const buildLabelBody = (order: Order): string => {
           <div style="font-weight:800;font-size:9px;margin:1px 0">Invoice Type: Tax Invoice</div>
           <div class="txt">Invoice No: ${esc(order.invoiceNumber || 'Pending (mark Ready to Ship)')}</div>
           <div class="txt">Invoice Date: ${placed}</div>
-          <div class="txt">HSN: ${esc(hsn)} | GST: ${gstRate}% | CGST + SGST</div>
+          <div class="txt">HSN: ${esc(hsn)} | GST: ${gstRate}% | ${taxHeadLabel(order.shippingState)}</div>
         </div>
         <div class="right">
           <div class="taxrow"><span>Taxable Value</span><span>${money(taxable)}</span></div>
-          <div class="taxrow"><span>CGST</span><span>${money(cgst)}</span></div>
-          <div class="taxrow"><span>SGST</span><span>${money(cgst)}</span></div>
+          ${heads.intra ? `
+          <div class="taxrow"><span>CGST</span><span>${money(heads.cgst)}</span></div>
+          <div class="taxrow"><span>SGST</span><span>${money(heads.sgst)}</span></div>` : `
+          <div class="taxrow"><span>IGST</span><span>${money(heads.igst)}</span></div>`}
           <div class="taxrow total"><span>Invoice Total</span><span>${money(invoiceTotal)}</span></div>
           ${isCod && prepaidPart > 0 ? `
           ${advancePaid > 0 ? `<div class="taxrow"><span>Advance paid online</span><span>- ${money(advancePaid)}</span></div>` : ''}

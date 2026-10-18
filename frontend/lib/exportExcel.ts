@@ -6,6 +6,7 @@
 import * as XLSX from 'xlsx';
 import type { Product, Order, Customer } from '@/types';
 import { invoiceDateOf } from './price';
+import { isIntraState as isIntraStateName } from './gst';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -25,7 +26,9 @@ function fmtINR(n: number | undefined | null) {
 }
 
 // ── GST helpers (apparel slab, prices are GST-INCLUSIVE) ──────────────────────
-const HOME_STATE = 'rajasthan';
+// Re-exported from lib/gst so the sheets and the printed invoice cannot
+// disagree about which heads a sale carries.
+export { HOME_STATE } from './gst';
 const GST_THRESHOLD = 2500;                 // ₹ per piece: ≤ ₹2500 → 5%, above → 18%
 const RETURN_STATUSES = ['Return Requested', 'Return Transit', 'Return'];
 
@@ -49,7 +52,7 @@ function splitGst(inclAmount: number, rate: number) {
   return { taxable, gst: inclAmount - taxable };
 }
 function isIntraState(o: Order): boolean {
-  return String((o as any).shippingState ?? '').toLowerCase() === HOME_STATE;
+  return isIntraStateName((o as any).shippingState);
 }
 function invoiceNo(o: Order): string {
   return ((o as any).invoiceNumber as string) || '—';
@@ -594,7 +597,17 @@ export function exportGSTR1GovTemplate(
   wsH['!cols'] = [{ wch: 10 }, { wch: 24 }, { wch: 12 }, { wch: 12 }, { wch: 14 }, { wch: 6 }, { wch: 14 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 10 }];
 
   // docs sheet
-  const invs = orders.filter(o => o.status !== 'Cancelled');
+  //
+  // From and To are the ENDS OF THE SERIES, not the first and last rows of
+  // whatever order the list happened to arrive in. The admin list is newest
+  // first, so this was printing From MFH/26-27/010 To MFH/26-27/002 - a range
+  // running backwards, which no return will accept.
+  //
+  // Orders that never reached Ready for Shipping have no invoice number and
+  // are not documents issued, so they are not counted either.
+  const invs = orders
+    .filter(o => o.status !== 'Cancelled' && ((o as any).invoiceNumber ?? '').trim())
+    .sort((a, b) => invoiceNo(a).localeCompare(invoiceNo(b), 'en', { numeric: true }));
   const canc = orders.filter(o => o.status === 'Cancelled');
   const docsHdr = ['Nature of Document','Sr. No. From','Sr. No. To','Total Number','Cancelled'];
   const docsRows = [[

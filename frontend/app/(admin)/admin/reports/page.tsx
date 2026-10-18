@@ -6,10 +6,10 @@ import { exportGSTR1Excel, exportSalesExcel, exportGSTR1GovTemplate, productGstB
 import type { Order } from '@/types';
 import { PageHeader, Card, Stat, StatGrid, Chips, Empty, Pill } from '@/components/admin/Ui';
 import { invoiceDateOf } from '@/lib/price';
+import { isIntraState } from '@/lib/gst';
 
 // Apparel GST slab (prices include GST): per-piece ≤ ₹2500 → 5%, above → 18%.
 const gstSlab = (unitPrice: number) => (unitPrice > 2500 ? 18 : 5);
-const HOME_STATE = 'rajasthan';
 const OFF_BOOKS = ['Cancelled', 'Return'];
 
 function exportGSTR1(orders: Order[], from: string, to: string) {
@@ -24,7 +24,7 @@ function exportGSTR1(orders: Order[], from: string, to: string) {
       const taxable = item.lineTotal / (1 + rate / 100);
       const gst = item.lineTotal - taxable;
       const state = (o as any).shippingState ?? '';
-      const intra = state.toLowerCase() === HOME_STATE;
+      const intra = isIntraState(state);
       rows.push([
         '', o.id, date, o.customerName ?? '', state,
         item.hsn || '6211', item.name, String(item.quantity),
@@ -120,7 +120,7 @@ export default function AdminReportsPage() {
   // one HSN and printing "5%" over the total is how a return goes in wrong.
   const hsnMap: Record<string, { hsn: string; rate: number; qty: number; taxable: number; gst: number; intraGst: number; interGst: number }> = {};
   onBooks.forEach(o => {
-    const intra = String((o as any).shippingState ?? '').toLowerCase() === HOME_STATE;
+    const intra = isIntraState((o as any).shippingState);
     o.cart.forEach(item => {
       const hsn = item.hsn || '6211';
       const qty = Number(item.quantity ?? 1) || 1;
