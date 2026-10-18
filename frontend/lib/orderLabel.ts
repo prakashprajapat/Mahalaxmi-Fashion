@@ -8,9 +8,20 @@ import { LABEL_LOGO } from './labelLogo';
   // Shared 4x6 label styles (one label per printed page)
 export const LABEL_CSS = `
       *{box-sizing:border-box}
-      @page{size:4in 6in;margin:0}
+      /* The 5mm gutter lives HERE, not on the body.
+         Body padding applies once to the whole document, not to each sheet,
+         so the first label got its gutter and every label after it started
+         hard against the top edge of the sticker - where a thermal head does
+         not print, taking the top of the logo with it. On @page it is applied
+         to every sheet. Measured in headless Chromium across three labels:
+         frame top 14.2pt on all of them, whether the print dialog uses the
+         CSS page size or forces zero margins. */
+      @page{size:4in 6in;margin:5mm}
       html,body{margin:0;padding:0}
-      body{font-family:Arial,Helvetica,sans-serif;color:#111;background:#fff;padding:5mm}
+      body{font-family:Arial,Helvetica,sans-serif;color:#111;background:#fff}
+      /* Only so the preview window does not look glued to the glass; paper
+         takes its gutter from @page above. */
+      @media screen{body{padding:5mm}}
       /* Every sticker is the same sticker.
          .label had no height, so it was only as tall as its contents: a
          two-item order filled the 4x6 label and a one-item order stopped
@@ -57,7 +68,7 @@ export const LABEL_CSS = `
       .applink{display:flex;align-items:center;justify-content:center;gap:5px;margin-top:auto;padding-top:5px}
       .appname{font-size:9px;font-weight:800;letter-spacing:.01em}
       .foot .muted{font-weight:400;color:#555}
-      @media print{body{margin:0;padding:5mm}.label{border:1px solid #111}}`;
+      @media print{body{margin:0;padding:0}.label{border:1px solid #111}}`;
 
 export const buildLabelBody = (order: Order): string => {
     const esc = (s: string | number | null | undefined) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] as string));
