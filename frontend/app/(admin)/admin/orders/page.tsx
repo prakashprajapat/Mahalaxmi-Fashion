@@ -211,6 +211,7 @@ export default function AdminOrdersPage() {
   const [awbModal, setAwbModal] = useState(false);
   const [newStatus, setNewStatus] = useState('');           // holds the chosen courier
   const [awbMap, setAwbMap] = useState<Record<string, string>>({}); // per-order AWB
+  const [genAll, setGenAll] = useState(false);                      // bulk AWB run in progress
   const [genAwbId, setGenAwbId] = useState<string | null>(null);    // order currently auto-generating an AWB
   const [updating, setUpdating] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -246,22 +247,51 @@ export default function AdminOrdersPage() {
 
   const closeReturnModal = () => { setReturnModalId(null); setShowReject(false); setRejectReason(''); setRetAwb(''); };
 
-  // Auto-generate a forward Delhivery AWB for a single order (fills the AWB box on success).
-  const generateAwbFor = async (orderId: string) => {
-    setGenAwbId(orderId);
+  // Generate AWBs for every selected order from one button.
+  //
+  // A button per row meant eight clicks for eight parcels, and on a 460px
+  // dialog it pushed the order number off the edge. One button does the lot.
+  //
+  // Two rules it keeps: a box someone has already typed into is never
+  // overwritten, and the orders go one at a time rather than in a burst,
+  // because Delhivery issues one waybill per call and rate-limits a flood -
+  // which shows up as "some of them worked" and is horrible to unpick.
+  const generateAllAwbs = async (list: Order[]) => {
+    const pending = list.filter(o => !(awbMap[o.id] ?? '').trim());
+    if (pending.length === 0) return;
+
+    setGenAll(true);
+    const failed: string[] = [];
+    let made = 0;
     try {
-      const r = await ordersApi.generateAwb(orderId, getAdminToken() ?? '');
-      if (r.awb) {
-        setAwbMap(m => ({ ...m, [orderId]: r.awb! }));
-        setNewStatus('Delhivery');
-        if (r.order) setOrders(prev => prev.map(o => (o.id === orderId ? r.order! : o)));
-      } else {
-        alert(r.message || 'Could not generate AWB. Enter it manually.');
+      for (const o of pending) {
+        setGenAwbId(o.id);
+        try {
+          const r = await ordersApi.generateAwb(o.id, getAdminToken() ?? '');
+          if (r.awb) {
+            made++;
+            setAwbMap(m => ({ ...m, [o.id]: r.awb! }));
+            if (r.order) setOrders(prev => prev.map(x => (x.id === o.id ? r.order! : x)));
+          } else {
+            failed.push(o.id);
+          }
+        } catch {
+          failed.push(o.id);
+        }
       }
-    } catch (e) {
-      alert((e as Error).message || 'AWB generation failed. Enter it manually.');
     } finally {
       setGenAwbId(null);
+      setGenAll(false);
+    }
+
+    // Only claim the courier if Delhivery actually issued something.
+    if (made > 0) setNewStatus('Delhivery');
+    if (failed.length > 0) {
+      alert(
+        `Could not get an AWB for ${failed.length} order${failed.length === 1 ? '' : 's'}:\n` +
+        failed.join('\n') +
+        `\n\nEnter those by hand, or try again.`
+      );
     }
   };
 
@@ -1044,21 +1074,47 @@ export default function AdminOrdersPage() {
               </select>
             </div>
 
+            {(() => {
+              const blank = awbOrders.filter(o => !(awbMap[o.id] ?? '').trim()).length;
+              return (
+                <div style={{ marginBottom: '.85rem' }}>
+                  <button type="button" onClick={() => generateAllAwbs(awbOrders)}
+                    disabled={genAll || blank === 0}
+                    title="Ask Delhivery for an AWB for every order still blank"
+                    style={{
+                      width: '100%', background: blank === 0 ? '#eee' : '#0b6b3a',
+                      color: blank === 0 ? '#999' : '#fff', border: 'none', borderRadius: '8px',
+                      padding: '.6rem', fontSize: '.85rem', fontWeight: 700,
+                      cursor: genAll ? 'wait' : blank === 0 ? 'default' : 'pointer',
+                    }}>
+                    {genAll
+                      ? `\u26a1 Generating\u2026 ${awbOrders.length - blank} of ${awbOrders.length} done`
+                      : blank === 0
+                        ? '\u2713 All AWBs filled'
+                        : `\u26a1 Generate ${blank} AWB${blank === 1 ? '' : 's'} (Delhivery)`}
+                  </button>
+                  <p style={{ margin: '.35rem 0 0', fontSize: '.74rem', color: '#999', lineHeight: 1.5 }}>
+                    Boxes you have already filled in are left alone.
+                  </p>
+                </div>
+              );
+            })()}
+
             <div style={{ overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '.6rem', flex: 1 }}>
               {awbOrders.map(o => (
                 <div key={o.id} style={{ display: 'flex', alignItems: 'center', gap: '.6rem' }}>
-                  <div style={{ flex: '0 0 155px', fontSize: '.75rem' }}>
-                    <div style={{ fontFamily: 'monospace', fontWeight: 600 }}>{o.id}</div>
+                  <div style={{ flex: '0 0 150px', minWidth: 0, fontSize: '.75rem' }}>
+                    <div style={{ fontFamily: 'monospace', fontWeight: 600, wordBreak: 'break-all' }}>{o.id}</div>
                     <div style={{ color: '#888' }}>{o.shippingName || o.customerName} · {o.shippingPincode || ''}</div>
                   </div>
                   <input value={awbMap[o.id] ?? ''} onChange={e => setAwbMap(m => ({ ...m, [o.id]: e.target.value }))}
                     placeholder="AWB / tracking no."
-                    style={{ flex: 1, border: '1.5px solid #ddd', borderRadius: '8px', padding: '.5rem .65rem', fontSize: '.85rem', boxSizing: 'border-box' }} />
-                  <button type="button" onClick={() => generateAwbFor(o.id)} disabled={genAwbId === o.id}
-                    title="Auto-generate AWB via Delhivery"
-                    style={{ flexShrink: 0, background: '#0b6b3a', color: '#fff', border: 'none', borderRadius: '8px', padding: '.5rem .7rem', fontSize: '.78rem', fontWeight: 700, cursor: genAwbId === o.id ? 'wait' : 'pointer', whiteSpace: 'nowrap' }}>
-                    {genAwbId === o.id ? '…' : '⚡ Generate'}
-                  </button>
+                    style={{ flex: 1, minWidth: 0, border: '1.5px solid #ddd', borderRadius: '8px', padding: '.5rem .65rem', fontSize: '.85rem', boxSizing: 'border-box' }} />
+                  {/* The row still says what is happening to it, without each
+                      row carrying its own button. */}
+                  <span style={{ flexShrink: 0, width: 16, textAlign: 'center', fontSize: '.8rem', color: '#0b6b3a' }}>
+                    {genAwbId === o.id ? '…' : (awbMap[o.id] ?? '').trim() ? '✓' : ''}
+                  </span>
                 </div>
               ))}
             </div>
