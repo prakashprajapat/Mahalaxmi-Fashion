@@ -26,15 +26,45 @@ const ORDER_STATUS_TABS: { key: string; label: string; hidden?: boolean }[] = [
   { key: 'Delivered',            label: 'Delivered' },
   { key: 'Cancel Requested',     label: 'Cancel Req.' },
   { key: 'Cancelled',            label: 'Cancelled' },
+  // The catch-all. It shows itself only when something lands in it — see
+  // CLAIMED_STATUSES below for why it has to exist at all.
+  { key: 'other',                label: 'Other' },
 ];
 
-// A chip may stand for more than one status. Only "Transit" does today, and it
-// does it because a manual courier's order stops at "Shipped" for good.
+// A chip may stand for more than one status, because the backend has more
+// statuses than this screen has chips.
+//
+// Pending covers four. An order placed the ordinary way is "Pending", but one
+// created by the Cashfree or Razorpay WEBHOOK — the customer paid and never
+// came back to the site — is written as "Paid". No chip claimed that, so a
+// paid, unpacked parcel showed up only under All Orders, was missing from
+// "Waiting to be packed", and could sit unshipped with nobody the wiser.
+// "Order Received" and "Pending confirmation" were homeless the same way.
+//
+// Transit covers two because Delhivery moves an order to Transit as soon as
+// the AWB syncs, while a manual courier (India Post, DTDC) stops at Shipped
+// and never moves again.
 const TAB_MATCHES: Record<string, string[]> = {
+  Pending: ['Pending', 'Paid', 'Order Received', 'Pending confirmation'],
+  'Ready for Shipping': ['Ready for Shipping', 'Order Packed'],
   Transit: ['Transit', 'Shipped'],
 };
+
+// Every status some chip claims. Anything outside this set belongs to no chip,
+// and an order in it would be invisible on every tab but All — exactly the bug
+// above. Rather than remember to add a chip the next time the backend grows a
+// status, "Other" sweeps up whatever is left, so an order can never go missing
+// again; it just turns up somewhere slightly odd, which is noticeable.
+const CLAIMED_STATUSES = new Set(
+  ORDER_STATUS_TABS
+    .filter(t => t.key !== 'all' && t.key !== 'other')
+    .flatMap(t => TAB_MATCHES[t.key] ?? [t.key])
+);
+
 const tabAccepts = (tabKey: string, status: string) =>
-  tabKey === 'all' || (TAB_MATCHES[tabKey] ?? [tabKey]).includes(status);
+  tabKey === 'all' ? true
+    : tabKey === 'other' ? !CLAIMED_STATUSES.has(status)
+      : (TAB_MATCHES[tabKey] ?? [tabKey]).includes(status);
 
 const RETURN_STATUS_TABS: { key: string; label: string; hidden?: boolean }[] = [
   { key: 'all',              label: 'All Returns' },
@@ -542,7 +572,11 @@ export default function AdminOrdersPage() {
         </div>
 
         <Chips value={activeTab} onChange={setActiveTab}
-               items={currentStatusTabs.filter(t => !t.hidden).map(t => ({ key: t.key, label: t.label, count: countFor(t.key) }))} />
+               items={currentStatusTabs
+                 // "Other" is a safety net, not a tab anyone should look at:
+                 // it stays out of the way until it actually catches something.
+                 .filter(t => !t.hidden && (t.key !== 'other' || countFor('other') > 0))
+                 .map(t => ({ key: t.key, label: t.label, count: countFor(t.key) }))} />
 
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '.5rem', alignItems: 'center',
                       borderTop: '1px solid #f4efec', paddingTop: '.7rem' }}>
