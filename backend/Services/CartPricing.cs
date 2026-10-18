@@ -24,6 +24,38 @@ namespace MahalaxmiApi.Services;
 public static class CartPricing
 {
     /// <summary>
+    /// What a coupon takes off a given amount.
+    ///
+    /// A percent coupon on a whole-rupee cart still lands on paise: 10% of
+    /// Rs.789 is Rs.78.90, and the order came out Rs.760.10. This shop prices
+    /// in whole rupees and bills in whole rupees, so the DISCOUNT is rounded
+    /// rather than the total — rounding the total instead would leave an
+    /// invoice whose own lines no longer add up to it, which on a tax invoice
+    /// is worse than the paise.
+    ///
+    /// It rounds UP, in the customer's favour. A checkout that said "10% off"
+    /// must never quietly become less than 10% at the till, and at most 99
+    /// paise of goodwill is the cheapest way to be sure of that.
+    ///
+    /// A flat coupon is left exactly as the shop typed it: if someone sets
+    /// Rs.99.50 off, that is a decision, not a rounding error.
+    ///
+    /// Both the checkout preview (CouponsController) and the order itself
+    /// (OrdersController) call this, because a preview that disagrees with the
+    /// bill by ten paise is its own kind of bug.
+    /// </summary>
+    public static decimal CouponDiscount(string? type, decimal value, decimal amount)
+    {
+        if (amount <= 0m) return 0m;
+        var raw = string.Equals(type, "percent", StringComparison.OrdinalIgnoreCase)
+            ? Math.Ceiling(amount * value / 100m)
+            : value;
+        // Never negative, and never more than the goods are worth: a mis-set
+        // coupon over 100% must not hand money back.
+        return Math.Min(Math.Max(0m, raw), amount);
+    }
+
+    /// <summary>
     /// What the lines in this stored cart are worth at our own prices, or null
     /// when that cannot be established — an unknown SKU, an unparseable cart, a
     /// line naming no product. Null means "do not conclude it was paid for".

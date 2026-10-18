@@ -605,12 +605,10 @@ public class OrdersController : ControllerBase
             if (valid && coupon is not null)
             {
                 // No extra discount on a repeat influencer use; full discount otherwise.
-                // Percent discount is capped at the subtotal so a mis-set >100% coupon can
-                // never discount more than the goods value.
+                // The rounding and the >100% cap both live in CartPricing, so this
+                // and the checkout preview can never drift apart.
                 serverDiscount = influencerDiscountUsed ? 0m
-                    : (coupon.Type == "percent"
-                        ? Math.Min(Math.Round(serverSubtotal * coupon.Value / 100m, 2), serverSubtotal)
-                        : Math.Min(coupon.Value, serverSubtotal));
+                    : Services.CartPricing.CouponDiscount(coupon.Type, coupon.Value, serverSubtotal);
                 // Always attribute a valid code to the creator/influencer (commission tracking).
                 serverCouponCode = coupon.Code;
             }

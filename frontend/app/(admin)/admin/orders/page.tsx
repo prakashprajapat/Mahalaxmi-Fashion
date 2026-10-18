@@ -6,6 +6,7 @@ import { exportOrders } from '@/lib/exportExcel';
 import { productImageSrc } from '@/lib/productImages';
 import type { Order } from '@/types';
 import { openOrderLabels, openPicklist } from '@/lib/orderLabel';
+import { inr } from '@/lib/price';
 import { PageHeader, Card, Stat, StatGrid, Chips, Empty } from '@/components/admin/Ui';
 
 const ORDER_STATUS_TABS: { key: string; label: string; hidden?: boolean }[] = [
@@ -92,7 +93,7 @@ function waCustomerLink(
   kind: 'confirm' | 'shipped' | 'delivered' | 'review' | 'chat',
 ): string {
   const num = '91' + (phone || '').replace(/\D/g, '').slice(-10);
-  const amt = 'Rs.' + (total ?? 0).toLocaleString('en-IN');
+  const amt = 'Rs.' + inr(total);
   const who = (name || '').trim() || 'Customer';
   const messages: Record<string, string> = {
     confirm:   `Hello ${who},
@@ -772,7 +773,7 @@ export default function AdminOrdersPage() {
                           <div style={{ fontWeight: 600 }}>{sizes.join(', ') || '\u2014'}</div>
                           {colours.length > 0 && <div style={{ color: '#9a908a', fontSize: '.72rem' }}>{colours.join(', ')}</div>}
                         </td>
-                        <td data-label="Amount" className="num adm-money">&#8377;{o.total.toLocaleString('en-IN')}</td>
+                        <td data-label="Amount" className="num adm-money">&#8377;{inr(o.total)}</td>
                         <td data-label="Customer">
                           <div style={{ fontWeight: 600, maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             {o.customerName || 'no name'}

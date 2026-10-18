@@ -111,11 +111,10 @@ public class CouponsController : ControllerBase
         if (req.OrderAmount < coupon.MinOrder)
             return BadRequest(new { success = false, message = $"Minimum order of ₹{coupon.MinOrder:0} required for this coupon." });
 
-        // Percent discount is capped at the order amount so it can never exceed the total
-        // (a mis-configured >100% coupon must not give money back).
-        var discount = coupon.Type == "percent"
-            ? Math.Min(Math.Round(req.OrderAmount * coupon.Value / 100, 2), req.OrderAmount)
-            : Math.Min(coupon.Value, req.OrderAmount);
+        // Same rule the order itself uses, from one place: rounded to whole
+        // rupees in the customer's favour, capped at the order amount so a
+        // mis-configured coupon over 100% cannot give money back.
+        var discount = Services.CartPricing.CouponDiscount(coupon.Type, coupon.Value, req.OrderAmount);
 
         return Ok(new
         {
