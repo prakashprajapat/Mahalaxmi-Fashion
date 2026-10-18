@@ -5,6 +5,7 @@ import { getAdminToken } from '@/lib/auth';
 import { exportGSTR1Excel, exportSalesExcel, exportGSTR1GovTemplate, productGstBreakdown } from '@/lib/exportExcel';
 import type { Order } from '@/types';
 import { PageHeader, Card, Stat, StatGrid, Chips, Empty, Pill } from '@/components/admin/Ui';
+import { invoiceDateOf } from '@/lib/price';
 
 // Apparel GST slab (prices include GST): per-piece ≤ ₹2500 → 5%, above → 18%.
 const gstSlab = (unitPrice: number) => (unitPrice > 2500 ? 18 : 5);
@@ -16,7 +17,7 @@ function exportGSTR1(orders: Order[], from: string, to: string) {
   const rows: string[][] = [];
 
   orders.filter(o => !OFF_BOOKS.includes(o.status)).forEach(o => {
-    const date = new Date(o.placedAt ?? o.createdAt).toLocaleDateString('en-IN');
+    const date = invoiceDateOf(o).toLocaleDateString('en-IN');
     o.cart.forEach(item => {
       const qty = Number(item.quantity ?? 1) || 1;
       const rate = gstSlab(item.lineTotal / qty);

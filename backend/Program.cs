@@ -673,6 +673,18 @@ using (var scope = app.Services.CreateScope())
         -- must then collect only (total - wallet_used - advance_paid).
         ALTER TABLE site_orders ADD COLUMN IF NOT EXISTS advance_paid NUMERIC(12,2) NOT NULL DEFAULT 0;
 
+        -- Bill ki apni tareekh: number jis ghadi diya gaya, wahi.
+        -- Pehle number 'Ready for Shipping' par milta tha aur tareekh order
+        -- wali chapti thi -- do alag ghadiyan. Ek purana order baad me pack
+        -- karo to bada number choti tareekh le aata tha (011 par 18/10 aur
+        -- 012 par 17/10), jo GST ki series todta hai.
+        ALTER TABLE site_orders ADD COLUMN IF NOT EXISTS invoiced_at TIMESTAMPTZ;
+        -- Jo bill pehle hi chhap chuke hain unki tareekh nahi badalti: purane
+        -- parcels par order wali tareekh chhapi ja chuki hai, aur kitaab ko
+        -- chhape hue kagaz se alag kar dena isse badi galti hai.
+        UPDATE site_orders SET invoiced_at = placed_at
+         WHERE invoice_number IS NOT NULL AND invoiced_at IS NULL;
+
         -- Paisa jo grahak ko wapas dena hai. Wallet ka hissa to Return/Cancel
         -- hote hi apne aap laut jata hai; ye row us DUSRE paise ki hai jo
         -- grahak ne online diya tha -- prepaid total, ya COD ka advance.

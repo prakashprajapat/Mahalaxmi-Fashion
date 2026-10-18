@@ -57,6 +57,7 @@ public record OrderDto(
     string? CouponCode = null,
     decimal DiscountAmount = 0,
     string? InvoiceNumber = null,
+    DateTimeOffset? InvoicedAt = null,
     string? Courier = null,
     string? ReturnIssue = null,
     string? ReturnReason = null,

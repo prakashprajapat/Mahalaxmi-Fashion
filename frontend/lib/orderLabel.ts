@@ -1,5 +1,6 @@
 import type { Order } from '@/types';
 import { LABEL_LOGO } from './labelLogo';
+import { invoiceDateOf } from './price';
 
 // Shared 4x6 "TAX INVOICE / SHIPPING LABEL" generator — used by BOTH the admin
 // orders page and the customer orders page (so the customer invoice is IDENTICAL
@@ -100,7 +101,8 @@ export const buildLabelBody = (order: Order): string => {
     // subtraction that had already been done, on a box that gets read in a
     // second while a parcel is being taped.
     const payment = isCod ? `COD Collect ${money(codCollect)}` : 'Prepaid';
-    const placed = new Date(order.placedAt ?? order.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+    // The invoice's own date, not the order's — see invoiceDateOf.
+    const placed = invoiceDateOf(order).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
     const shipTo = [order.shippingAddress, order.shippingCity, order.shippingState, order.shippingPincode].filter(Boolean).map(esc).join(', ');
     const productRows = order.cart.map((it, i) => `
       <tr>

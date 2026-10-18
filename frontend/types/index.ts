@@ -116,6 +116,9 @@ export interface Order {
   createdAt: string;
   updatedAt: string;
   invoiceNumber?: string;
+  // When the invoice number was issued, and so the invoice's own date. Falls
+  // back to placedAt for orders invoiced before this was recorded.
+  invoicedAt?: string | null;
   courier?: string;
   returnIssue?: string;
   returnReason?: string;

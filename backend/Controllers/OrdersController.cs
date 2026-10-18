@@ -1075,6 +1075,9 @@ public class OrdersController : ControllerBase
             await using var tx = await _db.Database.BeginTransactionAsync();
             await _db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtext({prefix}))");
             order.InvoiceNumber = await NextInvoiceNumberAsync(prefix);
+            // Same moment, same transaction: the number and its date are one
+            // fact, and a later number must never carry an earlier date.
+            order.InvoicedAt = DateTimeOffset.UtcNow;
             await _db.SaveChangesAsync();
             await tx.CommitAsync();
         }
@@ -2423,6 +2426,7 @@ public class OrdersController : ControllerBase
             o.PanNumber,
             o.PanName,
             InvoiceNumber: o.InvoiceNumber,
+            InvoicedAt: o.InvoicedAt,
             Courier: o.Courier,
             ReturnIssue: GetJsonStr(rawJson, "returnIssue"),
             ReturnReason: GetJsonStr(rawJson, "returnReason"),

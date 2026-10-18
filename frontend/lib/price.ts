@@ -17,6 +17,22 @@ export function finalUnitPrice(p: PricedProduct): number {
   return unitBase(p) + (p.shippingCharge ?? 0);
 }
 
+// The date that belongs on a tax invoice.
+//
+// Not the day the customer placed the order. The GST number is handed out
+// when the parcel is confirmed for shipping, so dating by the order instead
+// put the series out of sequence the first time an older order was packed
+// after a newer one - MFH/26-27/011 dated 18/10 followed by 012 dated 17/10,
+// which is a broken series, not a cosmetic slip.
+//
+// Orders invoiced before this was recorded keep the order date, because those
+// invoices are already printed and in the customer's hands.
+export function invoiceDateOf(o: {
+  invoicedAt?: string | null; placedAt?: string | null; createdAt?: string | null;
+}): Date {
+  return new Date(o.invoicedAt ?? o.placedAt ?? o.createdAt ?? Date.now());
+}
+
 // A rupee figure as a shop writes one.
 //
 // toLocaleString('en-IN') alone printed Rs.760.10 as "760.1", because it drops

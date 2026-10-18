@@ -85,6 +85,15 @@ public class SiteOrder
     [Column("invoice_number")]
     public string? InvoiceNumber { get; set; }
 
+    // The moment that number was handed out, and therefore the invoice's own
+    // date. NOT the date the customer placed the order: the number is issued
+    // when the parcel is confirmed for shipping, so numbering by one clock and
+    // dating by another puts the series out of order the first time a newer
+    // order is packed before an older one. For goods the tax invoice is issued
+    // at removal anyway, which is this moment.
+    [Column("invoiced_at")]
+    public DateTimeOffset? InvoicedAt { get; set; }
+
     // Delivery partner (Delhivery / India Post / Manual etc.) — set with the AWB
     [Column("courier")]
     public string? Courier { get; set; }

@@ -5,6 +5,7 @@
  */
 import * as XLSX from 'xlsx';
 import type { Product, Order, Customer } from '@/types';
+import { invoiceDateOf } from './price';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -337,8 +338,11 @@ export function exportGSTR1Excel(orders: Order[], from: string, to: string, pack
   //    shipping/COD so the totals MATCH the Sales report (which is order-total based).
   orders
     .filter(o => o.status !== 'Cancelled')
+    // In invoice-number order, so the series reads down the sheet the way the
+    // department expects to read it.
+    .sort((a, b) => (a.invoiceNumber ?? '').localeCompare(b.invoiceNumber ?? '', 'en', { numeric: true }))
     .forEach(o => {
-      const date = fmtDate(o.placedAt as any ?? o.createdAt as any);
+      const date = fmtDate(invoiceDateOf(o) as any);
       const intra = isIntraState(o);
       const scale = orderScale(o);
       (o.cart ?? []).forEach((item: any) => {
@@ -360,7 +364,7 @@ export function exportGSTR1Excel(orders: Order[], from: string, to: string, pack
   orders
     .filter(o => RETURN_STATUSES.includes(o.status))
     .forEach(o => {
-      const date = fmtDate(o.placedAt as any ?? o.createdAt as any);
+      const date = fmtDate(invoiceDateOf(o) as any);
       const intra = isIntraState(o);
       const scale = orderScale(o);
       (o.cart ?? []).forEach((item: any) => {
