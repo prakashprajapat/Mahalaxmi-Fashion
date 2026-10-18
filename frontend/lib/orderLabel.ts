@@ -11,7 +11,16 @@ export const LABEL_CSS = `
       @page{size:4in 6in;margin:0}
       html,body{margin:0;padding:0}
       body{font-family:Arial,Helvetica,sans-serif;color:#111;background:#fff;padding:5mm}
-      .label{margin:0;border:1px solid #111;padding:10px 8px 6px 8px;page-break-after:always}
+      /* Every sticker is the same sticker.
+         .label had no height, so it was only as tall as its contents: a
+         two-item order filled the 4x6 label and a one-item order stopped
+         two-thirds of the way down, leaving bare sticker below the border and
+         a different-looking parcel each time. min-height (not height) fills
+         the label without ever cutting a line off a long order, and the
+         column layout lets the footer sit at the bottom edge where it
+         belongs instead of floating under the last row. */
+      .label{margin:0;border:1px solid #111;padding:10px 8px 6px 8px;page-break-after:always;
+             min-height:calc(6in - 10mm);display:flex;flex-direction:column}
       .label:last-child{page-break-after:auto}
       .top{position:relative;text-align:center;padding-top:2px}
       .brand-logo{width:135px;height:auto;object-fit:contain;display:inline-block}
@@ -20,6 +29,12 @@ export const LABEL_CSS = `
       .taxinv{position:absolute;top:0;left:0;font-size:8px;font-weight:800;color:#111}
       .box{border:1px solid #111;padding:4px 6px;margin-top:-1px}
       .lbl{font-size:7px;font-weight:700;letter-spacing:.06em;color:#333}
+      /* The spare room on a short order goes INSIDE the products frame,
+         where a longer order would have used it anyway. Left to collect at
+         the bottom instead, a one-item label showed a bare white band
+         between the seller box and the footer that read like something had
+         failed to print. */
+      .box.grow{flex:1 1 auto}
       .cols{display:flex;gap:0;margin-top:-1px}.cols>.box{flex:1;margin-top:0}.cols>.box+.box{margin-left:-1px}
       .awbnum{font-size:12px;font-weight:800;letter-spacing:.08em;text-align:center;margin-top:1px}
       .codewrap{display:flex;align-items:stretch;gap:6px;margin-top:3px}
@@ -36,7 +51,10 @@ export const LABEL_CSS = `
       .taxrow{display:flex;justify-content:space-between;font-size:8px;padding:0}
       .taxrow.total{font-weight:800;border-top:1px solid #999;margin-top:2px;padding-top:2px}
       .foot{font-size:9.5px;font-weight:700;margin-top:5px;text-align:center}
-      .applink{display:flex;align-items:center;justify-content:center;gap:5px;margin-top:5px}
+      /* margin-top:auto eats whatever space is left, so the app line and the
+         note below it are pinned to the bottom of the sticker on every
+         label, whether the order had one item or four. */
+      .applink{display:flex;align-items:center;justify-content:center;gap:5px;margin-top:auto;padding-top:5px}
       .appname{font-size:9px;font-weight:800;letter-spacing:.01em}
       .foot .muted{font-weight:400;color:#555}
       @media print{body{margin:0;padding:5mm}.label{border:1px solid #111}}`;
@@ -110,7 +128,7 @@ export const buildLabelBody = (order: Order): string => {
         <div><span class="lbl">CUSTOMER ADDRESS:</span> <span class="to">${esc(order.shippingName || order.customerName || '')}</span></div>
         <div class="txt">${shipTo}</div>
       </div>
-      <div class="box">
+      <div class="box grow">
         <div class="lbl" style="margin-bottom:3px">PRODUCT DETAILS (TOTAL QTY: ${totalQty})</div>
         <table>
           <tr><th>Product</th><th>SKU</th><th style="text-align:center">Qty</th><th>Size</th><th style="text-align:right">Amount</th></tr>
