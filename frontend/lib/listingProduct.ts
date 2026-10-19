@@ -1,4 +1,5 @@
 import type { Product } from '@/types';
+import { colourSetsOf } from './photoExtras';
 
 // What a product listing actually needs, and nothing else.
 //
@@ -56,6 +57,45 @@ function trimExtra(raw?: string): string | undefined {
   }
 }
 
+/**
+ * The photo the product page will open on.
+ *
+ * A card showed `product.image` while the page opened on the first colour's
+ * own photograph, and the two are not the same picture. MFH1219 is sold in
+ * green, red, yellow, navy, pink and white; its card on the homepage showed a
+ * black dress, because the main image is black and black is not a colour
+ * anyone can buy. Clicking the card changed the garment in front of you.
+ *
+ * Same rule the page uses (ProductDetail, where the colours load): the first
+ * colour in the list, and that colour's photo if it has one. Falling back to
+ * `image` is what the page does too, so a product with no colour photos is
+ * unaffected.
+ *
+ * This replaces the URL in `image` rather than adding a field, so the listing
+ * payload does not grow - the reason colour photos were stripped from it in
+ * the first place.
+ */
+function openingImage(p: Product): string | undefined {
+  if (!p.extraJson) return undefined;
+  try {
+    const e = JSON.parse(p.extraJson) as Record<string, unknown>;
+    const sets = colourSetsOf(e);
+
+    const matrix = e.variantMatrix as Record<string, unknown> | undefined;
+    const named = (e.colors as string[] | undefined)
+      ?? (matrix ? [...new Set(Object.keys(matrix).map(k => k.split('|')[1]).filter(Boolean))] : []);
+
+    const first = [...new Set([...named, ...sets.map(c => c.name)])].filter(Boolean)[0];
+    if (!first) return undefined;
+
+    const match = sets.find(c => c.name === first) as { photo?: unknown } | undefined;
+    return typeof match?.photo === 'string' && match.photo.trim() ? match.photo : undefined;
+  } catch {
+    // An unreadable extras blob must not cost the card its picture.
+    return undefined;
+  }
+}
+
 export function toListingProduct(p: Product): Product {
   const desc = (p.description ?? '').trim();
   return {
@@ -69,7 +109,7 @@ export function toListingProduct(p: Product): Product {
     maxPrice: p.maxPrice,
     shippingCharge: p.shippingCharge,
     stock: p.stock,
-    image: p.image,
+    image: openingImage(p) ?? p.image,
     bestSeller: p.bestSeller,
     newest: p.newest,
     packOf: p.packOf,
