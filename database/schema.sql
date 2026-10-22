@@ -85,6 +85,13 @@ CREATE TABLE IF NOT EXISTS customers (
 CREATE INDEX IF NOT EXISTS idx_customers_email ON customers (email);
 CREATE INDEX IF NOT EXISTS idx_customers_phone ON customers (phone);
 
+-- The last ten digits, so a lookup by mobile is an equality test instead of
+-- LIKE '%number' - which no index can answer, however many you add. See the
+-- note on Customer.Phone10.
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS phone10 TEXT
+    GENERATED ALWAYS AS (RIGHT(regexp_replace(COALESCE(phone, ''), '\D', '', 'g'), 10)) STORED;
+CREATE INDEX IF NOT EXISTS idx_customers_phone10 ON customers (phone10);
+
 CREATE TRIGGER trg_customers_updated_at
     BEFORE UPDATE ON customers
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
@@ -148,6 +155,7 @@ CREATE TABLE IF NOT EXISTS site_orders (
 CREATE INDEX IF NOT EXISTS idx_orders_status     ON site_orders (status);
 CREATE INDEX IF NOT EXISTS idx_orders_placed_at  ON site_orders (placed_at DESC);
 CREATE INDEX IF NOT EXISTS idx_orders_payment_id ON site_orders (payment_id);
+CREATE INDEX IF NOT EXISTS idx_orders_awb        ON site_orders (awb);
 
 CREATE TRIGGER trg_site_orders_updated_at
     BEFORE UPDATE ON site_orders

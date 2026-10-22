@@ -58,6 +58,17 @@ public class AppDbContext : DbContext
             .IsUnique();
         modelBuilder.Entity<Customer>()
             .HasIndex(c => c.Phone);
+        // The one that is actually reachable: lookups by mobile match on the
+        // last ten digits, which is an equality test. The index on Phone above
+        // is kept for an exact-string match and is otherwise unused - see the
+        // note on Customer.Phone10.
+        modelBuilder.Entity<Customer>()
+            .Property(c => c.Phone10)
+            .HasComputedColumnSql(@"RIGHT(regexp_replace(COALESCE(phone, ''), '\D', '', 'g'), 10)", stored: true);
+        modelBuilder.Entity<Customer>()
+            .HasIndex(c => c.Phone10);
+        modelBuilder.Entity<SiteOrder>()
+            .HasIndex(o => o.Awb);
         modelBuilder.Entity<SiteOrder>()
             .HasIndex(o => o.Status);
         modelBuilder.Entity<SiteOrder>()

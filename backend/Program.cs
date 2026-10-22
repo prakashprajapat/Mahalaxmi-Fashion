@@ -499,6 +499,18 @@ using (var scope = app.Services.CreateScope())
             ON site_event_log (created_at DESC);
         ALTER TABLE reviews ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ;
         ALTER TABLE site_orders ADD COLUMN IF NOT EXISTS expected_delivery TIMESTAMPTZ;
+
+        -- Looked up by equality on the tracking page and the order-by-waybill
+        -- route, while status, placed_at and payment_id were all indexed and
+        -- this was not.
+        CREATE INDEX IF NOT EXISTS idx_orders_awb ON site_orders (awb);
+
+        -- The last ten digits of the mobile, kept by the database so a lookup
+        -- by number is an equality test rather than LIKE '%number', which no
+        -- index can answer. See Models/Customer.cs.
+        ALTER TABLE customers ADD COLUMN IF NOT EXISTS phone10 TEXT
+            GENERATED ALWAYS AS (RIGHT(regexp_replace(COALESCE(phone, ''), '\D', '', 'g'), 10)) STORED;
+        CREATE INDEX IF NOT EXISTS idx_customers_phone10 ON customers (phone10);
         CREATE TABLE IF NOT EXISTS exchange_requests (
             id               SERIAL PRIMARY KEY,
             order_id         VARCHAR(64)  NOT NULL,

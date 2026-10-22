@@ -26,6 +26,36 @@ public class Customer
     [Column("email")]
     public string? Email { get; set; }
 
+    /// <summary>
+    /// The last ten digits of <see cref="Phone"/>, worked out by the database
+    /// and never written by this app.
+    ///
+    /// It exists so a lookup by mobile can be an equality test.
+    ///
+    /// Customers type the same number as 9352460180, +91 9352460180,
+    /// 09352460180 and 91-9352460180. Program.cs flattens them all to ten
+    /// digits at startup, but only at startup and only for numbers that are
+    /// already ten digits or longer - so a row written between two restarts
+    /// can still be sitting there as +919352460180. That is why every lookup
+    /// was Phone.EndsWith(last10), and it was the right defensive instinct.
+    ///
+    /// The cost of it is the whole point. EF turns EndsWith into
+    /// LIKE '%9352460180', and a wildcard at the FRONT makes an index useless:
+    /// an index is sorted by the START of the string, and nothing about the
+    /// end can be found by looking there. So idx_customers_phone was built,
+    /// kept up to date on every single write, and never once read - while the
+    /// database went through every customer row instead, on sign-in, on
+    /// password reset and on sign-up.
+    ///
+    /// This column is always right, whenever the row was written, because the
+    /// database works it out rather than remembering to. And matching on it is
+    /// a plain equality, which an index answers in a few jumps however many
+    /// customers there are.
+    /// </summary>
+    [Column("phone10")]
+    [DatabaseGenerated(DatabaseGeneratedOption.Computed)]
+    public string? Phone10 { get; private set; }
+
     [Column("phone")]
     public string Phone { get; set; } = string.Empty;
 

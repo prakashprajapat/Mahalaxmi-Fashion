@@ -345,7 +345,7 @@ public class CustomersController : ControllerBase
         {
             var digits = new string(req.Phone.Where(char.IsDigit).ToArray());
             var last10 = digits.Length >= 10 ? digits[^10..] : digits;
-            customer = await _db.Customers.FirstOrDefaultAsync(c => c.Phone != null && c.Phone.EndsWith(last10));
+            customer = await _db.Customers.FirstOrDefaultAsync(c => c.Phone10 == last10);
         }
 
         // Bina number ke SMS ka koi raasta nahi — ye email wali offer hai.
@@ -765,7 +765,7 @@ public class CustomersController : ControllerBase
         if (phone10 is not null)
         {
             var clash = await _db.Customers
-                .Where(c => c.Phone != null && c.Phone != "" && c.Phone.EndsWith(phone10))
+                .Where(c => c.Phone10 == phone10)
                 .FirstOrDefaultAsync();
             if (clash is not null)
                 return Conflict(new { success = false, message = "This mobile number already has an account. Sign in with an OTP instead." });
@@ -1303,7 +1303,7 @@ public class CustomersController : ControllerBase
         var newPhone = req.Phone?.Trim();
         var newPhone10 = OutreachContact.Phone10(newPhone);
         if (newPhone10 is not null && newPhone10 != OutreachContact.Phone10(c.Phone)
-            && await _db.Customers.AnyAsync(x => x.Id != id && x.Phone != null && x.Phone != "" && x.Phone.EndsWith(newPhone10)))
+            && await _db.Customers.AnyAsync(x => x.Id != id && x.Phone10 == newPhone10))
             return Conflict(new { success = false, message = "This mobile number is already used by another account." });
         else if (newPhone10 is null && !string.IsNullOrWhiteSpace(newPhone) && newPhone != c.Phone
             && await _db.Customers.AnyAsync(x => x.Id != id && x.Phone == newPhone))
@@ -1440,9 +1440,11 @@ public class CustomersController : ControllerBase
             return await _db.Customers.FirstOrDefaultAsync(c => c.Phone == idf);
 
         var last10 = digits.Substring(digits.Length - 10);
-        return await _db.Customers.FirstOrDefaultAsync(c =>
-            c.Phone == idf || c.Phone == digits || c.Phone == last10 ||
-            (c.Phone != "" && c.Phone.EndsWith(last10)));
+
+        // Phone10 covers all four of the old spellings on its own - it IS the
+        // last ten digits of whatever is stored - so the three equality tests
+        // that were ORed beside the EndsWith are gone with it.
+        return await _db.Customers.FirstOrDefaultAsync(c => c.Phone10 == last10);
     }
 
     private static string MaskEmail(string email)
