@@ -25,8 +25,9 @@ public class CustomersController : ControllerBase
     private readonly ILogger<CustomersController> _log;
     private readonly WalletService _wallet;
     private readonly AttemptLimiter _limit;
+    private readonly TokenService _tokens;
 
-    public CustomersController(AppDbContext db, AuthService auth, IWebHostEnvironment env, EmailService email, SmsService sms, AdminNotifier notify, ILogger<CustomersController> log, WalletService wallet, AttemptLimiter limit)
+    public CustomersController(AppDbContext db, AuthService auth, IWebHostEnvironment env, EmailService email, SmsService sms, AdminNotifier notify, ILogger<CustomersController> log, WalletService wallet, AttemptLimiter limit, TokenService tokens)
     {
         _db = db;
         _auth = auth;
@@ -37,7 +38,17 @@ public class CustomersController : ControllerBase
         _log = log;
         _wallet = wallet;
         _limit = limit;
+        _tokens = tokens;
     }
+
+    // A signed-in shopper: a short-lived access token plus a refresh token that
+    // is written down, so her session can actually be ended. The access token
+    // used to last THIRTY DAYS and could not be cancelled by anything - not
+    // logging out, not deactivating the account - because a JWT leaves nothing
+    // behind to cross off. See Services/TokenService.cs.
+    private Task<TokenService.Pair> SignInAsync(Customer c) => _tokens.IssuePairAsync(
+        new TokenService.Principal(TokenService.Customer, c.Id.ToString(), c.Email ?? "", "customer", null),
+        Request.Headers.UserAgent.ToString());
 
     // The per-account half of the rate limiting.
     //
@@ -835,11 +846,13 @@ public class CustomersController : ControllerBase
         if (welcome is not null && !isAdminCreate)
             SendWelcomeEmail(customer, welcome);
 
-        var token = _auth.GenerateJwt(customer.Id.ToString(), customer.Email ?? "", "customer");
+        var signIn = await SignInAsync(customer);
         return Ok(new
         {
             success = true,
-            token,
+            token = signIn.AccessToken,
+            refreshToken = signIn.RefreshToken,
+            expiresIn = signIn.ExpiresInSeconds,
             customer = ToDto(customer),
             // (object?) on purpose: a conditional cannot pick a type between
             // null and an anonymous one, and the field has to be able to be null.
@@ -978,8 +991,15 @@ public class CustomersController : ControllerBase
         // guesses short of a lockout.
         _limit.Forget(limitKey);
 
-        var token = _auth.GenerateJwt(customer.Id.ToString(), customer.Email ?? "", "customer");
-        return Ok(new { success = true, token, customer = ToDto(customer) });
+        var signIn = await SignInAsync(customer);
+        return Ok(new
+        {
+            success = true,
+            token = signIn.AccessToken,
+            refreshToken = signIn.RefreshToken,
+            expiresIn = signIn.ExpiresInSeconds,
+            customer = ToDto(customer),
+        });
     }
 
     // POST /api/customers/send-otp
@@ -1131,11 +1151,13 @@ public class CustomersController : ControllerBase
                 SendWelcomeEmail(customer, welcome);
         }
 
-        var token = _auth.GenerateJwt(customer.Id.ToString(), customer.Email ?? "", "customer");
+        var signIn = await SignInAsync(customer);
         return Ok(new
         {
             success = true,
-            token,
+            token = signIn.AccessToken,
+            refreshToken = signIn.RefreshToken,
+            expiresIn = signIn.ExpiresInSeconds,
             customer = ToDto(customer),
             newUser = justCreated,
             welcomeCoupon = welcome is null ? null : (object?)new
@@ -1253,8 +1275,14 @@ public class CustomersController : ControllerBase
         customer.UpdatedAt = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync();
 
+        // Every other session ends with the old password. This is the one that
+        // matters most: a shopper resetting her password because she thinks
+        // somebody else got in should not leave them signed in.
+        var ended = await _tokens.RevokeAllAsync(
+            TokenService.Customer, customer.Id.ToString(), "password-change");
+
         _limit.Forget(resetKey);
-        return Ok(new { success = true });
+        return Ok(new { success = true, sessionsEnded = ended });
     }
 
     // PUT /api/customers/{id}  (Self or Admin)
@@ -1345,6 +1373,11 @@ public class CustomersController : ControllerBase
         c.UpdatedAt = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync();
 
+        // Sign the account out everywhere. Before refresh tokens this was not
+        // possible: a deactivated customer carried on using the shop with the
+        // token she already had, for up to a month.
+        await _tokens.RevokeAllAsync(TokenService.Customer, id.ToString(), "deactivated");
+
         return Ok(new { success = true, customer = ToDto(c) });
     }
 
@@ -1388,6 +1421,7 @@ public class CustomersController : ControllerBase
 
         _db.Customers.Remove(c);
         await _db.SaveChangesAsync();
+        await _tokens.RevokeAllAsync(TokenService.Customer, id.ToString(), "account-deleted");
         return Ok(new { success = true });
     }
 
@@ -1642,8 +1676,15 @@ public class CustomersController : ControllerBase
             return Unauthorized(new { success = false, message = "Account is deactivated." });
         }
 
-        var jwtToken = _auth.GenerateJwt(existing.Id.ToString(), existing.Email ?? "", "customer");
-        return Ok(new { success = true, token = jwtToken, customer = ToDto(existing) });
+        var social = await SignInAsync(existing);
+        return Ok(new
+        {
+            success = true,
+            token = social.AccessToken,
+            refreshToken = social.RefreshToken,
+            expiresIn = social.ExpiresInSeconds,
+            customer = ToDto(existing),
+        });
         } // end try
         catch (Exception ex)
         {

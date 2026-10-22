@@ -16,7 +16,9 @@ export default function AdminLoginPage() {
     setLoading(true); setError('');
     try {
       const res = await authApi.adminLogin(email, password);
-      setAdminToken(res.token);
+      // Both halves. The access token is good for fifteen minutes; the refresh
+      // token beside it is what keeps the panel open for a fortnight.
+      setAdminToken(res.token, res.refreshToken);
       window.location.href = '/admin';
     } catch (e) {
       setError((e as Error).message || 'Login failed. Please check your credentials.');

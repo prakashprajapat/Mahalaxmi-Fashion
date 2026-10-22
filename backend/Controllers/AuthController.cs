@@ -2,7 +2,6 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
-using System.Security.Cryptography;
 using MahalaxmiApi.Data;
 using MahalaxmiApi.DTOs;
 using MahalaxmiApi.Models;
@@ -22,8 +21,9 @@ public class AuthController : ControllerBase
     private readonly SmsService _sms;
     private readonly AttemptLimiter _limit;
     private readonly ILogger<AuthController> _log;
+    private readonly TokenService _tokens;
 
-    public AuthController(AppDbContext db, AuthService auth, IConfiguration config, IWebHostEnvironment env, EmailService email, SmsService sms, AttemptLimiter limit, ILogger<AuthController> log)
+    public AuthController(AppDbContext db, AuthService auth, IConfiguration config, IWebHostEnvironment env, EmailService email, SmsService sms, AttemptLimiter limit, ILogger<AuthController> log, TokenService tokens)
     {
         _db = db;
         _auth = auth;
@@ -33,6 +33,7 @@ public class AuthController : ControllerBase
         _sms = sms;
         _limit = limit;
         _log = log;
+        _tokens = tokens;
     }
 
     // The per-name half of the rate limiting; see CustomersController.TooMany.
@@ -86,8 +87,16 @@ public class AuthController : ControllerBase
         if (isOwner)
         {
             _limit.Forget(limitKey);
-            var jwtOwner = await IssueAdminSessionAsync(loginId, "0", "admin");
-            return Ok(new { success = true, token = jwtOwner, role = "admin" });
+            var owner = await IssueAdminSessionAsync(
+                new TokenService.Principal(TokenService.Owner, "0", loginId, "admin", null));
+            return Ok(new
+            {
+                success = true,
+                token = owner.AccessToken,
+                refreshToken = owner.RefreshToken,
+                expiresIn = owner.ExpiresInSeconds,
+                role = "admin",
+            });
         }
 
         // ── 2) Staff login (matched by username or email) ───────────────────────
@@ -103,32 +112,33 @@ public class AuthController : ControllerBase
             _limit.Forget(limitKey);
             staff.LastLogin = DateTimeOffset.UtcNow;
             var role = string.IsNullOrWhiteSpace(staff.Role) ? "staff" : staff.Role;
-            var jwtStaff = await IssueAdminSessionAsync(staff.Username, staff.Id.ToString(), role, staff.Permissions);
-            return Ok(new { success = true, token = jwtStaff, role, permissions = staff.Permissions ?? "" });
+            var session = await IssueAdminSessionAsync(new TokenService.Principal(
+                TokenService.Staff, staff.Id.ToString(), staff.Username, role, staff.Permissions));
+            return Ok(new
+            {
+                success = true,
+                token = session.AccessToken,
+                refreshToken = session.RefreshToken,
+                expiresIn = session.ExpiresInSeconds,
+                role,
+                permissions = staff.Permissions ?? "",
+            });
         }
 
         return Unauthorized(new { success = false, message = "Invalid credentials." });
     }
 
-    // Creates an admin-panel session (opaque token hash stored in DB) and returns a JWT.
-    private async Task<string> IssueAdminSessionAsync(string email, string userId, string role, string? perms = null)
-    {
-        var rawToken = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
-        var tokenHash = Convert.ToHexString(SHA256.HashData(
-            System.Text.Encoding.UTF8.GetBytes(rawToken)));
-
-        _db.AdminTokens.Add(new AdminToken
-        {
-            Email     = email,
-            TokenHash = tokenHash,
-            Role      = role,
-            ExpiresAt = DateTimeOffset.UtcNow.AddDays(role == "admin" ? 7 : 30),
-        });
-        await _db.SaveChangesAsync();
-
-        // SEC-2: rawToken removed from response — only JWT returned
-        return _auth.GenerateJwt(userId, email, role, perms);
-    }
+    // Creates an admin-panel session: a short-lived access token plus a refresh
+    // token that is written down and can therefore be cancelled.
+    //
+    // What was here before wrote a row into admin_tokens and threw the raw
+    // token away ("SEC-2: rawToken removed from response"), which left two dead
+    // halves: the client never had the value admin-logout asks for, so logging
+    // out could never find the row - and nothing read admin_tokens on a request
+    // anyway, so deleting it would not have ended the session either. The panel
+    // JWT simply stayed valid for seven days whatever anybody pressed.
+    private async Task<TokenService.Pair> IssueAdminSessionAsync(TokenService.Principal principal)
+        => await _tokens.IssuePairAsync(principal, Request.Headers.UserAgent.ToString());
 
     // POST /api/auth/admin-change-password
     [HttpPost("admin-change-password")]
@@ -156,25 +166,92 @@ public class AuthController : ControllerBase
         }
 
         await _db.SaveChangesAsync();
-        return Ok(new { success = true });
+
+        // A new password has to end the old sessions, or it does not mean
+        // anything. The whole reason to change it after a scare is to shut out
+        // whoever might be holding a token - and before refresh tokens existed
+        // there was nothing to shut: the panel JWT stayed valid for a week
+        // whatever the password became.
+        //
+        // This device is kept signed in when it says which session it is, so
+        // changing a password is not also a logout.
+        var ended = await _tokens.RevokeAllOwnerAsync("password-change", req.RefreshToken);
+
+        return Ok(new { success = true, sessionsEnded = ended });
     }
 
     // POST /api/auth/admin-logout
+    //
+    // Ends this session. RawToken is kept as a name only so an older panel
+    // build does not 400 on it; either field may carry the refresh token.
     [HttpPost("admin-logout")]
     public async Task<IActionResult> AdminLogout([FromBody] LogoutRequest req)
     {
-        if (!string.IsNullOrEmpty(req.RawToken))
-        {
-            var hash = Convert.ToHexString(SHA256.HashData(
-                System.Text.Encoding.UTF8.GetBytes(req.RawToken)));
-            var token = await _db.AdminTokens.FirstOrDefaultAsync(t => t.TokenHash == hash);
-            if (token is not null)
-            {
-                _db.AdminTokens.Remove(token);
-                await _db.SaveChangesAsync();
-            }
-        }
+        await _tokens.RevokeAsync(req.RefreshToken ?? req.RawToken, "logout");
         return Ok(new { success = true });
+    }
+
+    // POST /api/auth/logout
+    //
+    // The same thing under a name the shop can call without it reading oddly.
+    [HttpPost("logout")]
+    public async Task<IActionResult> Logout([FromBody] LogoutRequest req)
+    {
+        await _tokens.RevokeAsync(req.RefreshToken ?? req.RawToken, "logout");
+        return Ok(new { success = true });
+    }
+
+    // POST /api/auth/refresh
+    //
+    // The exchange: a refresh token in, a fresh access token out. This is the
+    // one request in every fifteen minutes that costs a database lookup, and
+    // the only moment the server can refuse to keep somebody signed in.
+    //
+    // 401 means sign in again. 409 means another tab got there a moment ago and
+    // the caller should read the token that one stored - NOT that the session is
+    // over; signing a customer out because her own two tabs raced would be a
+    // fault that only ever hit real people.
+    [HttpPost("refresh")]
+    [EnableRateLimiting("auth")]
+    public async Task<IActionResult> Refresh([FromBody] RefreshRequest req)
+    {
+        var result = await _tokens.RotateAsync(req.RefreshToken, Request.Headers.UserAgent.ToString());
+
+        if (result.Retry)
+            return Conflict(new { success = false, retry = true, message = "Refreshed elsewhere. Please retry." });
+
+        if (result.Pair is null)
+            return Unauthorized(new { success = false, message = result.Error ?? "Please sign in again." });
+
+        return Ok(new
+        {
+            success = true,
+            token = result.Pair.AccessToken,
+            refreshToken = result.Pair.RefreshToken,
+            expiresIn = result.Pair.ExpiresInSeconds,
+        });
+    }
+
+    // POST /api/auth/logout-all
+    //
+    // Log out from all devices. Needs a signed-in caller, and ends every
+    // session for that account except, optionally, the one asking - so the
+    // person pressing it is not the first one thrown out.
+    [HttpPost("logout-all")]
+    [Authorize]
+    public async Task<IActionResult> LogoutAll([FromBody] LogoutRequest? req)
+    {
+        var role = User.FindFirst("role")?.Value ?? "";
+        var sub  = User.FindFirst("sub")?.Value ?? "";
+        var keep = req?.RefreshToken ?? req?.RawToken;
+
+        var ended = role == "admin" && sub == "0"
+            ? await _tokens.RevokeAllOwnerAsync("logout-all", keep)
+            : await _tokens.RevokeAllAsync(
+                role == "customer" ? TokenService.Customer : TokenService.Staff,
+                sub, "logout-all", keep);
+
+        return Ok(new { success = true, sessionsEnded = ended });
     }
 
     // POST /api/auth/admin-recover/send-otp
@@ -300,7 +377,15 @@ public class AuthController : ControllerBase
 
         await _db.SaveChangesAsync();
         _limit.Forget(recoverKey);
-        return Ok(new { success = true, message = "Password updated successfully." });
+
+        // Recovery ends every session without exception, including whoever
+        // started this one. If the account is being recovered because someone
+        // else got into it, the point of the exercise is to put them out - and
+        // this is the one case where the person at the keyboard has just proved
+        // control of the email and can sign straight back in.
+        var ended = await _tokens.RevokeAllOwnerAsync("password-recovery");
+
+        return Ok(new { success = true, message = "Password updated successfully.", sessionsEnded = ended });
     }
 
     // GET /api/auth/me
@@ -320,7 +405,11 @@ public class AuthController : ControllerBase
     }
 }
 
-public record LogoutRequest(string? RawToken);
-public record AdminChangePasswordRequest(string NewPassword);
+// RawToken is the old name, kept so an older panel build does not 400.
+public record LogoutRequest(string? RawToken, string? RefreshToken);
+public record RefreshRequest(string? RefreshToken);
+// RefreshToken is optional: send the current session's and it is the one kept
+// signed in while the others are ended.
+public record AdminChangePasswordRequest(string NewPassword, string? RefreshToken);
 public record AdminRecoverOtpRequest(string Email);
 public record AdminRecoverResetRequest(string Email, string Otp, string NewPassword);

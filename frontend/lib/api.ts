@@ -1,4 +1,5 @@
 import { compressImage } from '@/lib/imageCompress';
+import { renewAccess } from '@/lib/session';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL
   ?? (typeof window === 'undefined' ? 'http://localhost:5000/api' : '/api');
@@ -32,7 +33,28 @@ async function request<T>(
     ? { next: { revalidate: 60, tags: [tag] } } as RequestInit
     : {};
 
-  const res = await fetch(`${API_BASE}${path}`, { ...cacheOpts, ...options, headers });
+  let res = await fetch(`${API_BASE}${path}`, { ...cacheOpts, ...options, headers });
+
+  // A 401 on a signed-in request is usually not a refusal any more.
+  //
+  // The access token lasts fifteen minutes for the panel and thirty for a
+  // shopper - it used to last seven days and thirty days - so the ordinary way
+  // to meet one now is to have had a tab open for a while. Renew once and send
+  // the request again, and the person never learns it happened. That is the
+  // whole trick behind staying signed in for a month without a month-long
+  // token: something keeps quietly fetching a new short one.
+  //
+  // renewAccess returns null when there is nothing to renew with - on the
+  // server, or for a session saved before refresh tokens existed - and the
+  // original 401 is then surfaced exactly as before.
+  if (res.status === 401 && token && !isServer) {
+    const fresh = await renewAccess(token);
+    if (fresh && fresh !== token) {
+      headers['Authorization'] = `Bearer ${fresh}`;
+      res = await fetch(`${API_BASE}${path}`, { ...options, headers });
+    }
+  }
+
   if (!res.ok) {
     const err = await res.json().catch(() => ({ message: res.statusText || `Error ${res.status}` }));
     // Handle ASP.NET Core validation errors (have 'title'/'errors' but no 'message')
@@ -283,14 +305,14 @@ export const customersApi = {
   // token is passed when an ADMIN creates a customer from the panel (bypasses OTP).
   register: (data: unknown, token?: string) =>
     request<{
-      success: boolean; token: string; customer: import('@/types').Customer;
+      success: boolean; token: string; refreshToken?: string; customer: import('@/types').Customer;
       // Present only when Settings names a coupon that is actually usable today.
       welcomeCoupon?: { code: string; type: string; value: number; minOrder: number; expiresAt: string | null } | null;
     }>(
       '/customers/register', { method: 'POST', body: JSON.stringify(data) }, token
     ),
   login: (data: { email: string; password: string }) =>
-    request<{ success: boolean; token: string; customer: import('@/types').Customer }>(
+    request<{ success: boolean; token: string; refreshToken?: string; customer: import('@/types').Customer }>(
       '/customers/login', { method: 'POST', body: JSON.stringify(data) }
     ),
   sendOtp: (phone: string, purpose = 'login') =>
@@ -305,7 +327,7 @@ export const customersApi = {
     }),
   verifyOtp: (phone: string, otp: string) =>
     request<{
-      success: boolean; token?: string; customer?: import('@/types').Customer;
+      success: boolean; token?: string; refreshToken?: string; customer?: import('@/types').Customer;
       /** True when this code created the account rather than signing in to one. */
       newUser?: boolean;
       welcomeCoupon?: { code: string; type: string; value: number; minOrder: number; expiresAt: string | null } | null;
@@ -359,14 +381,23 @@ export const customersApi = {
 // ── Auth ─────────────────────────────────────────────────────────────────────
 export const authApi = {
   adminLogin: (email: string, password: string) =>
-    request<{ success: boolean; token: string }>('/auth/admin-login', {
+    request<{ success: boolean; token: string; refreshToken?: string; role?: string }>('/auth/admin-login', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
     }),
-  changeAdminPassword: (newPassword: string, token: string) =>
-    request<{ success: boolean }>('/auth/admin-change-password', {
+  // refreshToken names THIS device, so it is the one session kept signed in
+  // while every other one is ended. A new password that left the old sessions
+  // running would not have changed anything for whoever was already inside.
+  changeAdminPassword: (newPassword: string, token: string, refreshToken?: string | null) =>
+    request<{ success: boolean; sessionsEnded?: number }>('/auth/admin-change-password', {
       method: 'POST',
-      body: JSON.stringify({ newPassword }),
+      body: JSON.stringify({ newPassword, refreshToken }),
+    }, token),
+  // Log out from all devices. The current one is kept if it names itself.
+  logoutAll: (token: string, refreshToken?: string | null) =>
+    request<{ success: boolean; sessionsEnded?: number }>('/auth/logout-all', {
+      method: 'POST',
+      body: JSON.stringify({ refreshToken }),
     }, token),
   me: (token: string) => request<{ success: boolean; email: string; role: string }>('/auth/me', undefined, token),
 };

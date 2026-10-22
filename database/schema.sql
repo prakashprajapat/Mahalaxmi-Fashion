@@ -243,3 +243,28 @@ INSERT INTO site_settings (setting_key, setting_val) VALUES
     ('delhivery_token',    ''),
     ('whatsapp_api_key',   '')
 ON CONFLICT (setting_key) DO NOTHING;
+
+-- ── Refresh tokens ───────────────────────────────────────────────────────────
+-- One sign-in that can be cancelled. The access token is a JWT and cannot be
+-- (nothing was written down to cross off), so it is short-lived and this is
+-- what keeps a person signed in. Only the SHA-256 of the token is stored.
+CREATE TABLE IF NOT EXISTS refresh_tokens (
+    id             SERIAL PRIMARY KEY,
+    token_hash     TEXT         NOT NULL,
+    subject_type   VARCHAR(20)  NOT NULL,
+    subject_id     VARCHAR(64)  NOT NULL,
+    email          VARCHAR(255) NOT NULL DEFAULT '',
+    role           VARCHAR(50)  NOT NULL DEFAULT '',
+    family         VARCHAR(64)  NOT NULL,
+    replaced_by    INT,
+    device         VARCHAR(200),
+    issued_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    expires_at     TIMESTAMPTZ  NOT NULL,
+    used_at        TIMESTAMPTZ,
+    revoked_at     TIMESTAMPTZ,
+    revoked_reason VARCHAR(100)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_refresh_token_hash ON refresh_tokens (token_hash);
+CREATE INDEX IF NOT EXISTS idx_refresh_subject ON refresh_tokens (subject_type, subject_id);
+CREATE INDEX IF NOT EXISTS idx_refresh_family  ON refresh_tokens (family);
+CREATE INDEX IF NOT EXISTS idx_refresh_expiry  ON refresh_tokens (expires_at);

@@ -14,12 +14,21 @@ public class StaffController : ControllerBase
 {
     private readonly AppDbContext _db;
     private readonly AuthService _auth;
+    private readonly TokenService _tokens;
 
-    public StaffController(AppDbContext db, AuthService auth)
+    public StaffController(AppDbContext db, AuthService auth, TokenService tokens)
     {
         _db = db;
         _auth = auth;
+        _tokens = tokens;
     }
+
+    // Note on what is NOT here: changing a staff member's role or permissions
+    // needs no revocation. The next access token is minted from the account as
+    // it stands at refresh time, so a change in the panel takes hold within
+    // fifteen minutes on its own. It used to take up to thirty days, because
+    // the permissions were baked into a month-long token and nothing re-read
+    // them - cut somebody's access and they kept it until the token ran out.
 
     // GET /api/staff
     [HttpGet]
@@ -76,6 +85,7 @@ public class StaffController : ControllerBase
 
         _db.StaffMembers.Remove(member);
         await _db.SaveChangesAsync();
+        await _tokens.RevokeAllAsync(TokenService.Staff, id.ToString(), "removed");
         return Ok(new { message = "Removed." });
     }
 
@@ -91,7 +101,12 @@ public class StaffController : ControllerBase
 
         member.PasswordHash = BCrypt.Net.BCrypt.HashPassword(req.NewPassword, workFactor: 12);
         await _db.SaveChangesAsync();
-        return Ok(new { message = "Password reset." });
+
+        // A reset password that leaves the old sessions running has reset
+        // nothing: whoever was signed in stays signed in.
+        var ended = await _tokens.RevokeAllAsync(TokenService.Staff, id.ToString(), "password-change");
+
+        return Ok(new { message = "Password reset.", sessionsEnded = ended });
     }
 
     // PUT /api/staff/{id}/toggle-active
@@ -103,7 +118,16 @@ public class StaffController : ControllerBase
 
         member.IsActive = !member.IsActive;
         await _db.SaveChangesAsync();
-        return Ok(new { isActive = member.IsActive });
+
+        // Switching somebody off has to end their sessions now, not at the end
+        // of their access token. Refresh checks IsActive, so fifteen minutes
+        // would do it by itself - but the whole point of this button is being
+        // pressed when somebody has to be out immediately.
+        var ended = member.IsActive
+            ? 0
+            : await _tokens.RevokeAllAsync(TokenService.Staff, id.ToString(), "deactivated");
+
+        return Ok(new { isActive = member.IsActive, sessionsEnded = ended });
     }
 
     // PUT /api/staff/{id}  — update name / role / permissions

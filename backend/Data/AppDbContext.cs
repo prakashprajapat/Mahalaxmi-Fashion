@@ -12,6 +12,11 @@ public class AppDbContext : DbContext
     public DbSet<SiteOrder>   SiteOrders   { get; set; }
     public DbSet<RazorpayOrder> RazorpayOrders { get; set; }
     public DbSet<CashfreeOrder> CashfreeOrders { get; set; }
+    // Superseded by RefreshTokens. Nothing reads or writes this any more: the
+    // rows were opaque session tokens whose raw value was never given to the
+    // client, so logging out could not find them, and no request ever checked
+    // them either. Kept only so the existing table is not orphaned by code;
+    // safe to drop once the old rows are of no interest.
     public DbSet<AdminToken>  AdminTokens  { get; set; }
     public DbSet<OtpToken>    OtpTokens    { get; set; }
     public DbSet<SiteSetting> SiteSettings { get; set; }
@@ -36,6 +41,7 @@ public class AppDbContext : DbContext
     public DbSet<SiteEventLog> SiteEventLogs { get; set; }
     public DbSet<AbandonedCart> AbandonedCarts { get; set; }
     public DbSet<OrderRefund> OrderRefunds { get; set; }
+    public DbSet<RefreshToken> RefreshTokens { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

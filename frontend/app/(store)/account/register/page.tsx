@@ -95,7 +95,7 @@ export default function RegisterPage() {
       const digits = quickPhone.replace(/\D/g, '').slice(-10);
       const res = await customersApi.verifyOtp(digits, quickOtp);
       if (!res.token || !res.customer) throw new Error('Could not verify that code.');
-      setToken(res.token); setCustomer(res.customer);
+      setToken(res.token, res.refreshToken); setCustomer(res.customer);
       trackEvent('sign_up', { method: 'mobile_otp_quick' });
       setSavedCustomer(res.customer);
       setSavedToken(res.token);
@@ -186,7 +186,7 @@ export default function RegisterPage() {
         otp,
         referralCode: form.referralCode.trim() || undefined,
       });
-      if (res.token) { setToken(res.token); setCustomer(res.customer); }
+      if (res.token) { setToken(res.token, res.refreshToken); setCustomer(res.customer); }
       trackEvent('sign_up', { method: 'mobile_otp' });   // GA4
       setSavedCustomer(res.customer);
       setSavedToken(res.token);

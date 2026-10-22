@@ -1,10 +1,11 @@
 'use client';
 import type { Customer } from '@/types';
 import { storage } from '@/lib/safeStorage';
+import {
+  accessToken, refreshToken, saveSession, endSessionEverywhere,
+} from '@/lib/session';
 
-const TOKEN_KEY    = 'mfh_token';
 const CUSTOMER_KEY = 'mfh_customer';
-const ADMIN_KEY    = 'mfh_admin_token';
 
 // The name of whoever last signed in on this device. Deliberately NOT cleared
 // by logout: it is what lets the app greet a returning customer by name instead
@@ -24,11 +25,16 @@ export function getKnownName(): string {
 
 // ── Customer Auth ─────────────────────────────────────────────────────────────
 export function getToken(): string | null {
-  return storage.get(TOKEN_KEY);
+  return accessToken('customer');
 }
 
-export function setToken(token: string): void {
-  storage.set(TOKEN_KEY, token);
+/**
+ * Store a sign-in. The access token now lasts half an hour rather than thirty
+ * days, so the refresh token is the part that keeps the shopper signed in -
+ * pass it, or she is signed out at the end of the first half hour.
+ */
+export function setToken(token: string, refresh?: string | null): void {
+  saveSession('customer', token, refresh);
 }
 
 export function getCustomer(): Customer | null {
@@ -78,25 +84,42 @@ export async function refreshCustomer(): Promise<Customer | null> {
 }
 
 export function logout(): void {
-  storage.remove(TOKEN_KEY);
+  // Local first, so the screen changes at once; the server is told in the
+  // background. Not awaited on purpose - a logout must not sit there spinning
+  // on a slow network - and sent with keepalive so it still goes if the tab is
+  // closing. Until refresh tokens existed this told the server nothing at all,
+  // and the token stayed valid for up to a month after the button was pressed.
+  void endSessionEverywhere('customer');
   storage.remove(CUSTOMER_KEY);
   window.dispatchEvent(new Event('auth-changed'));
 }
 
 // ── Admin Auth ────────────────────────────────────────────────────────────────
 export function getAdminToken(): string | null {
-  return storage.get(ADMIN_KEY);
+  return accessToken('admin');
 }
 
-export function setAdminToken(token: string): void {
-  storage.set(ADMIN_KEY, token);
+export function setAdminToken(token: string, refresh?: string | null): void {
+  saveSession('admin', token, refresh);
 }
 
 export function adminLogout(): void {
-  storage.remove(ADMIN_KEY);
+  void endSessionEverywhere('admin');
 }
 
-// CQ-4: Properly validate JWT — check role claim AND expiry, not just token existence
+/** The refresh token for this panel session, when a call needs to name it. */
+export function getAdminRefreshToken(): string | null {
+  return refreshToken('admin');
+}
+
+// CQ-4: check the role claim AND the expiry, not just that a token exists.
+//
+// An expired access token is no longer a sign-out. It lasts fifteen minutes, so
+// any tab left open for a coffee has one, and the refresh token beside it is
+// what decides whether the session is alive - the next request will use it and
+// get a new access token without anyone noticing. This used to DELETE the token
+// on sight of an expiry, which, with a fifteen-minute token, would have thrown
+// the owner out of the panel every quarter of an hour.
 export function isAdmin(): boolean {
   const token = getAdminToken();
   if (!token) return false;
@@ -106,13 +129,11 @@ export function isAdmin(): boolean {
       payload['role'] ||
       payload['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'] ||
       '';
+    if (role !== 'admin' && role !== 'staff') return false;
+
     const exp: number | undefined = payload['exp'];
-    if (exp && Date.now() / 1000 > exp) {
-      // Token expired — clear it
-      storage.remove(ADMIN_KEY);
-      return false;
-    }
-    return role === 'admin' || role === 'staff';
+    if (exp && Date.now() / 1000 > exp) return !!refreshToken('admin');
+    return true;
   } catch {
     return false;
   }
@@ -135,9 +156,11 @@ export function isOwnerAdmin(): boolean {
       payload['role'] ||
       payload['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'] ||
       '';
+    if (role !== 'admin') return false;
+
     const exp: number | undefined = payload['exp'];
-    if (exp && Date.now() / 1000 > exp) return false;
-    return role === 'admin';
+    if (exp && Date.now() / 1000 > exp) return !!refreshToken('admin');
+    return true;
   } catch {
     return false;
   }

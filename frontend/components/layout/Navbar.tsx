@@ -199,7 +199,7 @@ export default function Navbar() {
     setLoginError('');
     try {
       const res = await customersApi.login({ email: loginForm.email, password: loginForm.password });
-      setToken(res.token);
+      setToken(res.token, res.refreshToken);
       saveCustomer(res.customer);
       trackEvent('login', { method: 'password' });   // GA4
       setIsLoggedIn(true);
@@ -252,7 +252,7 @@ export default function Navbar() {
         return;
       }
       if (res.newUser) stashWelcomeCode(res.welcomeCoupon?.code);
-      setToken(res.token);
+      setToken(res.token, res.refreshToken);
       saveCustomer(res.customer);
       trackEvent(res.newUser ? 'sign_up' : 'login', { method: 'otp' });   // GA4
       setIsLoggedIn(true);

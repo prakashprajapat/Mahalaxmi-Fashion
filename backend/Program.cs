@@ -21,6 +21,7 @@ builder.Services.AddScoped<SmsService>();
 builder.Services.AddScoped<DelhiveryService>();
 builder.Services.AddScoped<AdminNotifier>();
 builder.Services.AddScoped<WalletService>();
+builder.Services.AddScoped<TokenService>();
 builder.Services.AddHttpClient("razorpay");
 builder.Services.AddHttpClient("cashfree");
 builder.Services.AddHttpClient("delhivery");
@@ -315,6 +316,35 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+    // Where a sign-in is written down so that it can be cancelled.
+    //
+    // The access token cannot be: it is a JWT, the server never recorded
+    // issuing one, so there is nothing to cross off and it works until it
+    // expires. That is why this table exists and why the access token is now
+    // minutes rather than weeks. See Services/TokenService.cs.
+    db.Database.ExecuteSqlRaw(@"
+        CREATE TABLE IF NOT EXISTS refresh_tokens (
+            id             SERIAL PRIMARY KEY,
+            token_hash     TEXT         NOT NULL,
+            subject_type   VARCHAR(20)  NOT NULL,
+            subject_id     VARCHAR(64)  NOT NULL,
+            email          VARCHAR(255) NOT NULL DEFAULT '',
+            role           VARCHAR(50)  NOT NULL DEFAULT '',
+            family         VARCHAR(64)  NOT NULL,
+            replaced_by    INT,
+            device         VARCHAR(200),
+            issued_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+            expires_at     TIMESTAMPTZ  NOT NULL,
+            used_at        TIMESTAMPTZ,
+            revoked_at     TIMESTAMPTZ,
+            revoked_reason VARCHAR(100)
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS ux_refresh_token_hash ON refresh_tokens (token_hash);
+        CREATE INDEX IF NOT EXISTS idx_refresh_subject ON refresh_tokens (subject_type, subject_id);
+        CREATE INDEX IF NOT EXISTS idx_refresh_family  ON refresh_tokens (family);
+        CREATE INDEX IF NOT EXISTS idx_refresh_expiry  ON refresh_tokens (expires_at);
+    ");
     // Create otp_tokens table if it doesn't exist (no EF migrations used)
     db.Database.ExecuteSqlRaw(@"
         CREATE TABLE IF NOT EXISTS otp_tokens (

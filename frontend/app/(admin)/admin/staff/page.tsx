@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { authApi, staffApi } from '@/lib/api';
-import { getAdminToken } from '@/lib/auth';
+import { getAdminToken, getAdminRefreshToken } from '@/lib/auth';
 import { PageHeader, Card, Stat, StatGrid, Chips, Pill, Empty } from '@/components/admin/Ui';
 import { downloadCsv } from '@/lib/adminPaged';
 
@@ -195,9 +195,36 @@ export default function AdminStaffPage() {
     }
     setSaving(true); setPwMsg('');
     try {
-      await authApi.changeAdminPassword(pwForm.newPassword, getAdminToken() ?? '');
-      setPwMsg('Owner password changed. Use the new one next time you sign in.');
+      // The refresh token names THIS browser, so it is the one session kept
+      // open while every other one is ended. Changing the password used to end
+      // nothing: anyone already signed in stayed signed in for a week.
+      const res = await authApi.changeAdminPassword(
+        pwForm.newPassword, getAdminToken() ?? '', getAdminRefreshToken());
+      const ended = res.sessionsEnded ?? 0;
+      setPwMsg('Owner password changed. Use the new one next time you sign in.'
+        + (ended > 0
+            ? ` ${ended} other ${ended === 1 ? 'session was' : 'sessions were'} signed out.`
+            : ' No other devices were signed in.'));
       setPwForm({ newPassword: '', confirmPassword: '' });
+    } catch (e) {
+      setPwMsg((e as Error).message);
+    } finally { setSaving(false); }
+  };
+
+  // Sign out everywhere but here.
+  //
+  // Worth having as its own button rather than only as a side effect of
+  // changing the password: the usual reason to want it is a phone left in a
+  // shop or a browser signed in on somebody else's computer, and neither is a
+  // reason to have to invent a new password.
+  const handleLogoutOthers = async () => {
+    setSaving(true); setPwMsg('');
+    try {
+      const res = await authApi.logoutAll(getAdminToken() ?? '', getAdminRefreshToken());
+      const ended = res.sessionsEnded ?? 0;
+      setPwMsg(ended > 0
+        ? `Signed out of ${ended} other ${ended === 1 ? 'device' : 'devices'}. This one is still signed in.`
+        : 'No other devices were signed in.');
     } catch (e) {
       setPwMsg((e as Error).message);
     } finally { setSaving(false); }
@@ -481,12 +508,23 @@ export default function AdminStaffPage() {
         </div>
         {pwMsg && (
           <p style={{ fontSize: '.85rem', fontWeight: 700, margin: '.7rem 0 0',
-                      color: pwMsg.startsWith('Owner password changed') ? '#2e7d32' : '#c0392b' }}>{pwMsg}</p>
+                      color: /^(Owner password changed|Signed out of|No other devices)/.test(pwMsg)
+                        ? '#2e7d32' : '#c0392b' }}>{pwMsg}</p>
         )}
-        <button className="adm-btn adm-btn-primary" style={{ marginTop: '.8rem' }}
-                onClick={handlePasswordChange} disabled={saving}>
-          {saving ? 'Saving…' : 'Change the owner password'}
-        </button>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '.6rem', marginTop: '.8rem' }}>
+          <button className="adm-btn adm-btn-primary"
+                  onClick={handlePasswordChange} disabled={saving}>
+            {saving ? 'Saving…' : 'Change the owner password'}
+          </button>
+          <button className="adm-btn" onClick={handleLogoutOthers} disabled={saving}>
+            Sign out of other devices
+          </button>
+        </div>
+        <p style={{ fontSize: '.78rem', color: '#7d736d', margin: '.7rem 0 0', lineHeight: 1.6 }}>
+          Signing out of other devices ends every other panel session at once — a phone left in the
+          shop, a browser signed in somewhere else. This one stays signed in. It can take up to
+          fifteen minutes to take hold on a device that is in the middle of something.
+        </p>
       </Card>
 
       {editStaff && (

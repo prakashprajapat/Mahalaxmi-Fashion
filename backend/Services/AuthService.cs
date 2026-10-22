@@ -38,7 +38,18 @@ public class AuthService
         return Convert.ToBase64String(rfc.GetBytes(32));
     }
 
-    public string GenerateJwt(string userId, string email, string role, string? perms = null)
+    /// <summary>
+    /// An access token. <paramref name="lifetime"/> is what makes it safe to
+    /// hand around: a JWT cannot be cancelled once issued, because nothing was
+    /// written down to cross off, so how long it lives IS the exposure if it is
+    /// ever copied. It used to be seven days for an admin and thirty for a
+    /// shopper. It is now minutes, and TokenService keeps people signed in with
+    /// a refresh token instead - see the long note at the top of that file.
+    ///
+    /// The default is left generous only so that nothing which has not been
+    /// moved over yet breaks silently; every caller passes a lifetime.
+    /// </summary>
+    public string GenerateJwt(string userId, string email, string role, string? perms = null, TimeSpan? lifetime = null)
     {
         var key    = _config["Jwt:Key"] ?? throw new InvalidOperationException("Jwt:Key missing");
         var issuer = _config["Jwt:Issuer"] ?? "MahalaxmiApi";
@@ -60,7 +71,7 @@ public class AuthService
             issuer:   issuer,
             audience: audience,
             claims:   claims,
-            expires:  DateTime.UtcNow.AddDays(role == "admin" ? 7 : 30),
+            expires:  DateTime.UtcNow.Add(lifetime ?? TimeSpan.FromMinutes(30)),
             signingCredentials: creds);
 
         return new JwtSecurityTokenHandler().WriteToken(token);

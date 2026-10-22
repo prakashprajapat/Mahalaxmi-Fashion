@@ -35,12 +35,15 @@ function SocialCallbackInner() {
       body: JSON.stringify({ provider: state, code, redirectUri }),
     })
       .then(async res => {
-        let data: { success?: boolean; message?: string; token?: string; customer?: unknown } = {};
+        let data: {
+          success?: boolean; message?: string;
+          token?: string; refreshToken?: string; customer?: unknown;
+        } = {};
         try { data = await res.json(); } catch { /* non-JSON response */ }
         if (!res.ok || !data.success) {
           throw new Error(data.message || `Login failed (${res.status}). Please try again or use email/password.`);
         }
-        setToken(data.token as string);
+        setToken(data.token as string, data.refreshToken);
         setCustomer(data.customer as import('@/types').Customer);
         window.dispatchEvent(new Event('auth-changed'));
         router.replace('/');
