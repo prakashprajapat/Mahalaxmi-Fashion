@@ -246,7 +246,7 @@ public class RefundsController : ControllerBase
 
         var result = gateway == PaymentGateways.Cashfree
             ? await CashfreeRefundAsync(order, amount, refund.Id)
-            : await RazorpayRefundAsync(order, amount);
+            : await RazorpayRefundAsync(order, amount, refund.Id);
 
         if (!result.ok)
         {
@@ -330,7 +330,23 @@ public class RefundsController : ControllerBase
     // ── the gateways ─────────────────────────────────────────────────────────
 
     // Razorpay: POST /v1/payments/{payment_id}/refund, amount in paise.
-    private async Task<(bool ok, string? refundId, string? error)> RazorpayRefundAsync(SiteOrder order, decimal amount)
+    //
+    // Sent with an idempotency key, because the dangerous case here is not a
+    // refusal - it is NOT KNOWING. The request goes out, Razorpay pays the
+    // customer, and the reply is lost on the way back: a dropped connection, a
+    // timeout, a restart. From here that is indistinguishable from the request
+    // never arriving, and the owner is looking at a refund that still says it
+    // has not been paid.
+    //
+    // Press it again and, without a key, Razorpay has no way to tell a retry
+    // from a second refund. The customer gets Rs 100 twice and the shop never
+    // finds out until the statement.
+    //
+    // The key is the refund ROW id, so every retry of the same payout carries
+    // the same one and Razorpay returns the original refund instead of making
+    // another. A different payout gets a different row, so it is never
+    // mistaken for a repeat.
+    private async Task<(bool ok, string? refundId, string? error)> RazorpayRefundAsync(SiteOrder order, decimal amount, int refundRowId)
     {
         var keyId = _config["Razorpay:KeyId"] ?? "";
         var keySecret = _config["Razorpay:KeySecret"] ?? "";
@@ -365,6 +381,7 @@ public class RefundsController : ControllerBase
             using var rq = new HttpRequestMessage(HttpMethod.Post,
                 $"https://api.razorpay.com/v1/payments/{paymentId}/refund");
             rq.Headers.Authorization = new AuthenticationHeaderValue("Basic", credentials);
+            rq.Headers.TryAddWithoutValidation("X-Razorpay-Idempotency-Key", $"RF{refundRowId}");
             rq.Content = new StringContent(body, Encoding.UTF8, "application/json");
 
             using var res = await http.SendAsync(rq);
@@ -379,8 +396,15 @@ public class RefundsController : ControllerBase
         }
         catch (Exception ex)
         {
-            _log.LogError(ex, "Razorpay refund call failed for order {Order}", order.OrderId);
-            return (false, null, "Could not reach Razorpay just now. Nothing was sent; try again.");
+            // NOT "nothing was sent". Nobody knows whether it was. Saying it
+            // was not is what sends an owner back to press the button again.
+            _log.LogError(ex, "Razorpay refund {Refund} for order {Order} gave no answer - it MAY have gone through",
+                refundRowId, order.OrderId);
+            return (false, null,
+                "Razorpay did not answer, so it is not known whether this refund went through. "
+                + "It is safe to press Send the refund again - the request carries a key that stops "
+                + "the same refund being paid twice. If it had already gone, you will get that same "
+                + "refund back rather than a second one.");
         }
     }
 
@@ -447,7 +471,21 @@ public class RefundsController : ControllerBase
             var text = await res.Content.ReadAsStringAsync();
 
             if (!res.IsSuccessStatusCode)
+            {
+                // refund_id is ours and Cashfree will not accept it twice. So
+                // being told it is a duplicate is not a failure - it is
+                // Cashfree saying this refund already exists, which is exactly
+                // what a safe retry should hear. Reporting it as an error
+                // would leave a paid refund looking unpaid, and invite a third
+                // attempt under a new id that WOULD pay twice.
+                if (IsDuplicateRefund(text))
+                {
+                    _log.LogWarning("Cashfree says refund RF{Row} already exists for order {Order} - treating as paid",
+                        refundRowId, order.OrderId);
+                    return (true, $"RF{refundRowId}", null);
+                }
                 return (false, null, "Cashfree refused the refund: " + GatewayMessage(text, (int)res.StatusCode));
+            }
 
             var j = JsonSerializer.Deserialize<JsonElement>(text);
             var refId = j.TryGetProperty("cf_refund_id", out var cfId)
@@ -457,13 +495,38 @@ public class RefundsController : ControllerBase
         }
         catch (Exception ex)
         {
-            _log.LogError(ex, "Cashfree refund call failed for order {Order}", order.OrderId);
-            return (false, null, "Could not reach Cashfree just now. Nothing was sent; try again.");
+            _log.LogError(ex, "Cashfree refund {Refund} for order {Order} gave no answer - it MAY have gone through",
+                refundRowId, order.OrderId);
+            return (false, null,
+                "Cashfree did not answer, so it is not known whether this refund went through. "
+                + "It is safe to press Send the refund again - this refund carries a number Cashfree "
+                + "will not accept twice, so a second attempt either finds the first one or sends nothing.");
         }
     }
 
     // The gateway's own words, kept. A refusal is only actionable if the
     // reason survives the trip to the screen.
+    /// <summary>
+    /// Is this refusal "you already sent me this refund"?
+    ///
+    /// Matched on the words rather than a code because the two gateways say it
+    /// differently and neither promises to keep saying it the same way. The
+    /// cost of reading it wrong is asymmetric, which decides the direction to
+    /// err in: calling a duplicate a failure leaves a paid refund looking
+    /// unpaid, and the owner tries again. Calling a real failure a duplicate
+    /// would mark an unpaid refund as paid - worse, so the words matched here
+    /// are narrow ones that only a duplicate produces.
+    /// </summary>
+    private static bool IsDuplicateRefund(string body)
+    {
+        var t = (body ?? string.Empty).ToLowerInvariant();
+        return t.Contains("already exists")
+            || t.Contains("already been processed")
+            || t.Contains("duplicate refund")
+            || t.Contains("refund_id already")
+            || (t.Contains("duplicate") && t.Contains("refund_id"));
+    }
+
     private static string GatewayMessage(string body, int status)
     {
         try

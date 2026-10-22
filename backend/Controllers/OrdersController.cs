@@ -442,6 +442,31 @@ public class OrdersController : ControllerBase
         var orderId = CleanOrderId(req.Id);
         var method = req.Method.ToLower().Trim();
 
+        // Already placed? Then this is the same order arriving twice, and the
+        // right answer is the one the first attempt got.
+        //
+        // The case: a shopper presses Place order, the request reaches us, the
+        // order is written - and the reply is lost on the way back. Her phone
+        // says the order failed. She presses again. Nothing on her side can
+        // tell that from a request that never arrived.
+        //
+        // order_id is UNIQUE, so a second row was never possible; what happened
+        // instead was a unique-violation at save time, surfacing as "something
+        // went wrong at our end" - which reads like a failure and sends her
+        // round again. Answering with the order that exists turns the retry
+        // into what it is: a repeat of a question already answered.
+        //
+        // This only holds because the storefront reuses the SAME order number
+        // when it retries. A fresh number on every attempt is a second order,
+        // and no check here could tell.
+        var already = await _db.SiteOrders.AsNoTracking()
+            .FirstOrDefaultAsync(o => o.OrderId == orderId);
+        if (already is not null)
+        {
+            _log.LogInformation("Order {Order} was submitted again - answering with the one already placed", orderId);
+            return Ok(new { success = true, orderId, alreadyPlaced = true });
+        }
+
         // GUARD: never accept an order with an empty cart. Without this, a COD submit on an
         // empty cart created a "ghost" order (₹0 goods + ₹50 COD fee, no items). Reject it here
         // BEFORE we auto-create any guest profile or write anything to the database.

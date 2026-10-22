@@ -349,6 +349,10 @@ export default function CheckoutPage() {
   // is credited to the creator who shared it. Runs once after the cart is ready,
   // and only if the customer hasn't already applied a coupon themselves.
   const refTried = useRef(false);
+  // The order number for the COD attempt in progress. Held across retries so a
+  // second press is recognised as the same order rather than becoming another
+  // one; cleared the moment an order is actually placed.
+  const pendingOrderIdRef = useRef<string | null>(null);
   useEffect(() => {
     if (refTried.current || couponApplied || subtotal <= 0) return;
     let stored: { code?: string; ts?: number } = {};
@@ -708,12 +712,30 @@ export default function CheckoutPage() {
         return;
       }
 
-      // Unique order number: timestamp + 4 random digits — two orders in the same
-      // millisecond can never collide (prevents duplicate order numbers site-wide).
-      const localOrderId = 'MFH' + Date.now() + Math.floor(1000 + Math.random() * 9000);
+      // The SAME order number on every attempt, until one of them succeeds.
+      //
+      // This used to be generated here, inside the try, so a retry invented a
+      // new one. The shape of the accident: the request reaches the server,
+      // the order is written, and the reply is lost coming back - a tunnel, a
+      // dropped signal, a slow moment. The catch below fires, the shopper sees
+      // "Order failed", she presses again, and because the number is new the
+      // server has no way to recognise it. Two orders. Two parcels. Two
+      // deliveries to the same person for one purchase.
+      //
+      // Holding the number steady is what lets the server answer the second
+      // attempt with the first order instead of making another, since order_id
+      // is unique. Cleared only once an order is actually placed, so the next
+      // purchase gets its own.
+      if (!pendingOrderIdRef.current) {
+        pendingOrderIdRef.current = 'MFH' + Date.now() + Math.floor(1000 + Math.random() * 9000);
+      }
+      const localOrderId = pendingOrderIdRef.current;
       await ordersApi.place(buildCodPayload(localOrderId) as any, getToken() ?? undefined);
+      pendingOrderIdRef.current = null;
       finishCod(localOrderId);
     } catch (e) {
+      // The number is deliberately NOT cleared here: pressing again has to
+      // reuse it, or the retry becomes a second order.
       alert('Order failed: ' + (e as Error).message);
       setLoading(false);
     }
