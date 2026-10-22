@@ -13,8 +13,40 @@ using MahalaxmiApi.Services;
 var builder = WebApplication.CreateBuilder(args);
 
 // ── Database ──────────────────────────────────────────────────────────────────
-builder.Services.AddDbContext<AppDbContext>(opt =>
-    opt.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+//
+// Which ROLE the app connects as, which decides what a query can do if one ever
+// gets through that should not have.
+//
+// Every query in this project is parameterised and none of them can be injected
+// - checked line by line, and backend/Scripts/check-sql.py now keeps it that
+// way. That stops input becoming SQL. It does not limit what SQL can do, and
+// this connection was the cluster SUPERUSER, where SQL is not limited to the
+// data: COPY ... TO PROGRAM runs a shell command on the VPS, pg_authid holds
+// every password hash, and DROP DATABASE is one statement. An injection against
+// a superuser connection is not a data breach, it is a shell on the server.
+//
+// Set APP_DB_USER and APP_DB_PASSWORD and it connects as that role instead.
+// Both must be present: half a credential would silently fall back to the
+// superuser, which is the one outcome worth nobody's time. See
+// database/least-privilege.sql for the role, and the warning further down for
+// what gets said while this is still unset.
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+var appDbUser = (builder.Configuration["APP_DB_USER"] ?? "").Trim();
+var appDbPassword = builder.Configuration["APP_DB_PASSWORD"] ?? "";
+
+if (appDbUser.Length > 0 && appDbPassword.Length > 0)
+{
+    // Rebuilt through Npgsql rather than by editing the string, so a password
+    // containing a semicolon or an equals sign cannot break the parse - or
+    // quietly change which host is connected to.
+    connectionString = new Npgsql.NpgsqlConnectionStringBuilder(connectionString)
+    {
+        Username = appDbUser,
+        Password = appDbPassword,
+    }.ConnectionString;
+}
+
+builder.Services.AddDbContext<AppDbContext>(opt => opt.UseNpgsql(connectionString));
 
 // ── Services ──────────────────────────────────────────────────────────────────
 builder.Services.AddScoped<AuthService>();
@@ -338,6 +370,39 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+    // Is the app still a superuser? Said out loud at every boot, because this
+    // is the kind of thing that gets fixed once, undone by a restore or a
+    // rebuild, and never noticed again. Same reasoning as the endpoint audit:
+    // a gap nobody can see is a gap nobody closes.
+    try
+    {
+        var dbLog = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("DbPrivileges");
+        var who = db.Database
+            .SqlQueryRaw<string>(@"SELECT current_setting('is_superuser') || ' ' || current_user AS ""Value""")
+            .AsEnumerable().FirstOrDefault() ?? "";
+        var parts = who.Split(' ', 2);
+        var isSuper = parts.Length > 0 && parts[0].Equals("on", StringComparison.OrdinalIgnoreCase);
+        var dbUser = parts.Length > 1 && parts[1].Length > 0 ? parts[1] : "?";
+
+        if (isSuper)
+        {
+            dbLog.LogWarning(
+                "Database user {User} is a SUPERUSER. A query that should not have run could "
+                + "run a shell command on this server (COPY ... TO PROGRAM) or read every "
+                + "password hash. Run database/least-privilege.sql and set APP_DB_USER and "
+                + "APP_DB_PASSWORD.", dbUser);
+        }
+        else
+        {
+            dbLog.LogInformation("Database user {User} is not a superuser.", dbUser);
+        }
+    }
+    catch (Exception ex)
+    {
+        app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("DbPrivileges")
+            .LogWarning(ex, "Could not check the database user privileges.");
+    }
 
     // Where a sign-in is written down so that it can be cancelled.
     //

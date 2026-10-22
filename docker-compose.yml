@@ -35,6 +35,15 @@ services:
       ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=mahalaxmi_fashionhub;Username=postgres;Password=${DB_PASSWORD:?DB_PASSWORD is required}"
       # No default: a guessable JWT key = every login token forgeable. Must be set explicitly.
       Jwt__Key: ${JWT_KEY:?JWT_KEY is required (use a long random string)}
+      # Which database ROLE the app connects as. Left empty it falls back to the
+      # connection string above, which is the postgres SUPERUSER - and a
+      # superuser connection turns any SQL that should not have run into a
+      # shell command on this VPS (COPY ... TO PROGRAM). Set BOTH of these to
+      # the role from database/least-privilege.sql; the backend ignores one
+      # without the other rather than half-applying it, and says at every boot
+      # whether it is still a superuser.
+      APP_DB_USER: ${APP_DB_USER:-}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:-}
       Jwt__Issuer: MahalaxmiApi
       Jwt__Audience: MahalaxmiFashionHub
       Admin__Email: ${ADMIN_EMAIL:-admin@mahalaxmifashionhub.com}
