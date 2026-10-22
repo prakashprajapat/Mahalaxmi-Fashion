@@ -77,10 +77,56 @@ interface CustomerRefund {
 // about, so a normal order history makes no extra calls at all.
 const REFUNDABLE_STATUSES = ['Return', 'Return Transit', 'Return Requested', 'Cancelled'];
 
-// The refund line on an order card. Shown only when there is something to say.
-function RefundLine({ refund }: { refund: CustomerRefund }) {
-  const amount = '\u20b9' + Number(refund.amount).toLocaleString('en-IN');
-  const paid = refund.status === 'paid';
+// What the shop promises, in one place so every message says the same number.
+const REFUND_DAYS = '3\u20137 working days';
+
+// What this customer actually paid online, and so what can come back.
+//
+// Worked out here as well as on the server because the line has to appear the
+// moment a return is asked for, before anyone has approved anything and before
+// a refund row exists. Same rule as the server's: a prepaid order minus the
+// wallet part, or the advance on a COD order. Plain COD took no money online,
+// so there is nothing to promise and nothing is said.
+function paidOnline(order: Order): number {
+  const isCod = (order.method ?? '').toLowerCase() === 'cod';
+  const paid = isCod
+    ? Number(order.advancePaid ?? 0)
+    : Number(order.total ?? 0) - Number(order.walletUsed ?? 0);
+  return paid > 0 ? Math.round(paid * 100) / 100 : 0;
+}
+
+// The refund line on an order card.
+//
+// A customer who has just cancelled, or just sent a parcel back, wants one
+// answer: when do I get my money. Saying nothing until an admin has opened a
+// refund is how that turns into a phone call, so the line appears as soon as
+// the order can have money owed on it - and it is careful about WHEN: on a
+// return the clock starts at approval, not at the request, because the goods
+// have to come back and be checked first.
+function RefundLine({ order, refund }: { order: Order; refund?: CustomerRefund }) {
+  const owed = refund ? Number(refund.amount) : paidOnline(order);
+  if (owed <= 0) return null;
+
+  const amount = '\u20b9' + owed.toLocaleString('en-IN');
+  const paid = refund?.status === 'paid';
+  const isReturn = order.status.startsWith('Return');
+  // The goods are back and the return was accepted; the wait is now only the
+  // bank's, so the customer should not be told to wait for approval again.
+  const returnSettled = order.status === 'Return';
+
+  let text: React.ReactNode;
+  if (paid) {
+    text = refund?.method === 'wallet'
+      ? <>{amount} has been added to your wallet.</>
+      : <>{amount} refunded to the account you paid from. Banks usually show it within {REFUND_DAYS}.</>;
+  } else if (isReturn && !returnSettled) {
+    text = <>Refund of {amount} will be sent within {REFUND_DAYS} after your return is approved.</>;
+  } else if (isReturn) {
+    text = <>Your return is approved. Refund of {amount} will reach you within {REFUND_DAYS}.</>;
+  } else {
+    text = <>Refund of {amount} will reach you within {REFUND_DAYS}.</>;
+  }
+
   return (
     <p style={{
       margin: '.5rem 0 0', padding: '.5rem .7rem', borderRadius: 8, fontSize: '.84rem',
@@ -88,16 +134,7 @@ function RefundLine({ refund }: { refund: CustomerRefund }) {
       background: paid ? '#f1f8f2' : '#fff8ec',
       color: paid ? '#1b5e20' : '#8a5a00',
     }}>
-      {paid ? (
-        <>
-          {amount} refunded
-          {refund.method === 'wallet'
-            ? ' to your wallet.'
-            : ' to the account you paid from. Banks usually show it within 5\u20137 working days.'}
-        </>
-      ) : (
-        <>Refund of {amount} is being processed.</>
-      )}
+      {text}
     </p>
   );
 }
@@ -194,7 +231,11 @@ export default function OrdersPage() {
       const res = await ordersApi.cancel(orderId, getToken() ?? '');
       setOrders(prev => prev.map(o => o.id === orderId ? res.order : o));
       setDetailOrder(prev => prev && prev.id === orderId ? res.order : prev);
-      setMsg(`Cancel request submitted for order #${orderId}.`);
+      setMsg(
+        paidOnline(res.order) > 0
+          ? `Cancel request submitted for order #${orderId}. Your refund will reach you within ${REFUND_DAYS}.`
+          : `Cancel request submitted for order #${orderId}.`
+      );
     } catch (e) {
       setMsg('Failed to cancel order: ' + (e as Error).message);
     } finally { setCancellingId(''); }
@@ -275,7 +316,11 @@ export default function OrdersPage() {
       setOrders(prev => prev.map(o => o.id === order.id ? res.order : o));
       setReturnSubmitted(order.id);
       resetReturnForm();
-      setMsg(`Return requested for order #${order.id}.`);
+      setMsg(
+        paidOnline(order) > 0
+          ? `Return requested for order #${order.id}. Once the return is approved, your refund will reach you within ${REFUND_DAYS}.`
+          : `Return requested for order #${order.id}.`
+      );
     } catch (e) {
       setMsg('Failed to request return: ' + (e as Error).message);
     } finally {
@@ -462,7 +507,9 @@ export default function OrdersPage() {
                       })}
                       {order.cart.length > 3 && <span style={{ color: '#aaa', fontSize: '.82rem' }}>+{order.cart.length - 3} more item{order.cart.length - 3 !== 1 ? 's' : ''}</span>}
                     </div>
-                    {refunds[order.id] && <RefundLine refund={refunds[order.id]} />}
+                    {REFUNDABLE_STATUSES.includes(order.status) && (
+                      <RefundLine order={order} refund={refunds[order.id]} />
+                    )}
                     <p style={{ fontSize: '.82rem', color: '#722f37', fontWeight: 600, marginBottom: '.75rem', marginTop: '.75rem' }}>View full details →</p>
                   </div>
 
