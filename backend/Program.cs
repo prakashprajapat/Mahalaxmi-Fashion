@@ -5,7 +5,9 @@ using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using MahalaxmiApi.Authorization;
 using MahalaxmiApi.Data;
+using MahalaxmiApi.Middleware;
 using MahalaxmiApi.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -22,10 +24,25 @@ builder.Services.AddScoped<DelhiveryService>();
 builder.Services.AddScoped<AdminNotifier>();
 builder.Services.AddScoped<WalletService>();
 builder.Services.AddScoped<TokenService>();
-builder.Services.AddHttpClient("razorpay");
-builder.Services.AddHttpClient("cashfree");
-builder.Services.AddHttpClient("delhivery");
-builder.Services.AddHttpClient("instagram");
+// Every one of these had the framework default, which is ONE HUNDRED SECONDS.
+//
+// That is the shape of bottleneck worth worrying about here. A courier or a
+// payment provider does not usually fail outright - it goes slow. With no
+// timeout, each waiting call holds a thread and a connection for a minute and
+// a half, the thread pool fills with requests that are not doing anything, and
+// the shop stops answering for everybody. The outage then looks like our fault
+// and the cause is somebody else's bad afternoon.
+//
+// Numbers chosen by what the caller is waiting for: a shopper staring at a
+// checkout button will not wait twenty seconds either way, and a background
+// sync nobody is watching should still not be allowed to pile up.
+static void Upstream(IHttpClientBuilder b, int seconds) =>
+    b.ConfigureHttpClient(c => c.Timeout = TimeSpan.FromSeconds(seconds));
+
+Upstream(builder.Services.AddHttpClient("razorpay"), 20);   // a customer is waiting
+Upstream(builder.Services.AddHttpClient("cashfree"), 20);   // a customer is waiting
+Upstream(builder.Services.AddHttpClient("delhivery"), 30);  // AWB generation is genuinely slow
+Upstream(builder.Services.AddHttpClient("instagram"), 15);  // nobody is waiting
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddMemoryCache(); // PERF-2: for settings caching
@@ -282,7 +299,12 @@ builder.Services.AddCors(opt =>
     opt.AddDefaultPolicy(policy =>
         policy.WithOrigins(allowedOrigins)
               .AllowAnyHeader()
-              .WithMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")));
+              .WithMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
+              // A browser cannot READ a response header across origins unless it
+              // is named here, however plainly the server sent it. These two are
+              // the ones a caller is meant to act on: the id to quote when
+              // something failed, and how long to wait after a 429.
+              .WithExposedHeaders("X-Request-Id", "Retry-After")));
 
 // ── Swagger ───────────────────────────────────────────────────────────────────
 builder.Services.AddSwaggerGen(c =>
@@ -870,6 +892,19 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+// ── One entry point ──────────────────────────────────────────────────────────
+//
+// Outermost, and in this order, because each wraps the next.
+//
+// UseRequestContext gives the request an id and puts it on every log line it
+// produces; UseFaultHandler needs that id to exist, so it goes inside.
+//
+// Both go above the limiter and authentication, so that a 429 and a 401 carry
+// the request id too - those are the two answers a customer is most likely to
+// ring up about, and before this neither could be matched to a log line.
+app.UseRequestContext();
+app.UseFaultHandler();
+
 app.UseHttpsRedirection();
 
 // ── Security Headers ──────────────────────────────────────────────────────────
@@ -925,5 +960,46 @@ app.MapGet("/api/health/caller", (HttpContext http) => Results.Ok(new
         xForwardedFor  = http.Request.Headers["X-Forwarded-For"].ToString(),
     },
 }));
+
+// GET /api/health/endpoints  (owner only)
+//
+// The same table, on demand, so it can be read without going to the VPS for
+// the startup log. Owner only and 404 otherwise: a list of every route with
+// what guards each one is a useful thing for us and a useful thing for
+// somebody else, so it is not advertised to a caller who may not have it.
+app.MapGet("/api/health/endpoints", (HttpContext http, EndpointDataSource source) =>
+{
+    if (!http.User.IsOwner()) return Results.NotFound();
+    var rows = EndpointAudit.Inspect(source);
+    return Results.Ok(new
+    {
+        total = rows.Count,
+        noRateLimit = rows.Count(r => r.Limit == "none"),
+        publicWrites = rows.Count(r => r.Guard == "PUBLIC" && r.Writes),
+        needsAttention = rows.Where(r => r.Risky).Select(r => new { r.Methods, r.Route }),
+        routes = rows.Select(r => new { r.Methods, r.Route, r.Guard, r.Limit }),
+    });
+}).RequireAuthorization();
+
+// ── What is guarded, and what is not ────────────────────────────────────────
+//
+// Printed at startup, once the routes are built. See Services/EndpointAudit.cs
+// for why: the controls themselves are fine, it is REMEMBERING to attach them
+// to each new endpoint that fails, and six endpoints had been missed. A gap
+// should be something the server says out loud, not something somebody has to
+// go looking for.
+{
+    var log = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("EndpointAudit");
+    try
+    {
+        var endpoints = app.Services.GetRequiredService<EndpointDataSource>();
+        EndpointAudit.Report(EndpointAudit.Inspect(endpoints), log);
+    }
+    catch (Exception ex)
+    {
+        // A report about the app must never be what stops the app.
+        log.LogWarning(ex, "Endpoint audit could not run.");
+    }
+}
 
 app.Run();

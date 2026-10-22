@@ -51,6 +51,12 @@ public sealed class RequirePermAttribute : Attribute, IAuthorizationFilter
     private readonly string[] _sections;
     public RequirePermAttribute(params string[] sections) => _sections = sections;
 
+    /// <summary>
+    /// Which sections this endpoint asks for. Exposed so the startup audit can
+    /// say what guards each route, rather than only that something does.
+    /// </summary>
+    public IReadOnlyList<string> Sections => _sections;
+
     public void OnAuthorization(AuthorizationFilterContext context)
     {
         var user = context.HttpContext.User;

@@ -59,7 +59,13 @@ async function request<T>(
     const err = await res.json().catch(() => ({ message: res.statusText || `Error ${res.status}` }));
     // Handle ASP.NET Core validation errors (have 'title'/'errors' but no 'message')
     const msg = err.message || err.title || (err.errors ? JSON.stringify(err.errors) : null) || `Request failed (${res.status})`;
-    throw new Error(msg);
+
+    // A fault at our end now comes back with the id of the request that failed,
+    // and that id is on every log line the request produced. Putting it in the
+    // message means a customer can read it out and the owner can find the fault
+    // in the log, instead of searching a day of entries for "about four o'clock".
+    const ref = (err as { requestId?: string }).requestId;
+    throw new Error(ref ? `${msg} (ref: ${ref})` : msg);
   }
   return res.json();
 }

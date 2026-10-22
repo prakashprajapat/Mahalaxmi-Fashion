@@ -294,3 +294,62 @@ from outside - compose now publishes it on localhost only:
     curl -s -m 5 http://147.93.104.150:5000/api/health && echo REACHABLE || echo closed
 
 `closed` is the correct answer.
+
+## Does /api go through Node? Worth checking once
+
+The shop has one API, so it does not need an API gateway product - nginx and
+Cloudflare already are the single entry point, and splitting one .NET app into
+microservices would add failure modes and buy nothing at this size.
+
+What IS worth checking is whether API traffic takes an extra hop. There are two
+possible routings and only one of them is right:
+
+    browser -> Cloudflare -> nginx -> backend:5000                   (correct)
+    browser -> Cloudflare -> nginx -> Next.js:3000 -> backend:5000   (a hop too many)
+
+The second happens if nginx sends everything to port 3000, because
+`frontend/next.config.js` has a rewrite forwarding `/api/:path*` to the backend.
+That rewrite exists for local development. In production it would mean every API
+call is proxied by the Node process, which then sits in front of the whole API
+as an accidental gateway - one more thing to be slow, one more thing to restart,
+one more place to run out of sockets.
+
+On the VPS:
+
+    grep -rn location /etc/nginx/sites-enabled/ | grep -i api
+
+If no `location /api` block appears, API calls are going through Node. The fix
+is a block sending them straight to the backend, placed ABOVE the catch-all:
+
+    location /api/ {
+        proxy_pass http://127.0.0.1:5000/api/;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header CF-Connecting-IP  $remote_addr;
+    }
+
+The CF-Connecting-IP line is not optional - without it every rate limit counts
+the whole shop as one caller. See the rate limiting section above.
+
+## After the next deploy: read the endpoint audit
+
+The API now prints, at startup, how many routes it answers and which of them
+are public, change something, AND have no rate limit. On the VPS:
+
+    docker compose logs backend | grep -i -A 10 'Endpoints:'
+
+Expected: a count line, then `No public write endpoint is missing a rate limit.`
+If routes are listed instead, each one should be deliberate - a payment webhook
+verified by signature is fine, a login is not.
+
+The same table is available to the owner at `/api/health/endpoints` (signed in
+to the panel; it answers 404 to anybody else).
+
+## Housekeeping
+
+`backend/appsettings.json.before-jwt-rotation` is a backup from the JWT key
+rotation. It is git-ignored and was never committed, so nothing leaked, but it
+holds a retired signing key and has no further use. Worth deleting from the VPS
+and from the working copy.
