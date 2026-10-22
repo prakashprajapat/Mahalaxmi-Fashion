@@ -20,8 +20,10 @@ public class AuthController : ControllerBase
     private readonly IWebHostEnvironment _env;
     private readonly EmailService _email;
     private readonly SmsService _sms;
+    private readonly AttemptLimiter _limit;
+    private readonly ILogger<AuthController> _log;
 
-    public AuthController(AppDbContext db, AuthService auth, IConfiguration config, IWebHostEnvironment env, EmailService email, SmsService sms)
+    public AuthController(AppDbContext db, AuthService auth, IConfiguration config, IWebHostEnvironment env, EmailService email, SmsService sms, AttemptLimiter limit, ILogger<AuthController> log)
     {
         _db = db;
         _auth = auth;
@@ -29,6 +31,30 @@ public class AuthController : ControllerBase
         _env = env;
         _email = email;
         _sms = sms;
+        _limit = limit;
+        _log = log;
+    }
+
+    // The per-name half of the rate limiting; see CustomersController.TooMany.
+    //
+    // [EnableRateLimiting] counts per IP, which a hundred machines aimed at the
+    // owner's password defeat by arithmetic. This counts per sign-in name, so
+    // the budget follows the account being attacked instead of the attacker.
+    private IActionResult? TooMany(string? key, (int Limit, TimeSpan Window) rule, string what)
+    {
+        var d = _limit.Check(key, rule.Limit, rule.Window);
+        if (d.Allowed) return null;
+
+        // Worth a log line here in a way a customer's is not: the only person
+        // who should ever be guessing the owner's password is the owner.
+        _log.LogWarning("Admin rate limit hit: {Key} ({What})", key, what);
+        Response.Headers.RetryAfter = d.RetryAfterSeconds.ToString();
+        return StatusCode(StatusCodes.Status429TooManyRequests, new
+        {
+            success = false,
+            message = what + " " + AttemptLimiter.WaitMessage(d.RetryAfterSeconds),
+            retryAfterSeconds = d.RetryAfterSeconds,
+        });
     }
 
     // POST /api/auth/admin-login
@@ -38,6 +64,10 @@ public class AuthController : ControllerBase
     public async Task<IActionResult> AdminLogin([FromBody] AdminLoginRequest req)
     {
         var loginId = (req.Email ?? "").Trim();
+
+        var limitKey = AttemptLimiter.AdminKey(loginId);
+        if (TooMany(limitKey, AttemptLimiter.AdminLogin,
+            "Too many sign-in attempts for this account.") is { } tooMany) return tooMany;
 
         var adminEmail = await _db.SiteSettings
             .Where(s => s.Key == "admin_email")
@@ -55,6 +85,7 @@ public class AuthController : ControllerBase
 
         if (isOwner)
         {
+            _limit.Forget(limitKey);
             var jwtOwner = await IssueAdminSessionAsync(loginId, "0", "admin");
             return Ok(new { success = true, token = jwtOwner, role = "admin" });
         }
@@ -69,6 +100,7 @@ public class AuthController : ControllerBase
             && !string.IsNullOrEmpty(staff.PasswordHash)
             && BCrypt.Net.BCrypt.Verify(req.Password, staff.PasswordHash))
         {
+            _limit.Forget(limitKey);
             staff.LastLogin = DateTimeOffset.UtcNow;
             var role = string.IsNullOrWhiteSpace(staff.Role) ? "staff" : staff.Role;
             var jwtStaff = await IssueAdminSessionAsync(staff.Username, staff.Id.ToString(), role, staff.Permissions);
@@ -101,6 +133,11 @@ public class AuthController : ControllerBase
     // POST /api/auth/admin-change-password
     [HttpPost("admin-change-password")]
     [Authorize(Policy = "AdminOnly")]
+    // Hashing at work factor 12 costs about a quarter of a second of CPU, and
+    // this endpoint does one per request. Signed in or not, nobody needs to
+    // change the password ten times a minute, and without a limit a valid
+    // token is enough to tie the server in knots.
+    [EnableRateLimiting("auth")]
     public async Task<IActionResult> AdminChangePassword([FromBody] AdminChangePasswordRequest req)
     {
         if (string.IsNullOrWhiteSpace(req.NewPassword) || req.NewPassword.Length < 8)
@@ -155,6 +192,12 @@ public class AuthController : ControllerBase
 
         if (!string.Equals(req.Email.Trim(), adminEmail, StringComparison.OrdinalIgnoreCase))
             return BadRequest(new { success = false, message = "Email not recognised." });
+
+        // Recovery sends the code by email AND SMS, so each request costs a
+        // message. Counted per address rather than per caller: the point is
+        // that the owner's inbox cannot be buried from a hundred machines.
+        if (TooMany(AttemptLimiter.OtpKey(null, req.Email), AttemptLimiter.OtpBurst,
+            "Too many recovery codes requested.") is { } tooMany) return tooMany;
 
         var otp = System.Security.Cryptography.RandomNumberGenerator
             .GetInt32(100000, 1000000).ToString();
@@ -212,6 +255,16 @@ public class AuthController : ControllerBase
         if (string.IsNullOrWhiteSpace(req.NewPassword) || req.NewPassword.Length < 8)
             return BadRequest(new { success = false, message = "Password must be at least 8 characters." });
 
+        // The five-guess lock below is per OTP token, which a script resets by
+        // asking for a new code. This one is per address and survives that.
+        //
+        // Kept apart from the shop's reset budget even though the address may be
+        // the same: if the owner's email also has a customer account, failed
+        // resets there must not be what stands between him and his own panel.
+        var recoverKey = AttemptLimiter.ResetKey(req.Email) is { } rk ? rk + ":admin" : null;
+        if (TooMany(recoverKey, AttemptLimiter.Reset,
+            "Too many recovery attempts for this account.") is { } tooMany) return tooMany;
+
         var token = await _db.OtpTokens.FirstOrDefaultAsync(t =>
             t.Email == req.Email.Trim().ToLower() &&
             t.Purpose == "admin-recovery" &&
@@ -246,6 +299,7 @@ public class AuthController : ControllerBase
         { setting.Value = newHash; setting.UpdatedAt = DateTimeOffset.UtcNow; }
 
         await _db.SaveChangesAsync();
+        _limit.Forget(recoverKey);
         return Ok(new { success = true, message = "Password updated successfully." });
     }
 

@@ -64,6 +64,7 @@ builder.Services.AddHostedService(sp => sp.GetRequiredService<InstagramSyncServi
 // Registered as a singleton as well as a hosted service so the admin
 // "Run backup now" button can call exactly the same code path.
 builder.Services.AddSingleton<BackupService>();
+builder.Services.AddSingleton<AttemptLimiter>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<BackupService>());
 
 // Return-media uploads: allow videos up to ~80 MB per file (Kestrel + multipart limits)
@@ -88,27 +89,64 @@ builder.WebHost.ConfigureKestrel(o => o.Limits.MaxRequestBodySize = 85L * 1024 *
 //
 // A forwarded header is worth something only when the machine that set it can
 // be trusted, and only the machine on the other end of the socket can be
-// checked. Here that is nginx, on this same host. So: a header is read only
-// when the connection came from the loopback address, and is ignored entirely
-// otherwise — a request that reaches this port directly is counted under the
-// address it actually came from, which it cannot rewrite.
+// checked. Here that is nginx, on this same host, reaching the API through the
+// Docker bridge. So: a header is read only when the connection came from this
+// machine, and is ignored entirely otherwise - a request that reaches the port
+// from anywhere else is counted under the address it actually came from, which
+// it cannot rewrite.
 //
-// For the value to be true and not merely trusted, nginx has to set it from the
-// connection rather than pass the client's copy through. See RUNBOOK-PENDING.md
-// ("Real client IP") for the Cloudflare ranges and the two nginx lines; until
-// that is in place this function is honest about the hop it can see, which is
-// the most it can be.
-static bool FromTrustedProxy(HttpContext http)
+// The value is true and not merely trusted because nginx sets it from the
+// connection rather than passing the visitor's copy through: 21 Cloudflare
+// ranges in set_real_ip_from, real_ip_header CF-Connecting-IP, and
+// proxy_set_header CF-Connecting-IP $remote_addr in every proxying location.
+// See RUNBOOK-PENDING.md ("Real client IP"), done 3 Oct 2026.
+//
+// Which private ranges count as "a proxy on this machine". Loopback alone is
+// not enough once the API runs in a container: nginx proxies to 127.0.0.1:5000
+// on the host, Docker rewrites that to the bridge, and the address this process
+// sees on the socket is the bridge gateway - 172.x.0.1 - not 127.0.0.1. Under a
+// loopback-only test every request in the world then failed it, fell through to
+// the gateway address, and the whole shop shared ONE bucket: six password
+// attempts every five minutes for every customer together. Exactly the bug the
+// per-caller rewrite was meant to fix, reintroduced by the deployment.
+//
+// Set Security:TrustProxyFromPrivateNetwork to false to go back to loopback
+// only - correct if the API ever runs directly on the host rather than in a
+// container. It is safe as it stands because nothing outside this machine can
+// reach the port with a private source address: compose publishes it on
+// 127.0.0.1, and a packet from the internet carries its own public address.
+var trustPrivateHops = builder.Configuration.GetValue("Security:TrustProxyFromPrivateNetwork", true);
+
+bool FromTrustedProxy(HttpContext http)
 {
     var peer = http.Connection.RemoteIpAddress;
     if (peer is null) return false;
+    if (peer.IsIPv4MappedToIPv6) peer = peer.MapToIPv4();
     if (System.Net.IPAddress.IsLoopback(peer)) return true;
-    // ::ffff:127.0.0.1 — a v4 loopback arriving on a dual-stack socket.
-    if (peer.IsIPv4MappedToIPv6 && System.Net.IPAddress.IsLoopback(peer.MapToIPv4())) return true;
+    return trustPrivateHops && IsPrivate(peer);
+}
+
+static bool IsPrivate(System.Net.IPAddress ip)
+{
+    if (ip.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
+    {
+        var b = ip.GetAddressBytes();
+        if (b[0] == 10) return true;                                  // 10.0.0.0/8
+        if (b[0] == 172 && b[1] >= 16 && b[1] <= 31) return true;     // 172.16.0.0/12 - Docker lives here
+        if (b[0] == 192 && b[1] == 168) return true;                  // 192.168.0.0/16
+        if (b[0] == 169 && b[1] == 254) return true;                  // link-local
+        return false;
+    }
+    if (ip.AddressFamily == System.Net.Sockets.AddressFamily.InterNetworkV6)
+    {
+        if (ip.IsIPv6LinkLocal || ip.IsIPv6SiteLocal) return true;
+        var b = ip.GetAddressBytes();
+        return (b[0] & 0xFE) == 0xFC;                                 // fc00::/7 unique-local
+    }
     return false;
 }
 
-static string CallerIp(HttpContext http)
+string CallerIp(HttpContext http)
 {
     var direct = http.Connection.RemoteIpAddress?.ToString() ?? "unknown";
     if (!FromTrustedProxy(http)) return direct;
@@ -180,6 +218,29 @@ builder.Services.AddRateLimiter(opts =>
         }));
 
     opts.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+    // A bare 429 with no body reaches the login form as "something went wrong",
+    // so the customer tries again immediately, which is the one thing that does
+    // not help. Say what happened and how long to wait - in the same
+    // { success, message } shape every other endpoint answers in, so the
+    // existing error handling on the forms picks it up with no special case.
+    opts.OnRejected = async (ctx, ct) =>
+    {
+        var seconds = ctx.Lease.TryGetMetadata(MetadataName.RetryAfter, out var after)
+            ? (int)Math.Ceiling(after.TotalSeconds)
+            : 60;
+        if (seconds < 1) seconds = 1;
+
+        var res = ctx.HttpContext.Response;
+        res.StatusCode = StatusCodes.Status429TooManyRequests;
+        res.Headers.RetryAfter = seconds.ToString();
+        await res.WriteAsJsonAsync(new
+        {
+            success = false,
+            message = "Too many attempts from this connection. " + AttemptLimiter.WaitMessage(seconds),
+            retryAfterSeconds = seconds,
+        }, ct);
+    };
 });
 
 // ── JWT Auth ──────────────────────────────────────────────────────────────────
@@ -808,5 +869,31 @@ app.UseRateLimiter(); // SEC-8: Apply [EnableRateLimiting("auth")] to auth/OTP c
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+
+// GET /api/health/caller
+//
+// What every rate limit in the shop is counted under, for this request.
+//
+// It exists because the answer depends on the deployment, not on the code, and
+// getting it wrong is silent: if the hop is not recognised, every caller in the
+// world shares one bucket and the limits are either useless or lock everyone
+// out, and nothing in the logs says so. One request from a phone answers it:
+// `caller` should be that phone's own address, and `trustedHop` true.
+//
+// Open on purpose, so it can be checked from a phone browser without a token.
+// It tells a caller its own address and whether this server believes the
+// headers nginx sets - nothing it could not already work out by trying.
+app.MapGet("/api/health/caller", (HttpContext http) => Results.Ok(new
+{
+    peer      = http.Connection.RemoteIpAddress?.ToString(),
+    trustedHop = FromTrustedProxy(http),
+    caller    = CallerIp(http),
+    headers   = new
+    {
+        cfConnectingIp = http.Request.Headers["CF-Connecting-IP"].ToString(),
+        xRealIp        = http.Request.Headers["X-Real-IP"].ToString(),
+        xForwardedFor  = http.Request.Headers["X-Forwarded-For"].ToString(),
+    },
+}));
 
 app.Run();

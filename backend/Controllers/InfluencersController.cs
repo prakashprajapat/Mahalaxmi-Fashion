@@ -23,13 +23,35 @@ public class InfluencersController : ControllerBase
     private readonly EmailService _email;
     private readonly SmsService _sms;
     private readonly IWebHostEnvironment _env;
+    private readonly AttemptLimiter _limit;
+    private readonly ILogger<InfluencersController> _log;
 
-    public InfluencersController(AppDbContext db, EmailService email, SmsService sms, IWebHostEnvironment env)
+    public InfluencersController(AppDbContext db, EmailService email, SmsService sms, IWebHostEnvironment env, AttemptLimiter limit, ILogger<InfluencersController> log)
     {
         _db = db;
         _email = email;
         _sms = sms;
         _env = env;
+        _limit = limit;
+        _log = log;
+    }
+
+    // The per-account half of the rate limiting; see CustomersController.TooMany.
+    // Counted per creator account rather than per IP, so a password or OTP aimed
+    // at one creator runs out of attempts however many machines are aiming it.
+    private IActionResult? TooMany(string? key, (int Limit, TimeSpan Window) rule, string what)
+    {
+        var d = _limit.Check(key, rule.Limit, rule.Window);
+        if (d.Allowed) return null;
+
+        _log.LogWarning("Creator rate limit hit: {Key} ({What})", key, what);
+        Response.Headers.RetryAfter = d.RetryAfterSeconds.ToString();
+        return StatusCode(StatusCodes.Status429TooManyRequests, new
+        {
+            success = false,
+            message = what + " " + AttemptLimiter.WaitMessage(d.RetryAfterSeconds),
+            retryAfterSeconds = d.RetryAfterSeconds,
+        });
     }
 
     // ── Admin auth helper ────────────────────────────────────────────────────
@@ -38,6 +60,7 @@ public class InfluencersController : ControllerBase
 
     // ── POST /api/influencers  (public — apply) ──────────────────────────────
     [HttpPost]
+    [EnableRateLimiting("auth")]
     public async Task<IActionResult> Apply([FromBody] InfluencerApplyRequest req)
     {
         if (string.IsNullOrWhiteSpace(req.Name) || string.IsNullOrWhiteSpace(req.Email))
@@ -73,8 +96,12 @@ public class InfluencersController : ControllerBase
     // Records a password-reset request so the admin can reset it and contact the
     // creator (no auto email/SMS provider is wired up, so it's admin-mediated).
     [HttpPost("forgot-password")]
+    [EnableRateLimiting("auth")]
     public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest req)
     {
+        if (TooMany(AttemptLimiter.ResetKey(req.Email), AttemptLimiter.Reset,
+            "Too many reset requests for this account.") is { } tooMany) return tooMany;
+
         if (!string.IsNullOrWhiteSpace(req.Email))
         {
             var inf = await _db.Influencers
@@ -93,10 +120,15 @@ public class InfluencersController : ControllerBase
     // Creators log in with email + password. The coupon code is public (shared
     // with followers) so it is no longer used as a login credential.
     [HttpPost("login")]
+    [EnableRateLimiting("login")]
     public async Task<IActionResult> Login([FromBody] InfluencerLoginRequest req)
     {
         if (string.IsNullOrWhiteSpace(req.Email) || string.IsNullOrWhiteSpace(req.Password))
             return BadRequest(new { message = "Email and password are required." });
+
+        var limitKey = AttemptLimiter.CreatorKey(req.Email);
+        if (TooMany(limitKey, AttemptLimiter.Login,
+            "Too many sign-in attempts for this account.") is { } tooMany) return tooMany;
 
         var inf = await _db.Influencers.FirstOrDefaultAsync(i =>
             i.Email.ToLower() == req.Email.Trim().ToLower() &&
@@ -106,6 +138,7 @@ public class InfluencersController : ControllerBase
             !BCrypt.Net.BCrypt.Verify(req.Password, inf.PasswordHash))
             return Unauthorized(new { message = "Invalid email or password. If you haven't set a password, contact us." });
 
+        _limit.Forget(limitKey);
         return Ok(await BuildDashboardAsync(inf));
     }
 
@@ -128,6 +161,16 @@ public class InfluencersController : ControllerBase
         var accPhone = (inf.Phone ?? "").Trim();
         if (string.IsNullOrWhiteSpace(accEmail) && string.IsNullOrWhiteSpace(accPhone))
             return BadRequest(new { success = false, message = "This account has no email or mobile on file." });
+
+        // One request here sends an email AND an SMS, so it is the most
+        // expensive code in the shop to ask for. Keyed on the account, not on
+        // what the caller typed, so asking by email and by mobile draws on the
+        // same budget instead of two.
+        var otpKey = AttemptLimiter.OtpKey(accPhone, accEmail);
+        if (TooMany(otpKey, AttemptLimiter.OtpBurst,
+            "Too many codes requested for this account.") is { } otpBurst) return otpBurst;
+        if (TooMany(otpKey + ":day", AttemptLimiter.OtpDaily,
+            "Too many codes requested for this account today.") is { } otpDay) return otpDay;
 
         var otp = System.Security.Cryptography.RandomNumberGenerator
             .GetInt32(100000, 1000000).ToString();
@@ -175,12 +218,19 @@ public class InfluencersController : ControllerBase
 
     // ── POST /api/influencers/verify-otp  (public — creator OTP login) ───────
     [HttpPost("verify-otp")]
+    [EnableRateLimiting("auth")]
     public async Task<IActionResult> VerifyLoginOtp([FromBody] InfluencerOtpVerifyRequest req)
     {
         var idf = (req.Identifier ?? "").Trim();
         var otp = (req.Otp ?? "").Trim();
         if (string.IsNullOrWhiteSpace(idf) || string.IsNullOrWhiteSpace(otp))
             return BadRequest(new { success = false, message = "Email/mobile and OTP are required." });
+
+        // The five-guess lock below counts per token, and a token is replaced by
+        // asking for another code. This budget is per account and is not.
+        var verifyKey = AttemptLimiter.CreatorKey(idf) is { } vk ? vk + ":otp" : null;
+        if (TooMany(verifyKey, AttemptLimiter.Login,
+            "Too many code attempts for this account.") is { } tooMany) return tooMany;
 
         var inf = await FindApprovedInfluencer(idf);
         if (inf is null)
@@ -207,6 +257,7 @@ public class InfluencersController : ControllerBase
 
         record.Used = true;
         await _db.SaveChangesAsync();
+        _limit.Forget(verifyKey);
         return Ok(await BuildDashboardAsync(inf));
     }
 
@@ -285,10 +336,21 @@ public class InfluencersController : ControllerBase
     // approved creator. Only lets them edit their own profile details — never
     // the coupon code, commission rate or status (those stay admin-controlled).
     [HttpPut("profile")]
+    [EnableRateLimiting("login")]
     public async Task<IActionResult> UpdateProfile([FromBody] InfluencerProfileRequest req)
     {
         if (string.IsNullOrWhiteSpace(req.Email) || string.IsNullOrWhiteSpace(req.Password))
             return Unauthorized(new { success = false, message = "Email and password required." });
+
+        // This endpoint checks a password, which makes it a second login door.
+        // It shares the login budget with the first one on purpose: a limit one
+        // door enforces and the other does not is not a limit. Which means it
+        // has to clear the budget on success too, or a creator saving her
+        // profile eight times in a quarter of an hour locks herself out of the
+        // sign-in page she is already past.
+        var profileKey = AttemptLimiter.CreatorKey(req.Email);
+        if (TooMany(profileKey, AttemptLimiter.Login,
+            "Too many attempts for this account.") is { } tooMany) return tooMany;
 
         var inf = await _db.Influencers.FirstOrDefaultAsync(i =>
             i.Email.ToLower() == req.Email.Trim().ToLower() &&
@@ -306,6 +368,7 @@ public class InfluencersController : ControllerBase
         inf.UpdatedAt = DateTimeOffset.UtcNow;
 
         await _db.SaveChangesAsync();
+        _limit.Forget(profileKey);
         return Ok(new { success = true, message = "Profile updated." });
     }
 

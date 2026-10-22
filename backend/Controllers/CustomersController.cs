@@ -24,8 +24,9 @@ public class CustomersController : ControllerBase
     private readonly AdminNotifier _notify;
     private readonly ILogger<CustomersController> _log;
     private readonly WalletService _wallet;
+    private readonly AttemptLimiter _limit;
 
-    public CustomersController(AppDbContext db, AuthService auth, IWebHostEnvironment env, EmailService email, SmsService sms, AdminNotifier notify, ILogger<CustomersController> log, WalletService wallet)
+    public CustomersController(AppDbContext db, AuthService auth, IWebHostEnvironment env, EmailService email, SmsService sms, AdminNotifier notify, ILogger<CustomersController> log, WalletService wallet, AttemptLimiter limit)
     {
         _db = db;
         _auth = auth;
@@ -35,6 +36,34 @@ public class CustomersController : ControllerBase
         _notify = notify;
         _log = log;
         _wallet = wallet;
+        _limit = limit;
+    }
+
+    // The per-account half of the rate limiting.
+    //
+    // [EnableRateLimiting] counts per IP address, which stops one machine making
+    // noise and does nothing about a hundred machines aimed at one account - each
+    // gets the full per-IP allowance, so the account never sees a limit. These
+    // checks are counted per phone number or email instead, so the budget belongs
+    // to the account being attacked rather than to whoever is attacking it.
+    //
+    // Returns null to carry on, or the 429 to return. Checked BEFORE the password
+    // is verified, so a wrong guess costs an attempt whether or not the account
+    // exists - a limit that only counted real accounts would tell an attacker
+    // which addresses are worth attacking.
+    private IActionResult? TooMany(string? key, (int Limit, TimeSpan Window) rule, string what)
+    {
+        var d = _limit.Check(key, rule.Limit, rule.Window);
+        if (d.Allowed) return null;
+
+        _log.LogWarning("Rate limit hit: {Key} ({What})", key, what);
+        Response.Headers.RetryAfter = d.RetryAfterSeconds.ToString();
+        return StatusCode(StatusCodes.Status429TooManyRequests, new
+        {
+            success = false,
+            message = what + " " + AttemptLimiter.WaitMessage(d.RetryAfterSeconds),
+            retryAfterSeconds = d.RetryAfterSeconds,
+        });
     }
 
     // Generates the next sequential customer code: MFHCUS1005, MFHCUS1006, ...
@@ -698,6 +727,16 @@ public class CustomersController : ControllerBase
         var email = req.Email.ToLower().Trim();
         var phone = req.Phone?.Trim() ?? "";
 
+        // Three accounts an hour from one number or address. A real person opens
+        // one; a script opening a hundred is how a welcome-coupon offer gets
+        // farmed. An admin creating customers from the panel is a different
+        // path and is checked below, so this only touches public sign-up.
+        if (!User.HasSectionAccess("customers"))
+        {
+            if (TooMany(AttemptLimiter.SignupKey(phone, email), AttemptLimiter.Signup,
+                "Too many accounts have been created from this number.") is { } tooMany) return tooMany;
+        }
+
         if (await _db.Customers.AnyAsync(c => c.Email == email))
             return Conflict(new { success = false, message = "Email already registered." });
 
@@ -921,6 +960,10 @@ public class CustomersController : ControllerBase
     [EnableRateLimiting("login")]
     public async Task<IActionResult> Login([FromBody] LoginRequest req)
     {
+        var limitKey = AttemptLimiter.LoginKey(req.Email);
+        if (TooMany(limitKey, AttemptLimiter.Login,
+            "Too many sign-in attempts for this account.") is { } tooMany) return tooMany;
+
         var customer = await _db.Customers
             .FirstOrDefaultAsync(c => c.Email == req.Email.ToLower().Trim());
 
@@ -929,6 +972,11 @@ public class CustomersController : ControllerBase
 
         if (customer.AccountStatus != "active")
             return Unauthorized(new { success = false, message = "Account is deactivated." });
+
+        // Right password, clean slate. Someone who mistyped twice and then got
+        // in has done nothing wrong and should not start her next visit two
+        // guesses short of a lockout.
+        _limit.Forget(limitKey);
 
         var token = _auth.GenerateJwt(customer.Id.ToString(), customer.Email ?? "", "customer");
         return Ok(new { success = true, token, customer = ToDto(customer) });
@@ -948,6 +996,16 @@ public class CustomersController : ControllerBase
         }
         if (string.IsNullOrWhiteSpace(phoneOrEmail) && string.IsNullOrWhiteSpace(email))
             return BadRequest(new { success = false, message = "Phone or email is required." });
+
+        // Two budgets per destination, and this is the one that is about money
+        // as much as security: every SMS is billed. The short window stops a
+        // script emptying the MSG91 balance in a minute; the daily one stops it
+        // being emptied over an afternoon, slowly enough to pass the first.
+        var otpKey = AttemptLimiter.OtpKey(phoneOrEmail, email);
+        if (TooMany(otpKey, AttemptLimiter.OtpBurst,
+            "Too many codes requested for this number.") is { } otpBurst) return otpBurst;
+        if (TooMany(otpKey + ":day", AttemptLimiter.OtpDaily,
+            "Too many codes requested for this number today.") is { } otpDay) return otpDay;
 
         // Generate 6-digit OTP
         var otp = System.Security.Cryptography.RandomNumberGenerator
@@ -1102,6 +1160,11 @@ public class CustomersController : ControllerBase
         if (string.IsNullOrWhiteSpace(idf))
             return BadRequest(new { success = false, message = "Email or mobile number is required." });
 
+        // Counted before the account is looked up, so asking for a reset on an
+        // address that does not exist costs the same as asking for a real one.
+        if (TooMany(AttemptLimiter.ResetKey(idf), AttemptLimiter.Reset,
+            "Too many password reset requests for this account.") is { } tooMany) return tooMany;
+
         var customer = await FindCustomerByIdentifier(idf);
         if (customer is null)
             return NotFound(new { success = false, message = "No account found for this email or mobile number." });
@@ -1164,6 +1227,11 @@ public class CustomersController : ControllerBase
     {
         // req.Email carries the identifier the customer entered — email OR mobile.
         var idf = (req.Email ?? "").Trim();
+
+        var resetKey = AttemptLimiter.ResetKey(idf) is { } k ? k + ":verify" : null;
+        if (TooMany(resetKey, AttemptLimiter.Reset,
+            "Too many reset attempts for this account.") is { } tooMany) return tooMany;
+
         var customer = await FindCustomerByIdentifier(idf);
         if (customer is null)
             return NotFound(new { success = false, message = "No account found for this email or mobile number." });
@@ -1185,6 +1253,7 @@ public class CustomersController : ControllerBase
         customer.UpdatedAt = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync();
 
+        _limit.Forget(resetKey);
         return Ok(new { success = true });
     }
 

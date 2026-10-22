@@ -266,3 +266,31 @@ supplies a pair, which is the right way for a secret to be missing: visibly.
 Every phone that subscribed under the old public key stops receiving
 notifications and has to allow them again — that is unavoidable, and it is the
 smaller cost.
+
+## Rate limiting - check this once after the next deploy
+
+The limits are counted per caller, and who the caller is depends on the
+deployment rather than on the code. If the API does not recognise the hop it
+arrives through, every visitor in the world counts as one caller and the limits
+either lock everybody out or protect nobody - and nothing in the logs says so.
+
+One request answers it. From a phone, on mobile data:
+
+    https://www.mahalaxmifashionhub.com/api/health/caller
+
+Expected:
+
+- `caller` is the phone's own public address (same as whatismyip shows)
+- `trustedHop` is `true`
+- `peer` is a private address (`172.x.x.x` on Docker, or `127.0.0.1`)
+
+If `caller` equals `peer`, the hop is not being recognised: nginx is not
+setting `CF-Connecting-IP`/`X-Real-IP` on that location, or the API is being
+reached some other way. Fix that before trusting any of the limits.
+
+Also worth confirming once, on the VPS, that the API is no longer answering
+from outside - compose now publishes it on localhost only:
+
+    curl -s -m 5 http://147.93.104.150:5000/api/health && echo REACHABLE || echo closed
+
+`closed` is the correct answer.

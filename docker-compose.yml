@@ -43,7 +43,13 @@ services:
       Razorpay__KeySecret: ${RAZORPAY_KEY_SECRET}
       ASPNETCORE_ENVIRONMENT: Production
     ports:
-      - "5000:5000"
+      # Localhost only. nginx on the host proxies to 127.0.0.1:5000; nothing
+      # else should reach the API. Published on 0.0.0.0 it was also answering
+      # on 147.93.104.150:5000, which let a caller skip Cloudflare entirely and
+      # - worse - arrive with a source address of its own choosing as far as
+      # the rate limiter was concerned. The frontend container is unaffected:
+      # it talks to http://backend:5000 over the compose network, not this port.
+      - "127.0.0.1:5000:5000"
     depends_on:
       postgres:
         condition: service_healthy
