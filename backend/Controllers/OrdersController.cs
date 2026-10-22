@@ -31,6 +31,18 @@ public class OrdersController : ControllerBase
         "Exchange Requested", "Exchange Transit", "Exchanged"
     ];
 
+    // Orders that are not going anywhere. No waybill is created for these, and
+    // a forward-shipping status does not land on them without Force.
+    //
+    // A cancelled parcel with a live waybill is not a cosmetic problem:
+    // Delhivery issues the number, a pickup gets scheduled against it and
+    // freight starts being billed, and none of that unwinds on its own.
+    private static readonly string[] NotShipping =
+    [
+        "Cancel Requested", "Cancelled",
+        "Return Requested", "Return Transit", "Return"
+    ];
+
     private readonly IWebHostEnvironment _env;
     private readonly Services.DelhiveryService _delhivery;
     private readonly Services.AdminNotifier _notify;
@@ -1029,16 +1041,19 @@ public class OrdersController : ControllerBase
         if (order is null)
             return NotFound(new { success = false, message = "Order not found." });
 
-        // Safeguard: don't let a forward-shipping status overwrite a return in progress
-        // (that would silently pull the order out of the Returns queue). Override with Force.
-        var returnStatuses  = new[] { "Return Requested", "Return Transit", "Return" };
+        // Safeguard: a forward-shipping status must not quietly overwrite an order
+        // that is coming back or has been called off. For a return it would pull
+        // the order out of the Returns queue; for a cancellation it would put a
+        // parcel nobody agreed to send back on the van. Override with Force.
         var forwardShipping = new[] { "Ready for Shipping", "Shipped", "Delivered" };
         if (!req.Force
-            && returnStatuses.Contains(order.Status, StringComparer.OrdinalIgnoreCase)
+            && NotShipping.Contains(order.Status, StringComparer.OrdinalIgnoreCase)
             && forwardShipping.Contains(req.Status, StringComparer.OrdinalIgnoreCase))
         {
-            return Conflict(new { success = false, message =
-                $"Order {order.OrderId} is in a return flow ({order.Status}); it can't be marked \"{req.Status}\". Use the return actions instead." });
+            var cancelled = order.Status.StartsWith("Cancel", StringComparison.OrdinalIgnoreCase);
+            return Conflict(new { success = false, message = cancelled
+                ? $"Order {order.OrderId} is \"{order.Status}\"; it can't be marked \"{req.Status}\". Reopen it first if it really is being sent."
+                : $"Order {order.OrderId} is in a return flow ({order.Status}); it can't be marked \"{req.Status}\". Use the return actions instead." });
         }
 
         // STOCK RESTORE: order Cancelled/Return hote hi cart ki quantities wapas
@@ -2290,6 +2305,15 @@ public class OrdersController : ControllerBase
             return NotFound(new { success = false, message = "Order not found." });
         if (!string.IsNullOrWhiteSpace(order.Awb))
             return Ok(new { success = true, awb = order.Awb, order = MapOrder(order), message = "This order already has an AWB." });
+
+        // This call does not just reserve a number: Delhivery creates the
+        // shipment and the pickup is scheduled right after it. Doing that for
+        // an order the customer has cancelled puts a parcel on the van and a
+        // freight charge on the bill, and the only way back is cancelling the
+        // waybill in Delhivery One by hand.
+        if (NotShipping.Contains(order.Status, StringComparer.OrdinalIgnoreCase))
+            return BadRequest(new { success = false, message =
+                $"Order {order.OrderId} is \"{order.Status}\", so no AWB is created for it. Move it out of that state first if it really is being shipped." });
 
         var ship = ParseJson(order.ShippingJson);
         var cust = ParseJson(order.CustomerJson);
