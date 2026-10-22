@@ -5,6 +5,7 @@ using System.Text.Json;
 using MahalaxmiApi.Authorization;
 using MahalaxmiApi.Data;
 using MahalaxmiApi.Models;
+using MahalaxmiApi.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -216,8 +217,34 @@ public class RefundsController : ControllerBase
             return Ok(new { success = true, refund = Shape(refund) });
         }
 
-        var gateway = (refund.Gateway ?? "").Trim().ToLowerInvariant();
-        var result = gateway == "cashfree"
+        // Where the money actually is, looked up now rather than trusted from
+        // the row. The gateway was recorded when the refund was opened, from
+        // the order's payment METHOD - so every COD order was written down as
+        // cashfree whether or not that is where the advance went. Resolving it
+        // here from the payment rows means the ones already written with the
+        // wrong gateway correct themselves at payout, with no data to fix up.
+        //
+        // The stored value is still the fallback, for an order whose payment
+        // rows have since been cleared.
+        var stored = (refund.Gateway ?? "").Trim().ToLowerInvariant();
+        var gateway = await PaymentGateways.ForOrderAsync(_db, order.OrderId) ?? stored;
+
+        if (gateway != stored && stored.Length > 0)
+        {
+            _log.LogWarning(
+                "Refund {Id} for order {Order} was opened against {Stored} but the payment is on {Actual}; using {Actual}",
+                refund.Id, order.OrderId, stored, gateway, gateway);
+            refund.Gateway = gateway;
+        }
+
+        if (gateway.Length == 0)
+            return BadRequest(new
+            {
+                success = false,
+                message = "No online payment is recorded against this order, so there is nothing for a gateway to send back. Credit the wallet instead, or pay the customer by hand.",
+            });
+
+        var result = gateway == PaymentGateways.Cashfree
             ? await CashfreeRefundAsync(order, amount, refund.Id)
             : await RazorpayRefundAsync(order, amount);
 
@@ -317,7 +344,8 @@ public class RefundsController : ControllerBase
         {
             var rp = await _db.RazorpayOrders.AsNoTracking()
                 .Where(r => r.LocalOrderId == order.OrderId && r.RazorpayPaymentId != null)
-                .OrderByDescending(r => r.Id)
+                .OrderByDescending(r => r.Status == "paid")
+                .ThenByDescending(r => r.Id)
                 .FirstOrDefaultAsync();
             paymentId = (rp?.RazorpayPaymentId ?? "").Trim();
         }
@@ -356,7 +384,19 @@ public class RefundsController : ControllerBase
         }
     }
 
-    // Cashfree: POST /pg/orders/{cf_order_id}/refunds.
+    // Cashfree: POST /pg/orders/{order_id}/refunds.
+    //
+    // {order_id} is OUR order id - the MFH... string sent as order_id when the
+    // payment was created - and not cf_order_id, which is Cashfree's own
+    // internal handle for the same thing. This sent cf_order_id, and Cashfree
+    // answered every refund with
+    //
+    //     Order Reference Id does not exist (HTTP 404)
+    //
+    // which reads like the payment is missing and is really the path asking
+    // after an id that is not the one it is indexed by. The Cashfree row is
+    // still looked up, because its existence is the proof that a Cashfree
+    // payment was taken at all - it is the id out of it that was wrong.
     //
     // refund_id is ours and must be unique per order. The refund row id is used
     // so a retry after a timeout reuses the same id: Cashfree then rejects the
@@ -370,13 +410,21 @@ public class RefundsController : ControllerBase
         if (appId.Length == 0 || secret.Length == 0)
             return (false, null, "Cashfree is not configured on the server, so it cannot send the refund.");
 
+        // Paid attempts first. Newest-first on its own would aim the refund at
+        // an abandoned checkout whenever a customer started again after having
+        // already paid.
         var cf = await _db.CashfreeOrders.AsNoTracking()
             .Where(c => c.LocalOrderId == order.OrderId && c.CfOrderId != null)
-            .OrderByDescending(c => c.Id)
+            .OrderByDescending(c => c.Status == "paid")
+            .ThenByDescending(c => c.Id)
             .FirstOrDefaultAsync();
-        var cfOrderId = (cf?.CfOrderId ?? "").Trim();
-        if (cfOrderId.Length == 0)
+        if (cf is null)
             return (false, null, "No Cashfree payment is recorded against this order, so Cashfree has nothing to refund. Pay the customer by hand, or credit the wallet instead.");
+
+        // The id Cashfree indexes the order by: the one we gave it.
+        var merchantOrderId = (cf.LocalOrderId ?? "").Trim();
+        if (merchantOrderId.Length == 0)
+            return (false, null, "The Cashfree payment on this order has no order number recorded, so it cannot be refunded automatically. Pay the customer by hand, or credit the wallet instead.");
 
         var body = JsonSerializer.Serialize(new
         {
@@ -388,7 +436,7 @@ public class RefundsController : ControllerBase
         try
         {
             var http = _httpFactory.CreateClient("cashfree");
-            using var rq = new HttpRequestMessage(HttpMethod.Post, $"{baseUrl}/orders/{cfOrderId}/refunds");
+            using var rq = new HttpRequestMessage(HttpMethod.Post, $"{baseUrl}/orders/{merchantOrderId}/refunds");
             rq.Headers.Add("x-client-id", appId);
             rq.Headers.Add("x-client-secret", secret);
             rq.Headers.Add("x-api-version", CashfreeApiVersion);

@@ -1224,9 +1224,16 @@ public class OrdersController : ControllerBase
         if (already) return;
 
         var isCod = string.Equals(order.Method, "cod", StringComparison.OrdinalIgnoreCase);
-        var gateway = string.Equals(order.Method, "cashfree", StringComparison.OrdinalIgnoreCase) || isCod
-            ? "cashfree"
-            : "razorpay";
+
+        // Which gateway holds the money, from the payment rows. This used to be
+        // guessed from order.Method - cod or cashfree meant Cashfree, anything
+        // else meant Razorpay - which is a guess about how the shop was wired
+        // on the day, not a fact about the order. A COD advance taken through
+        // Razorpay would have been recorded as a Cashfree refund and refused.
+        //
+        // It is only a hint: the payout re-resolves it, so a row opened before
+        // a payment row existed still ends up at the right gateway.
+        var gateway = await Services.PaymentGateways.ForOrderAsync(_db, order.OrderId) ?? "";
 
         _db.OrderRefunds.Add(new OrderRefund
         {
