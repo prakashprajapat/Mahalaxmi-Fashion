@@ -34,17 +34,68 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
 var appDbUser = (builder.Configuration["APP_DB_USER"] ?? "").Trim();
 var appDbPassword = builder.Configuration["APP_DB_PASSWORD"] ?? "";
 
+// Rebuilt through Npgsql rather than by editing the string, so a password
+// containing a semicolon or an equals sign cannot break the parse - or quietly
+// change which host is connected to.
+var csb = new Npgsql.NpgsqlConnectionStringBuilder(connectionString);
+
 if (appDbUser.Length > 0 && appDbPassword.Length > 0)
 {
-    // Rebuilt through Npgsql rather than by editing the string, so a password
-    // containing a semicolon or an equals sign cannot break the parse - or
-    // quietly change which host is connected to.
-    connectionString = new Npgsql.NpgsqlConnectionStringBuilder(connectionString)
-    {
-        Username = appDbUser,
-        Password = appDbPassword,
-    }.ConnectionString;
+    csb.Username = appDbUser;
+    csb.Password = appDbPassword;
 }
+
+// ── How many connections this process may hold ───────────────────────────────
+//
+// Npgsql pools by default and the default ceiling is 100 PER PROCESS. Postgres
+// defaults to max_connections = 100 for the whole server, and it spends real
+// memory on each one because every connection is its own process - which is
+// the wall Instagram hit before they put PgBouncer in front.
+//
+// One API process could therefore take the entire server's allowance on its
+// own. And since the zero-downtime deploy, there are deliberately TWO API
+// processes alive at once during a switch: two pools, 200 connections between
+// them, against a ceiling of 100. Nothing has gone wrong yet only because at
+// this shop's traffic neither pool grows anywhere near its limit - the fault
+// would appear the first busy evening somebody deploys, which is exactly when
+// nobody wants to be reading connection errors.
+//
+// So each process is bounded, and the sum is what has to fit. Note the real
+// budget is not 100: superuser_reserved_connections defaults to 3, which an
+// ordinary role cannot touch - and once the app connects as mfh_app rather
+// than postgres, that reservation applies to it. Measured on a test server:
+// with max_connections = 20, the 21st connection is refused outright with
+// "FATAL: sorry, too many clients already".
+//
+//     2 slots x 40 = 80, out of ~97 usable, leaving room for psql, pg_dump
+//     and the nightly backup
+//
+// Raise DB_MAX_POOL alongside max_connections, never on its own. A pool larger
+// than the server allows does not buy throughput, it buys a queue of requests
+// that each wait and then fail.
+//
+// An explicit value already in the connection string wins - this only fills in
+// a default where none was chosen.
+if (!connectionString!.Contains("Maximum Pool Size", StringComparison.OrdinalIgnoreCase)
+    && !connectionString.Contains("MaxPoolSize", StringComparison.OrdinalIgnoreCase))
+{
+    csb.MaxPoolSize = builder.Configuration.GetValue("DB_MAX_POOL", 40);
+    csb.MinPoolSize = 0;
+
+    // Hand an idle connection back rather than sitting on it. The standby slot
+    // after a deploy is idle for days; without this it would keep whatever it
+    // opened at boot for as long as it lives.
+    csb.ConnectionIdleLifetime = 60;
+
+    // Fail fast rather than hang. Without these a server that has run out of
+    // connections, or a query that will never finish, holds a request open
+    // until the browser gives up - and the shopper sees a page that spins
+    // instead of a page that says something went wrong.
+    if (csb.Timeout == 15) csb.Timeout = 10;          // 15 is Npgsql's default
+    if (csb.CommandTimeout == 30) csb.CommandTimeout = 30;
+}
+
+connectionString = csb.ConnectionString;
 
 builder.Services.AddDbContext<AppDbContext>(opt => opt.UseNpgsql(connectionString));
 
