@@ -498,6 +498,7 @@ using (var scope = app.Services.CreateScope())
         CREATE INDEX IF NOT EXISTS ix_site_event_log_created
             ON site_event_log (created_at DESC);
         ALTER TABLE reviews ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ;
+        ALTER TABLE site_orders ADD COLUMN IF NOT EXISTS expected_delivery TIMESTAMPTZ;
         CREATE TABLE IF NOT EXISTS exchange_requests (
             id               SERIAL PRIMARY KEY,
             order_id         VARCHAR(64)  NOT NULL,

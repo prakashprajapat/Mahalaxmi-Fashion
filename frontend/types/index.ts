@@ -112,6 +112,13 @@ export interface Order {
   shippingState?: string;
   placedAt?: string;
   deliveredAt?: string;
+  /**
+   * When Delhivery expects to deliver it — their date, not ours, taken from
+   * the tracking sweep. Absent until the parcel has a waybill and the courier
+   * has said something, and left blank on screen when it is: a made-up date is
+   * worse than none, because it is the one the shop would repeat to a customer.
+   */
+  expectedDelivery?: string;
   cancelledAt?: string;
   createdAt: string;
   updatedAt: string;

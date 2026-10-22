@@ -192,9 +192,19 @@ public class DelhiveryService
     /// Returns AWB → status text (e.g. "In Transit", "Delivered"). Missing/failed AWBs
     /// are simply absent from the result — callers treat that as "no change".
     /// </summary>
-    public async Task<Dictionary<string, string>> TrackAsync(IEnumerable<string> awbs)
+    /// <summary>What the bulk tracking call says about one parcel.</summary>
+    public readonly record struct TrackLine(string Status, DateTimeOffset? Expected);
+
+    /// <summary>
+    /// Delhivery sends its own expected delivery date in the SAME object this
+    /// reads the status out of, and it used to be dropped on the floor. Keeping
+    /// it costs nothing - no extra call, no extra permission - and it is the
+    /// courier's own promise rather than a guess of ours about how long a
+    /// parcel takes to reach a pincode.
+    /// </summary>
+    public async Task<Dictionary<string, TrackLine>> TrackAsync(IEnumerable<string> awbs)
     {
-        var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var result = new Dictionary<string, TrackLine>(StringComparer.OrdinalIgnoreCase);
         var list = awbs.Where(a => !string.IsNullOrWhiteSpace(a)).Distinct().ToList();
         if (list.Count == 0) return result;
 
@@ -225,12 +235,47 @@ public class DelhiveryService
                 var awb = ship.TryGetProperty("AWB", out var a) ? a.GetString() : null;
                 var status = ship.TryGetProperty("Status", out var st) && st.TryGetProperty("Status", out var ss)
                     ? ss.GetString() : null;
+                var expectedRaw =
+                    (ship.TryGetProperty("ExpectedDeliveryDate", out var e1) && e1.ValueKind == JsonValueKind.String
+                        ? e1.GetString() : null)
+                    ?? (ship.TryGetProperty("PromisedDeliveryDate", out var e2) && e2.ValueKind == JsonValueKind.String
+                        ? e2.GetString() : null);
+
                 if (!string.IsNullOrWhiteSpace(awb) && !string.IsNullOrWhiteSpace(status))
-                    result[awb!] = status!;
+                    result[awb!] = new TrackLine(status!, CourierDate(expectedRaw));
             }
         }
         catch { /* tracking is best-effort — sync service will retry next cycle */ }
         return result;
+    }
+
+    /// <summary>
+    /// A date as Delhivery writes it, which is not one thing. Observed shapes
+    /// include "2026-10-25", "2026-10-25 20:00:00", "2026-10-25T20:00:00" and
+    /// the same with an offset on the end; the field is also sometimes an
+    /// empty string, and sometimes missing.
+    ///
+    /// Anything without an offset is read as INDIAN time, because that is what
+    /// an Indian courier means by a delivery date. Read as UTC instead, an
+    /// evening slot would show up as the next morning and the whole column
+    /// would be a day out for half the orders.
+    /// </summary>
+    public static DateTimeOffset? CourierDate(string? raw)
+    {
+        var s = (raw ?? string.Empty).Trim();
+        if (s.Length == 0) return null;
+
+        // With an offset already on it, believe it.
+        if (DateTimeOffset.TryParse(s, System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.None, out var withOffset)
+            && (s.EndsWith("Z", StringComparison.OrdinalIgnoreCase) || s.Contains('+') || s.LastIndexOf('-') > 7))
+            return withOffset;
+
+        if (DateTime.TryParse(s, System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.None, out var naive))
+            return new DateTimeOffset(DateTime.SpecifyKind(naive, DateTimeKind.Unspecified), IndiaTime.Offset);
+
+        return null;
     }
 
     public record PinCheck(bool Known, bool Serviceable, bool Cod, string? City, string? State);

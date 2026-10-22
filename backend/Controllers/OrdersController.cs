@@ -2472,7 +2472,8 @@ public class OrdersController : ControllerBase
             ReturnMediaPurgeAt: GetJsonStr(rawJson, "returnMediaPurgeAt"),
             ReturnMediaDeleted: GetJsonBool(rawJson, "returnMediaDeleted"),
             WalletUsed: o.WalletUsed,
-            AdvancePaid: o.AdvancePaid
+            AdvancePaid: o.AdvancePaid,
+            ExpectedDelivery: o.ExpectedDelivery
         );
     }
 }

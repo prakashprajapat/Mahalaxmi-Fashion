@@ -59,8 +59,19 @@ public class DelhiveryTrackingSyncService : BackgroundService
             var statuses = await delhivery.TrackAsync(chunk.Select(o => o.Awb!));
             foreach (var order in chunk)
             {
-                if (!statuses.TryGetValue(order.Awb!, out var raw)) continue;
-                var s = raw.ToLowerInvariant();
+                if (!statuses.TryGetValue(order.Awb!, out var line)) continue;
+                var s = line.Status.ToLowerInvariant();
+
+                // The courier's own promise, kept on the order so the orders
+                // list can show it without a tracking call per row. It moves:
+                // a parcel that misses a connection gets a later date, and the
+                // shop should see the later one.
+                if (line.Expected is { } eta && order.ExpectedDelivery != eta)
+                {
+                    order.ExpectedDelivery = eta;
+                    order.UpdatedAt = DateTimeOffset.UtcNow;
+                    updated++;
+                }
 
                 if (s.Contains("delivered") && !s.Contains("undelivered") && !s.Contains("rto"))
                 {

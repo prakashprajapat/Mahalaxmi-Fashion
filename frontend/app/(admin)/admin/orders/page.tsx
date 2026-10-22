@@ -736,6 +736,19 @@ export default function AdminOrdersPage() {
                   const lines = o.cart ?? [];
                   const pieces = lines.reduce((n, c) => n + (c.quantity ?? 1), 0);
                   const placed = new Date(o.placedAt ?? o.createdAt);
+                  // Delhivery's own expected delivery date, when they have given
+                  // one. Nothing is shown when they have not - this column is
+                  // what the shop reads out to a customer on the phone, so a
+                  // guess dressed up as a courier promise is worse than a blank.
+                  const etaRaw = o.expectedDelivery ? new Date(o.expectedDelivery) : null;
+                  // A date the browser could not read must not reach the screen
+                  // as the words Invalid Date in the column the shop reads out.
+                  const eta = etaRaw && !Number.isNaN(etaRaw.getTime()) ? etaRaw : null;
+                  // Past its date and still not delivered. Marked rather than
+                  // hidden: that is the row worth ringing the courier about.
+                  const etaLate = !!eta && !Number.isNaN(eta.getTime())
+                    && eta.getTime() < Date.now()
+                    && !['Delivered', 'Cancelled', 'Return', 'Returned'].includes(o.status);
                   // Size ke andar rang bhi likha aata hai ("M / Red") — packer ko
                   // naap chahiye, isliye rang alag kar dete hain.
                   const sizeOf = (c: typeof lines[number]) =>
@@ -822,6 +835,19 @@ export default function AdminOrdersPage() {
                         </td>
                         <td data-label="Date" style={{ whiteSpace: 'nowrap' }}>
                           {placed.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                          {eta && (
+                            <div
+                              title={etaLate
+                                ? `Delhivery said ${eta.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} and it is not delivered yet`
+                                : `Delhivery expects delivery on ${eta.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}`}
+                              style={{
+                                fontSize: '.72rem', marginTop: '.2rem', fontWeight: 700,
+                                color: etaLate ? '#c0392b' : '#7d736d',
+                              }}>
+                              Expected: {eta.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                              {etaLate && ' \u00b7 late'}
+                            </div>
+                          )}
                         </td>
                         <td data-label="Action">
                           <div className="adm-actions" style={{ flexWrap: 'wrap', alignItems: 'center', margin: 0 }}>

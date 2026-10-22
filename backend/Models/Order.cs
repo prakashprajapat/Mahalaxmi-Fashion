@@ -57,6 +57,13 @@ public class SiteOrder
     [Column("delivered_at")]
     public DateTimeOffset? DeliveredAt { get; set; }
 
+    // When Delhivery expects to deliver it. Theirs, not ours: it arrives in the
+    // tracking response the sweep already makes, and is null until the parcel
+    // has an AWB and the courier has said something. Null stays null on screen
+    // rather than becoming a guess.
+    [Column("expected_delivery")]
+    public DateTimeOffset? ExpectedDelivery { get; set; }
+
     // MISS-6: PAN details for high-value order compliance
     [Column("pan_number")]
     public string? PanNumber { get; set; }
