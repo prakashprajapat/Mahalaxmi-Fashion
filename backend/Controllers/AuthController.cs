@@ -22,8 +22,9 @@ public class AuthController : ControllerBase
     private readonly AttemptLimiter _limit;
     private readonly ILogger<AuthController> _log;
     private readonly TokenService _tokens;
+    private readonly FeatureFlags _flags;
 
-    public AuthController(AppDbContext db, AuthService auth, IConfiguration config, IWebHostEnvironment env, EmailService email, SmsService sms, AttemptLimiter limit, ILogger<AuthController> log, TokenService tokens)
+    public AuthController(AppDbContext db, AuthService auth, IConfiguration config, IWebHostEnvironment env, EmailService email, SmsService sms, AttemptLimiter limit, ILogger<AuthController> log, TokenService tokens, FeatureFlags flags)
     {
         _db = db;
         _auth = auth;
@@ -34,15 +35,24 @@ public class AuthController : ControllerBase
         _limit = limit;
         _log = log;
         _tokens = tokens;
+        _flags = flags;
     }
 
-    // The per-name half of the rate limiting; see CustomersController.TooMany.
+    // The per-name half of the rate limiting; see CustomersController.TooManyAsync.
     //
     // [EnableRateLimiting] counts per IP, which a hundred machines aimed at the
     // owner's password defeat by arithmetic. This counts per sign-in name, so
     // the budget follows the account being attacked instead of the attacker.
-    private IActionResult? TooMany(string? key, (int Limit, TimeSpan Window) rule, string what)
+    private async Task<IActionResult?> TooManyAsync(string? key, (int Limit, TimeSpan Window) rule, string what)
     {
+        // Switched off, this does nothing at all and the per-IP limiter
+        // on the endpoint is the whole of the protection - which is what
+        // the shop ran on before. A limit set too tight locks real
+        // customers out of signing in, and they do not report it, they
+        // just leave; so it has to be possible to stand it down in
+        // seconds rather than in a deploy.
+        if (!await _flags.IsOnAsync("security.perAccountLimits")) return null;
+
         var d = _limit.Check(key, rule.Limit, rule.Window);
         if (d.Allowed) return null;
 
@@ -67,7 +77,7 @@ public class AuthController : ControllerBase
         var loginId = (req.Email ?? "").Trim();
 
         var limitKey = AttemptLimiter.AdminKey(loginId);
-        if (TooMany(limitKey, AttemptLimiter.AdminLogin,
+        if (await TooManyAsync(limitKey, AttemptLimiter.AdminLogin,
             "Too many sign-in attempts for this account.") is { } tooMany) return tooMany;
 
         var adminEmail = await _db.SiteSettings
@@ -273,7 +283,7 @@ public class AuthController : ControllerBase
         // Recovery sends the code by email AND SMS, so each request costs a
         // message. Counted per address rather than per caller: the point is
         // that the owner's inbox cannot be buried from a hundred machines.
-        if (TooMany(AttemptLimiter.OtpKey(null, req.Email), AttemptLimiter.OtpBurst,
+        if (await TooManyAsync(AttemptLimiter.OtpKey(null, req.Email), AttemptLimiter.OtpBurst,
             "Too many recovery codes requested.") is { } tooMany) return tooMany;
 
         var otp = System.Security.Cryptography.RandomNumberGenerator
@@ -339,7 +349,7 @@ public class AuthController : ControllerBase
         // the same: if the owner's email also has a customer account, failed
         // resets there must not be what stands between him and his own panel.
         var recoverKey = AttemptLimiter.ResetKey(req.Email) is { } rk ? rk + ":admin" : null;
-        if (TooMany(recoverKey, AttemptLimiter.Reset,
+        if (await TooManyAsync(recoverKey, AttemptLimiter.Reset,
             "Too many recovery attempts for this account.") is { } tooMany) return tooMany;
 
         var token = await _db.OtpTokens.FirstOrDefaultAsync(t =>

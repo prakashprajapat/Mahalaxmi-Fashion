@@ -25,8 +25,9 @@ public class InfluencersController : ControllerBase
     private readonly IWebHostEnvironment _env;
     private readonly AttemptLimiter _limit;
     private readonly ILogger<InfluencersController> _log;
+    private readonly FeatureFlags _flags;
 
-    public InfluencersController(AppDbContext db, EmailService email, SmsService sms, IWebHostEnvironment env, AttemptLimiter limit, ILogger<InfluencersController> log)
+    public InfluencersController(AppDbContext db, EmailService email, SmsService sms, IWebHostEnvironment env, AttemptLimiter limit, ILogger<InfluencersController> log, FeatureFlags flags)
     {
         _db = db;
         _email = email;
@@ -34,13 +35,22 @@ public class InfluencersController : ControllerBase
         _env = env;
         _limit = limit;
         _log = log;
+        _flags = flags;
     }
 
-    // The per-account half of the rate limiting; see CustomersController.TooMany.
+    // The per-account half of the rate limiting; see CustomersController.TooManyAsync.
     // Counted per creator account rather than per IP, so a password or OTP aimed
     // at one creator runs out of attempts however many machines are aiming it.
-    private IActionResult? TooMany(string? key, (int Limit, TimeSpan Window) rule, string what)
+    private async Task<IActionResult?> TooManyAsync(string? key, (int Limit, TimeSpan Window) rule, string what)
     {
+        // Switched off, this does nothing at all and the per-IP limiter
+        // on the endpoint is the whole of the protection - which is what
+        // the shop ran on before. A limit set too tight locks real
+        // customers out of signing in, and they do not report it, they
+        // just leave; so it has to be possible to stand it down in
+        // seconds rather than in a deploy.
+        if (!await _flags.IsOnAsync("security.perAccountLimits")) return null;
+
         var d = _limit.Check(key, rule.Limit, rule.Window);
         if (d.Allowed) return null;
 
@@ -99,7 +109,7 @@ public class InfluencersController : ControllerBase
     [EnableRateLimiting("auth")]
     public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest req)
     {
-        if (TooMany(AttemptLimiter.ResetKey(req.Email), AttemptLimiter.Reset,
+        if (await TooManyAsync(AttemptLimiter.ResetKey(req.Email), AttemptLimiter.Reset,
             "Too many reset requests for this account.") is { } tooMany) return tooMany;
 
         if (!string.IsNullOrWhiteSpace(req.Email))
@@ -127,7 +137,7 @@ public class InfluencersController : ControllerBase
             return BadRequest(new { message = "Email and password are required." });
 
         var limitKey = AttemptLimiter.CreatorKey(req.Email);
-        if (TooMany(limitKey, AttemptLimiter.Login,
+        if (await TooManyAsync(limitKey, AttemptLimiter.Login,
             "Too many sign-in attempts for this account.") is { } tooMany) return tooMany;
 
         var inf = await _db.Influencers.FirstOrDefaultAsync(i =>
@@ -167,9 +177,9 @@ public class InfluencersController : ControllerBase
         // what the caller typed, so asking by email and by mobile draws on the
         // same budget instead of two.
         var otpKey = AttemptLimiter.OtpKey(accPhone, accEmail);
-        if (TooMany(otpKey, AttemptLimiter.OtpBurst,
+        if (await TooManyAsync(otpKey, AttemptLimiter.OtpBurst,
             "Too many codes requested for this account.") is { } otpBurst) return otpBurst;
-        if (TooMany(otpKey + ":day", AttemptLimiter.OtpDaily,
+        if (await TooManyAsync(otpKey + ":day", AttemptLimiter.OtpDaily,
             "Too many codes requested for this account today.") is { } otpDay) return otpDay;
 
         var otp = System.Security.Cryptography.RandomNumberGenerator
@@ -229,7 +239,7 @@ public class InfluencersController : ControllerBase
         // The five-guess lock below counts per token, and a token is replaced by
         // asking for another code. This budget is per account and is not.
         var verifyKey = AttemptLimiter.CreatorKey(idf) is { } vk ? vk + ":otp" : null;
-        if (TooMany(verifyKey, AttemptLimiter.Login,
+        if (await TooManyAsync(verifyKey, AttemptLimiter.Login,
             "Too many code attempts for this account.") is { } tooMany) return tooMany;
 
         var inf = await FindApprovedInfluencer(idf);
@@ -349,7 +359,7 @@ public class InfluencersController : ControllerBase
         // profile eight times in a quarter of an hour locks herself out of the
         // sign-in page she is already past.
         var profileKey = AttemptLimiter.CreatorKey(req.Email);
-        if (TooMany(profileKey, AttemptLimiter.Login,
+        if (await TooManyAsync(profileKey, AttemptLimiter.Login,
             "Too many attempts for this account.") is { } tooMany) return tooMany;
 
         var inf = await _db.Influencers.FirstOrDefaultAsync(i =>

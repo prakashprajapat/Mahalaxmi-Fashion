@@ -408,6 +408,23 @@ export const authApi = {
   me: (token: string) => request<{ success: boolean; email: string; role: string }>('/auth/me', undefined, token),
 };
 
+// The switches that decide whether a deployed feature is actually on. Owner
+// only, both ways - these decide whether customers can sign in.
+export const flagsApi = {
+  list: (token: string) =>
+    request<{
+      success: boolean;
+      flags: { key: string; title: string; what: string; ifItBreaks: string; state: 'off' | 'staff' | 'on' }[];
+    }>('/featureflags', undefined, token),
+
+  set: (key: string, state: 'off' | 'staff' | 'on', token: string) =>
+    request<{ success: boolean; key: string; state: string }>(
+      `/featureflags/${encodeURIComponent(key)}`,
+      { method: 'PUT', body: JSON.stringify({ state }) },
+      token,
+    ),
+};
+
 // ── Settings ─────────────────────────────────────────────────────────────────
 // Client-side settings cache: layout, navbar, footer, offer banner, whatsapp float, etc. all
 // request /settings on the same page load. We dedupe those into ONE network call and reuse the

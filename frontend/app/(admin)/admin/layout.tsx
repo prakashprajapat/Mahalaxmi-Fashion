@@ -72,6 +72,7 @@ const ALL_NAV: { href?: string; label?: string; exact?: boolean; heading?: strin
   { heading: 'Settings' },
   { href: '/admin/staff',       label: '👤 Staff Management' },
   { href: '/admin/settings',    label: '⚙️ Settings' },
+  { href: '/admin/flags',       label: '🎚️ Feature Switches' },
 ];
 
 // The four sections the phone tab bar shows. Everything else lives behind "More",

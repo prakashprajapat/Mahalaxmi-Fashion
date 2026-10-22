@@ -107,6 +107,7 @@ builder.Services.AddScoped<DelhiveryService>();
 builder.Services.AddScoped<AdminNotifier>();
 builder.Services.AddScoped<WalletService>();
 builder.Services.AddScoped<TokenService>();
+builder.Services.AddScoped<FeatureFlags>();
 // Every one of these had the framework default, which is ONE HUNDRED SECONDS.
 //
 // That is the shape of bottleneck worth worrying about here. A courier or a

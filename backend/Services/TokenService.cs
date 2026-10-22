@@ -65,15 +65,22 @@ public sealed class TokenService
     // a copy exists somewhere, and the whole chain goes.
     private static readonly TimeSpan ReuseGrace = TimeSpan.FromSeconds(60);
 
+    // The lifetimes this replaced, kept because the switch has to be able to
+    // put them back exactly. "Roughly the old behaviour" is not an off switch.
+    private const int LegacyAccessDaysStaff = 7;
+    private const int LegacyAccessDaysCustomer = 30;
+
     private readonly AppDbContext _db;
     private readonly AuthService _auth;
     private readonly ILogger<TokenService> _log;
+    private readonly FeatureFlags _flags;
 
-    public TokenService(AppDbContext db, AuthService auth, ILogger<TokenService> log)
+    public TokenService(AppDbContext db, AuthService auth, ILogger<TokenService> log, FeatureFlags flags)
     {
         _db = db;
         _auth = auth;
         _log = log;
+        _flags = flags;
     }
 
     public const string Customer = "customer";
@@ -132,7 +139,21 @@ public sealed class TokenService
     /// that and this is the receipt.
     /// </summary>
     public async Task<Pair> IssuePairAsync(Principal p, string? userAgent, string? family = null)
-        => (await IssueAsync(p, userAgent, family)).Pair;
+    {
+        // Switched off, this hands back exactly what the shop issued before:
+        // one long-lived access token and NO refresh token. The browser stores
+        // a refresh token only when it is given one, and renewAccess already
+        // does nothing without one - so off is the old behaviour throughout,
+        // not a version of it.
+        if (!await _flags.IsOnAsync("auth.refreshTokens"))
+        {
+            var days = p.SubjectType == Customer ? LegacyAccessDaysCustomer : LegacyAccessDaysStaff;
+            var legacy = _auth.GenerateJwt(p.SubjectId, p.Email, p.Role, p.Perms, TimeSpan.FromDays(days));
+            return new Pair(legacy, string.Empty, days * 24 * 60 * 60);
+        }
+
+        return (await IssueAsync(p, userAgent, family)).Pair;
+    }
 
     private async Task<(Pair Pair, int RowId)> IssueAsync(Principal p, string? userAgent, string? family)
     {
@@ -170,6 +191,11 @@ public sealed class TokenService
     /// </summary>
     public async Task<RotateResult> RotateAsync(string? presented, string? userAgent)
     {
+        // Nothing to rotate while the feature is off, and a stale refresh token
+        // in somebody's browser must not keep working after it is switched off.
+        if (!await _flags.IsOnAsync("auth.refreshTokens"))
+            return new RotateResult(null, "Please sign in again.", false);
+
         if (string.IsNullOrWhiteSpace(presented))
             return new RotateResult(null, "Session expired. Please sign in again.", false);
 

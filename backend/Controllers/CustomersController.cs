@@ -26,8 +26,9 @@ public class CustomersController : ControllerBase
     private readonly WalletService _wallet;
     private readonly AttemptLimiter _limit;
     private readonly TokenService _tokens;
+    private readonly FeatureFlags _flags;
 
-    public CustomersController(AppDbContext db, AuthService auth, IWebHostEnvironment env, EmailService email, SmsService sms, AdminNotifier notify, ILogger<CustomersController> log, WalletService wallet, AttemptLimiter limit, TokenService tokens)
+    public CustomersController(AppDbContext db, AuthService auth, IWebHostEnvironment env, EmailService email, SmsService sms, AdminNotifier notify, ILogger<CustomersController> log, WalletService wallet, AttemptLimiter limit, TokenService tokens, FeatureFlags flags)
     {
         _db = db;
         _auth = auth;
@@ -39,6 +40,7 @@ public class CustomersController : ControllerBase
         _wallet = wallet;
         _limit = limit;
         _tokens = tokens;
+        _flags = flags;
     }
 
     // A signed-in shopper: a short-lived access token plus a refresh token that
@@ -62,8 +64,16 @@ public class CustomersController : ControllerBase
     // is verified, so a wrong guess costs an attempt whether or not the account
     // exists - a limit that only counted real accounts would tell an attacker
     // which addresses are worth attacking.
-    private IActionResult? TooMany(string? key, (int Limit, TimeSpan Window) rule, string what)
+    private async Task<IActionResult?> TooManyAsync(string? key, (int Limit, TimeSpan Window) rule, string what)
     {
+        // Switched off, this does nothing at all and the per-IP limiter
+        // on the endpoint is the whole of the protection - which is what
+        // the shop ran on before. A limit set too tight locks real
+        // customers out of signing in, and they do not report it, they
+        // just leave; so it has to be possible to stand it down in
+        // seconds rather than in a deploy.
+        if (!await _flags.IsOnAsync("security.perAccountLimits")) return null;
+
         var d = _limit.Check(key, rule.Limit, rule.Window);
         if (d.Allowed) return null;
 
@@ -744,7 +754,7 @@ public class CustomersController : ControllerBase
         // path and is checked below, so this only touches public sign-up.
         if (!User.HasSectionAccess("customers"))
         {
-            if (TooMany(AttemptLimiter.SignupKey(phone, email), AttemptLimiter.Signup,
+            if (await TooManyAsync(AttemptLimiter.SignupKey(phone, email), AttemptLimiter.Signup,
                 "Too many accounts have been created from this number.") is { } tooMany) return tooMany;
         }
 
@@ -974,7 +984,7 @@ public class CustomersController : ControllerBase
     public async Task<IActionResult> Login([FromBody] LoginRequest req)
     {
         var limitKey = AttemptLimiter.LoginKey(req.Email);
-        if (TooMany(limitKey, AttemptLimiter.Login,
+        if (await TooManyAsync(limitKey, AttemptLimiter.Login,
             "Too many sign-in attempts for this account.") is { } tooMany) return tooMany;
 
         var customer = await _db.Customers
@@ -1022,9 +1032,9 @@ public class CustomersController : ControllerBase
         // script emptying the MSG91 balance in a minute; the daily one stops it
         // being emptied over an afternoon, slowly enough to pass the first.
         var otpKey = AttemptLimiter.OtpKey(phoneOrEmail, email);
-        if (TooMany(otpKey, AttemptLimiter.OtpBurst,
+        if (await TooManyAsync(otpKey, AttemptLimiter.OtpBurst,
             "Too many codes requested for this number.") is { } otpBurst) return otpBurst;
-        if (TooMany(otpKey + ":day", AttemptLimiter.OtpDaily,
+        if (await TooManyAsync(otpKey + ":day", AttemptLimiter.OtpDaily,
             "Too many codes requested for this number today.") is { } otpDay) return otpDay;
 
         // Generate 6-digit OTP
@@ -1184,7 +1194,7 @@ public class CustomersController : ControllerBase
 
         // Counted before the account is looked up, so asking for a reset on an
         // address that does not exist costs the same as asking for a real one.
-        if (TooMany(AttemptLimiter.ResetKey(idf), AttemptLimiter.Reset,
+        if (await TooManyAsync(AttemptLimiter.ResetKey(idf), AttemptLimiter.Reset,
             "Too many password reset requests for this account.") is { } tooMany) return tooMany;
 
         var customer = await FindCustomerByIdentifier(idf);
@@ -1251,7 +1261,7 @@ public class CustomersController : ControllerBase
         var idf = (req.Email ?? "").Trim();
 
         var resetKey = AttemptLimiter.ResetKey(idf) is { } k ? k + ":verify" : null;
-        if (TooMany(resetKey, AttemptLimiter.Reset,
+        if (await TooManyAsync(resetKey, AttemptLimiter.Reset,
             "Too many reset attempts for this account.") is { } tooMany) return tooMany;
 
         var customer = await FindCustomerByIdentifier(idf);
