@@ -406,3 +406,122 @@ Two notes:
 - On a **fresh** install, `database/schema.sql` runs as `postgres` and the new
   tables are owned by `postgres` again, so the script has to be run once more
   after that.
+
+## CORRECTION: production runs pm2, not docker-compose
+
+Two items written earlier point at `docker-compose.yml`. The VPS does not use
+it — `deploy.sh` does `dotnet publish` and runs both halves under **pm2**
+(`mahalaxmi-api`, `mahalaxmi-frontend`). The compose file is for local work.
+So:
+
+- **The port binding.** Changing compose to `127.0.0.1:5000:5000` does nothing
+  on the VPS. Under pm2 the API binds whatever `ASPNETCORE_URLS` says; unset,
+  Kestrel uses `http://localhost:5000`, which is loopback only and fine. Check
+  it once:
+
+      pm2 env 0 | grep -i aspnetcore_urls      # or: pm2 describe mahalaxmi-api
+      ss -lntp | grep 5000
+
+  `127.0.0.1:5000` is correct. `0.0.0.0:5000` or `*:5000` means the API answers
+  on the public IP past Cloudflare — fix by setting
+  `ASPNETCORE_URLS=http://127.0.0.1:5000` in the pm2 environment.
+
+- **The database role.** `APP_DB_USER` / `APP_DB_PASSWORD` must be in the pm2
+  environment, not a compose `.env`:
+
+      pm2 set mahalaxmi-api:APP_DB_USER mfh_app       # not persisted to env
+      # simpler and what actually works: put them in start-api.sh before exec,
+      # or in an ecosystem file, then: pm2 restart mahalaxmi-api --update-env
+
+  Everything else in the least-privilege section still applies as written.
+
+## Zero-downtime deploys — one-time setup
+
+`deploy.sh` now releases the API into an idle slot and moves nginx across only
+after the new one answers on its own port. Until the nginx side exists it
+notices and falls back to the old restart-in-place deploy, so nothing breaks
+before this is done.
+
+**1. The upstream nginx will switch between**
+
+    cat > /etc/nginx/conf.d/mfh-api-upstream.conf <<'EOF'
+    upstream mfh_api { server 127.0.0.1:5001; }
+    EOF
+
+**2. Point the API location at it.** In the site file under
+`/etc/nginx/sites-enabled/`, the `/api` block must proxy to the upstream rather
+than to a port directly:
+
+    location /api/ {
+        proxy_pass http://mfh_api/api/;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header CF-Connecting-IP  $remote_addr;
+    }
+
+Then `nginx -t && systemctl reload nginx`.
+
+**3. Create the first slot** from what is already built and running:
+
+    cp -a /var/www/mahalaxmi-backend /var/www/mahalaxmi-backend-blue
+    ASPNETCORE_URLS=http://127.0.0.1:5001 pm2 start \
+      /var/www/mahalaxmi-backend-blue/MahalaxmiApi \
+      --name mfh-api-blue --cwd /var/www/mahalaxmi-backend-blue
+    curl -fs http://127.0.0.1:5001/api/health && echo blue-OK
+    echo blue > /var/www/mfh-live-colour
+    pm2 save
+
+Once `blue-OK` prints and the site is answering through nginx, the old
+single-port process is no longer serving anything:
+
+    pm2 delete mahalaxmi-api
+
+**4. Frontend: cluster mode**, so `pm2 reload` replaces workers one at a time
+instead of stopping the site:
+
+    pm2 delete mahalaxmi-frontend
+    cd /var/www/mahalaxmi-nextjs/frontend
+    pm2 start npm --name mahalaxmi-frontend -i 2 --exec-mode cluster -- start
+    pm2 save
+
+Two workers is right for this VPS: enough to reload without a gap, not enough
+to fight the API for CPU.
+
+### Deploying after that
+
+    bash deploy.sh              # releases into the idle slot, switches when healthy
+    bash deploy.sh --rollback   # puts the previous slot back, about a second
+
+The previous slot is deliberately left running — that is what makes going back
+instant. It costs one idle .NET process worth of memory until the next deploy
+reuses that slot. If the VPS is tight: `pm2 stop mfh-api-<old colour>`.
+
+### What is deliberately NOT here
+
+**Canary (sending 10% of traffic to the new version first).** nginx can do it
+with weighted upstreams, but a canary is only worth having if there is enough
+traffic to read a signal from in a few minutes, and someone watching error
+rates split by version. At this shop's volume the health gate plus a one-second
+rollback is the better trade; the canary would mostly add a way to be
+half-deployed when something goes wrong at night.
+
+**Two versions of the frontend served at once.** A browser that loaded a page
+before the deploy asks for chunks from the old build, which the swap has
+replaced, so that tab can break on its next navigation. The previous build is
+kept as `.next-previous` already; serving it as a fallback for `/_next/static/`
+would close this. Not done — say the word.
+
+### The database rule this depends on
+
+Two versions of the API are alive together for a few seconds, against one
+database, and the new one applies its schema changes at boot while the old one
+is still serving. So every change must be survivable by the version still
+running: **add, never remove or tighten, in the same release**. Drop the old
+column in a later one, once no running version remembers it.
+
+`backend/Scripts/check-migrations.py` enforces this and runs as part of
+`check-cs.sh`. A deliberate contract step is marked on the line:
+
+    ALTER TABLE products DROP COLUMN old_price;  -- rolling-deploy: unused since v2.3

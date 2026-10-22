@@ -371,6 +371,34 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
+    // Only one instance may do the schema work at a time.
+    //
+    // Every boot runs CREATE TABLE IF NOT EXISTS and ALTER TABLE ADD COLUMN IF
+    // NOT EXISTS over the whole schema. That is idempotent, so running it twice
+    // is harmless - running it twice AT ONCE is not. Two versions of the API
+    // are deliberately alive together for a few seconds during a zero-downtime
+    // switch, both boot, and concurrent CREATE TABLE on the same name races in
+    // the catalogue: one of them gets a duplicate-key error on pg_type rather
+    // than the "already exists, carry on" it was written to expect, and that
+    // instance fails to start. Which is the new one, half the time.
+    //
+    // A session advisory lock costs nothing and serialises them. The key is
+    // arbitrary; it only has to be the same in every copy of this app.
+    //
+    // OpenConnection pins ONE connection for this whole scope, which is what
+    // makes a session lock work at all - without it EF hands back the
+    // connection after each statement and the lock goes with it.
+    //
+    // lock_timeout rather than waiting for ever: if something really is stuck
+    // holding this, the boot should fail loudly and let the deploy roll back,
+    // not hang while the health check times out with no reason given.
+    db.Database.OpenConnection();
+    db.Database.ExecuteSqlRaw("SET lock_timeout = '120s'");
+    db.Database.ExecuteSqlRaw("SELECT pg_advisory_lock(7273001)");
+    try
+    {
+
+
     // Is the app still a superuser? Said out loud at every boot, because this
     // is the kind of thing that gets fixed once, undone by a restore or a
     // rebuild, and never noticed again. Same reasoning as the endpoint audit:
@@ -949,6 +977,17 @@ using (var scope = app.Services.CreateScope())
     if (!db.SiteSettings.Any(x => x.Key == "referralSignupRewardMonthlyCap"))
         db.SiteSettings.Add(new MahalaxmiApi.Models.SiteSetting { Key = "referralSignupRewardMonthlyCap", Value = "20" });
     db.SaveChanges();
+    }
+    finally
+    {
+        // Released explicitly, though closing the connection would do it too -
+        // the next thing this scope does is dispose, and a lock that depends on
+        // a dispose happening is a lock somebody will eventually move.
+        try { db.Database.ExecuteSqlRaw("SELECT pg_advisory_unlock(7273001)"); }
+        catch { /* the connection is going anyway, which releases it */ }
+        db.Database.CloseConnection();
+    }
+
 }
 
 if (app.Environment.IsDevelopment())

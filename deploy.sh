@@ -2,10 +2,32 @@
 # Deploy Mahalaxmi Fashion Hub straight from GitHub.
 # Usage on the server:  bash /var/www/mahalaxmi-nextjs/deploy.sh
 #
-# Safety model: BOTH the backend and the frontend are built BEFORE the running
-# site is touched. If either build fails, we roll the code back to the previous
-# commit and leave the currently-running site untouched — so a bad push can never
-# take the site down.
+# Safety model, part one: BOTH the backend and the frontend are built BEFORE the
+# running site is touched. If either build fails, we roll the code back to the
+# previous commit and leave the currently-running site untouched — so a bad push
+# can never take the site down.
+#
+# Safety model, part two — and this is the part that was missing: a build that
+# SUCCEEDS and then does not work. The old script killed port 5000, restarted the
+# API in place, and only then asked whether it was answering. So every deploy had
+# a hole in it where the shop was down, and a deploy that went wrong was down for
+# the hole PLUS a rebuild and another restart. With ads running, those are paid
+# clicks landing on nothing.
+#
+# The API is now released beside the running one instead of on top of it. Two
+# slots, blue and green, on two ports; the new version is published to whichever
+# is idle, started, and asked for its health on its own port while the old one
+# carries on serving. Only once it answers does nginx move across — a reload,
+# which nginx does without dropping a connection — and the old slot is left
+# running for a grace period, so going back is one more reload rather than
+# another build.
+#
+#     bash deploy.sh              deploy
+#     bash deploy.sh --rollback   put the previous slot back, in about a second
+#
+# This needs one piece of nginx setup, once. Until that is in place the script
+# notices and falls back to the old restart-in-place path, so it keeps working
+# either way; see RUNBOOK-PENDING.md.
 set -u
 echo "=== Deploy Mahalaxmi (from GitHub) ==="
 
@@ -64,20 +86,36 @@ rollback() {
   rm -rf frontend/$BUILD_DIR
   git reset --hard "$PREV"
   cp /root/appsettings.backup.json backend/appsettings.json 2>/dev/null || true
-  (cd backend && dotnet publish -c Release -o /var/www/mahalaxmi-backend) >/dev/null 2>&1 || true
+
+  # The API half depends on which kind of deploy this was.
+  #
+  # Blue/green: there is nothing to undo. The previous version never stopped
+  # serving, nginx was never moved, and the half-built slot is simply left
+  # alone to be overwritten by the next attempt. Rebuilding anything here
+  # would be touching a running shop to fix something that is not broken.
+  if [ -n "${TARGET:-}" ]; then
+    echo "    The API is untouched: ${LIVE:-the live slot} never stopped serving."
+  else
+    (cd backend && dotnet publish -c Release -o /var/www/mahalaxmi-backend) >/dev/null 2>&1 || true
+    pm2 restart mahalaxmi-api >/dev/null 2>&1 || true
+  fi
+
   if [ -d "frontend/$PREV_DIR" ]; then
     echo "    Restoring the previous frontend build."
     rm -rf frontend/.next
     mv "frontend/$PREV_DIR" frontend/.next
   fi
-  pm2 restart mahalaxmi-api >/dev/null 2>&1 || true
-  pm2 restart mahalaxmi-frontend >/dev/null 2>&1 || true
+  pm2 reload mahalaxmi-frontend >/dev/null 2>&1 || pm2 restart mahalaxmi-frontend >/dev/null 2>&1 || true
   # Rollback kaamyab hota hai - site chalti rehti hai - isliye bahar se kuch
   # galat dikhta hi nahi, aur raat ko gire deploy ka subah tak kisi ko pata
   # nahi chalta. Ye nishan HealthWatchdogService agli jaanch par uthakar mail
   # kar deta hai, aur phir khud mita deta hai.
+  MARKER_DIR=/var/www/mahalaxmi-backend
+  if [ -n "${LIVE:-}" ] && [ -d "/var/www/mahalaxmi-backend-$LIVE" ]; then
+    MARKER_DIR="/var/www/mahalaxmi-backend-$LIVE"
+  fi
   printf '%s\n' "Deploy $(date -u '+%Y-%m-%d %H:%M UTC') par fail hua aur $PREV par rollback ho gaya. Wajah: $1" \
-    > /var/www/mahalaxmi-backend/DEPLOY-FAILED 2>/dev/null || true
+    > "$MARKER_DIR/DEPLOY-FAILED" 2>/dev/null || true
   echo "=== Deploy aborted. The site is back on the previous version. ==="
   echo "=== Fix the error and push again. ==="
   exit 1
@@ -88,8 +126,90 @@ rollback() {
 BUILD_DIR=.next-build
 PREV_DIR=.next-previous
 
+# ── Blue/green slots for the API ─────────────────────────────────────────────
+UPSTREAM_CONF=/etc/nginx/conf.d/mfh-api-upstream.conf
+STATE_FILE=/var/www/mfh-live-colour
+PORT_blue=5001
+PORT_green=5002
+
+# Is the nginx side set up? Both halves have to be there: the include file we
+# rewrite, and a live config that actually proxies to the upstream it defines.
+# Checking only the file would let a half-finished setup send the switch into
+# a config nothing reads, and the deploy would report success over an API that
+# no request reaches.
+bluegreen_ready() {
+  [ -f "$UPSTREAM_CONF" ] || return 1
+  nginx -T 2>/dev/null | grep -q "proxy_pass http://mfh_api" || return 1
+  return 0
+}
+
+live_colour() {
+  if [ -f "$STATE_FILE" ]; then cat "$STATE_FILE"; return; fi
+  # No state file yet: read it out of the upstream nginx is using.
+  if grep -q ":$PORT_green" "$UPSTREAM_CONF" 2>/dev/null; then echo green; else echo blue; fi
+}
+
+other_colour() { [ "$1" = blue ] && echo green || echo blue; }
+port_of() { [ "$1" = blue ] && echo $PORT_blue || echo $PORT_green; }
+
+# Ask a slot, on its own port, whether it is actually working - before any
+# traffic is sent to it. /api/health is the shallow one (is it up); the
+# products call proves the database path end to end, which is what a boot that
+# cannot reach Postgres fails at. Up to 60 seconds: a cold .NET start plus the
+# schema check takes a few.
+slot_healthy() {
+  local port=$1 i
+  for i in $(seq 1 20); do
+    if curl -fs --max-time 5 "http://127.0.0.1:$port/api/health" >/dev/null 2>&1 \
+       && curl -fs --max-time 8 "http://127.0.0.1:$port/api/products?pageSize=1" >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 3
+  done
+  return 1
+}
+
+# Point nginx at a colour. The reload is graceful: nginx starts new workers on
+# the new config and lets the old ones finish the requests they are holding, so
+# nothing in flight is dropped. nginx -t first, because a reload on a broken
+# config is the one way this step could take the site down.
+point_nginx_at() {
+  local colour=$1 port
+  port=$(port_of "$colour")
+  printf 'upstream mfh_api { server 127.0.0.1:%s; }\n' "$port" > "$UPSTREAM_CONF"
+  nginx -t >/dev/null 2>&1 || { echo "   ERROR: nginx config is not valid; not reloading."; return 1; }
+  nginx -s reload || return 1
+  echo "$colour" > "$STATE_FILE"
+  return 0
+}
+
+# --rollback: put the previous colour back. No build, no publish - the slot is
+# still there and still running, so this is a file write and a reload.
+if [ "${1:-}" = "--rollback" ]; then
+  bluegreen_ready || { echo "Blue/green is not set up, so there is no slot to go back to."; exit 1; }
+  NOW=$(live_colour); BACK=$(other_colour "$NOW")
+  echo "Live is $NOW. Going back to $BACK."
+  pm2 describe "mfh-api-$BACK" >/dev/null 2>&1 || { echo "ERROR: mfh-api-$BACK is not there."; exit 1; }
+  pm2 start "mfh-api-$BACK" >/dev/null 2>&1 || true
+  slot_healthy "$(port_of "$BACK")" || { echo "ERROR: $BACK is not answering. Not switching to it."; exit 1; }
+  point_nginx_at "$BACK" || { echo "ERROR: could not switch nginx."; exit 1; }
+  echo "Back on $BACK. $NOW is still running; stop it when you are satisfied:"
+  echo "   pm2 stop mfh-api-$NOW"
+  exit 0
+fi
+
 echo "4. Building backend..."
-(cd backend && dotnet publish -c Release -o /var/www/mahalaxmi-backend) || rollback "Backend build failed."
+if bluegreen_ready; then
+  LIVE=$(live_colour); TARGET=$(other_colour "$LIVE"); TARGET_PORT=$(port_of "$TARGET")
+  echo "   Live slot: $LIVE. Building into the idle one: $TARGET (port $TARGET_PORT)."
+  BACKEND_OUT=/var/www/mahalaxmi-backend-$TARGET
+else
+  echo "   NOTE: blue/green is not set up yet, so this is a restart-in-place deploy"
+  echo "         with a short outage. See RUNBOOK-PENDING.md to set it up once."
+  LIVE=""; TARGET=""; TARGET_PORT=5000
+  BACKEND_OUT=/var/www/mahalaxmi-backend
+fi
+(cd backend && dotnet publish -c Release -o "$BACKEND_OUT") || rollback "Backend build failed."
 
 echo "5. Checking frontend dependencies..."
 # next/image resizes every product photo on the server, and it cannot do that
@@ -118,10 +238,42 @@ rm -rf "frontend/$BUILD_DIR"
 (cd frontend && NEXT_DIST_DIR=$BUILD_DIR npm run build) || rollback "Frontend build failed."
 [ -f "frontend/$BUILD_DIR/BUILD_ID" ] || rollback "Frontend build produced no BUILD_ID."
 
-# Both builds succeeded — now it's safe to restart the live processes.
-echo "7. Restarting API..."
-fuser -k 5000/tcp 2>/dev/null; sleep 2
-pm2 restart mahalaxmi-api
+# Both builds succeeded — now it's safe to release.
+if [ -n "$TARGET" ]; then
+  echo "7. Starting the new API beside the running one..."
+  # Each slot binds its OWN port and nothing else, so starting this one cannot
+  # disturb the one serving. No fuser here on purpose: killing a port is what
+  # made the old deploy an outage.
+  if pm2 describe "mfh-api-$TARGET" >/dev/null 2>&1; then
+    pm2 restart "mfh-api-$TARGET" --update-env
+  else
+    ASPNETCORE_URLS="http://127.0.0.1:$TARGET_PORT" \
+      pm2 start "/var/www/mahalaxmi-backend-$TARGET/MahalaxmiApi" \
+        --name "mfh-api-$TARGET" --cwd "/var/www/mahalaxmi-backend-$TARGET"
+  fi
+  echo "   Waiting for $TARGET to answer on its own port before sending it anything..."
+  slot_healthy "$TARGET_PORT" || {
+    pm2 stop "mfh-api-$TARGET" >/dev/null 2>&1 || true
+    rollback "The new API did not come up. Nothing was switched - the shop is still on $LIVE."
+  }
+  echo "   $TARGET is healthy."
+
+  echo "   Moving nginx to $TARGET..."
+  point_nginx_at "$TARGET" || {
+    pm2 stop "mfh-api-$TARGET" >/dev/null 2>&1 || true
+    rollback "Could not move nginx. Nothing was switched - the shop is still on $LIVE."
+  }
+
+  # Through nginx this time, which is the path a real shopper takes.
+  curl -fs --max-time 8 "http://127.0.0.1/api/health" >/dev/null 2>&1 \
+    || curl -fs --max-time 8 "http://127.0.0.1:$TARGET_PORT/api/health" >/dev/null 2>&1 \
+    || { point_nginx_at "$LIVE"; rollback "The new API stopped answering through nginx; put $LIVE back."; }
+  echo "   Switched. $LIVE is still running as the way back."
+else
+  echo "7. Restarting API (in place — short outage)..."
+  fuser -k 5000/tcp 2>/dev/null; sleep 2
+  pm2 restart mahalaxmi-api
+fi
 
 echo "8. Swapping in the new frontend and restarting..."
 # Two renames on the same filesystem: the window where .next is not the
@@ -149,7 +301,17 @@ if [ -d "frontend/$PREV_DIR/cache/images" ]; then
 fi
 
 mv "frontend/$BUILD_DIR" frontend/.next
-pm2 restart mahalaxmi-frontend
+
+# reload, not restart. In cluster mode pm2 replaces the workers one at a time,
+# so the port is never unserved; restart stops the site and then starts it. In
+# fork mode reload behaves as restart, so this is never worse - and the note
+# below says what to do about that once.
+pm2 reload mahalaxmi-frontend --update-env || pm2 restart mahalaxmi-frontend
+if ! pm2 jlist 2>/dev/null | grep -q '"name":"mahalaxmi-frontend"[^}]*"exec_mode":"cluster_mode"'; then
+  echo "   NOTE: the frontend is in fork mode, so that reload was a restart with a"
+  echo "         second or two of downtime. Cluster mode makes it seamless; see"
+  echo "         RUNBOOK-PENDING.md."
+fi
 
 
 echo "9. Health check..."
@@ -261,3 +423,12 @@ WARM_PID=$!
 ( sleep 600 && kill $WARM_PID 2>/dev/null ) >/dev/null 2>&1 &
 pm2 status
 echo "=== Deploy complete ==="
+if [ -n "${TARGET:-}" ]; then
+  echo
+  echo "Live: mfh-api-$TARGET.  Still running as the way back: mfh-api-$LIVE."
+  echo "To go back:  bash deploy.sh --rollback    (about a second, no build)"
+  echo
+  echo "The old slot is left running ON PURPOSE - that is what makes going back"
+  echo "instant. It costs one idle .NET process worth of memory until the next"
+  echo "deploy reuses that slot. If the VPS is tight:  pm2 stop mfh-api-$LIVE"
+fi
