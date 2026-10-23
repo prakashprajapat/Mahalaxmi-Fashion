@@ -100,10 +100,28 @@ rollback() {
     pm2 restart mahalaxmi-api >/dev/null 2>&1 || true
   fi
 
-  if [ -d "frontend/$PREV_DIR" ]; then
+  # Only if the swap already happened.
+  #
+  # $PREV_DIR is written in step 8, when .next is parked and the new build
+  # takes its place. Before that point $PREV_DIR still holds the build from the
+  # PREVIOUS deploy, while .next holds the one correctly serving shoppers right
+  # now - so restoring it deleted a healthy build and installed one two
+  # generations old, whose chunk hashes no longer match what open tabs are
+  # asking for. Every shopper mid-session got 404s on their next click, and the
+  # script printed "The site is back on the previous version."
+  #
+  # A build that failed before the swap needs no rollback at all: .next was
+  # never touched.
+  # ${SWAPPED:-no}, not "$SWAPPED": the script runs under `set -u` and this
+  # function is called from steps that run BEFORE the assignment below, so a
+  # bare reference would abort the rollback itself at the one moment it is
+  # needed.
+  if [ "${SWAPPED:-no}" = yes ] && [ -d "frontend/$PREV_DIR" ]; then
     echo "    Restoring the previous frontend build."
     rm -rf frontend/.next
     mv "frontend/$PREV_DIR" frontend/.next
+  else
+    echo "    The frontend is untouched: the new build never went live."
   fi
   pm2 reload mahalaxmi-frontend >/dev/null 2>&1 || pm2 restart mahalaxmi-frontend >/dev/null 2>&1 || true
   # Rollback kaamyab hota hai - site chalti rehti hai - isliye bahar se kuch
@@ -125,6 +143,9 @@ rollback() {
 # is parked while the swap happens.
 BUILD_DIR=.next-build
 PREV_DIR=.next-previous
+# Has the swap below actually happened yet? Until it has, .next IS the build
+# serving the shop and there is nothing to roll back. See the rollback.
+SWAPPED=no
 
 # ── Blue/green slots for the API ─────────────────────────────────────────────
 UPSTREAM_CONF=/etc/nginx/conf.d/mfh-api-upstream.conf
@@ -348,6 +369,7 @@ if [ -d "frontend/$PREV_DIR/cache/images" ]; then
 fi
 
 mv "frontend/$BUILD_DIR" frontend/.next
+SWAPPED=yes
 
 # reload, not restart. In cluster mode pm2 replaces the workers one at a time,
 # so the port is never unserved; restart stops the site and then starts it. In
@@ -423,14 +445,18 @@ echo "   Warming the image cache..."
   # par hai. Isliye asli pate se maanga jata hai. Yeh pehle, kyunki shopper ki
   # aankh isi par hai, aur yeh sirf network hai, VPS ka CPU nahi khata.
   EDGE=$(mktemp)
-  while read -r img; do echo "$ORIGIN$img" >> "$EDGE"; done < "$URLS"
+  # Same four hundred as the optimiser loop below. The comment above says this
+  # is "sirf network hai" - true for a cache HIT, and warming is aimed at
+  # exactly the opposite: every MISS is a full fetch from our own nginx, so an
+  # uncapped list is uncapped work on the VPS after all.
+  head -400 "$URLS" | while read -r img; do echo "$ORIGIN$img" >> "$EDGE"; done
   # Pehli photo par jaanch lo ki request waqai Cloudflare se guzri hai. Agar is
   # machine par DNS/hosts domain ko khud par lauta deta hai to yeh header nahi
   # aayega -- tab chup-chaap 400 bekaar request bhejne se behtar hai bata dena.
   CF=$(curl -s -o /dev/null -D - --max-time 30 -H "Accept: $ACCEPT" "$(head -1 "$EDGE")" \
         | tr -d '\r' | grep -i '^cf-cache-status:' | head -1 | awk '{print $2}')
   if [ -n "$CF" ]; then
-    xargs -P 2 -n 1 curl -s -o /dev/null --max-time 30 -H "Accept: $ACCEPT" < "$EDGE"
+    timeout 600 xargs -P 2 -n 1 curl -s -o /dev/null --max-time 30 -H "Accept: $ACCEPT" < "$EDGE"
     echo "   Cloudflare edge warmed ($(wc -l < "$EDGE") photos; pehli par $CF)."
   else
     echo "   NOTE: $ORIGIN se cf-cache-status header nahi mila - yeh request"
@@ -461,13 +487,26 @@ echo "   Warming the image cache..."
   done
   # Do ek saath. Isse zyada par deploy ke turant baad VPS ka CPU asli
   # shoppers se chhin jata hai.
-  xargs -P 2 -n 1 curl -s -o /dev/null --max-time 30 -H "Accept: $ACCEPT" < "$REQS"
+  timeout 600 xargs -P 2 -n 1 curl -s -o /dev/null --max-time 30 -H "Accept: $ACCEPT" < "$REQS"
   echo "   Optimiser cache warmed ($(( $(wc -l < "$REQS") / 4 )) photos, $(wc -l < "$REQS") sizes)."
   rm -f "$URLS" "$REQS"
 ) &
-WARM_PID=$!
-# Never let warming hold up or fail a deploy.
-( sleep 600 && kill $WARM_PID 2>/dev/null ) >/dev/null 2>&1 &
+# Warming runs in the background, so the deploy never waits on it. What it
+# needed was a ceiling on its own work, and the watchdog here was not one:
+#
+#   WARM_PID=$!
+#   ( sleep 600 && kill $WARM_PID 2>/dev/null ) &
+#
+# $! is the SUBSHELL's pid. The work is done by `xargs -P 2` and its curl
+# children, and `kill` without a `-` signals that one process - so the fleet
+# survived, orphaned, and kept pulling on the origin. Two deploys fifteen
+# minutes apart left two of them running at once. Worse, the block forks
+# hundreds of curls, so inside those ten minutes the number in WARM_PID can
+# be recycled onto something unrelated - pm2, dotnet, a postgres backend -
+# and the watchdog would have SIGTERMed whatever now held it.
+#
+# The two `timeout 600 xargs` above cap the thing that actually takes the
+# time, which is what the watchdog was reaching for. No pid to get wrong.
 pm2 status
 echo "=== Deploy complete ==="
 if [ -n "${TARGET:-}" ]; then
