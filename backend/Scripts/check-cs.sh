@@ -40,6 +40,9 @@ python3 -I backend/Scripts/check-cs-brackets.py $files | grep -v '^OK ' ; b=${PI
 [ "$b" -eq 0 ] && echo "all balanced"
 echo "--- sql ---"
 python3 -I backend/Scripts/check-sql.py $files; q=$?
+echo "--- usings ---"
+python3 -I "$(dirname "$0")/check-usings.py" || fail=1
+
 echo "--- migrations ---"
 # Also the .sql files, because the schema is written in both places: the
 # startup block in Program.cs and database/*.sql.
@@ -48,4 +51,4 @@ python3 -I backend/Scripts/check-migrations.py $files $(git ls-files 'database/*
 if [ "$s" -ne 0 ] || [ "$b" -ne 0 ] || [ "$q" -ne 0 ] || [ "$m" -ne 0 ]; then
   echo; echo "NOT SAFE TO PUSH"; exit 1
 fi
-echo; echo "all four checkers clean"
+echo; echo "all five checkers clean"
