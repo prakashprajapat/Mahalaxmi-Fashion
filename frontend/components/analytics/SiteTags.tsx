@@ -2,6 +2,9 @@ import Script from 'next/script';
 import { settingsApi } from '@/lib/api';
 
 const GA4_ID = process.env.NEXT_PUBLIC_GA4_ID ?? 'G-SFMFYD4NE6';
+// The Google Ads conversion id. Same value lib/analytics.ts sends conversions
+// to, kept here because this is the only file that calls gtag('config', ...).
+const GADS_ID = process.env.NEXT_PUBLIC_GADS_ID ?? 'AW-18290575097';
 
 async function getSeoSettings(): Promise<Record<string, string>> {
   try {
@@ -70,7 +73,22 @@ export default async function SiteTags() {
     <>
       {/* Google Analytics 4 — load right after the page becomes interactive so
           page_view fires reliably on every visit (lazyOnload was too late and
-          missed quick bounces / fast navigations). */}
+          missed quick bounces / fast navigations).
+
+          The Google Ads destination is configured in the same block. gtag.js
+          loaded with ?id=G-… sets up the GA4 destination and nothing else, so
+          lib/analytics.ts sending `send_to: 'AW-18290575097/<label>'` was
+          addressing a destination that had never been registered on the page.
+          The Ads audit on 16 Oct recorded the website Purchase action as
+          "Awaiting conversions" and put it down to the Cashfree path never
+          firing — that was true and is fixed, but this missing line would have
+          kept it at zero afterwards anyway.
+
+          Note the dependency this leaves: the Ads conversion needs gtag, which
+          only loads while GA4 is on and Tag Manager is off. When tagsViaGtm is
+          switched on, the Ads conversion must be a tag inside the container —
+          which is what the ads_conversion dataLayer push in lib/analytics.ts
+          is there to give it. */}
       {directGa4 && (
         <>
           <Script
@@ -83,6 +101,7 @@ export default async function SiteTags() {
               function gtag(){dataLayer.push(arguments);}
               gtag('js', new Date());
               gtag('config', '${GA4_ID}', { page_path: window.location.pathname });
+              ${GADS_ID ? `gtag('config', '${GADS_ID}');` : ''}
             `}
           </Script>
         </>
