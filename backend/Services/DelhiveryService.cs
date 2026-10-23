@@ -265,15 +265,32 @@ public class DelhiveryService
         var s = (raw ?? string.Empty).Trim();
         if (s.Length == 0) return null;
 
-        // With an offset already on it, believe it.
+        // Always returned in UTC. Same instant, and it is the only shape that
+        // can be STORED.
+        //
+        // Npgsql refuses a DateTimeOffset whose offset is not zero when the
+        // column is `timestamp with time zone` - it throws rather than
+        // converting. This method used to hand back +05:30, so every single
+        // attempt to save an expected delivery date threw, from the day the
+        // feature was written. The background sweep caught that and moved on,
+        // so expected_delivery was never once populated and the Date column
+        // stayed empty with nothing anywhere saying why. The 500 that finally
+        // exposed it only appeared because a later change called this on a
+        // path that did not swallow exceptions.
+        //
+        // The offset still matters on the way IN - a bare "2026-10-28" from an
+        // Indian courier means an Indian day, and reading it as UTC would put
+        // every evening slot on the following date. That is why it is built
+        // with IST and converted, rather than parsed as UTC.
         if (DateTimeOffset.TryParse(s, System.Globalization.CultureInfo.InvariantCulture,
                 System.Globalization.DateTimeStyles.None, out var withOffset)
             && (s.EndsWith("Z", StringComparison.OrdinalIgnoreCase) || s.Contains('+') || s.LastIndexOf('-') > 7))
-            return withOffset;
+            return withOffset.ToUniversalTime();
 
         if (DateTime.TryParse(s, System.Globalization.CultureInfo.InvariantCulture,
                 System.Globalization.DateTimeStyles.None, out var naive))
-            return new DateTimeOffset(DateTime.SpecifyKind(naive, DateTimeKind.Unspecified), IndiaTime.Offset);
+            return new DateTimeOffset(DateTime.SpecifyKind(naive, DateTimeKind.Unspecified), IndiaTime.Offset)
+                .ToUniversalTime();
 
         return null;
     }

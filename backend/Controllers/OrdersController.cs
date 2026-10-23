@@ -2489,8 +2489,25 @@ public class OrdersController : ControllerBase
     [EnableRateLimiting("events")]
     public async Task<IActionResult> SyncTracking(CancellationToken ct)
     {
-        var (checkedCount, updated) = await Services.DelhiveryTrackingSyncService
-            .SyncOnceAsync(_db, _delhivery, _log, ct);
+        int checkedCount, updated;
+        try
+        {
+            (checkedCount, updated) = await Services.DelhiveryTrackingSyncService
+                .SyncOnceAsync(_db, _delhivery, _log, ct);
+        }
+        catch (Exception ex)
+        {
+            // A button that answers 500 teaches the shop to stop pressing it.
+            // Say what went wrong, keep the request id on the record.
+            _log.LogError(ex, "Refresh tracking failed.");
+            return Ok(new
+            {
+                success = false,
+                checkedCount = 0,
+                updated = 0,
+                message = "Could not finish asking Delhivery. The error is in the server log.",
+            });
+        }
 
         return Ok(new
         {
@@ -2562,7 +2579,29 @@ public class OrdersController : ControllerBase
         if (changed)
         {
             order.UpdatedAt = DateTimeOffset.UtcNow;
-            await _db.SaveChangesAsync();
+            // Saving here is a bonus, not the job.
+            //
+            // This endpoint's job is to SHOW the courier's tracking. Writing
+            // the status and the expected date back onto the order is a
+            // convenience on top of that, and until now a failure in it took
+            // the whole call down with it: f4a486f started writing the expected
+            // date, the write threw on the live database, and every tracking
+            // click in the admin panel answered "Live tracking unavailable" -
+            // for a courier that was answering perfectly well.
+            //
+            // The exception is logged with the request id rather than
+            // swallowed, so the cause is on the record instead of being
+            // guessed at from the outside, which is how the last one went.
+            try
+            {
+                await _db.SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                _log.LogError(ex,
+                    "Live tracking could not save order {OrderId} (awb {Awb}); showing the courier's answer anyway.",
+                    order.OrderId, safe);
+            }
         }
 
         return Ok(new
