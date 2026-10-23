@@ -282,6 +282,56 @@ public class OrdersController : ControllerBase
         Path.GetFullPath(Path.Combine(_env.ContentRootPath, "..", "mahalaxmi-uploads", "returns"));
 
     // GET /api/orders  (Admin = all paginated; Customer = filtered at DB level)
+    // GET /api/orders/new-since?after=<ISO 8601>
+    //
+    // How many orders have been placed since a moment. Nothing else - no order
+    // bodies, no customer details, no cart.
+    //
+    // This exists because of the one honest complaint about polling: most of
+    // the answers are "nothing". A shop that takes a few orders a day, with
+    // the orders page open all afternoon, asks this a hundred times and the
+    // answer is almost always zero. So zero has to be nearly free. One COUNT
+    // over idx_orders_placed_at, a reply of about thirty bytes - against
+    // re-fetching fifty orders with their carts and customers, which is what
+    // the page would otherwise do just to discover nothing had changed.
+    //
+    // Why not SSE or a websocket, which is where the textbook answer goes: a
+    // few orders a day is not a stream, and nothing here travels upward. Both
+    // would mean holding a connection open on a VPS already running Postgres,
+    // .NET and Next.js, plus reconnect logic to write and get wrong, to learn
+    // about an event that happens six times a day. Polling is the right tool
+    // at this size; it just has to be polite, which is the rest of this.
+    [HttpGet("new-since")]
+    [Authorize]
+    [RequirePerm("orders")]
+    public async Task<IActionResult> NewSince([FromQuery] DateTimeOffset? after)
+    {
+        // No timestamp means the caller has only just opened the page and has
+        // nothing to compare against. Answer honestly rather than counting
+        // every order ever placed.
+        if (after is null)
+            return Ok(new { success = true, count = 0, latest = (DateTimeOffset?)null });
+
+        // Bounded on purpose. A clock that is wrong, or a tab left open over a
+        // weekend, would otherwise ask the database to count a month of rows
+        // every thirty seconds.
+        var since = after.Value;
+        var floor = DateTimeOffset.UtcNow.AddDays(-7);
+        if (since < floor) since = floor;
+
+        var count = await _db.SiteOrders.AsNoTracking()
+            .CountAsync(o => (o.PlacedAt ?? o.CreatedAt) > since);
+
+        // The newest timestamp, so the caller can move its mark forward
+        // without having to parse an order.
+        var latest = await _db.SiteOrders.AsNoTracking()
+            .OrderByDescending(o => o.PlacedAt ?? o.CreatedAt)
+            .Select(o => (DateTimeOffset?)(o.PlacedAt ?? o.CreatedAt))
+            .FirstOrDefaultAsync();
+
+        return Ok(new { success = true, count, latest });
+    }
+
     [HttpGet]
     [Authorize]
     public async Task<IActionResult> GetOrders(

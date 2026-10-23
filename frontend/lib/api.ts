@@ -238,6 +238,15 @@ export const ordersApi = {
     window.open(url, '_blank');
     setTimeout(() => URL.revokeObjectURL(url), 60000);
   },
+  // How many orders have arrived since a moment. Deliberately tiny: this is
+  // asked every half minute while the orders page is open, and the answer is
+  // almost always zero, so zero has to cost almost nothing.
+  newSince: (afterIso: string | null, token: string) =>
+    request<{ success: boolean; count: number; latest: string | null }>(
+      `/orders/new-since${afterIso ? '?after=' + encodeURIComponent(afterIso) : ''}`,
+      undefined, token,
+    ),
+
   // Auto-generate a forward Delhivery AWB for an order.
   generateAwb: (orderId: string, token: string) =>
     request<{ success: boolean; awb?: string; order?: import('@/types').Order; message?: string }>(

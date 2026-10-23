@@ -1,5 +1,6 @@
 'use client';
-import { Fragment, useEffect, useState, type CSSProperties } from 'react';
+import { Fragment, useEffect, useState, useRef, type CSSProperties } from 'react';
+import { usePoll } from '@/lib/usePoll';
 import { ordersApi } from '@/lib/api';
 import { getAdminToken } from '@/lib/auth';
 import { exportOrders } from '@/lib/exportExcel';
@@ -348,14 +349,47 @@ export default function AdminOrdersPage() {
     }
   };
 
+  // ── New orders while this page is open ────────────────────────────────────
+  //
+  // Orders arrive while the shop is packing with this page open, and until now
+  // the only way to find out was the email - or pressing Refresh on the off
+  // chance. Every thirty seconds the page asks one small question: anything
+  // since this moment? The answer is almost always no, and costs about thirty
+  // bytes.
+  //
+  // What it deliberately does NOT do is refresh itself. Orders are selected on
+  // this table with tick boxes and then acted on in bulk - waybills, labels -
+  // and a list that reorders under somebody's hand mid-selection is worse than
+  // one that is a minute stale. So it offers, and he presses.
+  const [newCount, setNewCount] = useState(0);
+  const sinceRef = useRef<string | null>(null);
+
   const fetchOrders = () => {
     setLoading(true);
     const token = getAdminToken() ?? '';
     ordersApi.getAll(undefined, token)
-      .then(r => setOrders(r.orders))
+      .then(r => {
+        setOrders(r.orders);
+        // The mark moves to the newest order now on the page, so nothing
+        // already on screen can be counted as new.
+        const newest = r.orders
+          .map(o => o.placedAt ?? o.createdAt)
+          .filter((d): d is string => !!d)
+          .sort()
+          .at(-1);
+        sinceRef.current = newest ?? new Date().toISOString();
+        setNewCount(0);
+      })
       .catch(console.error)
       .finally(() => setLoading(false));
   };
+
+  usePoll(async () => {
+    const token = getAdminToken();
+    if (!token || !sinceRef.current) return;
+    const r = await ordersApi.newSince(sinceRef.current, token);
+    setNewCount(r.count);
+  }, { everyMs: 30_000 });
 
   // ── Live Delhivery tracking modal (AWB number pe click karte hi) ──
   const [liveModal, setLiveModal] = useState<null | {
@@ -564,6 +598,27 @@ export default function AdminOrdersPage() {
           </>
         }
       />
+
+      {newCount > 0 && (
+        <div
+          onClick={fetchOrders}
+          role="button"
+          tabIndex={0}
+          onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') fetchOrders(); }}
+          style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            gap: '.75rem', cursor: 'pointer', marginBottom: '.9rem',
+            padding: '.7rem .95rem', borderRadius: 10,
+            background: '#eaf6ec', border: '1px solid #b7dfc0', color: '#1e5b2a',
+          }}>
+          <span style={{ fontWeight: 700, fontSize: '.88rem' }}>
+            {newCount === 1 ? '1 new order has come in' : `${newCount} new orders have come in`}
+          </span>
+          <span style={{ fontWeight: 800, fontSize: '.82rem', textDecoration: 'underline' }}>
+            Show them
+          </span>
+        </div>
+      )}
 
       <StatGrid>
         <Stat label="Waiting to be packed" value={countFor('Pending')}
