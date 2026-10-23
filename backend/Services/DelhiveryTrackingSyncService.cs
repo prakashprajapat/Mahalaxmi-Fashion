@@ -47,11 +47,33 @@ public class DelhiveryTrackingSyncService : BackgroundService
         using var scope = _scopeFactory.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var delhivery = scope.ServiceProvider.GetRequiredService<DelhiveryService>();
+        await SyncOnceAsync(db, delhivery, _log, ct);
+    }
 
+    /// <summary>
+    /// One pass, and it says what it found.
+    ///
+    /// Split out of the loop above so the admin panel can run it on demand.
+    /// Three hours is a long time to wait to learn whether a column is empty
+    /// because the courier has no date or because nothing has asked yet, and
+    /// until now there was no way to tell those apart from the outside: the
+    /// sweep only ever logged when it changed something, so a pass that found
+    /// nothing looked exactly like a pass that never happened.
+    ///
+    /// Returns how many orders were CHECKED as well as how many changed,
+    /// because "0 checked" and "7 checked, 0 updated" are different problems.
+    /// </summary>
+    public static async Task<(int Checked, int Updated)> SyncOnceAsync(
+        AppDbContext db, DelhiveryService delhivery, ILogger? log = null, CancellationToken ct = default)
+    {
         var active = await db.SiteOrders
             .Where(o => o.Awb != null && o.Awb != "" && ActiveStatuses.Contains(o.Status))
             .ToListAsync(ct);
-        if (active.Count == 0) return;
+        if (active.Count == 0)
+        {
+            log?.LogInformation("Delhivery tracking sync: no order with a waybill is in transit.");
+            return (0, 0);
+        }
 
         int updated = 0;
         foreach (var chunk in active.Chunk(40))
@@ -91,9 +113,13 @@ public class DelhiveryTrackingSyncService : BackgroundService
         }
 
         if (updated > 0)
-        {
             await db.SaveChangesAsync(ct);
-            _log.LogInformation("Delhivery tracking sync: {Count} order(s) updated.", updated);
-        }
+
+        // Logged every pass, not only the ones that changed something.
+        log?.LogInformation(
+            "Delhivery tracking sync: {Checked} order(s) checked, {Updated} updated.",
+            active.Count, updated);
+
+        return (active.Count, updated);
     }
 }

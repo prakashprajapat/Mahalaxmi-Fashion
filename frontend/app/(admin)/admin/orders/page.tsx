@@ -581,6 +581,19 @@ export default function AdminOrdersPage() {
     try { localStorage.setItem('mfh-label-order-barcode', on ? '1' : '0'); } catch {}
   };
 
+  // Fill the Expected column now instead of waiting for the sweep.
+  const [syncing, setSyncing] = useState(false);
+  const syncTracking = async () => {
+    setSyncing(true);
+    try {
+      const r = await ordersApi.syncTracking(getAdminToken() ?? '');
+      alert(r.message);
+      if (r.updated > 0) fetchOrders();
+    } catch (e) {
+      alert('Could not reach Delhivery: ' + ((e as Error).message || 'unknown error'));
+    } finally { setSyncing(false); }
+  };
+
   const downloadShippingLabel = (order: Order) => openOrderLabels([order], { orderBarcode });
 
   const anyFilter = Boolean(dateFilter || filterSize || filterColour || search || filterPay);
@@ -715,6 +728,10 @@ export default function AdminOrdersPage() {
           {activeTab === 'Ready for Shipping' && filtered.length > 0 && (
             <button className="adm-btn" onClick={() => openPicklist(filtered)}>Picklist ({filtered.length})</button>
           )}
+          <button className="adm-btn" onClick={syncTracking} disabled={syncing}
+                  title="Asks Delhivery about every parcel still on its way and fills in the Expected delivery date. Runs on its own every three hours; this is for when you do not want to wait.">
+            {syncing ? 'Asking Delhivery…' : 'Refresh tracking'}
+          </button>
         </div>
       </Card>
 

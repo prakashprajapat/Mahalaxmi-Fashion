@@ -278,6 +278,12 @@ export const ordersApi = {
   },
   // BUG-1: getByCustomer removed — /orders/my endpoint does not exist on backend
   // Use getAll({ email }) or getAll({ phone }) instead
+  // Ask Delhivery about every parcel in transit right now, rather than waiting
+  // for the three-hourly sweep. Answers with what it checked AND what changed.
+  syncTracking: (token: string) =>
+    request<{ success: boolean; checkedCount: number; updated: number; message: string }>(
+      '/orders/sync-tracking', { method: 'POST' }, token
+    ),
   updateStatus: (data: { orderId: string; status: string; awb?: string; courier?: string }, token: string) =>
     request<{ success: boolean; order: import('@/types').Order }>(
       '/orders/status', { method: 'PATCH', body: JSON.stringify(data) }, token

@@ -2476,6 +2476,35 @@ public class OrdersController : ControllerBase
     // Live Delhivery tracking timeline for the customer tracking page — shipment-safe
     // fields only (status, expected date, scans), no customer PII. Also forward-syncs
     // the site order status instantly so the two never disagree.
+    // POST /api/orders/sync-tracking — ask Delhivery about every parcel that is
+    // still on its way, now, instead of waiting for the three-hourly sweep.
+    //
+    // It answers with how many orders it CHECKED as well as how many it
+    // changed, because those answer different questions: nothing checked means
+    // no order has a waybill and an active status, while seven checked and
+    // nothing updated means Delhivery has no new date for any of them.
+    [HttpPost("sync-tracking")]
+    [Authorize]
+    [RequirePerm("orders")]
+    [EnableRateLimiting("events")]
+    public async Task<IActionResult> SyncTracking(CancellationToken ct)
+    {
+        var (checkedCount, updated) = await Services.DelhiveryTrackingSyncService
+            .SyncOnceAsync(_db, _delhivery, _log, ct);
+
+        return Ok(new
+        {
+            success = true,
+            checkedCount,
+            updated,
+            message = checkedCount == 0
+                ? "No parcel is in transit with a waybill, so there was nothing to ask about."
+                : updated == 0
+                    ? $"Asked Delhivery about {checkedCount} parcel(s); nothing has changed since the last check."
+                    : $"Asked Delhivery about {checkedCount} parcel(s) and updated {updated}.",
+        });
+    }
+
     [HttpGet("live-track/{awb}")]
     [AllowAnonymous]
     // This one already refuses an unknown waybill from our own table before
@@ -2499,6 +2528,22 @@ public class OrdersController : ControllerBase
         // Instant forward-only sync (same mapping as the background sync service).
         var s = (detail.Status ?? "").ToLowerInvariant();
         var changed = false;
+
+        // The expected delivery date, which this call has ALREADY fetched and
+        // was throwing away.
+        //
+        // Until now the only thing that ever wrote expected_delivery was the
+        // background sweep, which runs every three hours and says nothing when
+        // it does not. So the Date column stayed blank and there was no way to
+        // tell whether the courier had no date or nobody had asked yet.
+        // Delhivery sends the date in the same object this reads the status
+        // out of - keeping it costs no call, no permission and no waiting.
+        var liveEta = Services.DelhiveryService.CourierDate(detail.ExpectedDate);
+        if (liveEta is { } eta && order.ExpectedDelivery != eta)
+        {
+            order.ExpectedDelivery = eta;
+            changed = true;
+        }
         if (s.Contains("delivered") && !s.Contains("undelivered") && !s.Contains("rto"))
         {
             if (order.Status != "Delivered")
