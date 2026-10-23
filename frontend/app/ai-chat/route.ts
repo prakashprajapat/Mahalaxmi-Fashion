@@ -11,6 +11,65 @@ const SITE = 'https://www.mahalaxmifashionhub.com';
 const WA = '919429429880';
 const MODEL = process.env.OPENAI_MODEL ?? 'gpt-4o-mini';
 
+// ── A ceiling on who may spend the key ──────────────────────────────────────
+//
+// This handler took a POST from anybody, with no login, no limit and no check
+// on where the request came from, and spent money on every one: twelve
+// messages of up to 1500 characters each, plus the whole catalogue in the
+// system prompt, into a paid model. A short script pointed at it drains the
+// balance, and the first person to notice is a customer whose chat has stopped
+// working.
+//
+// A login is the wrong tool - the shopper asking about a nightie has not signed
+// in and should not have to. What is cheap and right: the request has to come
+// from our own pages, and one caller gets a handful of questions a minute.
+//
+// In memory on purpose. pm2 runs this in cluster mode, so each worker keeps its
+// own count and the real ceiling is a small multiple of the number below - that
+// is fine. The point is that an unbounded hole becomes a bounded one; it is not
+// a billing control.
+const WINDOW_MS = 60_000;
+const PER_WINDOW = 8;
+const asked = new Map<string, number[]>();
+
+function tooMany(ip: string): boolean {
+  const now = Date.now();
+  const hits = (asked.get(ip) ?? []).filter(t => now - t < WINDOW_MS);
+  hits.push(now);
+  asked.set(ip, hits);
+
+  // The map must not grow for ever on a long-running worker.
+  if (asked.size > 5000) {
+    for (const [k, v] of asked) if (v.every(t => now - t >= WINDOW_MS)) asked.delete(k);
+    if (asked.size > 5000) asked.clear();
+  }
+  return hits.length > PER_WINDOW;
+}
+
+function callerIp(req: Request): string {
+  const h = req.headers;
+  return (h.get('cf-connecting-ip')
+    || (h.get('x-forwarded-for') ?? '').split(',')[0]
+    || 'unknown').trim();
+}
+
+// Our own pages only. A browser always sends one of these on a same-origin
+// fetch; a script usually sends neither, and one that forges them is at least
+// being deliberate about it. Anything that is not our host is turned away.
+const ALLOWED_HOSTS = new Set([
+  'www.mahalaxmifashionhub.com',
+  'mahalaxmifashionhub.com',
+  'localhost:3000',
+]);
+
+function fromOurSite(req: Request): boolean {
+  const o = req.headers.get('origin');
+  const r = req.headers.get('referer');
+  const src = o || r;
+  if (!src) return false;
+  try { return ALLOWED_HOSTS.has(new URL(src).host); } catch { return false; }
+}
+
 type ChatMessage = { role: 'user' | 'assistant' | 'system'; content: string };
 type ApiProduct = { dbId: number; name: string; category?: string; subcategory?: string; price: number; discountPrice?: number; stock?: string };
 
@@ -63,6 +122,14 @@ function systemPrompt(catalog: string): string {
 }
 
 export async function POST(req: Request) {
+  if (!fromOurSite(req))
+    return NextResponse.json({ error: 'Not allowed' }, { status: 403 });
+
+  if (tooMany(callerIp(req)))
+    return NextResponse.json({
+      reply: `One moment 🙏 Please ask again in a few seconds, or message us on WhatsApp: https://wa.me/${WA}`,
+    }, { status: 429 });
+
   const key = process.env.OPENAI_API_KEY;
   if (!key) {
     return NextResponse.json({

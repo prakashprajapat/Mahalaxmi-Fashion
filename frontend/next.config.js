@@ -63,11 +63,21 @@ const nextConfig = {
     // same output; 30 days stops that.
     minimumCacheTTL: 2592000,
     remotePatterns: [
+      // Only what the shop's own photos are actually served from.
+      //
+      // '*.amazonaws.com' with no pathname matched every S3 bucket on earth:
+      // anyone could point /_next/image at any object in any bucket and have
+      // this VPS fetch it, re-encode it with sharp and cache it for thirty
+      // days - on a machine whose own comments say one core is the bottleneck.
+      // And 'http://localhost' was a blind request into the VPS's own loopback,
+      // where the API and Postgres live; the optimiser is reached by anyone, so
+      // the host it fetched was anyone's to choose.
+      //
+      // Nothing in the repo references either host. If a bucket is ever used,
+      // name that bucket here.
       { protocol: 'https', hostname: '*.cloudinary.com' },
-      { protocol: 'https', hostname: '*.amazonaws.com' },
       { protocol: 'https', hostname: 'mahalaxmifashionhub.com' },
       { protocol: 'https', hostname: '*.mahalaxmifashionhub.com' },
-      { protocol: 'http', hostname: 'localhost' },
     ],
   },
   async rewrites() {

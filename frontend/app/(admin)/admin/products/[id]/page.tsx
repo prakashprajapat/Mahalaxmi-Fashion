@@ -2104,7 +2104,13 @@ export default function EditProductPage() {
             khaate me dukaan likhi hai, uske banaye har product par ye apne aap
             chhap jata hai. Yahan sirf isliye hai ki purane products me, jinpar
             koi naam nahi hai, maalik haath se bhar sake. */}
-        <div className="shop-tag-row">
+        {/* Maalik ke liye hi. Jis staff ke khaate me dukaan likhi hai, uske
+            banaye product par naam apne aap chhap jata hai - isiliye ye khana
+            bharna hota hi nahi. Aur yahi field StaffPayoutSweepService payout
+            ko jisse jodta hai, to ismein doosri dukaan ka naam likh dena
+            settlement hi badal deta hai. Server staff ka bheja hua naam
+            giraa deta hai; box chhupana sirf shishtachar hai, taala nahi. */}
+        <div className="shop-tag-row" style={ownerView ? undefined : { display: 'none' }}>
           <span className="shop-tag-l">Shop</span>
           <input value={shopName} onChange={e => setShopName(e.target.value)}
                  placeholder="auto from your login" className="shop-tag-in" />

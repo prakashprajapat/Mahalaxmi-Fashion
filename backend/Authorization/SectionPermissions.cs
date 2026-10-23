@@ -45,6 +45,38 @@ public static class SectionAccess
 // attributes. ALWAYS pair with [Authorize] so an unauthenticated caller is
 // challenged (401) first; this filter then returns 403 if the section is missing.
 // Owner bypasses; staff need one of the listed sections in their perms claim.
+// Owner only - no section permission opens this, however it is spelled.
+//
+// Some things are not a section of the admin panel at all: taking a copy of the
+// whole database, or writing the key that the owner login itself is checked
+// against. Asking RequirePerm for a section name nobody can be granted would
+// have worked today and broken the day somebody could type a permission name
+// by hand. ALWAYS pair with [Authorize].
+[AttributeUsage(AttributeTargets.Class | AttributeTargets.Method, AllowMultiple = false)]
+public sealed class RequireOwnerAttribute : Attribute, IAuthorizationFilter
+{
+    public void OnAuthorization(AuthorizationFilterContext context)
+    {
+        var user = context.HttpContext.User;
+
+        if (user?.Identity?.IsAuthenticated != true)
+        {
+            context.Result = new UnauthorizedResult();
+            return;
+        }
+
+        if (!user.IsOwner())
+        {
+            context.Result = new ObjectResult(new
+            {
+                success = false,
+                message = "Only the shop owner can do this."
+            })
+            { StatusCode = StatusCodes.Status403Forbidden };
+        }
+    }
+}
+
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method, AllowMultiple = false)]
 public sealed class RequirePermAttribute : Attribute, IAuthorizationFilter
 {

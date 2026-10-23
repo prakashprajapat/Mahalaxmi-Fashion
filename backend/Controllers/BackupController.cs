@@ -13,7 +13,12 @@ namespace MahalaxmiApi.Controllers;
 [ApiController]
 [Route("api/backup")]
 [Authorize]
-[RequirePerm("settings")]
+// Owner only. This endpoint runs pg_dump over the whole database - every
+// customer's name, phone, address and order history in one file - and it used
+// to answer to [RequirePerm("settings")], the same ticked box that is handed
+// out for editing banner text and delivery charges. Taking a copy of the shop
+// is not a section chore.
+[RequireOwner]
 public class BackupController : ControllerBase
 {
     private readonly BackupService _backup;

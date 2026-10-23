@@ -861,7 +861,16 @@ public class ProductsController : ControllerBase
         // Aur naam ek baar chhapne ke baad apne aap nahi badalta: doosri dukaan
         // ka staff isi product ko theek kare to bhi wahi rehta hai, kyunki maal
         // to pehli dukaan se hi aaya tha.
-        if (req.ShopName is not null)
+        //
+        // One more thing the comment above took for granted: that the name a
+        // staff member's save carries is their OWN shop. It is whatever the box
+        // was sent with. This field is what StaffPayoutSweepService groups a
+        // payout by, so typing another shop's name into it - or stamping your
+        // own onto a product sourced elsewhere - moves the settlement. An
+        // explicit name is therefore the owner's, exactly like the fee below;
+        // the automatic stamp from the staff member's own login is untouched,
+        // which is the path they actually use.
+        if (callerIsOwner && req.ShopName is not null)
             p.ShopName = string.IsNullOrWhiteSpace(req.ShopName) ? null : req.ShopName.Trim();
         else if (string.IsNullOrWhiteSpace(p.ShopName) && !string.IsNullOrWhiteSpace(callerShop))
             p.ShopName = callerShop.Trim();

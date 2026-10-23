@@ -85,6 +85,40 @@ public class SettingsController : ControllerBase
     private static bool IsPublic(string key) =>
         !NeverPublic.Contains(key) && (PublicAnyway.Contains(key) || !CredentialShapedName.IsMatch(key));
 
+    // Keys only the OWNER may read back or write.
+    //
+    // The read path above has decided for months what the world may see, by the
+    // shape of the key's name. The write path had no rule at all: every endpoint
+    // below carries [RequirePerm("settings")], which a staff member passes with
+    // one ticked box, and any key could be written.
+    //
+    // AuthController resolves the owner login from this very table - it reads
+    // "admin_password_hash" out of site_settings (AuthController.cs:88) before
+    // checking anything else. So a staff member with the Settings box ticked
+    // could PUT a hash of their own choosing to that key and then sign in as
+    // the owner. The same ticked box also read GET /settings/admin, which hands
+    // back every secret in the table - Web Push private key, Meta CAPI token,
+    // GA4 API secret, the payment keys - and triggered a full pg_dump through
+    // BackupController. One box was the whole shop.
+    //
+    // The same name-shaped rule now applies on the way IN as well as out, so a
+    // secret added next year is covered without anyone remembering anything.
+    private static readonly HashSet<string> OwnerOnlyKeys = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "admin_email",          // the other half of the owner login
+        "adminRecoveryPhone",   // where a reset code would be sent
+        "googleAdsOauthState",
+    };
+
+    // flag_* are the feature switches (FeatureFlags.cs). Turning one off stands
+    // the shop's own protections down - per-account rate limits, refresh-token
+    // rotation - so which way they point is the owner's decision, not a
+    // section permission.
+    private static bool IsOwnerOnly(string key) =>
+        OwnerOnlyKeys.Contains(key)
+        || CredentialShapedName.IsMatch(key)
+        || key.StartsWith("flag_", StringComparison.OrdinalIgnoreCase);
+
     public SettingsController(AppDbContext db, IMemoryCache cache, IWebHostEnvironment env)
     {
         _db = db;
@@ -242,7 +276,21 @@ public class SettingsController : ControllerBase
     public async Task<IActionResult> GetAllForAdmin()
     {
         var settings = await _db.SiteSettings.ToListAsync();
-        return Ok(new { success = true, settings = settings.ToDictionary(x => x.Key, x => x.Value) });
+
+        // Staff get the screen, minus the keys that are the owner's. Refusing
+        // the whole call would have been easier and wrong: most of this screen
+        // is shop copy, delivery charges and banner text, which is exactly the
+        // work the Settings permission is given out for.
+        //
+        // The admin page seeds its form from THIS response and posts that form
+        // back, so a key left out here is simply absent from the save - it is
+        // not sent as a blank and cannot wipe a secret.
+        var owner = User.IsOwner();
+        var visible = settings
+            .Where(x => owner || !IsOwnerOnly(x.Key))
+            .ToDictionary(x => x.Key, x => x.Value);
+
+        return Ok(new { success = true, settings = visible });
     }
 
     // GET /api/settings/{key}
@@ -251,6 +299,9 @@ public class SettingsController : ControllerBase
     [RequirePerm("settings")]
     public async Task<IActionResult> Get(string key)
     {
+        if (IsOwnerOnly(key) && !User.IsOwner())
+            return Forbid();
+
         var s = await _db.SiteSettings.FirstOrDefaultAsync(x => x.Key == key);
         if (s is null) return NotFound();
         return Ok(new { success = true, key = s.Key, value = s.Value });
@@ -262,6 +313,9 @@ public class SettingsController : ControllerBase
     [RequirePerm("settings")]
     public async Task<IActionResult> Upsert(string key, [FromBody] SettingUpsertRequest req)
     {
+        if (IsOwnerOnly(key) && !User.IsOwner())
+            return Forbid();
+
         var s = await _db.SiteSettings.FirstOrDefaultAsync(x => x.Key == key);
         if (s is null)
         {
@@ -283,6 +337,22 @@ public class SettingsController : ControllerBase
     [RequirePerm("settings")]
     public async Task<IActionResult> BulkUpsert([FromBody] Dictionary<string, string> settings)
     {
+        // Named, not silently dropped. A staff member who somehow has one of
+        // these in their form - a stale tab, an imported settings file - should
+        // be told it was refused, because a value that vanishes without a word
+        // gets typed in again and again.
+        if (!User.IsOwner())
+        {
+            var refused = settings.Keys.Where(IsOwnerOnly).ToList();
+            if (refused.Count > 0)
+                return new ObjectResult(new
+                {
+                    success = false,
+                    message = "These are the owner's settings: " + string.Join(", ", refused),
+                })
+                { StatusCode = StatusCodes.Status403Forbidden };
+        }
+
         // PERF-3: Fetch all relevant settings in one query instead of N queries
         var keys = settings.Keys.ToList();
         var existing = await _db.SiteSettings.Where(s => keys.Contains(s.Key)).ToListAsync();

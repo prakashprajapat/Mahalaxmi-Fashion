@@ -121,7 +121,7 @@ public class StaffPayoutSweepService : BackgroundService
             {
                 var rows = await BuildOrderRowsAsync(
                     db, order.OrderId, order.CartJson, order.DeliveredAt!.Value,
-                    order.DiscountAmount, holdDays, existing);
+                    order.DiscountAmount, holdDays, existing, log);
 
                 foreach (var row in rows)
                 {
@@ -252,7 +252,7 @@ public class StaffPayoutSweepService : BackgroundService
     /// </summary>
     private static async Task<List<StaffPayout>> BuildOrderRowsAsync(
         AppDbContext db, string orderId, string? cartJson, DateTimeOffset deliveredAt,
-        decimal orderDiscount, int holdDays, HashSet<string> existing)
+        decimal orderDiscount, int holdDays, HashSet<string> existing, ILogger? log = null)
     {
         var result = new List<StaffPayout>();
         var lines = ParseCart(cartJson);
@@ -331,7 +331,29 @@ public class StaffPayoutSweepService : BackgroundService
             var share = orderGoods > 0 ? Math.Round(discount * (goods[i] / orderGoods), 2) : 0m;
             var net = Math.Round(goods[i] - share, 2);
 
+            // What the shop is owed, and the ceiling on it.
+            //
+            // staffUnit comes from the product's "Staff price" box, which the
+            // staff member who lists the product fills in themselves - that is
+            // the design, it is the shop saying what it wants for the piece.
+            // Nothing bounded it against what the order actually collected, so
+            // a price typed above the selling price - a slip of a zero, or
+            // somebody helping themselves - booked the difference as a NEGATIVE
+            // platform share: the shop paid out more than the customer paid in.
+            //
+            // net is this line's share of the money after its part of the
+            // discount, so it is the most that can honestly be owed on it. The
+            // shop still receives everything the order collected; what cannot
+            // happen any more is the shop receiving money the order never saw.
             var staffAmount = Math.Round(staffUnit * qty, 2);
+            if (staffAmount > net)
+            {
+                log?.LogWarning(
+                    "Payout for order {OrderId} line {Line} asked {Asked} on a line that collected {Collected} - capped. Check the staff price on product {ProductId}.",
+                    orderId, i, staffAmount, net, product.Id);
+                staffAmount = net > 0m ? net : 0m;
+            }
+
             var lineName = Str(lines[i], "name");
 
             result.Add(new StaffPayout

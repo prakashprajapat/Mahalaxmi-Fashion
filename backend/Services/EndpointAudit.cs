@@ -71,8 +71,9 @@ public static class EndpointAudit
                 var authorize = meta.GetOrderedMetadata<IAuthorizeData>()
                     .Where(a => a is not null).ToArray();
                 var perm = meta.GetMetadata<RequirePermAttribute>();
+                var ownerOnly = meta.GetMetadata<RequireOwnerAttribute>() is not null;
 
-                if (authorize.Length == 0 && perm is null)
+                if (authorize.Length == 0 && perm is null && !ownerOnly)
                 {
                     guard = "PUBLIC";
                 }
@@ -82,6 +83,7 @@ public static class EndpointAudit
                     var policy = authorize.Select(a => a.Policy)
                         .FirstOrDefault(p => !string.IsNullOrWhiteSpace(p));
                     parts.Add(string.IsNullOrWhiteSpace(policy) ? "auth" : "auth:" + policy);
+                    if (ownerOnly) parts.Add("owner");
                     if (perm is not null) parts.Add("perm:" + string.Join("|", perm.Sections));
                     guard = string.Join(" ", parts);
                 }
