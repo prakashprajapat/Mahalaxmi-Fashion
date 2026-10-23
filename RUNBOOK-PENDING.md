@@ -656,3 +656,25 @@ busiest path in the shop, so test it before anything else:
 If a prepaid order pays but no order appears, the webhook is still behind it as
 the safety net, so nothing is lost - but tell me, because it means PlaceOrder
 refused the order and the reason is in the pm2 log.
+
+### Added after commit b701292 — coupons now have a per-customer limit
+
+**Every coupon in the database becomes "1 use per customer" the first time the
+new build starts.** That is deliberate. If any code should stay unlimited —
+an influencer code, say — set it back afterwards in Admin -> Coupons -> Uses
+per customer -> `0`. Once you set it, a later restart will not undo it.
+
+Test after deploy:
+
+1. Admin -> Coupons -> edit WELCOME10. The new "Uses per customer" box should
+   read `1`. The sentence under the form should say "once per customer".
+2. Place an order with WELCOME10 from one phone number. Then try a second order
+   with the same number: the checkout should refuse the code at the moment you
+   apply it, not silently drop the discount at the end.
+3. Try the same code with that phone number but a different email — it must
+   still be refused. Either one matching is enough to recognise her.
+4. Set some test code to `3`, use it three times from one number, and check the
+   fourth is refused.
+5. Flick a coupon off and on with the switch in the list, then re-open it: the
+   per-customer number must be unchanged. (That switch posts the whole coupon
+   back, so this is worth one look.)
