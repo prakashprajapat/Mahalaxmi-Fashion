@@ -593,3 +593,45 @@ checks every five minutes and is enough:
     https://www.mahalaxmifashionhub.com/api/health
 
 Alert on anything that is not 200.
+
+## 23 Oct 2026 — after the security + SEO audit (commits 0ac83e4, 3187c2b, 80ed338, 719c6a5)
+
+Nothing here is code. These are the things only you can do.
+
+**Test after deploy, in this order — all four touch money or the checkout:**
+
+1. Place one real prepaid order through "Pay Online" (Cashfree). It must go through
+   normally. Then place one WITH a coupon. If either is refused with "The amount does not
+   match your cart", stop and tell me — that is the new floor in
+   CashfreeController.CreateOrder being too strict, and the log line says exactly what it
+   computed (`grep -i "create-order refused" <pm2 log>`).
+2. If COD advance is switched on (Settings -> codAdvanceAmount is not 0), place one COD
+   order too. It pays a part on purpose and is checked separately.
+3. Open Settings as the owner and save. Every box must still hold its value - especially
+   the Meta and Delhivery tokens. If any secret box is blank, DO NOT SAVE: tell me first.
+4. Open a return in the admin Orders screen and check the video still plays and the
+   View/Download links still work.
+
+**Rotate these four. All carried over, none of them something I can do:**
+
+- The Postgres password in the repo's git history (import_products.py, commit db4401b).
+  The 9 Oct audit confirmed by hash that it is the password the live database uses today.
+  Rewriting history does not help - assume it is burned.
+- The Push VAPID private key (this file already says the old one is public).
+- The OpenAI key in frontend/.env.production. The new /ai-chat limiter bounds further
+  abuse; it does not undo what has already been spent.
+- Razorpay and Delhivery keys.
+
+**Two one-line cleanups:**
+
+- `admin/customers/page.tsx` gives every admin-created customer the password `Mfh@12345`
+  with no forced change. Decide what you want there and I will change it.
+- Delete `fix_vps_products.py`, `import_products.py` and `reconcile_payments.py` from the
+  working tree. The first overwrites two live source files with a July snapshot, no
+  backup. The second adds 11 duplicate products every time it runs. The third writes a
+  spreadsheet of customer emails and phone numbers into the repo root on the live server.
+
+**The next real job, when you want it:** a coupon used on a prepaid order is still never
+consumed - UsedCount does not move - so MaxUses and one-per-customer do not apply on the
+main checkout. Fixing it means moving PlaceOrder's coupon rules so the Cashfree webhook can
+run them too. About a hundred lines in the money path, so it wants its own session.
