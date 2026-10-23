@@ -925,6 +925,7 @@ using (var scope = app.Services.CreateScope())
          WHERE review_asked_at IS NOT NULL AND review_asks_sent = 0;
         ALTER TABLE cashfree_orders ADD COLUMN IF NOT EXISTS wallet_used NUMERIC(12,2) NOT NULL DEFAULT 0;
         ALTER TABLE cashfree_orders ADD COLUMN IF NOT EXISTS full_total NUMERIC(12,2) NOT NULL DEFAULT 0;
+        ALTER TABLE cashfree_orders ADD COLUMN IF NOT EXISTS coupon_code VARCHAR(50);
         ALTER TABLE coupons ADD COLUMN IF NOT EXISTS referrer_customer_id INTEGER;
 
         -- Address book: a customer can save several delivery addresses (Home, Office, ...)

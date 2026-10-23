@@ -224,6 +224,9 @@ public class CashfreeController : ControllerBase
             AmountPaise      = amountPaise,
             WalletUsed       = req.WalletUsed,
             FullTotal        = req.FullTotal > 0 ? req.FullTotal : req.Amount,
+            // Only the code. The DISCOUNT is worked out again from our own
+            // catalogue when the order is written, never taken from here.
+            CouponCode       = string.IsNullOrWhiteSpace(req.CouponCode) ? null : req.CouponCode.Trim(),
             Currency         = req.Currency ?? "INR",
             Status           = "created",
             CartJson         = JsonSerializer.Serialize(req.Cart),
@@ -398,16 +401,69 @@ public class CashfreeController : ControllerBase
                     // Order value = full total (before wallet). Cashfree charged (full − wallet);
                     // the wallet part is recorded so the amount collected reconciles.
                     var fullTotal = order.FullTotal > 0 ? order.FullTotal : order.AmountPaise / 100m;
+
+                    // Price it from OUR catalogue, and spend the coupon.
+                    //
+                    // This row used to be written with the browser's own
+                    // numbers and no coupon at all: nothing consumed, no code,
+                    // no discount. That is why one customer could take
+                    // WELCOME10 on order after order, and why his invoices
+                    // showed no discount line while he had plainly been given
+                    // one. The browser was supposed to place these orders and
+                    // usually does not get the chance - a server-to-server
+                    // webhook beats a phone finishing a redirect.
+                    //
+                    // These numbers are provisional on purpose. If the browser
+                    // does come back, PlaceOrder completes this same row and
+                    // overwrites them with its own fuller pricing, which also
+                    // folds in per-product shipping. The coupon is spent once
+                    // either way, because the claim is keyed on the order id.
+                    var goods = await CartPricing.ItemValueAsync(_db, order.CartJson) ?? fullTotal;
+                    decimal discount = 0m;
+                    string? usedCode = null;
+
+                    if (!string.IsNullOrWhiteSpace(order.CouponCode))
+                    {
+                        var codeKey = order.CouponCode.Trim().ToLowerInvariant();
+                        var coupon = await _db.Coupons.FirstOrDefaultAsync(c => c.Code.ToLower() == codeKey && c.IsActive);
+                        var hasRoom = await CouponLimits.HasRoomAsync(
+                            _db, coupon?.Code, coupon?.MaxPerCustomer ?? 1, sPhone, sEmail);
+
+                        if (coupon is not null && hasRoom
+                            && (!coupon.ExpiresAt.HasValue || coupon.ExpiresAt.Value >= DateTimeOffset.UtcNow)
+                            && (!coupon.MaxUses.HasValue || coupon.UsedCount < coupon.MaxUses.Value)
+                            && goods >= coupon.MinOrder)
+                        {
+                            discount = CartPricing.CouponDiscount(coupon.Type, coupon.Value, goods);
+                            usedCode = coupon.Code;
+                        }
+                    }
+
+                    if (usedCode is not null)
+                    {
+                        var consumed = await CouponConsumer.ConsumeAsync(
+                            _db, null, _logger,
+                            localId, usedCode, "cashfree",
+                            goods, 0m, 0m, discount, Math.Max(0m, goods - discount),
+                            sPhone, sEmail, custId > 0 ? custId.ToString() : null);
+                        discount = consumed.Discount;
+                        usedCode = consumed.Code;
+                    }
+
+                    var recoveredTotal = Math.Max(0m, goods - discount);
+
                     _db.SiteOrders.Add(new SiteOrder
                     {
                         OrderId      = localId,
                         Method       = "cashfree",
                         Status       = "Paid",
                         PaymentId    = cfPaymentId,
-                        Subtotal     = fullTotal,
+                        Subtotal     = goods,
                         ShippingCost = 0m,
                         CodFee       = 0m,
-                        Total        = fullTotal,
+                        CouponCode   = usedCode,
+                        DiscountAmount = discount,
+                        Total        = recoveredTotal,
                         WalletUsed   = order.WalletUsed,
                         CartJson     = order.CartJson,
                         CustomerJson = recoveredCustomerJson,

@@ -33,6 +33,17 @@ public class CashfreeOrder
     [Column("full_total")]
     public decimal FullTotal { get; set; }
 
+    /// <summary>
+    /// The coupon the shopper had applied when the payment was started.
+    ///
+    /// Kept so the WEBHOOK can spend it. A prepaid order is often written by
+    /// the webhook rather than by PlaceOrder - a server-to-server call beats a
+    /// phone finishing a redirect - and without the code here that order went
+    /// in with no coupon, nothing consumed, and no discount on its invoice.
+    /// </summary>
+    [Column("coupon_code")]
+    public string? CouponCode { get; set; }
+
     [Column("currency")]
     public string Currency { get; set; } = "INR";
 

@@ -228,12 +228,29 @@ export default function CheckoutPage() {
           // placed the same way, and placing is what makes the SERVER price the
           // cart, re-check the coupon and spend it. Leaving this to the webhook
           // did none of those.
+          // localStorage, not sessionStorage.
+          //
+          // This is the line that decides whether a prepaid order is written by
+          // PlaceOrder or by the webhook, and sessionStorage loses that bet on
+          // a phone. Cashfree hands off to a UPI app; coming back can land in a
+          // fresh tab, and a fresh tab gets an empty sessionStorage. The note
+          // was gone, place() was never called, and the webhook wrote the order
+          // with no coupon and no discount - which is exactly what happened to
+          // MFH17927577455359390 and MFH17926623821469617.
+          //
+          // localStorage survives the round trip. It is cleared on success, and
+          // anything older than a day is swept below so a dead note cannot be
+          // picked up by a later order.
           let pending: any = null;
           let pendingKey = '';
           for (const key of ['mfh-pending-cod', 'mfh-pending-place']) {
             try {
-              const raw = sessionStorage.getItem(key);
+              const raw = localStorage.getItem(key) ?? sessionStorage.getItem(key);
               const p = raw ? JSON.parse(raw) : null;
+              if (p && p.at && Date.now() - p.at > 24 * 60 * 60 * 1000) {
+                localStorage.removeItem(key); sessionStorage.removeItem(key);
+                continue;
+              }
               if (p?.id === cfOrder && p.payload) { pending = p; pendingKey = key; break; }
             } catch { /* private mode */ }
           }
@@ -264,7 +281,7 @@ export default function CheckoutPage() {
               }
               console.error('Prepaid order could not be placed in the browser; the webhook will write it.', e);
             } finally {
-              try { sessionStorage.removeItem(pendingKey); } catch {}
+              try { localStorage.removeItem(pendingKey); sessionStorage.removeItem(pendingKey); } catch {}
             }
           }
           // Yahi wo jagah thi jahan har prepaid order chup-chaap gir jata tha.
@@ -624,8 +641,9 @@ export default function CheckoutPage() {
     // order webhook likh deta tha - bina daam jaanche, bina coupon kharche.
     // Ab COD advance wala hi raasta prepaid ke liye bhi hai.
     try {
-      sessionStorage.setItem('mfh-pending-place', JSON.stringify({
+      localStorage.setItem('mfh-pending-place', JSON.stringify({
         id: res.localOrderId,
+        at: Date.now(),
         payload: buildOrderPayload(res.localOrderId, 'cashfree'),
       }));
     } catch { /* private mode - webhook abhi bhi order bana dega */ }
@@ -779,8 +797,9 @@ export default function CheckoutPage() {
         });
         // Cashfree hands us the order number; the order will be placed under the same one.
         try {
-          sessionStorage.setItem('mfh-pending-cod', JSON.stringify({
+          localStorage.setItem('mfh-pending-cod', JSON.stringify({
             id: cf.localOrderId,
+            at: Date.now(),
             payload: buildOrderPayload(cf.localOrderId, 'cod'),
           }));
         } catch { /* private mode — the webhook still records the payment */ }
