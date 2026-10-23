@@ -161,10 +161,12 @@ public class CouponsController : ControllerBase
             Occasion   = NormalizeOccasion(req.Occasion),
             MinOrder   = req.MinOrder,
             MaxUses    = req.MaxUses,
-            MaxPerCustomer  = NormalizePerCustomer(req.MaxPerCustomer, req.OncePerCustomer),
+            // A brand-new coupon has nothing stored yet, so once-per-customer
+            // is the starting point rather than no limit.
+            MaxPerCustomer  = NormalizePerCustomer(req.MaxPerCustomer, req.OncePerCustomer, 1),
             // Kept in step so a rollback to the previous build still sees a
             // sensible tick instead of losing every per-customer limit.
-            OncePerCustomer = NormalizePerCustomer(req.MaxPerCustomer, req.OncePerCustomer) == 1,
+            OncePerCustomer = NormalizePerCustomer(req.MaxPerCustomer, req.OncePerCustomer, 1) == 1,
             ExpiresAt  = req.ExpiresAt,
             IsActive   = true,
             CreatedAt  = DateTimeOffset.UtcNow,
@@ -197,7 +199,8 @@ public class CouponsController : ControllerBase
         coupon.Occasion  = NormalizeOccasion(req.Occasion);
         coupon.MinOrder  = req.MinOrder;
         coupon.MaxUses   = req.MaxUses;
-        coupon.MaxPerCustomer  = NormalizePerCustomer(req.MaxPerCustomer, req.OncePerCustomer);
+        coupon.MaxPerCustomer  = NormalizePerCustomer(
+            req.MaxPerCustomer, req.OncePerCustomer, coupon.MaxPerCustomer ?? 1);
         coupon.OncePerCustomer = coupon.MaxPerCustomer == 1;
         coupon.ExpiresAt = req.ExpiresAt;
         coupon.IsActive  = req.IsActive;
@@ -231,6 +234,20 @@ public class CouponsController : ControllerBase
             {
                 success = false,
                 message = "Give a 10-digit mobile number or an email address - that is how a customer is recognised.",
+            });
+
+        // A code with no per-customer limit cannot be "used up" by anybody.
+        //
+        // TryClaimAsync returns true immediately when the limit is 0 and writes
+        // nothing, so without this the button would answer "Recorded" and have
+        // done nothing at all - the worst kind of reply, because it closes the
+        // question. Say what is actually wrong and where to fix it.
+        if (coupon.PerCustomerLimit <= 0)
+            return BadRequest(new
+            {
+                success = false,
+                message = $"{coupon.Code} has no per-customer limit, so there is nothing to use up. "
+                        + "Set \u201cUses per customer\u201d to 1 on this coupon first, then record it here.",
             });
 
         // The same claim an order takes, so a code that is already fully used
@@ -303,9 +320,15 @@ public class CouponsController : ControllerBase
     /// A negative number is read as no limit rather than refused - the box is
     /// a number box and nobody means minus two.
     /// </summary>
-    private static int NormalizePerCustomer(int? asked, bool legacyTick)
+    private static int NormalizePerCustomer(int? asked, bool legacyTick, int current)
     {
-        if (asked is null) return legacyTick ? 1 : 0;     // older client, still sending the tick
+        // A client that does not send the field at all must not be able to
+        // change it. The first version of this read a missing value together
+        // with an unticked box as 0 - no limit - which means any save from a
+        // stale browser tab, or one flick of the on/off switch before the new
+        // script had loaded, quietly switched the limit off on a live coupon.
+        // Keeping what is already stored is the only safe reading of silence.
+        if (asked is null) return current > 0 ? current : (legacyTick ? 1 : current);
         return asked.Value < 0 ? 0 : asked.Value;
     }
 
