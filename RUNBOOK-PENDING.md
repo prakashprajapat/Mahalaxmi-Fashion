@@ -635,3 +635,24 @@ Nothing here is code. These are the things only you can do.
 consumed - UsedCount does not move - so MaxUses and one-per-customer do not apply on the
 main checkout. Fixing it means moving PlaceOrder's coupon rules so the Cashfree webhook can
 run them too. About a hundred lines in the money path, so it wants its own session.
+
+### Added after commit f87d259 — the prepaid checkout path changed
+
+A fully prepaid Cashfree order now calls `ordersApi.place` on the way back from
+the gateway, the same way a COD advance already did. That is a real change to the
+busiest path in the shop, so test it before anything else:
+
+1. One prepaid order, no coupon. It must reach the confirmation screen with an
+   order number, and the order must appear in Admin -> Orders with the right
+   subtotal and total (not the old round `fullTotal`).
+2. One prepaid order WITH a coupon. Then open Admin -> Coupons: that code's
+   "used" count must have gone up by one. Before this commit it never moved for
+   a prepaid order. The order row must also show the code and the discount.
+3. If you have a one-per-customer or limited-use code, try it twice from the
+   same phone number. The second order should go through at full price.
+4. A COD order with an advance, if advances are switched on - that path was
+   working and must still work.
+
+If a prepaid order pays but no order appears, the webhook is still behind it as
+the safety net, so nothing is lost - but tell me, because it means PlaceOrder
+refused the order and the reason is in the pm2 log.
