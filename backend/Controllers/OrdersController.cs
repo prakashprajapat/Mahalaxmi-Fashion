@@ -438,6 +438,11 @@ public class OrdersController : ControllerBase
     // ONLY to the order's owner (matched via JWT) or an admin.
     [HttpGet("{orderId}")]
     [AllowAnonymous]
+    // Anonymous, and it goes to the database on every call including for order
+    // numbers that do not exist - so without a limit anyone can ask about
+    // made-up ids as fast as they can send them. Negative caching would not
+    // help against ids that are never repeated; a limit is what does.
+    [EnableRateLimiting("events")]
     public async Task<IActionResult> GetById(string orderId)
     {
         var order = await _db.SiteOrders.FirstOrDefaultAsync(o => o.OrderId == orderId || o.Awb == orderId);
@@ -2138,26 +2143,56 @@ public class OrdersController : ControllerBase
     private static readonly Dictionary<string, (bool known, bool ok, bool cod, string? city, string? state, DateTimeOffset at)> _pinCache = new();
     [HttpGet("pincode/{pin}")]
     [AllowAnonymous]
+    // Six digits is a million possible pincodes to walk, and a miss costs a
+    // call to Delhivery rather than a local query.
+    [EnableRateLimiting("events")]
     public async Task<IActionResult> CheckPincode(string pin)
     {
         var p = new string((pin ?? "").Where(char.IsDigit).ToArray());
         if (p.Length != 6)
             return BadRequest(new { success = false, message = "Enter a valid 6-digit pincode." });
 
-        (bool known, bool ok, bool cod, string? city, string? state) r;
+        // A cache that stored the answer and could never read it back.
+        //
+        // The miss was detected with `r == default`, and default for this tuple
+        // is (false, false, false, null, null) - which is EXACTLY what an
+        // unknown pincode returns. So the negative result was written to the
+        // cache faithfully and then, on every later request for the same
+        // pincode, read back, compared against default, judged a miss, and
+        // Delhivery was called again. The cache worked perfectly for pincodes
+        // that exist and not at all for the ones somebody would hammer.
+        //
+        // That is cache penetration produced by the cache itself: no attacker
+        // needed, just a sentinel value that collides with real data. The fix
+        // is to stop asking the value whether it is there and ask the
+        // dictionary, which is the only thing that knows.
+        (bool known, bool ok, bool cod, string? city, string? state) r = default;
+        var cached = false;
         lock (_pinCache)
         {
             if (_pinCache.TryGetValue(p, out var hit) && DateTimeOffset.UtcNow - hit.at < TimeSpan.FromHours(12))
+            {
                 r = (hit.known, hit.ok, hit.cod, hit.city, hit.state);
-            else r = default;
+                cached = true;
+            }
         }
-        if (r == default)
+        if (!cached)
         {
             var chk = await _delhivery.CheckPincodeAsync(p);
             r = (chk.Known, chk.Serviceable, chk.Cod, chk.City, chk.State);
             lock (_pinCache)
             {
-                if (_pinCache.Count > 5000) _pinCache.Clear();
+                // Was: Clear() - which handed anyone walking pincodes a way to
+                // throw away every real answer the shop depends on, 5000 made-up
+                // ones at a time. Drop what has expired first, and only if that
+                // frees nothing fall back to emptying it.
+                if (_pinCache.Count > 5000)
+                {
+                    var stale = DateTimeOffset.UtcNow - TimeSpan.FromHours(12);
+                    foreach (var k in _pinCache.Where(e => e.Value.at < stale).Select(e => e.Key).ToList())
+                        _pinCache.Remove(k);
+                    if (_pinCache.Count > 5000) _pinCache.Clear();
+                }
                 _pinCache[p] = (r.known, r.ok, r.cod, r.city, r.state, DateTimeOffset.UtcNow);
             }
         }
@@ -2324,6 +2359,10 @@ public class OrdersController : ControllerBase
     // the site order status instantly so the two never disagree.
     [HttpGet("live-track/{awb}")]
     [AllowAnonymous]
+    // This one already refuses an unknown waybill from our own table before
+    // calling Delhivery, so a made-up one costs an indexed lookup and nothing
+    // more. The limit is for the volume, not the shape.
+    [EnableRateLimiting("events")]
     public async Task<IActionResult> LiveTrack(string awb)
     {
         var safe = new string((awb ?? "").Where(char.IsLetterOrDigit).ToArray());
