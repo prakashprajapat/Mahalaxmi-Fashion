@@ -488,6 +488,7 @@ export default function CouponsPage() {
                   <th>Smallest order</th>
                   <th>Who</th>
                   <th>{sortHead('used', 'Used')}</th>
+                  <th>Per customer</th>
                   <th>{sortHead('expires', 'Last day')}</th>
                   <th>Status</th>
                   <th>{sortHead('created', 'Made')}</th>
@@ -523,6 +524,18 @@ export default function CouponsPage() {
                       </td>
                       <td data-label="Used" className="mono" style={{ whiteSpace: 'nowrap' }}>
                         {c.usedCount}{c.maxUses ? ` / ${c.maxUses}` : ''}
+                      </td>
+                      {/* On the page, not behind an Edit click.
+                          WELCOME10 sat at 0 - no limit per customer - for days,
+                          and nothing on this screen said so. One customer took
+                          it three times while every explanation looked at the
+                          rule instead of at the number the rule was reading. A
+                          setting that decides whether money goes out should be
+                          visible from the list. */}
+                      <td data-label="Per customer" className="mono" style={{ whiteSpace: 'nowrap' }}>
+                        {perCustomerOf(c) === '0'
+                          ? <span style={{ color: '#c0392b', fontWeight: 700 }} title="Anyone can use this code again and again. Open Edit to set a limit.">No limit</span>
+                          : perCustomerOf(c)}
                       </td>
                       <td data-label="Last day" style={{ whiteSpace: 'nowrap' }}>
                         {c.expiresAt
