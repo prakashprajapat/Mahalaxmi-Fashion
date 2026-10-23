@@ -52,6 +52,27 @@ public class Coupon
     [Column("once_per_customer")]
     public bool OncePerCustomer { get; set; }
 
+    /// <summary>
+    /// How many times ONE shopper may use this code. The tick above could only
+    /// say once or never; this says how many.
+    ///
+    /// null = nobody has set it (read as 1; the startup back-fill removes these)
+    ///    0 = no limit per person, only the MaxUses ceiling on the code itself
+    ///    N = N times each, recognised by mobile number or by email
+    ///
+    /// This is the field the rules read now. OncePerCustomer is kept in step
+    /// with it on every save, so rolling back to the previous build still
+    /// behaves sensibly rather than throwing every limit away.
+    /// </summary>
+    [Column("max_per_customer")]
+    public int? MaxPerCustomer { get; set; }
+
+    /// <summary>The limit to actually apply: unset reads as once. 0 means no limit.</summary>
+    public int PerCustomerLimit => MaxPerCustomer ?? 1;
+
+    /// <summary>True when this code may be used any number of times by one shopper.</summary>
+    public bool UnlimitedPerCustomer => PerCustomerLimit <= 0;
+
     [Column("expires_at")]
     public DateTimeOffset? ExpiresAt { get; set; }
 

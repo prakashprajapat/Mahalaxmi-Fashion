@@ -8,10 +8,18 @@ import { PageHeader, Card, Stat, StatGrid, Chips, Pill, Empty } from '@/componen
 interface Coupon {
   id: number; code: string; type: string; value: number; occasion: string;
   minOrder: number; maxUses: number | null; usedCount: number; oncePerCustomer?: boolean;
+  // 0 = no limit per customer, N = N times each. Undefined only from an older server.
+  maxPerCustomer?: number | null;
   expiresAt: string | null; isActive: boolean; createdAt: string;
 }
 
-const empty = { code: '', type: 'flat', value: '', occasion: 'none', minOrder: '0', maxUses: '', expiresAt: '', isActive: true, oncePerCustomer: true };
+const empty = { code: '', type: 'flat', value: '', occasion: 'none', minOrder: '0', maxUses: '', expiresAt: '', isActive: true, maxPerCustomer: '1' };
+
+/** What the per-customer box shows for a coupon the server sent back. */
+const perCustomerOf = (c: Coupon): string => {
+  if (c.maxPerCustomer !== undefined && c.maxPerCustomer !== null) return String(c.maxPerCustomer);
+  return c.oncePerCustomer ? '1' : '0';          // older server, still only the tick
+};
 
 const OCCASION_LABEL: Record<string, string> = { none: 'Anyone', birthday: 'Birthday', anniversary: 'Anniversary' };
 
@@ -39,7 +47,10 @@ function inWords(f: typeof empty): string {
   const min = parseFloat(f.minOrder) > 0 ? ` on orders over ₹${parseFloat(f.minOrder).toLocaleString('en-IN')}` : '';
   const who = f.occasion === 'none' ? '' : ` — only in the customer's ${f.occasion} month`;
   const uses = f.maxUses ? `, usable ${f.maxUses} time${Number(f.maxUses) === 1 ? '' : 's'} in total` : '';
-  const each = f.oncePerCustomer ? ', once per customer' : ', as many times as one customer likes';
+  const per = parseInt(f.maxPerCustomer, 10);
+  const each = !f.maxPerCustomer.trim() || per === 1 ? ', once per customer'
+    : per <= 0 ? ', as many times as one customer likes'
+    : `, up to ${per} times per customer`;
   const till = f.expiresAt ? `, until the end of ${new Date(f.expiresAt + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'long' })}` : ', with no end date';
   return `${f.code.trim().toUpperCase()} gives ${off}${min}${who}${each}${uses}${till}.`;
 }
@@ -87,7 +98,7 @@ export default function CouponsPage() {
     setForm({
       code: c.code, type: c.type, value: String(c.value), occasion: c.occasion ?? 'none',
       minOrder: String(c.minOrder), maxUses: c.maxUses ? String(c.maxUses) : '',
-      oncePerCustomer: c.oncePerCustomer ?? false,
+      maxPerCustomer: perCustomerOf(c),
       expiresAt: c.expiresAt ? c.expiresAt.split('T')[0] : '', isActive: c.isActive,
     });
     setMsg(null);
@@ -109,7 +120,10 @@ export default function CouponsPage() {
         occasion: form.occasion,
         minOrder: parseFloat(form.minOrder) || 0,
         maxUses: form.maxUses ? parseInt(form.maxUses) : null,
-        oncePerCustomer: form.oncePerCustomer,
+        // Blank reads as once, which is the safe end of the two: a code that
+        // should have been limited and was not is money out of the shop, and a
+        // code limited by mistake is one edit away.
+        maxPerCustomer: form.maxPerCustomer.trim() ? Math.max(0, parseInt(form.maxPerCustomer, 10) || 0) : 1,
         // End of the chosen day, in local time. Set as UTC midnight, a coupon
         // marked "expires 31 Aug" stopped working at half past five that morning.
         expiresAt: form.expiresAt ? new Date(form.expiresAt + 'T23:59:59').toISOString() : null,
@@ -138,7 +152,9 @@ export default function CouponsPage() {
       await couponsApi.update(c.id, {
         code: c.code, type: c.type, value: c.value, occasion: c.occasion ?? 'none',
         minOrder: c.minOrder, maxUses: c.maxUses, expiresAt: c.expiresAt,
-        oncePerCustomer: c.oncePerCustomer ?? false,
+        // This sends the WHOLE coupon back, so leaving the limit out would
+        // quietly reset it every time somebody flicked the on/off switch.
+        maxPerCustomer: Number(perCustomerOf(c)),
         isActive: !c.isActive,
       }, getAdminToken() ?? '');
       setCoupons(list => list.map(x => (x.id === c.id ? { ...x, isActive: !x.isActive } : x)));
@@ -218,7 +234,7 @@ export default function CouponsPage() {
 
   const exportCsv = () => {
     downloadCsv(
-      [['Code', 'Discount', 'Smallest order', 'Who', 'Used', 'Allowed', 'Last day', 'Status'],
+      [['Code', 'Discount', 'Smallest order', 'Who', 'Used', 'Allowed', 'Per customer', 'Last day', 'Status'],
        ...shown.map(c => [
          c.code,
          c.type === 'percent' ? `${c.value}%` : `Rs.${c.value}`,
@@ -226,6 +242,7 @@ export default function CouponsPage() {
          OCCASION_LABEL[c.occasion] ?? c.occasion,
          String(c.usedCount),
          c.maxUses ? String(c.maxUses) : 'No limit',
+         perCustomerOf(c) === '0' ? 'No limit' : perCustomerOf(c),
          c.expiresAt ? shortDate(c.expiresAt) : 'No end date',
          isExpired(c) ? 'Expired' : isUsedUp(c) ? 'Used up' : c.isActive ? 'Working' : 'Switched off',
        ])],
@@ -298,17 +315,21 @@ export default function CouponsPage() {
                      placeholder="No limit" value={form.maxUses}
                      onChange={e => setForm(f => ({ ...f, maxUses: e.target.value }))} />
             </label>
-            <label style={{ display: 'flex', alignItems: 'flex-start', gap: '.5rem', gridColumn: '1 / -1', cursor: 'pointer' }}>
-              <input type="checkbox" checked={form.oncePerCustomer} style={{ marginTop: '.25rem' }}
-                     onChange={e => setForm(f => ({ ...f, oncePerCustomer: e.target.checked }))} />
-              <span>
-                <span className="adm-stat-l">One use per customer</span>
-                <span style={{ display: 'block', fontSize: '.78rem', color: '#777', marginTop: '.15rem' }}>
-                  Each customer may use this code once, whenever they like, and never again.
-                  Recognised by mobile number or email &mdash; either one is enough.
-                  Leave &ldquo;Total uses allowed&rdquo; blank, or set it high, so the code does not
-                  run out for everyone at once.
-                </span>
+            <label style={{ gridColumn: '1 / -1' }}>
+              <span className="adm-stat-l">Uses per customer</span>
+              <input className="adm-input" type="number" min={0} style={{ width: '100%', marginTop: '.2rem' }}
+                     placeholder="1" value={form.maxPerCustomer}
+                     onChange={e => setForm(f => ({ ...f, maxPerCustomer: e.target.value }))} />
+              <span style={{ display: 'block', fontSize: '.78rem', color: '#777', marginTop: '.3rem' }}>
+                How many times <strong>one</strong> customer may use this code.
+                <strong> 1</strong> is the usual answer for a welcome, birthday or anniversary
+                offer. <strong>0</strong> means no limit &mdash; she can use it on every order.
+                Recognised by mobile number or email, either one being enough, so changing
+                one of the two does not earn the discount again.
+                <br />
+                This is different from &ldquo;Total uses allowed&rdquo; above, which is the ceiling
+                on the whole code. A welcome code usually wants both: once each, and a total
+                that is high or blank so it does not run out for everyone at once.
               </span>
             </label>
             <label style={{ display: 'block' }}>

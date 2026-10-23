@@ -91,7 +91,12 @@ public class CouponsController : ControllerBase
         // An order that carries neither is let through. A rule that cannot
         // recognise anybody must not pretend it can - refusing everyone
         // anonymous would turn a welcome code into a code nobody can use.
-        if (coupon.OncePerCustomer)
+        // Not a tick any more, a number: 0 is no limit, N is N times each.
+        // Either identity being full is enough to refuse, because the claim on
+        // the order itself needs room on BOTH - a preview that said yes where
+        // the order says no is the worst of the two answers.
+        var perCustomer = coupon.PerCustomerLimit;
+        if (perCustomer > 0)
         {
             var ids = CustomerKeys.Of(req.Phone, req.Email);
             if (ids.Count > 0)
@@ -101,10 +106,17 @@ public class CouponsController : ControllerBase
                 var emailKey = ids.FirstOrDefault(i => i.Kind == "email").Value;
                 var used = await _db.CouponRedemptions.AnyAsync(r =>
                     r.CodeLower == codeKey
+                    && r.Uses >= perCustomer
                     && ((phoneKey != null && r.IdKind == "phone" && r.IdValue == phoneKey)
                      || (emailKey != null && r.IdKind == "email" && r.IdValue == emailKey)));
                 if (used)
-                    return BadRequest(new { success = false, message = "You have already used this code. It can be used once per customer." });
+                    return BadRequest(new
+                    {
+                        success = false,
+                        message = perCustomer == 1
+                            ? "You have already used this code. It can be used once per customer."
+                            : $"You have already used this code {perCustomer} times, which is the most one customer can.",
+                    });
             }
         }
 
@@ -137,7 +149,7 @@ public class CouponsController : ControllerBase
         var coupons = await _db.Coupons.OrderByDescending(c => c.CreatedAt).ToListAsync();
         return Ok(coupons.Select(c => new {
             c.Id, c.Code, c.Type, c.Value, c.Occasion, c.MinOrder,
-            c.MaxUses, c.UsedCount, c.OncePerCustomer, c.ExpiresAt, c.IsActive, c.CreatedAt
+            c.MaxUses, c.UsedCount, c.OncePerCustomer, c.MaxPerCustomer, c.ExpiresAt, c.IsActive, c.CreatedAt
         }));
     }
 
@@ -164,7 +176,10 @@ public class CouponsController : ControllerBase
             Occasion   = NormalizeOccasion(req.Occasion),
             MinOrder   = req.MinOrder,
             MaxUses    = req.MaxUses,
-            OncePerCustomer = req.OncePerCustomer,
+            MaxPerCustomer  = NormalizePerCustomer(req.MaxPerCustomer, req.OncePerCustomer),
+            // Kept in step so a rollback to the previous build still sees a
+            // sensible tick instead of losing every per-customer limit.
+            OncePerCustomer = NormalizePerCustomer(req.MaxPerCustomer, req.OncePerCustomer) == 1,
             ExpiresAt  = req.ExpiresAt,
             IsActive   = true,
             CreatedAt  = DateTimeOffset.UtcNow,
@@ -197,7 +212,8 @@ public class CouponsController : ControllerBase
         coupon.Occasion  = NormalizeOccasion(req.Occasion);
         coupon.MinOrder  = req.MinOrder;
         coupon.MaxUses   = req.MaxUses;
-        coupon.OncePerCustomer = req.OncePerCustomer;
+        coupon.MaxPerCustomer  = NormalizePerCustomer(req.MaxPerCustomer, req.OncePerCustomer);
+        coupon.OncePerCustomer = coupon.MaxPerCustomer == 1;
         coupon.ExpiresAt = req.ExpiresAt;
         coupon.IsActive  = req.IsActive;
         await _db.SaveChangesAsync();
@@ -207,6 +223,23 @@ public class CouponsController : ControllerBase
     // Only accept the known occasion tags; anything else is treated as a regular coupon.
     private static string NormalizeOccasion(string? o) =>
         o is "birthday" or "anniversary" ? o : "none";
+
+    /// <summary>
+    /// What the per-customer limit should be stored as.
+    ///
+    /// Never NULL on the way out: NULL is reserved for a row nobody has set,
+    /// and the startup back-fill turns those into 1. A screen that saved NULL
+    /// would get silently changed to 1 on the next restart, which is exactly
+    /// the kind of surprise that makes people stop trusting a setting.
+    ///
+    /// A negative number is read as no limit rather than refused - the box is
+    /// a number box and nobody means minus two.
+    /// </summary>
+    private static int NormalizePerCustomer(int? asked, bool legacyTick)
+    {
+        if (asked is null) return legacyTick ? 1 : 0;     // older client, still sending the tick
+        return asked.Value < 0 ? 0 : asked.Value;
+    }
 
     // ── DELETE /api/coupons/{id}  (admin) ─────────────────────────────────────
     [HttpDelete("{id:int}")]
@@ -227,4 +260,6 @@ public record ValidateCouponRequest(
 public record CouponRequest(
     string Code, string Type, decimal Value, decimal MinOrder,
     int? MaxUses, DateTimeOffset? ExpiresAt, bool IsActive = true,
-    string? Occasion = "none", bool OncePerCustomer = false);
+    string? Occasion = "none", bool OncePerCustomer = false,
+    // null here means the caller is an older build that only knows the tick.
+    int? MaxPerCustomer = null);

@@ -382,7 +382,11 @@ public class CustomersController : ControllerBase
             {
                 Code = code, Type = "percent", Value = pct, MinOrder = 0,
                 Occasion = occasion, CustomerId = customer?.Id,
-                MaxUses = 1, UsedCount = 0,
+                // Once, by both counts: once in total, and once for her. The
+                // second is written here rather than left to the startup
+                // back-fill, so a code minted between two deploys is not
+                // briefly unlimited per customer.
+                MaxUses = 1, UsedCount = 0, MaxPerCustomer = 1, OncePerCustomer = true,
                 ExpiresAt = DateTimeOffset.UtcNow.AddDays(40),   // covers the 30-day slab + buffer
                 IsActive = true, CreatedAt = DateTimeOffset.UtcNow,
             };

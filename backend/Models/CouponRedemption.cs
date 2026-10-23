@@ -41,6 +41,16 @@ public class CouponRedemption
     [Column("order_id")]
     public string? OrderId { get; set; }
 
+    /// <summary>
+    /// How many times this identity has used this code.
+    ///
+    /// The row used to mean once by existing at all. Carrying the count instead
+    /// lets a coupon allow two or three per shopper without dropping the unique
+    /// index that makes the claim atomic.
+    /// </summary>
+    [Column("uses")]
+    public int Uses { get; set; } = 1;
+
     [Column("created_at")]
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 }

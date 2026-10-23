@@ -78,11 +78,11 @@ public class OrdersController : ControllerBase
     private async Task<bool> TryClaimOncePerCustomerAsync(string code, string? phone, string? email, string orderId)
     {
         var codeKey = code.Trim().ToLowerInvariant();
-        var once = await _db.Coupons
+        var limit = await _db.Coupons
             .Where(c => c.Code.ToLower() == codeKey)
-            .Select(c => c.OncePerCustomer)
-            .FirstOrDefaultAsync();
-        if (!once) return true;
+            .Select(c => c.MaxPerCustomer)
+            .FirstOrDefaultAsync() ?? 1;
+        if (limit <= 0) return true;        // 0 = as often as she likes
 
         var ids = Services.CustomerKeys.Of(phone, email);
         if (ids.Count == 0) return true;
@@ -90,10 +90,20 @@ public class OrdersController : ControllerBase
         var inserted = 0;
         foreach (var (kind, value) in ids)
         {
+            // One statement, and the limit is inside it.
+            //
+            // The row now carries a COUNT, so the rule is no longer "does a row
+            // exist" but "has she got room left". Reading the count and then
+            // writing it back would let two orders a second apart both read
+            // two-of-three and both become the third. DO UPDATE ... WHERE puts
+            // the comparison inside the write, where the unique index already
+            // serialises them.
             inserted += await _db.Database.ExecuteSqlInterpolatedAsync(
-                $@"INSERT INTO coupon_redemptions (code_lower, id_kind, id_value, order_id)
-                   VALUES ({codeKey}, {kind}, {value}, {orderId})
-                   ON CONFLICT (code_lower, id_kind, id_value) DO NOTHING");
+                $@"INSERT INTO coupon_redemptions (code_lower, id_kind, id_value, order_id, uses)
+                   VALUES ({codeKey}, {kind}, {value}, {orderId}, 1)
+                   ON CONFLICT (code_lower, id_kind, id_value)
+                   DO UPDATE SET uses = coupon_redemptions.uses + 1, order_id = {orderId}
+                   WHERE coupon_redemptions.uses < {limit}");
         }
         if (inserted == ids.Count) return true;
 
@@ -104,9 +114,20 @@ public class OrdersController : ControllerBase
     }
 
     /// <summary>Take back the claims written for an order that did not get the discount.</summary>
+    /// <remarks>
+    /// A decrement, not a delete. The row is now a running count for that
+    /// shopper and that code, so deleting it would throw away every earlier
+    /// use as well - she would get the offer again from scratch. order_id holds
+    /// whichever order last touched the row, which is all this needs: a release
+    /// always follows its own failed claim in the same request.
+    ///
+    /// A row left at zero is correct and is not tidied away. The claim asks
+    /// whether uses is below the limit, so zero simply means she has room.
+    /// </remarks>
     private Task ReleaseOncePerCustomerAsync(string orderId) =>
         _db.Database.ExecuteSqlInterpolatedAsync(
-            $"DELETE FROM coupon_redemptions WHERE order_id = {orderId}");
+            $@"UPDATE coupon_redemptions SET uses = uses - 1, order_id = NULL
+               WHERE order_id = {orderId} AND uses > 0");
 
     /// <summary>
     /// Spend the coupon for this order, and report what the order should now say.

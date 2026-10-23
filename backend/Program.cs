@@ -795,6 +795,31 @@ using (var scope = app.Services.CreateScope())
             ON coupon_redemptions (code_lower, id_kind, id_value);
         CREATE INDEX IF NOT EXISTS ix_coupon_redemption_order
             ON coupon_redemptions (order_id);
+
+        -- How many times one shopper may use a code, rather than only a tick.
+        --
+        -- once_per_customer arrived later, with DEFAULT FALSE. So every coupon
+        -- that already existed when it was added - WELCOME10 among them - came
+        -- out unlimited per person, and nothing on the screen said so. The same
+        -- shopper could take the welcome discount on every order she placed.
+        --
+        -- NULL means nobody has set it, 0 means no limit, N means N times each.
+        -- The back-fill below turns every NULL into 1. It is safe to run on
+        -- every start because the admin screen always writes a number, 0 for no
+        -- limit, so a coupon deliberately left unlimited never reads NULL again
+        -- and is never quietly set back to 1.
+        ALTER TABLE coupons ADD COLUMN IF NOT EXISTS max_per_customer INT;
+        UPDATE coupons SET max_per_customer = 1 WHERE max_per_customer IS NULL;
+
+        -- One row per identity per code, now carrying a COUNT instead of
+        -- meaning once.
+        --
+        -- The unique index above stays exactly as it is, on purpose: it is what
+        -- makes the claim atomic. INSERT ... ON CONFLICT DO UPDATE ... WHERE
+        -- uses < limit is a single statement, so two orders in the same second
+        -- cannot both be told there is room. Dropping that index to allow N
+        -- rows per person would have handed the race back.
+        ALTER TABLE coupon_redemptions ADD COLUMN IF NOT EXISTS uses INT NOT NULL DEFAULT 1;
         ALTER TABLE customers ADD COLUMN IF NOT EXISTS birthday_offer_used    BOOLEAN NOT NULL DEFAULT FALSE;
         ALTER TABLE customers ADD COLUMN IF NOT EXISTS anniversary_offer_used BOOLEAN NOT NULL DEFAULT FALSE;
         -- Customer-uploaded profile photo URL (served by the customers photo endpoint).
