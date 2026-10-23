@@ -182,6 +182,16 @@ export default function ProductDetail({ params, initialProduct = null }: { param
   const [shareMsg, setShareMsg] = useState('');
   const [reviewText, setReviewText] = useState('');
   const [reviewFiles, setReviewFiles] = useState<File[]>([]);
+  // One blob URL per chosen photo, released when it is replaced. The preview
+  // used to call createObjectURL straight inside the JSX, which mints a NEW
+  // url on every render of this page and frees none of them - and this page
+  // re-renders on every size, colour and quantity change.
+  const [reviewPreviews, setReviewPreviews] = useState<string[]>([]);
+  useEffect(() => {
+    const urls = reviewFiles.map(f => URL.createObjectURL(f));
+    setReviewPreviews(urls);
+    return () => urls.forEach(URL.revokeObjectURL);
+  }, [reviewFiles]);
   const [reviewMsg, setReviewMsg] = useState('');
   const [submittingReview, setSubmittingReview] = useState(false);
 
@@ -1148,10 +1158,11 @@ export default function ProductDetail({ params, initialProduct = null }: { param
                     <input type="file" accept="image/*" multiple
                       onChange={e => setReviewFiles(Array.from(e.target.files ?? []).slice(0, 3))}
                       style={{ fontSize: '.82rem' }} />
-                    {reviewFiles.length > 0 && (
+                    {reviewPreviews.length > 0 && (
                       <div style={{ display: 'flex', gap: '.4rem', marginTop: '.5rem', flexWrap: 'wrap' }}>
-                        {reviewFiles.map((f, i) => (
-                          <img key={i} src={URL.createObjectURL(f)} alt="" width={52} height={52}
+                        {reviewPreviews.map((src, i) => (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img key={src} src={src} alt={`Photo ${i + 1}`} width={52} height={52}
                             style={{ width: 52, height: 52, objectFit: 'cover', borderRadius: 6, border: '1px solid #eee' }} />
                         ))}
                       </div>

@@ -29,6 +29,22 @@ export default function ReviewsPage() {
   const [submitting, setSubmitting] = useState(false);
   const [msg, setMsg] = useState('');
 
+  // Photos. This page had no way to add one at all - the box existed only on
+  // the product page, so a customer who came here from My Account to review a
+  // delivered order could write words and nothing else. The API and the
+  // storage have been ready the whole time; only the box was missing.
+  const [files, setFiles] = useState<File[]>([]);
+  const [previews, setPreviews] = useState<string[]>([]);
+
+  // Made once per chosen file and released when it is replaced, rather than
+  // calling createObjectURL straight inside the JSX - that makes a new blob
+  // URL on every single render and never frees any of them.
+  useEffect(() => {
+    const urls = files.map(f => URL.createObjectURL(f));
+    setPreviews(urls);
+    return () => urls.forEach(URL.revokeObjectURL);
+  }, [files]);
+
   useEffect(() => {
     const c = getCustomer();
     if (!c) { router.push('/account'); return; }
@@ -50,14 +66,27 @@ export default function ReviewsPage() {
     if (!text.trim()) { setMsg('Please write a review.'); return; }
     setSubmitting(true); setMsg('');
     try {
+      const token = getToken() ?? '';
+
+      // Photos first: the review is only written once every picture is safely
+      // stored, so a failed upload cannot leave a review that promises photos
+      // it does not have.
+      let images: string[] = [];
+      if (files.length > 0) {
+        setMsg('Uploading photos…');
+        images = await Promise.all(files.slice(0, 3).map(f => reviewsApi.uploadImage(f, token)));
+      }
+
       await reviewsApi.submit({
         productId: Number(selectedProductId),
         rating,
         text: text.trim(),
         orderId: selectedOrderId,
-      }, getToken() ?? '');
+        images,
+      }, token);
       setMsg('✅ Review submitted! It will appear after approval.');
       setText(''); setRating(5); setSelectedProductId(''); setSelectedOrderId('');
+      setFiles([]);
     } catch (e) { setMsg('❌ ' + (e as Error).message); }
     finally { setSubmitting(false); }
   };
@@ -114,6 +143,24 @@ export default function ReviewsPage() {
                     placeholder="Share your experience with this product..."
                     style={{ width: '100%', border: '1.5px solid #ddd', borderRadius: '8px', padding: '.6rem .75rem', fontSize: '.9rem', resize: 'vertical', marginTop: '.3rem', boxSizing: 'border-box', fontFamily: 'inherit' }} />
                 </label>
+
+                <div className="full-field">
+                  <label style={{ display: 'block', fontSize: '.85rem', fontWeight: 600, marginBottom: '.35rem' }}>
+                    Add Photos <span style={{ color: '#888', fontWeight: 400 }}>(optional, up to 3)</span>
+                  </label>
+                  <input type="file" accept="image/*" multiple
+                    onChange={e => setFiles(Array.from(e.target.files ?? []).slice(0, 3))}
+                    style={{ fontSize: '.85rem' }} />
+                  {previews.length > 0 && (
+                    <div style={{ display: 'flex', gap: '.4rem', marginTop: '.5rem', flexWrap: 'wrap' }}>
+                      {previews.map((src, i) => (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img key={src} src={src} alt={`Photo ${i + 1}`} width={56} height={56}
+                          style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 6, border: '1px solid #eee' }} />
+                      ))}
+                    </div>
+                  )}
+                </div>
 
                 {msg && <p className="full-field" style={{ color: msg.startsWith('✅') ? '#27ae60' : '#c0392b', fontWeight: 600 }}>{msg}</p>}
 

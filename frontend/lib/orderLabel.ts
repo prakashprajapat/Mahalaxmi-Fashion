@@ -54,6 +54,10 @@ export const LABEL_CSS = `
       .bcbox{flex:1;min-width:0;border:1px solid #111;padding:3px 2px;display:flex;flex-direction:column;justify-content:center}
       .qrbox{border:1px solid #111;padding:2px;display:flex;align-items:center;justify-content:center}
       .bc{display:block;width:75%;height:30px;margin:0 auto}
+      /* The order-id barcode under the ORDER ID box. Shorter than the AWB one
+         above it so the two are told apart at a glance on the bag, and so the
+         label still fits the same sticker. */
+      .bc-sm{display:block;width:92%;height:16px;margin:2px auto 0}
       .qr{width:58px;height:58px;flex-shrink:0;display:block}
       .to{font-size:11px;font-weight:800;margin:1px 0}
       .txt{font-size:8px}
@@ -72,7 +76,22 @@ export const LABEL_CSS = `
       .foot .muted{font-weight:400;color:#555}
       @media print{body{margin:0;padding:0}.label{border:1px solid #111}}`;
 
-export const buildLabelBody = (order: Order): string => {
+export interface LabelOptions {
+  /**
+   * Print a barcode of OUR order id under the ORDER ID box.
+   *
+   * The label has always carried a barcode, and it encodes the AWB whenever
+   * there is one - which is right for the courier and no use at all to the
+   * person filling the thaili, who needs to find the ORDER. Scanning the bag
+   * then meant reading the order id off the label by eye and typing it.
+   *
+   * Optional because not every parcel is picked that way, and a label that is
+   * already full should not grow for a shop that will not use it.
+   */
+  orderBarcode?: boolean;
+}
+
+export const buildLabelBody = (order: Order, opts: LabelOptions = {}): string => {
     const esc = (s: string | number | null | undefined) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] as string));
     const money = (n: number) => 'Rs.' + Number(n || 0).toFixed(2);
     const awb = order.awb || '';
@@ -80,6 +99,15 @@ export const buildLabelBody = (order: Order): string => {
     // has one (falls back to the order id only for orders that don't have an AWB yet, so the
     // code is never blank). Print labels after assigning the AWB and both carry the AWB.
     const codeVal = awb || order.id;
+
+    // Only when asked for, and never twice. With no AWB yet, the big barcode
+    // at the top of the label IS the order id already - printing a second,
+    // identical one underneath helps nobody and gives a scanner two things to
+    // pick between.
+    const wantsOrderBarcode = opts.orderBarcode === true && codeVal !== order.id;
+    const orderBarcode = wantsOrderBarcode
+      ? `<svg class="bc bc-sm" data-code="${esc(order.id)}"></svg>`
+      : '';
     const courier = (order.courier || '').trim();
     const showCourier = !!awb && !!courier;
     const gstRate = Number(order.cart[0]?.gstRate) || 5;
@@ -138,7 +166,7 @@ export const buildLabelBody = (order: Order): string => {
         </div>
       </div>
       <div class="cols">
-        <div class="box"><div class="lbl">ORDER ID</div><div class="big">${esc(order.id)}</div></div>
+        <div class="box"><div class="lbl">ORDER ID</div><div class="big">${esc(order.id)}</div>${orderBarcode}</div>
         <div class="box"><div class="lbl">PAYMENT</div><div class="big">${esc(payment)}</div></div>
       </div>
       <div class="box">
@@ -238,9 +266,14 @@ export const labelFileName = (list: Order[], now: Date = new Date()): string => 
        + `-${p(now.getHours())}${p(now.getMinutes())}${p(now.getSeconds())}`;
 };
 
-export const openOrderLabels = (list: Order[]) => {
+export const openOrderLabels = (list: Order[], opts: LabelOptions = {}) => {
     if (!list.length) return;
-    const bodies = list.map(buildLabelBody).join('\n');
+    // o => buildLabelBody(o, opts), NOT list.map(buildLabelBody): map hands its
+    // callback (value, index, array), so passing the function by name would
+    // have delivered the array INDEX as the options object. It would not have
+    // thrown - a number simply has no orderBarcode property - it would just
+    // have silently never printed the barcode.
+    const bodies = list.map(o => buildLabelBody(o, opts)).join('\n');
     const html = `<!doctype html><html><head><meta charset="utf-8"><title>${labelFileName(list)}</title>
     <style>${LABEL_CSS}</style>
     <script>${BARCODE_JS}</script></head>
