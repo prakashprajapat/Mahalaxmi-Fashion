@@ -93,6 +93,33 @@ export default function CouponsPage() {
 
   const resetForm = () => { setForm({ ...empty }); setEditId(null); setMsg(null); setShowForm(false); };
 
+  // Recording a past use. Kept beside the list rather than inside the edit
+  // form: it is about a customer, not about the coupon's own settings.
+  const [usedCouponId, setUsedCouponId] = useState('');
+  const [usedPhone, setUsedPhone] = useState('');
+  const [usedEmail, setUsedEmail] = useState('');
+  const [usedBusy, setUsedBusy] = useState(false);
+
+  const markUsed = async (record: boolean) => {
+    const id = Number(usedCouponId);
+    if (!id) { setMsg({ kind: 'err', text: 'Choose which coupon this is about.' }); return; }
+    if (!usedPhone.trim() && !usedEmail.trim()) {
+      setMsg({ kind: 'err', text: 'A mobile number or an email is how a customer is recognised.' });
+      return;
+    }
+    setUsedBusy(true);
+    try {
+      const body = { phone: usedPhone.trim() || undefined, email: usedEmail.trim() || undefined };
+      const token = getAdminToken() ?? '';
+      const r = record
+        ? await couponsApi.markUsed(id, body, token)
+        : await couponsApi.clearUsed(id, body, token);
+      setMsg({ kind: 'ok', text: r.message });
+    } catch (e) {
+      setMsg({ kind: 'err', text: (e as Error).message });
+    } finally { setUsedBusy(false); }
+  };
+
   const startEdit = (c: Coupon) => {
     setEditId(c.id);
     setForm({
@@ -531,6 +558,51 @@ export default function CouponsPage() {
             </table>
           </div>
         )}
+      </Card>
+
+      {/* Who has already used a code.
+          The limit can only refuse what it can see, and nothing was written
+          down for the prepaid orders the webhook used to create - so a
+          customer who had taken a welcome code three times looked like
+          somebody who never had. Fixing the writing does not fill in the past.
+          This does, without anyone opening the database. */}
+      <Card title="Already used by a customer">
+        <p style={{ fontSize: '.85rem', color: '#777', margin: '0 0 .8rem' }}>
+          Records that someone has <strong>already used</strong> a code, so the next
+          attempt is refused like any other repeat. Recognised by mobile number or
+          email &mdash; fill in whichever you have, or both if the order carried both.
+        </p>
+        <div style={{ display: 'grid', gap: '.6rem', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', alignItems: 'end' }}>
+          <label>
+            <span className="adm-stat-l">Coupon</span>
+            <select className="adm-input" style={{ width: '100%', marginTop: '.2rem' }}
+                    value={usedCouponId} onChange={e => setUsedCouponId(e.target.value)}>
+              <option value="">Choose a code…</option>
+              {coupons.map(c => <option key={c.id} value={c.id}>{c.code}</option>)}
+            </select>
+          </label>
+          <label>
+            <span className="adm-stat-l">Mobile number</span>
+            <input className="adm-input" style={{ width: '100%', marginTop: '.2rem' }}
+                   placeholder="10 digits" value={usedPhone}
+                   onChange={e => setUsedPhone(e.target.value)} />
+          </label>
+          <label>
+            <span className="adm-stat-l">Email</span>
+            <input className="adm-input" style={{ width: '100%', marginTop: '.2rem' }}
+                   placeholder="optional" value={usedEmail}
+                   onChange={e => setUsedEmail(e.target.value)} />
+          </label>
+          <div style={{ display: 'flex', gap: '.4rem' }}>
+            <button className="adm-btn" disabled={usedBusy} onClick={() => markUsed(true)}>
+              {usedBusy ? 'Saving…' : 'Mark as used'}
+            </button>
+            <button className="adm-btn" disabled={usedBusy} onClick={() => markUsed(false)}
+                    title="Undo — lets this customer use the code again">
+              Clear
+            </button>
+          </div>
+        </div>
       </Card>
     </div>
   );

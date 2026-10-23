@@ -205,6 +205,89 @@ public class CouponsController : ControllerBase
         return Ok(new { success = true });
     }
 
+    // ── POST /api/coupons/{id}/mark-used  (admin) ────────────────────────────
+    //
+    // Write down that somebody has ALREADY used this code.
+    //
+    // The per-customer limit can only act on what is in coupon_redemptions,
+    // and nothing was ever written there for an order the Cashfree webhook
+    // created - which was most prepaid orders. So a customer who had taken a
+    // welcome code three times looked, to the rule, like somebody who had
+    // never used it. Fixing the writing does not fill in the past, and the
+    // past is where the money went.
+    //
+    // This is the button for that, instead of hand-written SQL on the server:
+    // name the customer, and the next attempt is refused like any other repeat.
+    [HttpPost("{id:int}/mark-used")]
+    public async Task<IActionResult> MarkUsed(int id, [FromBody] MarkCouponUsedRequest req)
+    {
+        if (!await IsAdmin()) return Unauthorized();
+        var coupon = await _db.Coupons.FindAsync(id);
+        if (coupon is null) return NotFound();
+
+        var ids = CustomerKeys.Of(req.Phone, req.Email);
+        if (ids.Count == 0)
+            return BadRequest(new
+            {
+                success = false,
+                message = "Give a 10-digit mobile number or an email address - that is how a customer is recognised.",
+            });
+
+        // The same claim an order takes, so a code that is already fully used
+        // by this customer is reported rather than quietly counted twice.
+        var claimed = await CouponConsumer.TryClaimAsync(
+            _db, coupon.Code, req.Phone, req.Email,
+            string.IsNullOrWhiteSpace(req.OrderId) ? "manual-" + DateTimeOffset.UtcNow.ToUnixTimeSeconds() : req.OrderId!.Trim());
+
+        var who = string.Join(" and ", ids.Select(i => i.Value));
+        return Ok(new
+        {
+            success = true,
+            claimed,
+            message = claimed
+                ? $"Recorded. {coupon.Code} is now used up for {who}."
+                : $"{who} had already used {coupon.Code} as many times as allowed - nothing changed.",
+        });
+    }
+
+    // ── POST /api/coupons/{id}/clear-used  (admin) ───────────────────────────
+    //
+    // The other direction, because the button above is easy to aim at the
+    // wrong person and nobody should need the database to undo that.
+    [HttpPost("{id:int}/clear-used")]
+    public async Task<IActionResult> ClearUsed(int id, [FromBody] MarkCouponUsedRequest req)
+    {
+        if (!await IsAdmin()) return Unauthorized();
+        var coupon = await _db.Coupons.FindAsync(id);
+        if (coupon is null) return NotFound();
+
+        var ids = CustomerKeys.Of(req.Phone, req.Email);
+        if (ids.Count == 0)
+            return BadRequest(new { success = false, message = "Give a 10-digit mobile number or an email address." });
+
+        var codeKey = coupon.Code.Trim().ToLowerInvariant();
+        var phoneKey = ids.FirstOrDefault(i => i.Kind == "phone").Value;
+        var emailKey = ids.FirstOrDefault(i => i.Kind == "email").Value;
+
+        var rows = await _db.CouponRedemptions
+            .Where(r => r.CodeLower == codeKey
+                && ((phoneKey != null && r.IdKind == "phone" && r.IdValue == phoneKey)
+                 || (emailKey != null && r.IdKind == "email" && r.IdValue == emailKey)))
+            .ToListAsync();
+
+        _db.CouponRedemptions.RemoveRange(rows);
+        await _db.SaveChangesAsync();
+
+        return Ok(new
+        {
+            success = true,
+            removed = rows.Count,
+            message = rows.Count == 0
+                ? "Nothing was recorded against that customer for this code."
+                : $"Cleared {rows.Count} record(s); they can use {coupon.Code} again.",
+        });
+    }
+
     // Only accept the known occasion tags; anything else is treated as a regular coupon.
     private static string NormalizeOccasion(string? o) =>
         o is "birthday" or "anniversary" ? o : "none";
@@ -239,6 +322,7 @@ public class CouponsController : ControllerBase
     }
 }
 
+public record MarkCouponUsedRequest(string? Phone = null, string? Email = null, string? OrderId = null);
 public record ValidateCouponRequest(
     string Code, decimal OrderAmount, int? CustomerId = null,
     string? Phone = null, string? Email = null);

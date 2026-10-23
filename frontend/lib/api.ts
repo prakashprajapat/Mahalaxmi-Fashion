@@ -808,6 +808,15 @@ export const couponsApi = {
     request('/coupons/' + id, { method: 'PUT', body: JSON.stringify(data) }, token),
   delete: (id: number, token: string) =>
     request('/coupons/' + id, { method: 'DELETE' }, token),
+  // Write down (or undo) that a customer has already used a code. The
+  // per-customer limit can only act on what is recorded, and nothing was
+  // recorded for the orders the webhook used to write.
+  markUsed: (id: number, data: { phone?: string; email?: string; orderId?: string }, token: string) =>
+    request<{ success: boolean; claimed: boolean; message: string }>(
+      `/coupons/${id}/mark-used`, { method: 'POST', body: JSON.stringify(data) }, token),
+  clearUsed: (id: number, data: { phone?: string; email?: string }, token: string) =>
+    request<{ success: boolean; removed: number; message: string }>(
+      `/coupons/${id}/clear-used`, { method: 'POST', body: JSON.stringify(data) }, token),
 };
 
 // ── Staff ─────────────────────────────────────────────────────────────────────
