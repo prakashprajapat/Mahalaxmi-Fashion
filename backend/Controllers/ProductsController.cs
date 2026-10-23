@@ -23,10 +23,13 @@ public class ProductsController : ControllerBase
     // Incremented on every write — included in cache key so old entries are ignored instantly
     private static long _cacheVer = 0;
 
-    public ProductsController(AppDbContext db, IMemoryCache cache)
+    private readonly ILogger<ProductsController> _logger;
+
+    public ProductsController(AppDbContext db, IMemoryCache cache, ILogger<ProductsController> logger)
     {
         _db = db;
         _cache = cache;
+        _logger = logger;
     }
 
     /// Call after any write (update/delete/bulk, or a review change) to bust all product list caches.
@@ -561,7 +564,15 @@ public class ProductsController : ControllerBase
             // Only a new product takes a number. An edit keeps the place it
             // already has, so saving a correction does not shuffle the shop
             // front around.
-            ApplyProduct(product, dto, isNew ? ++nextNewest : 0, callerShop, callerIsOwner);
+            try
+            {
+                ApplyProduct(product, dto, isNew ? ++nextNewest : 0, callerShop, callerIsOwner);
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogError(ex, "Product photo could not be stored.");
+                return BadRequest(new { success = false, message = ex.Message });
+            }
 
             var g = ProductQualityGate.Check(product);
             var problems = g.Blocking.Select(x => x.Message).ToList();
@@ -622,7 +633,15 @@ public class ProductsController : ControllerBase
                 return Conflict(new { success = false, message = $"SKU '{sku}' is already used by product '{duplicate.Name}'. Please use a unique SKU." });
         }
 
-        ApplyProduct(p, req, 0, await CallerShopAsync(), User.IsOwner());
+        try
+        {
+            ApplyProduct(p, req, 0, await CallerShopAsync(), User.IsOwner());
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogError(ex, "Product photo could not be stored.");
+            return BadRequest(new { success = false, message = ex.Message });
+        }
 
         // The gate runs on what is about to be saved, not on what was asked
         // for. A product that fails is still saved — nothing the owner typed is
@@ -785,7 +804,13 @@ public class ProductsController : ControllerBase
     }
 
     // Auto-convert base64 image to file on disk; returns file path or original value
-    private static string? SaveBase64Image(string? value, string fileNameHint)
+    /// <summary>
+    /// A data:image string becomes a file on disk and a path; anything that is
+    /// already a path is returned untouched. Throws if it is a data: URL that
+    /// cannot be written, because the alternative - keeping it - is what
+    /// poisoned the catalogue.
+    /// </summary>
+    public static string? SaveBase64Image(string? value, string fileNameHint)
     {
         if (string.IsNullOrWhiteSpace(value)) return value;
         var m = System.Text.RegularExpressions.Regex.Match(value, @"^data:image/(\w+);base64,(.+)$");
@@ -805,9 +830,25 @@ public class ProductsController : ControllerBase
             System.IO.File.WriteAllBytes(fullPath, bytes);
             return $"/product-images/{fileName}";
         }
-        catch
+        catch (Exception ex)
         {
-            return value; // fallback: keep base64 if file write fails
+            // NOT "return value".
+            //
+            // Keeping the base64 was the quiet disaster. One failed file write
+            // and a 300 KB data: URL goes into the products table, and from
+            // there into every consumer: next/image is handed
+            // /_next/image?url=data:... and answers 504, the CSP refuses a
+            // fetch to a data: URL, and - the one that actually stopped work -
+            // /api/products?pageSize=500 balloons until the response dies with
+            // ERR_HTTP2_PROTOCOL_ERROR and the admin Products page cannot load
+            // its catalogue at all. One unsaveable photo took out the screen
+            // used to manage every product.
+            //
+            // Refusing the save is the smaller harm by a long way: the shop is
+            // told the photo did not go in, and tries again.
+            throw new InvalidOperationException(
+                "The product photo could not be saved to disk. Check that "
+                + dir + " exists and is writable.", ex);
         }
     }
 
@@ -1076,13 +1117,31 @@ public class ProductsController : ControllerBase
         return counts;
     }
 
+    /// <summary>
+    /// A photo the browser can actually use, or nothing.
+    ///
+    /// A stored data: URL is never sent out. It is a few hundred KB inline,
+    /// and a handful of them is what grew /api/products past what the
+    /// connection would carry - ERR_HTTP2_PROTOCOL_ERROR, and an admin
+    /// Products screen that could not list a single product. next/image
+    /// cannot use one either; it answers 504 for a url= that is a data: URL.
+    ///
+    /// The startup repair writes these out to files, and the save path can no
+    /// longer create one. This is the guard that makes sure a single bad row
+    /// can never again take down the screen used to fix it.
+    /// </summary>
+    private static string? ServablePhoto(string? image) =>
+        image is not null && image.StartsWith("data:", StringComparison.OrdinalIgnoreCase)
+            ? null
+            : image;
+
     private static ProductDto ToDto(Product p)
     {
         var extra = ReadExtra(p);
         return new ProductDto(
             p.Id, p.Sku, p.Name, p.Category, p.Subcategory,
             p.Price, p.DiscountPrice, p.MaxPrice,
-            p.StockStatus, p.Description, p.Newest, p.Image, p.BestSeller,
+            p.StockStatus, p.Description, p.Newest, ServablePhoto(p.Image), p.BestSeller,
             p.ExtraJson,
             ExtraString(extra, "hsnCode"),
             ExtraDecimal(extra, "gstRate"),

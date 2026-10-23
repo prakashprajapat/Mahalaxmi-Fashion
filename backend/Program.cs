@@ -1068,6 +1068,58 @@ using (var scope = app.Services.CreateScope())
     if (!db.SiteSettings.Any(x => x.Key == "referralSignupRewardMonthlyCap"))
         db.SiteSettings.Add(new MahalaxmiApi.Models.SiteSetting { Key = "referralSignupRewardMonthlyCap", Value = "20" });
     db.SaveChanges();
+
+    // Photos that were stored as base64 because a file write once failed.
+    //
+    // SaveBase64Image used to fall back to keeping the data: URL in the row.
+    // One such row is enough to break the admin Products screen: the list
+    // endpoint carries every image inline, so a few hundred KB of base64 per
+    // product grows the response until it dies with ERR_HTTP2_PROTOCOL_ERROR,
+    // and next/image answers 504 for a url= that is itself a data: URL.
+    //
+    // The fallback is gone, so no new row can be written this way. This clears
+    // up the ones already there. Safe to run on every start: with nothing to
+    // repair it is one indexed-free scan of a small table and no writes, and
+    // a photo it cannot convert is left exactly as it is for a human to look
+    // at rather than being blanked.
+    try
+    {
+        var poisoned = db.Products
+            .Where(p => p.Image != null && p.Image.StartsWith("data:"))
+            .ToList();
+
+        if (poisoned.Count > 0)
+        {
+            var fixedCount = 0;
+            foreach (var prod in poisoned)
+            {
+                try
+                {
+                    var path = MahalaxmiApi.Controllers.ProductsController
+                        .SaveBase64Image(prod.Image, $"repair-{prod.Id}");
+                    if (!string.IsNullOrWhiteSpace(path) && path!.StartsWith("/product-images/"))
+                    {
+                        prod.Image = path;
+                        fixedCount++;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    app.Logger.LogError(ex,
+                        "Could not rescue the stored photo for product {Id} ({Sku}); leaving it as it is.",
+                        prod.Id, prod.Sku);
+                }
+            }
+            if (fixedCount > 0) db.SaveChanges();
+            app.Logger.LogWarning(
+                "Product photos stored as base64: {Found} found, {Fixed} written out to files.",
+                poisoned.Count, fixedCount);
+        }
+    }
+    catch (Exception ex)
+    {
+        app.Logger.LogError(ex, "The base64 product-photo repair could not run.");
+    }
     }
     finally
     {
