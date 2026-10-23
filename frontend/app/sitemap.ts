@@ -1,6 +1,7 @@
 import { MetadataRoute } from 'next';
 import { productsApi } from '@/lib/api';
-import { getPosts, getCollectionSlugs } from '@/lib/seoContent';
+import { getPosts, getCollections } from '@/lib/seoContent';
+import { matchesCollection } from '@/lib/collections';
 import { productSlug } from '@/lib/productSlug';
 import { productImageSrc } from '@/lib/productImages';
 
@@ -15,7 +16,47 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Collections and articles the owner adds from the admin panel belong in here
   // the same day, not after the next deploy — a page Google has not been told
   // about is a page that does not exist yet.
-  const [collectionSlugs, posts] = await Promise.all([getCollectionSlugs(), getPosts()]);
+  const [collections, posts] = await Promise.all([getCollections(), getPosts()]);
+
+  // The live catalogue, read once and used twice: for the product URLs further
+  // down, and right here to decide which collection pages are worth sending.
+  let allProducts: any[] = [];
+  try {
+    const { products } = await productsApi.getAll({ pageSize: 1000 });
+    allProducts = products ?? [];
+  } catch {
+    // If the API is unreachable, allProducts stays empty and the guard below
+    // keeps every collection in the sitemap rather than dropping the lot.
+  }
+
+  // Only the collections that have something on them.
+  //
+  // /collections/<slug> sets noindex when nothing in the catalogue matches it
+  // (collections/[slug]/page.tsx:65) - and rightly so. But every collection
+  // the owner has ever added was listed here regardless, so an empty one was
+  // submitted to Google as a page carrying noindex. That is the "Submitted URL
+  // marked noindex" error in Search Console, which is exactly why
+  // /become-supplier was taken out of this list. Collections are added from
+  // the admin panel as keyword landing pages, often before the stock arrives,
+  // so an empty one is normal rather than rare.
+  //
+  // The test here is deliberately LOOSER than the page's own: the page asks the
+  // API for one subcategory and then applies matchesCollection, while this uses
+  // a substring on the product's own subcategory. Looser can only keep a page
+  // in, never drop one the page would have indexed - and dropping a good page
+  // from the sitemap would cost more than the notice this fixes. When the API
+  // could not be read at all, nothing is dropped.
+  const hasStock = (slug: string) => {
+    const def = collections[slug];
+    if (!def) return false;
+    if (allProducts.length === 0) return true;
+    const want = (def.subcategory ?? '').toLowerCase().trim();
+    return allProducts.some(p =>
+      (want.length === 0 || (p.subcategory ?? '').toLowerCase().includes(want))
+      && matchesCollection(p, def));
+  };
+
+  const collectionSlugs = Object.keys(collections).filter(hasStock);
 
   const staticEntries: MetadataRoute.Sitemap = [
     // ── Core pages ────────────────────────────────────────────────────────────
@@ -74,10 +115,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   ];
 
   // ── Product pages (auto — every product from the API) ───────────────────────
+  // Same list fetched above - one call, not two.
   let productEntries: MetadataRoute.Sitemap = [];
   try {
-    const { products } = await productsApi.getAll({ pageSize: 1000 });
-    productEntries = (products ?? []).map(p => {
+    productEntries = allProducts.map(p => {
       // Image sitemap — helps product photos get indexed in Google Images (big for fashion).
       const img = productImageSrc(p.image);
       const imageUrl = img ? (/^https?:/i.test(img) ? img : `${BASE}${img}`) : undefined;
