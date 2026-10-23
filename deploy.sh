@@ -146,7 +146,9 @@ bluegreen_ready() {
 live_colour() {
   if [ -f "$STATE_FILE" ]; then cat "$STATE_FILE"; return; fi
   # No state file yet: read it out of the upstream nginx is using.
-  if grep -q ":$PORT_green" "$UPSTREAM_CONF" 2>/dev/null; then echo green; else echo blue; fi
+  # The primary is the line WITHOUT "backup" on it - the file names both ports
+  # now, so matching the port anywhere would find the standby just as happily.
+  if grep -v backup "$UPSTREAM_CONF" 2>/dev/null | grep -q ":$PORT_green"; then echo green; else echo blue; fi
 }
 
 other_colour() { [ "$1" = blue ] && echo green || echo blue; }
@@ -173,11 +175,56 @@ slot_healthy() {
 # the new config and lets the old ones finish the requests they are holding, so
 # nothing in flight is dropped. nginx -t first, because a reload on a broken
 # config is the one way this step could take the site down.
+# Write the upstream so that the slot NOT in use is a fallback rather than
+# nothing at all.
+#
+# This used to name one server and no more:
+#
+#     upstream mfh_api { server 127.0.0.1:5001; }
+#
+# which means that if the live slot dies - a crash, out of memory, a bad
+# deploy - nginx keeps posting every request to a dead port and every shopper
+# gets 502, while the other slot sits there running and able to answer. The
+# standby exists for rollback; this makes it earn its keep the rest of the
+# time too.
+#
+#   max_fails=3 fail_timeout=10s  three failed requests inside ten seconds and
+#                                 nginx stops using that server for ten
+#                                 seconds, then tries it again.
+#   backup                        the other slot, used only while the first is
+#                                 down. Not load balancing - one serves, one
+#                                 waits.
+#
+# Being honest about what this is: open-source nginx checks PASSIVELY. It
+# learns a server is dead by failing real requests at it, so up to three
+# shoppers meet an error before the switch. Active checking - nginx polling
+# /api/health itself - is an nginx Plus feature. The free way to get it is
+# health-watch.sh beside this script, which polls both slots and moves the
+# upstream before a customer finds out.
 point_nginx_at() {
-  local colour=$1 port
+  local colour=$1 port other
   port=$(port_of "$colour")
-  printf 'upstream mfh_api { server 127.0.0.1:%s; }\n' "$port" > "$UPSTREAM_CONF"
-  nginx -t >/dev/null 2>&1 || { echo "   ERROR: nginx config is not valid; not reloading."; return 1; }
+  other=$(port_of "$(other_colour "$colour")")
+  # Backed up first: nginx -t has to read the real path, so a failed test must
+  # put the old file back. Otherwise "not reloading" would leave a broken
+  # upstream on disk to break the next reload by anybody.
+  local backup
+  backup=$(mktemp)
+  cp "$UPSTREAM_CONF" "$backup" 2>/dev/null || true
+
+  cat > "$UPSTREAM_CONF" <<NGINX
+upstream mfh_api {
+    server 127.0.0.1:$port max_fails=3 fail_timeout=10s;
+    server 127.0.0.1:$other backup;
+}
+NGINX
+  if ! nginx -t >/dev/null 2>&1; then
+    cp "$backup" "$UPSTREAM_CONF" 2>/dev/null || true
+    rm -f "$backup"
+    echo "   ERROR: nginx config is not valid. Put the old upstream back; not reloading."
+    return 1
+  fi
+  rm -f "$backup"
   nginx -s reload || return 1
   echo "$colour" > "$STATE_FILE"
   return 0

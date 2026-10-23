@@ -525,3 +525,71 @@ column in a later one, once no running version remembers it.
 `check-cs.sh`. A deliberate contract step is marked on the line:
 
     ALTER TABLE products DROP COLUMN old_price;  -- rolling-deploy: unused since v2.3
+
+## Health checks and failover — what checks, and what acts
+
+Two different jobs, and only the first one was done.
+
+**Detecting** was already good. `/api/health` runs a real `SELECT 1` rather
+than asking the pool whether it feels connected, checks free disk, and answers
+503 naming the broken part. `HealthWatchdogService` repeats it every five
+minutes and emails. Nothing to fix there.
+
+**Acting on it** was missing. The nginx upstream named one slot:
+
+    upstream mfh_api { server 127.0.0.1:5001; }
+
+If that slot died, nginx kept posting every request at a dead port and every
+shopper got 502 — while the other slot sat there running, able to answer. The
+standby was there for rollback and did nothing the rest of the time.
+
+Now `deploy.sh` writes it as:
+
+    upstream mfh_api {
+        server 127.0.0.1:5001 max_fails=3 fail_timeout=10s;
+        server 127.0.0.1:5002 backup;
+    }
+
+Three failed requests in ten seconds and nginx stops using that server for ten
+seconds. The other slot is `backup` — used only while the first is down, not
+load balanced.
+
+**Be clear about what that is: PASSIVE.** Open-source nginx learns a server is
+dead by failing real requests at it, so up to three shoppers meet an error
+first. Active checking — nginx polling `/api/health` itself and removing a
+server before anyone meets it — is an nginx Plus feature.
+
+### The free version of active checking
+
+`health-watch.sh` polls both slots and moves the upstream before a customer
+finds out. One line of cron:
+
+    * * * * * /var/www/mahalaxmi-nextjs/health-watch.sh >> /var/log/mfh-health.log 2>&1
+
+It is silent when all is well, so cron sends no mail. When the live slot stops
+answering it asks once more three seconds later — a single missed check is a
+garbage-collection pause or one slow query, and reloading nginx over that makes
+things worse. Two in a row and it switches.
+
+Two things it refuses to do:
+
+- **Switch to a slot that is also unwell.** Moving traffic from a broken server
+  to another broken server is motion, not a fix, and it loses the clue worth
+  having. It logs both and stops.
+- **Switch twice inside five minutes.** A flapping slot would otherwise have
+  nginx reloading every minute while the shop is already struggling.
+
+After an automatic failover the log says which slot went and tells you to find
+out why before deploying again — an automatic recovery that nobody investigates
+is a fault that comes back at a worse time.
+
+### Still worth having: a check from OUTSIDE
+
+Everything above runs on the VPS, so none of it can report the one failure that
+matters most — the machine itself being down or unreachable. `/api/health` is
+anonymous precisely so an outside service can poll it. UptimeRobot's free tier
+checks every five minutes and is enough:
+
+    https://www.mahalaxmifashionhub.com/api/health
+
+Alert on anything that is not 200.
