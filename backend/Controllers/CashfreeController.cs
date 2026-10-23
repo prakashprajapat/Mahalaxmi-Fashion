@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -68,6 +69,90 @@ public class CashfreeController : ControllerBase
         if (phone.Length > 10) phone = phone[^10..];
         if (phone.Length != 10)
             return BadRequest(new { success = false, message = "A valid 10-digit phone number is required for online payment." });
+
+        // SEC: the browser does not get to say what the order costs.
+        //
+        // req.Amount went straight into order_amount below, and req.Cart was
+        // stored without ever being priced. PlaceOrder rebuilds every total
+        // from _db.Products - that is the shop's protection against a cart
+        // edited in devtools - but a prepaid order NEVER REACHES PlaceOrder:
+        // the browser is redirected to Cashfree, comes back to
+        // /checkout?cf_order=..., and the order row is written by the webhook.
+        // So on the shop's PRIMARY online gateway the amount charged was
+        // whatever was posted. "amount": 1 on a Rs.10,000 cart paid one rupee,
+        // and the webhook then recorded Total = req.FullTotal - also the
+        // browser's number - so the admin screen showed a fully paid order.
+        //
+        // CartPricing.ItemValueAsync is the same catalogue-priced sum the rest
+        // of the shop checks payments against, and it returns null rather than
+        // a number when a line cannot be priced at all.
+        var goods = await CartPricing.ItemValueAsync(_db, JsonSerializer.Serialize(req.Cart));
+        if (goods is null)
+            return BadRequest(new { success = false, message = "An item in your cart is no longer available. Please refresh your cart and try again." });
+
+        // The most this coupon could take off, by the shop's own rules.
+        //
+        // Deliberately the GENEROUS reading: the per-customer, referral-reuse
+        // and repeat-influencer rules PlaceOrder applies are left out here,
+        // because every one of them only ever REDUCES a discount, and a floor
+        // that is too strict refuses a real customer at the till. This bounds
+        // an underpayment to a discount the shop itself set, instead of to
+        // whatever was typed into the request.
+        var allowance = 0m;
+        if (!string.IsNullOrWhiteSpace(req.CouponCode))
+        {
+            var code = req.CouponCode.Trim().ToLowerInvariant();
+            var coupon = await _db.Coupons.FirstOrDefaultAsync(c => c.Code.ToLower() == code && c.IsActive);
+            if (coupon is not null
+                && (!coupon.ExpiresAt.HasValue || coupon.ExpiresAt.Value >= DateTimeOffset.UtcNow)
+                && (!coupon.MaxUses.HasValue || coupon.UsedCount < coupon.MaxUses.Value)
+                && goods.Value >= coupon.MinOrder)
+                allowance = CartPricing.CouponDiscount(coupon.Type, coupon.Value, goods.Value);
+        }
+
+        // The wallet as the DATABASE has it, not as the request claims it.
+        // WalletService refuses to take a balance below zero, so a claim larger
+        // than the balance silently fails to deduct at settlement - which would
+        // leave the difference unpaid if the claim were believed here.
+        var wallet = 0m;
+        if (req.WalletUsed > 0 && int.TryParse((req.CustomerId ?? "").Trim(), out var walletCid) && walletCid > 0)
+        {
+            var balance = await _db.Customers.Where(c => c.Id == walletCid)
+                .Select(c => (decimal?)c.WalletBalance).FirstOrDefaultAsync() ?? 0m;
+            wallet = Math.Min(Math.Max(0m, req.WalletUsed), Math.Max(0m, balance));
+        }
+
+        // One rupee of slack for the rounding between the browser's arithmetic
+        // and ours. Shipping and any COD fee are NOT in `goods`, and both only
+        // ever add to the bill, so the floor is a floor in the safe direction:
+        // paying more than this is fine, paying less is not.
+        var floor = goods.Value - allowance - wallet;
+
+        // A COD advance pays only a PART of the order on purpose, so the floor
+        // above is the wrong question for it. The right one is the shop's own
+        // setting: the checkout asks for min(codAdvanceAmount, what is due),
+        // and that is what the server checks, read from the same site_settings
+        // row the checkout read it from.
+        if (req.Advance)
+        {
+            var rawAdvance = await _db.SiteSettings
+                .Where(s => s.Key == "codAdvanceAmount")
+                .Select(s => s.Value).FirstOrDefaultAsync();
+            decimal.TryParse(rawAdvance, NumberStyles.Any, CultureInfo.InvariantCulture, out var advanceSetting);
+
+            if (advanceSetting <= 0m)
+                return BadRequest(new { success = false, message = "Advance payment is not switched on. Please refresh the page and try again." });
+
+            floor = Math.Min(advanceSetting, floor);
+        }
+
+        if (req.Amount + 1m < floor)
+        {
+            _logger.LogWarning(
+                "Cashfree create-order refused: asked {Asked} against a floor of {Floor} (goods {Goods}, coupon {Allowance}, wallet {Wallet}, advance {Advance}).",
+                req.Amount, floor, goods.Value, allowance, wallet, req.Advance);
+            return BadRequest(new { success = false, message = "The amount does not match your cart. Please refresh the page and try again." });
+        }
 
         var amountPaise = (int)Math.Round(req.Amount * 100m, MidpointRounding.AwayFromZero);
         // MFH + unix-ms + 4 random digits. The random tail matters: two orders placed in
@@ -368,6 +453,13 @@ public record CreateCfOrderRequest(
     string? CustomerEmail,
     string? CustomerPhone,
     decimal WalletUsed = 0,
+    // Not used to decide the price - the server computes that - only to tell
+    // the floor check above which discount is legitimately expected.
+    string? CouponCode = null,
+    // True only for a COD advance, where paying a PART of the order is the
+    // point. Checked against the shop's own codAdvanceAmount setting rather
+    // than believed.
+    bool Advance = false,
     decimal FullTotal = 0
 );
 

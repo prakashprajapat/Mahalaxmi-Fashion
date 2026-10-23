@@ -542,6 +542,10 @@ export default function CheckoutPage() {
         customerPhone: shipping.phone,
         walletUsed: walletApplied,
         fullTotal: total,
+        // The server prices the cart itself and refuses an amount below what
+        // the catalogue says, so a discounted order has to name its coupon or
+        // the discount looks like an underpayment.
+        couponCode: attributionCode() || undefined,
       });
     } catch (e) {
       // Cashfree not configured yet → signal caller to fall back to Razorpay.
@@ -682,6 +686,11 @@ export default function CheckoutPage() {
           customerPhone: shipping.phone,
           walletUsed: walletApplied,
           fullTotal: total,
+          couponCode: attributionCode() || undefined,
+          // Paying a part of the order, on purpose. The server checks this
+          // against its own codAdvanceAmount setting; without the flag it
+          // would read a correct advance as an underpayment.
+          advance: true,
         });
         // Cashfree hands us the order number; the order will be placed under the same one.
         try {

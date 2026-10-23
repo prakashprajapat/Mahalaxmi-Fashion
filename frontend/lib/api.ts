@@ -760,7 +760,7 @@ export const cashfreeApi = {
   createOrder: (data: {
     amount: number; currency?: string; cart?: unknown; customer?: unknown; shipping?: unknown;
     customerId?: string; customerName?: string; customerEmail?: string; customerPhone?: string;
-    walletUsed?: number; fullTotal?: number;
+    walletUsed?: number; fullTotal?: number; couponCode?: string; advance?: boolean;
   }) =>
     request<{ success: boolean; setupRequired?: boolean; paymentSessionId: string; localOrderId: string; mode: string }>(
       '/cashfree/create-order', { method: 'POST', body: JSON.stringify(data) }
