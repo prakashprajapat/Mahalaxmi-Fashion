@@ -187,9 +187,14 @@ def analyse(rel, raw):
 def main():
     root = subprocess.run(["git", "rev-parse", "--show-toplevel"],
                           capture_output=True, text=True).stdout.strip()
-    listed = subprocess.run(["git", "ls-files", "backend/*.cs", "backend/**/*.cs"],
-                            capture_output=True, text=True, cwd=root).stdout.split()
-    files = sorted(set(listed))
+    # Tracked AND not-yet-added. A new file nobody has git added is still a
+    # file the build will try to compile.
+    tracked = subprocess.run(["git", "ls-files", "backend/*.cs", "backend/**/*.cs"],
+                             capture_output=True, text=True, cwd=root).stdout.split()
+    fresh = subprocess.run(["git", "ls-files", "--others", "--exclude-standard",
+                            "backend/*.cs", "backend/**/*.cs"],
+                           capture_output=True, text=True, cwd=root).stdout.split()
+    files = sorted(set(tracked) | set(fresh))
 
     problems = []
     for rel in files:

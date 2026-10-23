@@ -787,6 +787,18 @@ public class OrdersController : ControllerBase
                     influencerDiscountUsed = await CountOrdersMatchingCustomerAsync(callerId.ToString(), couponCode: code) > 0;
             }
 
+            // Has she any room left on this code?
+            //
+            // This check was missing here, and its absence is why WELCOME10 kept
+            // working. The per-customer limit lived ONLY in the atomic claim
+            // further down, and that claim deliberately KEEPS the discount on a
+            // prepaid order when it fails - right for the race it was written
+            // for (the whole code hitting its MaxUses ceiling while she was
+            // paying), wrong for a limit she had used up long before. COD lost
+            // the discount; every online order kept it.
+            var hasRoom = await Services.CouponLimits.HasRoomAsync(
+                _db, coupon?.Code, coupon?.MaxPerCustomer ?? 1, req.CustomerPhone, req.CustomerEmail);
+
             var valid = coupon is not null
                 && (!coupon.ExpiresAt.HasValue || coupon.ExpiresAt.Value >= DateTimeOffset.UtcNow)
                 && (!coupon.MaxUses.HasValue || coupon.UsedCount < coupon.MaxUses.Value)
@@ -795,7 +807,8 @@ public class OrdersController : ControllerBase
                 // Refer & Earn: you can't use your OWN referral code…
                 && !(coupon.Occasion == "referral" && coupon.ReferrerCustomerId == callerId)
                 // …and a referral code works only on a customer's first order.
-                && !referralReuse;
+                && !referralReuse
+                && hasRoom;
             if (valid && coupon is not null)
             {
                 // No extra discount on a repeat influencer use; full discount otherwise.

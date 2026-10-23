@@ -28,7 +28,16 @@ cd "$(dirname "$0")/../.." || exit 1
 # the project, holding every startup CREATE TABLE and ALTER TABLE, and the file
 # whose unbalanced verbatim string is the whole reason the comment above exists.
 # The checkers said "clean" on 104 files and had never once read it.
-files=$(git ls-files 'backend/*.cs' 'backend/**/*.cs' | sort -u)
+# --others --exclude-standard is the half that was missing: `git ls-files`
+# alone lists only TRACKED files, so a brand-new .cs file is invisible to every
+# checker until somebody remembers to git add it - which is exactly when a new
+# file most needs checking. The second time this blind spot has cost a deploy
+# in spirit: the first was a glob that never matched Program.cs.
+files=$(
+  { git ls-files 'backend/*.cs' 'backend/**/*.cs'
+    git ls-files --others --exclude-standard 'backend/*.cs' 'backend/**/*.cs'
+  } | sort -u
+)
 [ -z "$files" ] && { echo "no .cs files found"; exit 1; }
 echo "checking $(echo "$files" | wc -l) files"
 

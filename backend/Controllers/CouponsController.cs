@@ -96,29 +96,14 @@ public class CouponsController : ControllerBase
         // the order itself needs room on BOTH - a preview that said yes where
         // the order says no is the worst of the two answers.
         var perCustomer = coupon.PerCustomerLimit;
-        if (perCustomer > 0)
-        {
-            var ids = CustomerKeys.Of(req.Phone, req.Email);
-            if (ids.Count > 0)
+        if (!await CouponLimits.HasRoomAsync(_db, coupon.Code, perCustomer, req.Phone, req.Email))
+            return BadRequest(new
             {
-                var codeKey = coupon.Code.ToLowerInvariant();
-                var phoneKey = ids.FirstOrDefault(i => i.Kind == "phone").Value;
-                var emailKey = ids.FirstOrDefault(i => i.Kind == "email").Value;
-                var used = await _db.CouponRedemptions.AnyAsync(r =>
-                    r.CodeLower == codeKey
-                    && r.Uses >= perCustomer
-                    && ((phoneKey != null && r.IdKind == "phone" && r.IdValue == phoneKey)
-                     || (emailKey != null && r.IdKind == "email" && r.IdValue == emailKey)));
-                if (used)
-                    return BadRequest(new
-                    {
-                        success = false,
-                        message = perCustomer == 1
-                            ? "You have already used this code. It can be used once per customer."
-                            : $"You have already used this code {perCustomer} times, which is the most one customer can.",
-                    });
-            }
-        }
+                success = false,
+                message = perCustomer == 1
+                    ? "You have already used this code. It can be used once per customer."
+                    : $"You have already used this code {perCustomer} times, which is the most one customer can.",
+            });
 
         if (req.OrderAmount < coupon.MinOrder)
             return BadRequest(new { success = false, message = $"Minimum order of ₹{coupon.MinOrder:0} required for this coupon." });

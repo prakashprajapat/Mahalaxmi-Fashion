@@ -103,11 +103,27 @@ public class CashfreeController : ControllerBase
         {
             var code = req.CouponCode.Trim().ToLowerInvariant();
             var coupon = await _db.Coupons.FirstOrDefaultAsync(c => c.Code.ToLower() == code && c.IsActive);
+            // Including the per-customer limit. Leaving it out was generous in
+            // the wrong direction: it let a shopper who had already spent the
+            // code pay the DISCOUNTED amount, and once she has paid it there is
+            // no good answer left - honour it and the limit means nothing,
+            // refuse it and she has paid for an order that does not exist. The
+            // only humane place to say no is here, before any money moves.
+            var roomLeft = await CouponLimits.HasRoomAsync(
+                _db, coupon?.Code, coupon?.MaxPerCustomer ?? 1, req.CustomerPhone, req.CustomerEmail);
+
             if (coupon is not null
+                && roomLeft
                 && (!coupon.ExpiresAt.HasValue || coupon.ExpiresAt.Value >= DateTimeOffset.UtcNow)
                 && (!coupon.MaxUses.HasValue || coupon.UsedCount < coupon.MaxUses.Value)
                 && goods.Value >= coupon.MinOrder)
                 allowance = CartPricing.CouponDiscount(coupon.Type, coupon.Value, goods.Value);
+            else if (coupon is not null && !roomLeft)
+                return BadRequest(new
+                {
+                    success = false,
+                    message = "You have already used this coupon. Please remove it and try again.",
+                });
         }
 
         // The wallet as the DATABASE has it, not as the request claims it.

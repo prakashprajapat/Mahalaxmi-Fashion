@@ -399,6 +399,41 @@ export default function CheckoutPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [subtotal, couponApplied]);
 
+  // Check the applied coupon again once we know WHO is buying.
+  //
+  // A once-per-customer code is checked against her mobile number and her
+  // email, and at the moment a coupon is applied those boxes are often still
+  // empty - she opens checkout, the referral code applies itself, and only
+  // then does she type her details. The server cannot recognise an empty
+  // shopper, so it says yes, and the discount sits there looking agreed.
+  //
+  // Filling in the phone is the moment she becomes recognisable, so that is
+  // the moment to ask again. Without this she reaches the payment page with a
+  // discount she is not entitled to, and the only places left to refuse it are
+  // after she has pressed pay.
+  const reValidated = useRef('');
+  useEffect(() => {
+    if (!couponApplied?.code) return;
+    const who = `${couponApplied.code}|${shipping.phone}|${shipping.email}`;
+    if (reValidated.current === who) return;
+    if (!shipping.phone && !shipping.email) return;    // still nobody to check
+    reValidated.current = who;
+    (async () => {
+      try {
+        const res = await couponsApi.validate(
+          couponApplied.code, subtotal, customer?.id, shipping.phone, shipping.email);
+        setCouponApplied({ code: res.code, discount: res.discount, message: res.message });
+        setCouponError('');
+      } catch (e) {
+        // Dropped here, where she can still see why, rather than silently at
+        // the till.
+        setCouponApplied(null);
+        setCouponError((e as Error).message || 'This coupon is not available on this order.');
+      }
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [couponApplied?.code, shipping.phone, shipping.email, subtotal]);
+
   // A customer whose account was just created on the way through checkout
   // has a welcome code waiting. It is put IN THE BOX rather than applied, for
   // two reasons: the referral effect above may already have put a better one
