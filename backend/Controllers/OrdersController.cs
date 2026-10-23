@@ -109,6 +109,84 @@ public class OrdersController : ControllerBase
             $"DELETE FROM coupon_redemptions WHERE order_id = {orderId}");
 
     /// <summary>
+    /// Spend the coupon for this order, and report what the order should now say.
+    ///
+    /// This used to sit inline in PlaceOrder, inside the `else` that runs only when
+    /// the order does not exist yet. That was the whole bug: on the Cashfree path
+    /// the WEBHOOK often writes a placeholder order first, so by the time the
+    /// shopper's browser gets back and calls PlaceOrder, `existing` is not null,
+    /// the else never runs, and the coupon is never spent. MaxUses and
+    /// once-per-customer quietly stopped applying to every prepaid order.
+    ///
+    /// Pulled out here so there is ONE implementation and both the fresh-order and
+    /// the complete-the-placeholder paths call it. Nothing inside it changed.
+    ///
+    /// Returns the discount, total and code the order should be written with: a
+    /// coupon that turns out to be spent comes back with no discount on a COD
+    /// order, and with the discount kept on a prepaid one, because that shopper
+    /// has already paid the discounted amount.
+    /// </summary>
+    private async Task<(decimal Discount, decimal Total, string? Code)> ConsumeCouponAsync(
+        string orderId, string? code, string method,
+        decimal subtotal, decimal shipping, decimal codFee, decimal discount, decimal total,
+        string? phone, string? email, string? customerId)
+    {
+        // Consume the coupon ATOMICALLY before storing the order. This single UPDATE both
+        // increments used_count AND re-checks the cap in one statement, so two concurrent
+        // orders can never both slip past a MaxUses limit (the old read-then-write could).
+        if (!string.IsNullOrWhiteSpace(code))
+        {
+            // Claim the code for this shopper BEFORE counting it. If she has
+            // used it before, the claim fails and the code is treated exactly
+            // as a code that has run out - no discount, order still placed.
+            var claimed = await TryClaimOncePerCustomerAsync(
+                code!, phone, email, orderId);
+
+            var rows = claimed
+                ? await _db.Database.ExecuteSqlInterpolatedAsync(
+                    $"UPDATE coupons SET used_count = used_count + 1 WHERE lower(code) = lower({code}) AND (max_uses IS NULL OR used_count < max_uses)")
+                : 0;
+
+            if (rows == 0)
+            {
+                // The coupon just hit its usage cap via a concurrent order. For COD we drop the
+                // discount (nothing charged yet); for a prepaid order the customer has already
+                // paid the discounted amount, so we honour the order as placed.
+                if (method == "cod")
+                {
+                    discount   = 0m;
+                    total      = Math.Max(0m, subtotal + shipping + codFee);
+                    code = null;
+                    // No discount given, so she has not used the code - the claim
+                    // goes back. A prepaid order KEEPS its discount, so its claim
+                    // stays: she has had the offer, and must not get it twice.
+                    await ReleaseOncePerCustomerAsync(orderId);
+                }
+            }
+            else
+            {
+                await WarnIfCouponNearlySpentAsync(code!);
+                // Coupon consumed. A birthday/anniversary offer also locks that occasion.
+                var occasion = await _db.Coupons
+                    .Where(c => c.Code.ToLower() == code!.ToLower())
+                    .Select(c => c.Occasion).FirstOrDefaultAsync();
+                if ((occasion == "birthday" || occasion == "anniversary")
+                    && int.TryParse(customerId, out var cid) && cid > 0)
+                {
+                    var buyer = await _db.Customers.FindAsync(cid);
+                    if (buyer is not null)
+                    {
+                        if (occasion == "birthday") buyer.BirthdayOfferUsed = true;
+                        else buyer.AnniversaryOfferUsed = true;
+                        buyer.UpdatedAt = DateTimeOffset.UtcNow;
+                    }
+                }
+            }
+        }
+        return (discount, total, code);
+    }
+
+    /// <summary>
     /// Tell the shop when a code is four-fifths spent, once.
     ///
     /// A ceiling nobody is watching turns into a shopper being told the offer has
@@ -824,6 +902,28 @@ public class OrdersController : ControllerBase
         if (existing is null && !string.IsNullOrWhiteSpace(req.PaymentId))
             existing = await _db.SiteOrders.FirstOrDefaultAsync(o => o.PaymentId == req.PaymentId);
         var isWebhookRecovery = existing?.RawJson is not null && existing.RawJson.Contains("webhook_recovery");
+
+        // Spend the coupon.
+        //
+        // This call used to live inside the `else` below - the branch that runs
+        // only when no order exists yet. On the Cashfree path that branch is
+        // usually NOT the one taken: the webhook writes a placeholder order as
+        // soon as Cashfree says paid, which often beats the shopper's browser
+        // back to the site. PlaceOrder then found `existing` and went down the
+        // update path, where nothing ever touched the coupon. So on the shop's
+        // primary online gateway, used_count never moved and once-per-customer
+        // never recorded anything - a one-use referral code worked for ever.
+        //
+        // An order that already exists and is NOT a placeholder is a re-submit
+        // of something already counted, so it is left alone, exactly as before.
+        if (existing is null || isWebhookRecovery)
+        {
+            (serverDiscount, serverTotal, serverCouponCode) = await ConsumeCouponAsync(
+                orderId, serverCouponCode, method,
+                serverSubtotal, serverShipping, serverCodFee, serverDiscount, serverTotal,
+                req.CustomerPhone, req.CustomerEmail, req.CustomerId);
+        }
+
         if (existing is not null)
         {
             orderId = existing.OrderId;   // respond with the order we actually updated
@@ -843,6 +943,12 @@ public class OrdersController : ControllerBase
             existing.ShippingCost = serverShipping;
             existing.CodFee = serverCodFee;
             existing.Total = serverTotal;
+            // Written here too. Completing a webhook placeholder left these two
+            // blank, so an order that really did carry a discount showed none -
+            // on the invoice, in the admin list and in every report built from
+            // them.
+            existing.CouponCode = serverCouponCode;
+            existing.DiscountAmount = serverDiscount;
             existing.WalletUsed = walletApplied;
             existing.AdvancePaid = advancePaid;
             existing.CartJson = cart;
@@ -853,59 +959,6 @@ public class OrdersController : ControllerBase
         }
         else
         {
-            // Consume the coupon ATOMICALLY before storing the order. This single UPDATE both
-            // increments used_count AND re-checks the cap in one statement, so two concurrent
-            // orders can never both slip past a MaxUses limit (the old read-then-write could).
-            if (!string.IsNullOrWhiteSpace(serverCouponCode))
-            {
-                // Claim the code for this shopper BEFORE counting it. If she has
-                // used it before, the claim fails and the code is treated exactly
-                // as a code that has run out - no discount, order still placed.
-                var claimed = await TryClaimOncePerCustomerAsync(
-                    serverCouponCode!, req.CustomerPhone, req.CustomerEmail, orderId);
-
-                var rows = claimed
-                    ? await _db.Database.ExecuteSqlInterpolatedAsync(
-                        $"UPDATE coupons SET used_count = used_count + 1 WHERE lower(code) = lower({serverCouponCode}) AND (max_uses IS NULL OR used_count < max_uses)")
-                    : 0;
-
-                if (rows == 0)
-                {
-                    // The coupon just hit its usage cap via a concurrent order. For COD we drop the
-                    // discount (nothing charged yet); for a prepaid order the customer has already
-                    // paid the discounted amount, so we honour the order as placed.
-                    if (method == "cod")
-                    {
-                        serverDiscount   = 0m;
-                        serverTotal      = Math.Max(0m, serverSubtotal + serverShipping + serverCodFee);
-                        serverCouponCode = null;
-                        // No discount given, so she has not used the code - the claim
-                        // goes back. A prepaid order KEEPS its discount, so its claim
-                        // stays: she has had the offer, and must not get it twice.
-                        await ReleaseOncePerCustomerAsync(orderId);
-                    }
-                }
-                else
-                {
-                    await WarnIfCouponNearlySpentAsync(serverCouponCode!);
-                    // Coupon consumed. A birthday/anniversary offer also locks that occasion.
-                    var occasion = await _db.Coupons
-                        .Where(c => c.Code.ToLower() == serverCouponCode!.ToLower())
-                        .Select(c => c.Occasion).FirstOrDefaultAsync();
-                    if ((occasion == "birthday" || occasion == "anniversary")
-                        && int.TryParse(req.CustomerId, out var cid) && cid > 0)
-                    {
-                        var buyer = await _db.Customers.FindAsync(cid);
-                        if (buyer is not null)
-                        {
-                            if (occasion == "birthday") buyer.BirthdayOfferUsed = true;
-                            else buyer.AnniversaryOfferUsed = true;
-                            buyer.UpdatedAt = DateTimeOffset.UtcNow;
-                        }
-                    }
-                }
-            }
-
             _db.SiteOrders.Add(new SiteOrder
             {
                 OrderId = orderId,

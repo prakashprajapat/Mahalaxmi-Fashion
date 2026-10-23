@@ -223,19 +223,48 @@ export default function CheckoutPage() {
           // Cash on Delivery advance: the order was deliberately NOT placed before the
           // payment, so place it now that the advance is confirmed. An abandoned payment
           // therefore leaves no order behind.
+          // Two keys, one job: 'mfh-pending-cod' is a COD order whose advance
+          // was just paid, 'mfh-pending-place' a fully prepaid one. Both are
+          // placed the same way, and placing is what makes the SERVER price the
+          // cart, re-check the coupon and spend it. Leaving this to the webhook
+          // did none of those.
           let pending: any = null;
-          try {
-            const raw = sessionStorage.getItem('mfh-pending-cod');
-            pending = raw ? JSON.parse(raw) : null;
-          } catch { /* private mode */ }
-          if (pending?.id === cfOrder && pending.payload) {
+          let pendingKey = '';
+          for (const key of ['mfh-pending-cod', 'mfh-pending-place']) {
             try {
-              await ordersApi.place(pending.payload, getToken() ?? undefined);
+              const raw = sessionStorage.getItem(key);
+              const p = raw ? JSON.parse(raw) : null;
+              if (p?.id === cfOrder && p.payload) { pending = p; pendingKey = key; break; }
+            } catch { /* private mode */ }
+          }
+          if (pending) {
+            const advance = pendingKey === 'mfh-pending-cod';
+            try {
+              // Cashfree's own payment id, so the order records what paid for it.
+              await ordersApi.place({ ...pending.payload, paymentId: v.paymentId ?? '' }, getToken() ?? undefined);
             } catch (e) {
-              alert('Your advance payment went through, but we could not place the order automatically. Please contact us on WhatsApp with this reference: ' + cfOrder + ' — do NOT pay again.');
-              return;
+              // The two paths fail differently, so they must not say the same
+              // thing.
+              //
+              // A COD advance that cannot be placed leaves NO order: the
+              // webhook's recovery row would be written as a prepaid Cashfree
+              // order, which is the wrong shape for a COD one. She has to be
+              // told.
+              //
+              // A prepaid order that cannot be placed is already safe - the
+              // Cashfree webhook writes it, which is exactly the safety net it
+              // was built to be. Her money is taken and her order will exist,
+              // so frightening her into messaging WhatsApp would be wrong. The
+              // cost is that THIS order's coupon goes unspent, which is the one
+              // gap left and a far smaller one than the alarm.
+              if (advance) {
+                alert('Your advance payment went through, but we could not place the order automatically. '
+                  + 'Please contact us on WhatsApp with this reference: ' + cfOrder + ' — do NOT pay again.');
+                return;
+              }
+              console.error('Prepaid order could not be placed in the browser; the webhook will write it.', e);
             } finally {
-              try { sessionStorage.removeItem('mfh-pending-cod'); } catch {}
+              try { sessionStorage.removeItem(pendingKey); } catch {}
             }
           }
           // Yahi wo jagah thi jahan har prepaid order chup-chaap gir jata tha.
@@ -553,6 +582,19 @@ export default function CheckoutPage() {
       throw e;
     }
 
+    // Wapas aakar yahi parcha order banayega.
+    //
+    // Pehle prepaid order kabhi ordersApi.place tak pahunchta hi nahi tha:
+    // browser Cashfree chala jata tha, laut kar sirf verify karta tha, aur
+    // order webhook likh deta tha - bina daam jaanche, bina coupon kharche.
+    // Ab COD advance wala hi raasta prepaid ke liye bhi hai.
+    try {
+      sessionStorage.setItem('mfh-pending-place', JSON.stringify({
+        id: res.localOrderId,
+        payload: buildOrderPayload(res.localOrderId, 'cashfree'),
+      }));
+    } catch { /* private mode - webhook abhi bhi order bana dega */ }
+
     // Gateway par jane se pehle hi likh do ki kya bika aur kitne ka. Wapas
     // aakar cart khaali milta hai, aur tab ye batane wala koi nahi hota.
     rememberPendingPurchase({
@@ -621,17 +663,25 @@ export default function CheckoutPage() {
 
   // The COD order payload, built once so it can also be replayed after the advance
   // payment sends the shopper away to Cashfree and back.
-  const buildCodPayload = (localOrderId: string) => {
+  // One payload for both ways of paying.
+  //
+  // It was COD-only because COD was the only path that called ordersApi.place.
+  // A prepaid Cashfree order now takes the same road - see handleCashfree -
+  // which is what makes the server price it, validate the coupon and SPEND it.
+  const buildOrderPayload = (localOrderId: string, how: 'cod' | 'cashfree' = 'cod', paymentId = '') => {
     const cartLines = buildCartLines();
     return {
       id: localOrderId,
-      method: 'cod',
+      method: how,
         status: 'Pending',
-        paymentId: '',
+        paymentId,
         cart: cartLines,
         subtotal,
         shippingCost,
-      codFee,
+      // Prepaid orders never carry the COD handling fee. The server enforces
+      // this too - it is not taken from here - but sending the right number
+      // keeps the checkout's own arithmetic honest.
+      codFee: how === 'cod' ? codFee : 0,
         total,
         walletUsed: walletApplied,
         customerId: customer?.id?.toString(),
@@ -696,7 +746,7 @@ export default function CheckoutPage() {
         try {
           sessionStorage.setItem('mfh-pending-cod', JSON.stringify({
             id: cf.localOrderId,
-            payload: buildCodPayload(cf.localOrderId),
+            payload: buildOrderPayload(cf.localOrderId, 'cod'),
           }));
         } catch { /* private mode — the webhook still records the payment */ }
 
@@ -739,7 +789,7 @@ export default function CheckoutPage() {
         pendingOrderIdRef.current = 'MFH' + Date.now() + Math.floor(1000 + Math.random() * 9000);
       }
       const localOrderId = pendingOrderIdRef.current;
-      await ordersApi.place(buildCodPayload(localOrderId) as any, getToken() ?? undefined);
+      await ordersApi.place(buildOrderPayload(localOrderId, 'cod') as any, getToken() ?? undefined);
       pendingOrderIdRef.current = null;
       finishCod(localOrderId);
     } catch (e) {
