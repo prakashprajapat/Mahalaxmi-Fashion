@@ -25,14 +25,16 @@ public class CashfreeController : ControllerBase
     private readonly HttpClient _http;
     private readonly ILogger<CashfreeController> _logger;
     private readonly Services.WalletService _wallet;
+    private readonly Services.AdminNotifier _notify;
 
-    public CashfreeController(AppDbContext db, IConfiguration config, IHttpClientFactory httpFactory, ILogger<CashfreeController> logger, Services.WalletService wallet)
+    public CashfreeController(AppDbContext db, IConfiguration config, IHttpClientFactory httpFactory, ILogger<CashfreeController> logger, Services.WalletService wallet, Services.AdminNotifier notify)
     {
         _db = db;
         _config = config;
         _http = httpFactory.CreateClient("cashfree");
         _logger = logger;
         _wallet = wallet;
+        _notify = notify;
     }
 
     private (string appId, string secret, string mode, string baseUrl) Creds()
@@ -86,9 +88,37 @@ public class CashfreeController : ControllerBase
         // CartPricing.ItemValueAsync is the same catalogue-priced sum the rest
         // of the shop checks payments against, and it returns null rather than
         // a number when a line cannot be priced at all.
-        var goods = await CartPricing.ItemValueAsync(_db, JsonSerializer.Serialize(req.Cart));
+        var cartJson = JsonSerializer.Serialize(req.Cart);
+        var goods = await CartPricing.ItemValueAsync(_db, cartJson);
         if (goods is null)
             return BadRequest(new { success = false, message = "An item in your cart is no longer available. Please refresh your cart and try again." });
+
+        // SEC/FULFILMENT: is the shop actually selling these things?
+        //
+        // PlaceOrder refuses a cart holding a switched-off, draft or
+        // out-of-stock product, so a COD order for one cannot be placed. The
+        // prepaid path never asked. A cart lives in the browser under mfh_cart
+        // with no expiry and nothing that re-checks it against the catalogue,
+        // so an item added before the shop switched it off is still in that
+        // cart weeks later - and this endpoint priced it from our own
+        // catalogue, took the money, and left the shop holding payment for
+        // something it had deliberately stopped selling. MFH1014, a nighty
+        // switched off among 58 others, arrived on a paid order that way.
+        //
+        // Here is the only humane place to say no, for the same reason the
+        // coupon limit is checked here: once she has paid there is no good
+        // answer left. Refusing after the money has moved is worse than
+        // refusing before it.
+        var unavailable = await CartPricing.UnavailableAsync(_db, cartJson);
+        if (unavailable.Count > 0)
+            return BadRequest(new
+            {
+                success = false,
+                unavailable,
+                message = unavailable.Count == 1
+                    ? $"'{unavailable[0]}' is no longer available. Please remove it from your cart and try again."
+                    : "Some items in your cart are no longer available. Please remove them and try again.",
+            });
 
         // The most this coupon could take off, by the shop's own rules.
         //
@@ -452,6 +482,40 @@ public class CashfreeController : ControllerBase
 
                     var recoveredTotal = Math.Max(0m, goods - discount);
 
+                    // The same availability question create-order now asks -
+                    // but here it must NOT refuse. She has paid. An order the
+                    // shop declines to write at this point is money taken
+                    // against nothing, which is the one outcome worse than
+                    // having to ring her up. So the order is written and the
+                    // problem is written down with it, and the shop is told at
+                    // once rather than finding out when it packs the parcel.
+                    //
+                    // This should now be rare: create-order turns these away
+                    // before any money moves. It is still reachable, because a
+                    // product can be switched off in the minutes between
+                    // paying and the webhook arriving.
+                    var gone = await CartPricing.UnavailableAsync(_db, order.CartJson);
+                    if (gone.Count > 0)
+                    {
+                        _logger.LogWarning(
+                            "Order {OrderId} was paid for but holds {Count} item(s) the shop is not selling: {Names}.",
+                            localId, gone.Count, string.Join(", ", gone));
+                        try
+                        {
+                            await _notify.NotifyAsync(
+                                $"Paid order {localId} holds an item you are not selling",
+                                Services.AdminNotifier.Wrap("Paid order, item not for sale",
+                                    "<p>This order has already been paid for online, so it has been written down. "
+                                    + "It has to be honoured or refunded &mdash; it cannot simply be refused.</p>"
+                                    + $"<p><strong>Order:</strong> {localId}</p>"
+                                    + "<p><strong>Not currently for sale:</strong></p><ul>"
+                                    + string.Join("", gone.Select(n => $"<li>{System.Net.WebUtility.HtmlEncode(n)}</li>"))
+                                    + "</ul><p>Each of these is switched off, still a draft, or marked out of stock. "
+                                    + "Decide whether to send it anyway or refund that part, and tell the customer today.</p>"));
+                        }
+                        catch { /* telling the shop must never cost it the order */ }
+                    }
+
                     _db.SiteOrders.Add(new SiteOrder
                     {
                         OrderId      = localId,
@@ -468,7 +532,10 @@ public class CashfreeController : ControllerBase
                         CartJson     = order.CartJson,
                         CustomerJson = recoveredCustomerJson,
                         ShippingJson = order.ShippingJson,
-                        RawJson      = "{\"source\":\"webhook_recovery\"}",
+                        // The unavailable items are recorded on the order itself, not
+                        // only in an email that can be missed, so the admin screen and
+                        // any later question about this order can still see them.
+                        RawJson      = JsonSerializer.Serialize(new { source = "webhook_recovery", unavailable = gone }),
                         PlacedAt     = DateTimeOffset.UtcNow,
                     });
                     await _db.SaveChangesAsync();

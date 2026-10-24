@@ -56,11 +56,14 @@ public static class CartPricing
     }
 
     /// <summary>
-    /// What the lines in this stored cart are worth at our own prices, or null
-    /// when that cannot be established — an unknown SKU, an unparseable cart, a
-    /// line naming no product. Null means "do not conclude it was paid for".
+    /// Every line of a stored cart, matched to the product it names.
+    ///
+    /// Null when the cart cannot be read at all, or when any line names a
+    /// product we do not have — the two cases where nothing about the cart can
+    /// be concluded. Both callers below treat null as "refuse", never as
+    /// "empty".
     /// </summary>
-    public static async Task<decimal?> ItemValueAsync(AppDbContext db, string? cartJson)
+    private static async Task<List<(Models.Product Product, int Qty)>?> ResolveAsync(AppDbContext db, string? cartJson)
     {
         if (string.IsNullOrWhiteSpace(cartJson)) return null;
 
@@ -104,7 +107,7 @@ public static class CartPricing
             ? new Dictionary<int, Models.Product>()
             : (await db.Products.Where(p => ids.Contains(p.Id)).ToListAsync()).ToDictionary(p => p.Id);
 
-        decimal total = 0m;
+        var resolved = new List<(Models.Product, int)>();
         foreach (var line in lines)
         {
             var sku = Str(line, "sku");
@@ -112,15 +115,66 @@ public static class CartPricing
             if (sku.Length > 0) bySku.TryGetValue(sku, out prod);
             else if (int.TryParse(Str(line, "id"), out var pid)) byId.TryGetValue(pid, out prod);
 
-            // A line we cannot price is not a line worth nothing — it is a line
+            // A line we cannot price is not a line worth nothing - it is a line
             // we know nothing about, and saying "nothing" is how the browser
             // would like this read.
             if (prod is null) return null;
+            resolved.Add((prod, Qty(line)));
+        }
+        return resolved;
+    }
 
+    /// <summary>
+    /// What the lines in this stored cart are worth at our own prices, or null
+    /// when that cannot be established - an unknown SKU, an unparseable cart, a
+    /// line naming no product. Null means "do not conclude it was paid for".
+    /// </summary>
+    public static async Task<decimal?> ItemValueAsync(AppDbContext db, string? cartJson)
+    {
+        var lines = await ResolveAsync(db, cartJson);
+        if (lines is null) return null;
+
+        decimal total = 0m;
+        foreach (var (prod, qty) in lines)
+        {
             var unit = prod.DiscountPrice.HasValue && prod.DiscountPrice.Value > 0
                 ? prod.DiscountPrice.Value : prod.Price;
-            total += unit * Qty(line);
+            total += unit * qty;
         }
         return total;
+    }
+
+    /// <summary>
+    /// The products in this cart that the shop is not selling right now -
+    /// switched off, still a draft, or out of stock. Empty when every line can
+    /// be fulfilled.
+    ///
+    /// PlaceOrder has asked this question since it was written, so a COD order
+    /// for a switched-off product is refused. The PREPAID path never asked it.
+    /// A cart lives in the browser's own storage under mfh_cart with no expiry
+    /// and nothing that re-checks it, so an item added in September is still
+    /// sitting there in October after the shop has switched it off - and
+    /// create-order priced it, took the money, and the webhook wrote the order.
+    /// The shop was then holding payment for something it had deliberately
+    /// stopped selling.
+    ///
+    /// The names are the shop's own product names, so the message a customer
+    /// reads names the thing she has to remove.
+    /// </summary>
+    public static async Task<List<string>> UnavailableAsync(AppDbContext db, string? cartJson)
+    {
+        var lines = await ResolveAsync(db, cartJson);
+        if (lines is null) return new List<string>();
+
+        var names = new List<string>();
+        foreach (var (prod, _) in lines)
+        {
+            var status = prod.StockStatus ?? "";
+            var gone = string.Equals(status, "Out of Stock", StringComparison.OrdinalIgnoreCase)
+                       || ProductQualityGate.HiddenStatuses.Contains(status, StringComparer.OrdinalIgnoreCase);
+            if (gone && !names.Contains(prod.Name))
+                names.Add(prod.Name);
+        }
+        return names;
     }
 }
