@@ -533,8 +533,14 @@ public class OrdersController : ControllerBase
         // A cart line is allowed to arrive without a SKU — a product may simply
         // not have one — so those are priced by product id instead. Either way
         // the price comes from our own catalogue.
+        //
+        // The id is now looked up for lines that DO carry a SKU as well, because
+        // a SKU can be renamed. A cart lives in the browser under mfh_cart with
+        // no expiry, so renaming CAMPUS FROTH to MFH1230 leaves every cart that
+        // already holds it naming a SKU the catalogue no longer has - and that
+        // shopper was turned away at the till with "no longer available" on a
+        // product sitting on the website.
         var idsNeeded = cartLines
-            .Where(c => string.IsNullOrWhiteSpace(c.Sku))
             .Select(c => int.TryParse((c.Id ?? "").Trim(), out var n) ? n : 0)
             .Where(n => n > 0)
             .Distinct()
@@ -557,11 +563,34 @@ public class OrdersController : ControllerBase
                 var unit = baseUnit + (isBalotra ? 0m : Math.Max(0m, prod.ShippingCharge));
                 serverSubtotal += unit * qty;
             }
+            else if (!string.IsNullOrWhiteSpace(lineSku)
+                     && int.TryParse((line.Id ?? "").Trim(), out var renamedId)
+                     && byProductId.TryGetValue(renamedId, out var renamed))
+            {
+                // The SKU is unknown but the line names a product we have. That
+                // is what a renamed SKU looks like from an old cart, and the
+                // price still comes from OUR catalogue, by id - so none of the
+                // "bogus SKU + ₹1 line total" hole is reopened here. The thing
+                // that hole turned on was believing the browser's LineTotal, and
+                // it is not believed on this path either.
+                if (string.Equals(renamed.StockStatus, "Out of Stock", StringComparison.OrdinalIgnoreCase)
+                    || ProductQualityGate.HiddenStatuses.Contains(renamed.StockStatus, StringComparer.OrdinalIgnoreCase))
+                    return BadRequest(new { success = false, message = $"'{renamed.Name}' is out of stock. Please remove it and try again." });
+
+                _log.LogInformation(
+                    "Cart line named SKU {Sku}, which no longer exists; priced by product id {Id} ({Name}) instead.",
+                    lineSku, renamedId, renamed.Name);
+
+                var baseUnitRenamed = renamed.DiscountPrice.HasValue && renamed.DiscountPrice.Value > 0
+                    ? renamed.DiscountPrice.Value : renamed.Price;
+                serverSubtotal += (baseUnitRenamed + (isBalotra ? 0m : Math.Max(0m, renamed.ShippingCharge))) * qty;
+            }
             else if (!string.IsNullOrWhiteSpace(lineSku))
             {
-                // SEC: a SKU was supplied but doesn't exist in the catalogue. We can't price it
-                // server-side, so we must NOT trust the client's LineTotal (that was the
-                // "bogus SKU + ₹1 line total" underpay hole). Reject the order instead.
+                // SEC: a SKU was supplied, it doesn't exist, and the line names no
+                // product we have either. We can't price it server-side, so we must
+                // NOT trust the client's LineTotal (that was the "bogus SKU + ₹1
+                // line total" underpay hole). Reject the order instead.
                 return BadRequest(new { success = false, message = "An item in your cart is no longer available. Please refresh your cart and try again." });
             }
             else

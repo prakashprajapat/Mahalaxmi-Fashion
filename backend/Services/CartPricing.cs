@@ -94,8 +94,12 @@ public static class CartPricing
 
         var skus = lines.Select(l => Str(l, "sku")).Where(s => s.Length > 0)
                         .Distinct(StringComparer.OrdinalIgnoreCase).ToList();
-        var ids = lines.Where(l => Str(l, "sku").Length == 0)
-                       .Select(l => int.TryParse(Str(l, "id"), out var n) ? n : 0)
+        // The id is fetched for lines that carry a SKU too. A SKU can be
+        // renamed - CAMPUS FROTH became MFH1230 - and a cart stored before that
+        // still names the old one. Without the id to fall back on, this returns
+        // null, and create-order turns the shopper away from a product that is
+        // sitting on the website.
+        var ids = lines.Select(l => int.TryParse(Str(l, "id"), out var n) ? n : 0)
                        .Where(n => n > 0).Distinct().ToList();
 
         var bySku = new Dictionary<string, Models.Product>(StringComparer.OrdinalIgnoreCase);
@@ -113,7 +117,9 @@ public static class CartPricing
             var sku = Str(line, "sku");
             Models.Product? prod = null;
             if (sku.Length > 0) bySku.TryGetValue(sku, out prod);
-            else if (int.TryParse(Str(line, "id"), out var pid)) byId.TryGetValue(pid, out prod);
+            // By id when there is no SKU, and ALSO when the SKU names nothing -
+            // which is what an old cart looks like after a SKU is renamed.
+            if (prod is null && int.TryParse(Str(line, "id"), out var pid)) byId.TryGetValue(pid, out prod);
 
             // A line we cannot price is not a line worth nothing - it is a line
             // we know nothing about, and saying "nothing" is how the browser
