@@ -17,7 +17,7 @@ import RecentlyViewed from '@/components/product/RecentlyViewed';
 import DeliveryEstimate from '@/components/product/DeliveryEstimate';
 import { addRecentlyViewed } from '@/lib/recentlyViewed';
 import { trackEvent } from '@/lib/analytics';
-import { feedIdFor } from '@/lib/merchantFeed';
+import { feedIdFor, variantsOf } from '@/lib/merchantFeed';
 import { allSlotPhotos, colourPhotos, colourSetsOf } from '@/lib/photoExtras';
 import type { Product, Review } from '@/types';
 import { variantStockFor } from '@/lib/variantStock';
@@ -320,9 +320,13 @@ export default function ProductDetail({ params, initialProduct = null }: { param
       value: finalUnitPrice(product),
       items: [{
         item_id: (product as any).sku || String(product.dbId),
-        // Page khulte waqt size chuna nahi hota, isliye group ka id — Meta ise
-        // catalogue ke item_group_id se milata hai.
+        // Page khulte waqt size chuna nahi hota, isliye group ka id.
         item_group_id: (product as any).sku || String(product.dbId),
+        // Aur saath me is product ki saari feed rows ke id. Akela group id
+        // bhejne par Meta ki jaanch use "kisi catalogue se nahi milta" bata
+        // deti thi - wo jaanch item ke id par hoti hai - jabki product
+        // catalogue me maujood tha, bas group ki tarah.
+        item_variant_ids: variantsOf(product as never).map(v => v.id),
         item_name: product.name,
         item_category: product.category ?? '',
         price: finalUnitPrice(product),

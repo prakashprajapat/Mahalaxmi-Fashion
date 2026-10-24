@@ -71,6 +71,16 @@ interface Ga4Item {
   item_variant_id?: unknown;
   /** Feed ka item_group_id — yani SKU, poore product ka. */
   item_group_id?: unknown;
+  /**
+   * Is product ki SAARI feed rows ke id.
+   *
+   * Product page par size chuna nahi hota, to akela group id bhejte the aur
+   * content_type 'product_group'. Meta ki apni jaanch item ke id par hoti hai,
+   * group ke id par nahi — isliye wo id "kisi catalogue se nahi milti" wali
+   * list me aa jata tha (MFH1225, CAMPUS FROTH). Saari rows ke id bhej dene se
+   * wo milti bhi hain aur Meta ko pata bhi chalta hai ki kaun kaun si.
+   */
+  item_variant_ids?: unknown;
 }
 
 // Har event ka apna id.
@@ -161,16 +171,36 @@ function trackMeta(name: string, params: Params): void {
     // ye id group ka hai. Cart aur kharid ke waqt size aur rang dono maloom
     // hote hain, to wahan feed wali poori row ka id jata hai.
     const asVariant = items.every(i => String(i.item_variant_id ?? '').trim() !== '');
+
+    // Jab size chuna hi nahi gaya (product page), tab bhi group ka id bhejna
+    // kaafi nahi hai: Meta ki "content IDs aren't matching any catalog" wali
+    // jaanch item ke id par chalti hai, item_group_id par nahi. MFH1225 aur
+    // CAMPUS FROTH usi wajah se us list me the - dono catalogue me MAUJOOD hain,
+    // bas group ki tarah (MFH1225-6 … MFH1225-10), item ki tarah nahi.
+    //
+    // Isliye page ab us product ki saari rows ke id bhejta hai. Meta ek event
+    // par kai content_ids leta hai, aur tab content_type 'product' sahi hai.
+    const spread = items.length > 0 && items.every(i => Array.isArray(i.item_variant_ids) && (i.item_variant_ids as unknown[]).length > 0);
+    const rowsOf = (i: Ga4Item) => ((i.item_variant_ids as unknown[]) ?? []).map(String).filter(Boolean);
+
     const idOf = (i: Ga4Item) => String(
       (asVariant ? i.item_variant_id : (i.item_group_id ?? i.item_id)) ?? ''
     );
-    payload.content_type = asVariant ? 'product' : 'product_group';
-    payload.content_ids = items.map(idOf);
-    payload.contents = items.map(i => ({
-      id: idOf(i),
-      quantity: Number(i.quantity ?? 1),
-      item_price: Number(i.price ?? 0),
-    }));
+    payload.content_type = (asVariant || spread) ? 'product' : 'product_group';
+    payload.content_ids = spread
+      ? items.flatMap(rowsOf)
+      : items.map(idOf);
+    payload.contents = spread
+      ? items.flatMap(i => rowsOf(i).map(id => ({
+          id,
+          quantity: Number(i.quantity ?? 1),
+          item_price: Number(i.price ?? 0),
+        })))
+      : items.map(i => ({
+          id: idOf(i),
+          quantity: Number(i.quantity ?? 1),
+          item_price: Number(i.price ?? 0),
+        }));
     payload.num_items = items.reduce((n, i) => n + Number(i.quantity ?? 1), 0);
     if (items.length === 1 && items[0].item_name) payload.content_name = String(items[0].item_name);
   }
