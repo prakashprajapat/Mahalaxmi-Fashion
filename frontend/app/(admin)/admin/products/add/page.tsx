@@ -744,6 +744,12 @@ export default function AddProductPage() {
 
   // Basic fields
   const [sku, setSku]           = useState('MFH…');
+  // The SKU is not typed any more, so the form has to know the difference
+  // between a number the server gave it and the placeholder it starts on.
+  // Saving the placeholder would put the literal text "MFH…" in the catalogue,
+  // and next-sku only counts SKUs matching MFH + digits - so it would never
+  // be noticed and never be reused.
+  const skuReady = /^MFH\d{4,5}$/.test(sku.trim());
   const [hsnCode, setHsnCode]   = useState('');
   const [shopName, setShopName] = useState('');
   const [name, setName]         = useState('');
@@ -1004,6 +1010,17 @@ export default function AddProductPage() {
   const handleSave = async (force = false) => {
     setSaving(true);
     try {
+      // The SKU box cannot be typed in, so the form must not let a product
+      // through without one. This only fires when the fetch has not landed or
+      // failed outright, and it offers the retry rather than leaving him stuck
+      // at a box he cannot edit.
+      if (!skuReady) {
+        alert('SKU abhi mila nahi hai. Ek second rukiye, ya page refresh karke dobara save karein.');
+        fetchNextSku().then(setSku);
+        setSaving(false);
+        return;
+      }
+
       // Pricing guard: price must be > 0 and a discount price can never be ≥ the MRP (or negative).
       const priceNum = Number(price);
       if (!priceNum || priceNum <= 0) { alert('Please enter a valid price greater than 0.'); setSaving(false); return; }
@@ -1232,7 +1249,19 @@ export default function AddProductPage() {
       }
       setServerGate(null);
       router.push('/admin/products');
-    } catch (e) { alert('❌ ' + (e as Error).message); }
+    } catch (e) {
+      const msg = (e as Error).message ?? '';
+      // Two people adding a product in the same minute both get MFH1230 from
+      // next-sku, and the server refuses the second. He cannot edit his way
+      // out of that any more, so the form takes a fresh number for him.
+      if (/sku/i.test(msg) && /already (exists|used)/i.test(msg)) {
+        const fresh = await fetchNextSku();
+        setSku(fresh);
+        alert(`❌ ${msg}\n\nNaya SKU le liya gaya hai: ${fresh}. Dobara Save dabaiye.`);
+      } else {
+        alert('❌ ' + msg);
+      }
+    }
     finally { setSaving(false); }
   };
 
@@ -1390,7 +1419,24 @@ export default function AddProductPage() {
 
           <div>
             <label style={lbl}>SKU ID</label>
-            <input value={sku} onChange={e => setSku(e.target.value)} placeholder="MFH1001" style={inp} />
+            {/*
+              Read-only, not disabled: a disabled box cannot be selected, and
+              the number is the one thing on this screen he copies out of it.
+              The server picks it (next-sku = highest MFH number + 1) and
+              refuses a duplicate, so there is nothing here worth typing - and
+              a SKU typed over is a product whose feed rows, Meta catalogue
+              entries and coupon records all stop pointing at it.
+            */}
+            <input
+              value={sku}
+              readOnly
+              aria-readonly="true"
+              title="Apne aap milta hai - badla nahi ja sakta"
+              style={{ ...inp, background:'#f4f4f5', color:'#555', cursor:'default' }}
+            />
+            <div style={{ fontSize:'.72rem', color:'#888', marginTop:'.3rem' }}>
+              {skuReady ? 'Apne aap mila hai — badla nahi ja sakta' : 'Mil raha hai…'}
+            </div>
           </div>
 
           <div>
