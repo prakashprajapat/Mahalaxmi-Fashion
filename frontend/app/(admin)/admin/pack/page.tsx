@@ -277,7 +277,19 @@ export default function PackAndScanPage() {
             autoPlay
             muted
             playsInline
-            style={{ width: '100%', maxWidth: 420, marginTop: '.8rem', borderRadius: 8, background: '#000' }}
+            // Small on purpose. It is an aiming window, not something to
+            // watch: at 420px wide it pushed the scan box and the message off
+            // a phone screen, and the packer needs those in sight while
+            // pointing the camera.
+            //
+            // objectFit 'contain', not 'cover'. Cropping would hide part of
+            // the frame he is aiming with, while the reader still works on
+            // the whole frame - so he would be lining up a barcode against a
+            // picture that is not the one being read.
+            style={{
+              width: '100%', maxWidth: 240, maxHeight: 190, objectFit: 'contain',
+              marginTop: '.8rem', borderRadius: 8, background: '#000', display: 'block',
+            }}
           />
         )}
 
