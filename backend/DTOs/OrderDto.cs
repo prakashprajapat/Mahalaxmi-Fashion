@@ -73,7 +73,8 @@ public record OrderDto(
     bool ReturnMediaDeleted = false,
     decimal WalletUsed = 0,
     decimal AdvancePaid = 0,
-    DateTimeOffset? ExpectedDelivery = null
+    DateTimeOffset? ExpectedDelivery = null,
+    string? BagBarcode = null
 );
 
 public record PlaceOrderRequest(
@@ -115,3 +116,7 @@ public record AdminUpdateOrderRequest(
     string? Courier = null,
     bool Force = false   // set true to override the return-flow safeguard
 );
+
+// What the packing bench scans off the thaili. One field, because that is all
+// a scanner gun sends.
+public record BagBarcodeRequest(string? Barcode);

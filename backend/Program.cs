@@ -976,6 +976,9 @@ using (var scope = app.Services.CreateScope())
         -- karo to bada number choti tareekh le aata tha (011 par 18/10 aur
         -- 012 par 17/10), jo GST ki series todta hai.
         ALTER TABLE site_orders ADD COLUMN IF NOT EXISTS invoiced_at TIMESTAMPTZ;
+        ALTER TABLE site_orders ADD COLUMN IF NOT EXISTS bag_barcode VARCHAR(64);
+        CREATE UNIQUE INDEX IF NOT EXISTS ux_site_orders_bag_barcode
+            ON site_orders (bag_barcode) WHERE bag_barcode IS NOT NULL;
         -- Jo bill pehle hi chhap chuke hain unki tareekh nahi badalti: purane
         -- parcels par order wali tareekh chhapi ja chuki hai, aur kitaab ko
         -- chhape hue kagaz se alag kar dena isse badi galti hai.

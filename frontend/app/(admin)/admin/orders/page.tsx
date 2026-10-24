@@ -569,18 +569,6 @@ export default function AdminOrdersPage() {
   // how this shop packs rather than about one print run - but it is a box on
   // the screen, next to the button it changes, so it can be flicked for a
   // single batch without going looking for a setting.
-  const [orderBarcode, setOrderBarcode] = useState(true);
-  useEffect(() => {
-    try {
-      const v = localStorage.getItem('mfh-label-order-barcode');
-      if (v !== null) setOrderBarcode(v === '1');
-    } catch { /* private mode - the default stands */ }
-  }, []);
-  const toggleOrderBarcode = (on: boolean) => {
-    setOrderBarcode(on);
-    try { localStorage.setItem('mfh-label-order-barcode', on ? '1' : '0'); } catch {}
-  };
-
   // Fill the Expected column now instead of waiting for the sweep.
   const [syncing, setSyncing] = useState(false);
   const syncTracking = async () => {
@@ -594,7 +582,7 @@ export default function AdminOrdersPage() {
     } finally { setSyncing(false); }
   };
 
-  const downloadShippingLabel = (order: Order) => openOrderLabels([order], { orderBarcode });
+  const downloadShippingLabel = (order: Order) => openOrderLabels([order]);
 
   const anyFilter = Boolean(dateFilter || filterSize || filterColour || search || filterPay);
   const clearFilters = () => { setDateFilter(''); setFilterSize(''); setFilterColour(''); setSearch(''); setFilterPay(''); };
@@ -757,15 +745,9 @@ export default function AdminOrdersPage() {
             </>
           )}
           <button className="adm-btn"
-                  onClick={() => openOrderLabels(filtered.filter(o => selectedIds.has(o.id)), { orderBarcode })}>
+                  onClick={() => openOrderLabels(filtered.filter(o => selectedIds.has(o.id)))}>
             Labels PDF ({selectedIds.size})
           </button>
-          <label className="adm-btn" style={{ display: 'inline-flex', alignItems: 'center', gap: '.4rem', cursor: 'pointer' }}
-                 title="Prints a scannable barcode of the order id under ORDER ID, for finding the order while packing the thaili. The big barcode at the top stays the AWB.">
-            <input type="checkbox" checked={orderBarcode}
-                   onChange={e => toggleOrderBarcode(e.target.checked)} />
-            Order barcode
-          </label>
           <button className="adm-btn" onClick={bulkDelete} style={{ color: '#a3122b', borderColor: '#eccdd3' }}
                   title="Deletes these orders for good">
             Delete ({selectedIds.size})

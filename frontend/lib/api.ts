@@ -288,6 +288,23 @@ export const ordersApi = {
     request<{ success: boolean; order: import('@/types').Order }>(
       '/orders/status', { method: 'PATCH', body: JSON.stringify(data) }, token
     ),
+  // Record the code printed on the thaili this parcel is going into.
+  // `idOrAwb` may be either, because the gun reads the AWB off the label.
+  // It answers readyToShip rather than moving the order itself: "Ready for
+  // Shipping" hands out the GST invoice number, pushes to Delhivery and texts
+  // the customer, and all of that stays in updateStatus above.
+  setBagBarcode: (idOrAwb: string, barcode: string, token: string) =>
+    request<{
+      success: boolean; orderId: string; awb?: string | null; status: string;
+      bagBarcode: string; readyToShip: boolean; note?: string | null;
+    }>(
+      `/orders/${encodeURIComponent(idOrAwb)}/bag-barcode`,
+      { method: 'PATCH', body: JSON.stringify({ barcode }) }, token
+    ),
+  clearBagBarcode: (idOrAwb: string, token: string) =>
+    request<{ success: boolean; orderId: string }>(
+      `/orders/${encodeURIComponent(idOrAwb)}/bag-barcode`, { method: 'DELETE' }, token
+    ),
   // Admin: approve (media deleted now) or reject (media kept 30 days, reason required) a return
   returnDecision: (orderId: string, decision: 'approve' | 'reject', reason: string, token: string) =>
     request<{ success: boolean; order: import('@/types').Order }>(

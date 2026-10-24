@@ -1212,6 +1212,99 @@ public class OrdersController : ControllerBase
         return Ok(new { success = true, order = MapOrder(order) });
     }
 
+    // PATCH /api/orders/{orderId}/bag-barcode  (Admin only)
+    //
+    // The code printed on the thaili the parcel is going into, scanned at the
+    // packing bench. {orderId} may be the order number OR its AWB, because the
+    // AWB is what the gun reads off the label - the packer scans the label,
+    // then scans the bag, and never types anything.
+    //
+    // This does NOT change the status itself. "Ready for Shipping" hands out
+    // the GST invoice number under an advisory lock, pushes to Delhivery, and
+    // texts the customer; all of that lives in UpdateStatus and must keep
+    // living in exactly one place. So this answers readyToShip and the screen
+    // makes that one call, through the same door every other status change
+    // goes through.
+    [HttpPatch("{orderId}/bag-barcode")]
+    [Authorize]
+    [RequirePerm("orders")]
+    public async Task<IActionResult> SetBagBarcode(string orderId, [FromBody] BagBarcodeRequest req)
+    {
+        // A scanner gun sends what it read plus Enter, and a bag code can
+        // legitimately carry a hyphen. Everything else is noise from the read.
+        var code = new string((req.Barcode ?? "").Trim().Where(c => char.IsLetterOrDigit(c) || c == '-').ToArray());
+        if (code.Length == 0)
+            return BadRequest(new { success = false, message = "Nothing was scanned. Try the bag code again." });
+        if (code.Length > 64)
+            return BadRequest(new { success = false, message = "That code is too long to be a bag code." });
+
+        var order = await _db.SiteOrders.FirstOrDefaultAsync(o => o.OrderId == orderId || o.Awb == orderId);
+        if (order is null)
+            return NotFound(new { success = false, message = "No order matches that number." });
+
+        // One bag, one order. Scanning the same thaili against two orders is a
+        // packing mistake, and the cheap place to catch it is here - the dear
+        // place is a customer opening somebody else's parcel. The database has
+        // a unique index on this too, so a race loses rather than slips through.
+        var clash = await _db.SiteOrders
+            .FirstOrDefaultAsync(o => o.BagBarcode == code && o.OrderId != order.OrderId);
+        if (clash is not null)
+            return Conflict(new
+            {
+                success = false,
+                message = $"That bag is already recorded against order {clash.OrderId}. Use a different bag, or clear it from that order first.",
+            });
+
+        // Re-packing into a fresh bag is ordinary, so an existing code is
+        // replaced rather than refused - but it is written down, because a bag
+        // changing after the parcel was packed is worth being able to look up.
+        if (!string.IsNullOrWhiteSpace(order.BagBarcode) && order.BagBarcode != code)
+            _log.LogInformation("Order {Order}: bag code changed from {Old} to {New}.", order.OrderId, order.BagBarcode, code);
+
+        order.BagBarcode = code;
+        order.UpdatedAt = DateTimeOffset.UtcNow;
+        await _db.SaveChangesAsync();
+
+        // Both codes in hand and the parcel not yet away: the screen may now
+        // ask for "Ready for Shipping".
+        var beforeShipping = new[] { "Order Received", "Pending", "Pending confirmation", "Paid", "Order Packed" };
+        var readyToShip = !string.IsNullOrWhiteSpace(order.Awb)
+                          && beforeShipping.Contains(order.Status, StringComparer.OrdinalIgnoreCase);
+
+        return Ok(new
+        {
+            success = true,
+            orderId = order.OrderId,
+            awb = order.Awb,
+            status = order.Status,
+            bagBarcode = order.BagBarcode,
+            readyToShip,
+            // Said plainly so the screen does not have to guess why it is not
+            // being asked to advance the order.
+            note = string.IsNullOrWhiteSpace(order.Awb)
+                ? "Bag recorded. This order has no AWB yet, so it cannot go to Ready to Ship."
+                : readyToShip ? null : $"Bag recorded. The order is already at \"{order.Status}\".",
+        });
+    }
+
+    // DELETE /api/orders/{orderId}/bag-barcode  (Admin only)
+    // Scanned the wrong bag, or the parcel is being re-packed. Without this the
+    // unique index would make that bag unusable on any order, for good.
+    [HttpDelete("{orderId}/bag-barcode")]
+    [Authorize]
+    [RequirePerm("orders")]
+    public async Task<IActionResult> ClearBagBarcode(string orderId)
+    {
+        var order = await _db.SiteOrders.FirstOrDefaultAsync(o => o.OrderId == orderId || o.Awb == orderId);
+        if (order is null)
+            return NotFound(new { success = false, message = "No order matches that number." });
+
+        order.BagBarcode = null;
+        order.UpdatedAt = DateTimeOffset.UtcNow;
+        await _db.SaveChangesAsync();
+        return Ok(new { success = true, orderId = order.OrderId });
+    }
+
     // Return the wallet amount spent on an order back to the customer (once). Safe to call more
     // than once — the refund is recorded only if it hasn't been already.
     private async Task RefundWalletForOrderAsync(SiteOrder order)
@@ -2653,7 +2746,8 @@ public class OrdersController : ControllerBase
             ReturnMediaDeleted: GetJsonBool(rawJson, "returnMediaDeleted"),
             WalletUsed: o.WalletUsed,
             AdvancePaid: o.AdvancePaid,
-            ExpectedDelivery: o.ExpectedDelivery
+            ExpectedDelivery: o.ExpectedDelivery,
+            BagBarcode: o.BagBarcode
         );
     }
 }

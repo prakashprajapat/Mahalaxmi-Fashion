@@ -88,6 +88,16 @@ public class SiteOrder
     [Column("advance_paid")]
     public decimal AdvancePaid { get; set; }
 
+    // The code printed on the packing bag itself, scanned while the parcel is
+    // being filled. Not ours and not the courier's: the bag maker prints it,
+    // and it is the one thing tying THIS order to THAT physical bag.
+    //
+    // Null until it is scanned, and never guessed. A unique index keeps one
+    // bag from being recorded against two orders, which is a packing mistake
+    // worth catching at the bench rather than at the customer's door.
+    [Column("bag_barcode")]
+    public string? BagBarcode { get; set; }
+
     // GST invoice number (e.g. M/26-27/001), assigned once when the order is marked Ready for Shipping
     [Column("invoice_number")]
     public string? InvoiceNumber { get; set; }
