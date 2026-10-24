@@ -48,6 +48,8 @@ export default function PackAndScanPage() {
   const [done, setDone] = useState<string[]>([]);       // order ids finished this session
   const [code, setCode] = useState('');
 
+  const [camErr, setCamErr] = useState('');
+  const videoRef = useRef<HTMLVideoElement>(null);
   const boxRef = useRef<HTMLInputElement>(null);
   const focusBox = useCallback(() => { boxRef.current?.focus(); }, []);
   useEffect(focusBox, [focusBox, order, busy]);
@@ -127,54 +129,36 @@ export default function PackAndScanPage() {
     else await saveBag(scanned);
   };
 
-  // ── The camera, when there is no gun ──────────────────────────────────────
-  const [camOpen, setCamOpen] = useState(false);
-  const [camErr, setCamErr] = useState('');
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const streamRef = useRef<MediaStream | null>(null);
+  // ── The camera, when there is no gun ────────────────────────────────────
+  //
+  // The stream lives in STATE, and an effect hangs it on the <video>. The
+  // first version opened the camera and then reached for the element inside a
+  // setTimeout(0), which is a race with React's render: when the ref was not
+  // attached yet the code hit `if (!v) return` and gave up without a word.
+  // The camera light came on, the box stayed black, and the reading loop
+  // never started. An effect cannot lose that race - it runs after the DOM is
+  // committed, so the element is there by definition.
+  const [stream, setStream] = useState<MediaStream | null>(null);
+  const camOpen = stream !== null;
 
-  const stopCam = useCallback(() => {
-    streamRef.current?.getTracks().forEach(t => t.stop());
-    streamRef.current = null;
-    setCamOpen(false);
-  }, []);
-  // A camera left running is a light on the phone and a flat battery by
-  // evening, so it is stopped when the page goes.
-  useEffect(() => stopCam, [stopCam]);
+  // `handle` is rebuilt on every render and the loop below must always call
+  // the current one, without the effect tearing down and restarting each time.
+  const handleRef = useRef(handle);
+  handleRef.current = handle;
+
+  // Just drops the stream. The effect below owns stopping the tracks, so
+  // there is one place that does it - a state updater is meant to be a pure
+  // function of what came before, and React is allowed to run it twice.
+  const stopCam = useCallback(() => setStream(null), []);
 
   const startCam = async () => {
     setCamErr('');
-    const Ctor = (window as unknown as { BarcodeDetector?: BarcodeDetectorCtor }).BarcodeDetector;
-    if (!Ctor) {
+    if (!(window as unknown as { BarcodeDetector?: BarcodeDetectorCtor }).BarcodeDetector) {
       setCamErr('This browser cannot read barcodes from the camera. Use Chrome, or a scanner gun.');
       return;
     }
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-      streamRef.current = stream;
-      setCamOpen(true);
-      // The element only exists once camOpen has rendered.
-      setTimeout(() => {
-        const v = videoRef.current;
-        if (!v) return;
-        v.srcObject = stream;
-        v.play().catch(() => {});
-        const detector = new Ctor();
-        const tick = async () => {
-          if (!streamRef.current || !videoRef.current) return;
-          try {
-            const found = await detector.detect(videoRef.current);
-            const hit = found.find(f => f.rawValue?.trim());
-            if (hit) {
-              stopCam();
-              await handle(hit.rawValue);
-              return;
-            }
-          } catch { /* a frame that will not decode is normal; try the next */ }
-          setTimeout(tick, 250);
-        };
-        tick();
-      }, 0);
+      setStream(await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } }));
     } catch (e) {
       // The browser says exactly what went wrong and the packer can act on
       // most of them. One message for all four had him allowing a permission
@@ -189,6 +173,53 @@ export default function PackAndScanPage() {
       );
     }
   };
+
+  // Show the picture and read it. One effect, so the two can never disagree
+  // about whether the camera is running.
+  useEffect(() => {
+    if (!stream) return;
+    const v = videoRef.current;
+    if (!v) return;
+
+    v.srcObject = stream;
+    // autoPlay is on the element as well; this covers the browsers that want
+    // to be asked, and says so when the ask is refused rather than leaving a
+    // black rectangle to be puzzled over.
+    v.play().catch(() => setCamErr('The camera opened but the picture will not play. Use a scanner gun.'));
+
+    const Ctor = (window as unknown as { BarcodeDetector?: BarcodeDetectorCtor }).BarcodeDetector;
+    if (!Ctor) return;
+    const detector = new Ctor();
+
+    let stopped = false;
+    let timer: ReturnType<typeof setTimeout>;
+    const tick = async () => {
+      if (stopped) return;
+      try {
+        // Before the first frame arrives the video has no size and detect()
+        // throws. That is ordinary for the first moment, not an error.
+        if (v.readyState >= 2) {
+          const hit = (await detector.detect(v)).find(f => f.rawValue?.trim());
+          if (hit) {
+            stopCam();
+            await handleRef.current(hit.rawValue);
+            return;
+          }
+        }
+      } catch { /* a frame that will not decode is normal; try the next */ }
+      if (!stopped) timer = setTimeout(tick, 250);
+    };
+    tick();
+
+    return () => {
+      stopped = true;
+      clearTimeout(timer);
+    };
+  }, [stream, stopCam]);
+
+  // A camera left running is a light on the phone and a flat battery by
+  // evening, so every track is stopped when the page goes.
+  useEffect(() => () => { stream?.getTracks().forEach(t => t.stop()); }, [stream]);
 
   const step = order ? 2 : 1;
   const noteColour = note?.kind === 'ok' ? '#1a7f4b' : note?.kind === 'warn' ? '#8a6100' : '#a3122b';
@@ -243,6 +274,7 @@ export default function PackAndScanPage() {
         {camOpen && (
           <video
             ref={videoRef}
+            autoPlay
             muted
             playsInline
             style={{ width: '100%', maxWidth: 420, marginTop: '.8rem', borderRadius: 8, background: '#000' }}
