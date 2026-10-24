@@ -198,7 +198,7 @@ export default function GoogleColourPicker({
                 />
               </label>
               <button
-                type="button" onClick={() => removeSlot(i)} title="Hatao"
+                type="button" onClick={() => removeSlot(i)} title="Remove"
                 style={{
                   position: 'absolute', top: -4, right: -6, width: 18, height: 18, borderRadius: '50%',
                   border: 'none', background: '#c0392b', color: '#fff', fontSize: '.7rem',

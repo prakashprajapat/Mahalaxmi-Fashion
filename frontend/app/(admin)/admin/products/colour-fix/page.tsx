@@ -175,7 +175,7 @@ export default function ColourFixPage() {
     <div className="admin-page">
       <PageHeader
         title="Colour Fix"
-        sub="Jin products ka colour Google reject karta hai — sab ek hi jagah"
+        sub="Every product whose colour Google rejects, in one place"
         right={<Link href="/admin/products" className="adm-btn">← Products</Link>}
       />
 
@@ -203,14 +203,14 @@ export default function ColourFixPage() {
 
       {rows.length > 0 && (
         <Card
-          title={`${pending.length} product bache hain`}
+          title={`${pending.length} product${pending.length === 1 ? '' : 's'} left`}
           right={
             <button
               className="adm-btn adm-btn-primary"
               onClick={saveAll}
               disabled={bulkBusy || ready.length === 0}
             >
-              {bulkBusy ? 'Save ho raha hai…' : `Tayyar ${ready.length} save karo`}
+              {bulkBusy ? 'Saving…' : `Save the ${ready.length} that are ready`}
             </button>
           }
         >

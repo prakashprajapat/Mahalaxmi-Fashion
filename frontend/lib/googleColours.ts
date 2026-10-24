@@ -143,9 +143,9 @@ const BANNED = new Set([
  */
 export function colourProblem(value?: string | null): string | null {
   const raw = String(value ?? '').trim();
-  if (!raw) return 'Colour khali hai — apparel ke liye Google colour maangta hai.';
-  if (raw.includes(',')) return `"${raw}" me comma hai — Google sirf "/" maanta hai, jaise Navy/White/Red.`;
-  if (raw.length > 100) return `Colour 100 characters se lamba hai (abhi ${raw.length}).`;
+  if (!raw) return 'No colour has been set — Google requires one for apparel.';
+  if (raw.includes(',')) return `"${raw}" contains a comma — Google accepts only "/" between colours, such as Navy/White/Red.`;
+  if (raw.length > 100) return `The colour is longer than 100 characters (currently ${raw.length}).`;
 
   const parts = splitColourValue(raw);
   if (parts.length === 0) return 'No colour has been entered.';

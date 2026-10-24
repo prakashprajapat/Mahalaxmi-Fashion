@@ -1015,7 +1015,7 @@ export default function AddProductPage() {
       // failed outright, and it offers the retry rather than leaving him stuck
       // at a box he cannot edit.
       if (!skuReady) {
-        alert('SKU abhi mila nahi hai. Ek second rukiye, ya page refresh karke dobara save karein.');
+        alert('The SKU has not arrived yet. Wait a second, or refresh the page and save again.');
         fetchNextSku().then(setSku);
         setSaving(false);
         return;
@@ -1257,7 +1257,7 @@ export default function AddProductPage() {
       if (/sku/i.test(msg) && /already (exists|used)/i.test(msg)) {
         const fresh = await fetchNextSku();
         setSku(fresh);
-        alert(`❌ ${msg}\n\nNaya SKU le liya gaya hai: ${fresh}. Dobara Save dabaiye.`);
+        alert(`❌ ${msg}\n\nA new SKU has been taken: ${fresh}. Press Save again.`);
       } else {
         alert('❌ ' + msg);
       }
@@ -1431,11 +1431,11 @@ export default function AddProductPage() {
               value={sku}
               readOnly
               aria-readonly="true"
-              title="Apne aap milta hai - badla nahi ja sakta"
+              title="Given automatically — cannot be changed"
               style={{ ...inp, background:'#f4f4f5', color:'#555', cursor:'default' }}
             />
             <div style={{ fontSize:'.72rem', color:'#888', marginTop:'.3rem' }}>
-              {skuReady ? 'Apne aap mila hai — badla nahi ja sakta' : 'Mil raha hai…'}
+              {skuReady ? 'Given automatically — cannot be changed' : 'Getting the next number…'}
             </div>
           </div>
 
@@ -1635,7 +1635,7 @@ export default function AddProductPage() {
 
           <div>
             <label style={lbl}>
-              Final Rate Customer Pays (₹) <span style={{ fontWeight:400, color:'#888', fontSize:'.75rem' }}>Auto — yahi customer ko dikhega</span>
+              Final Rate Customer Pays (₹) <span style={{ fontWeight:400, color:'#888', fontSize:'.75rem' }}>Auto — this is what the customer sees</span>
             </label>
             <input
               type="text"

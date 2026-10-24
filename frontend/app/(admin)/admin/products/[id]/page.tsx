@@ -1569,7 +1569,7 @@ export default function EditProductPage() {
 
           <div>
             <label style={lbl}>
-              Final Rate Customer Pays (₹) <span style={{ fontWeight:400, color:'#888', fontSize:'.75rem' }}>Auto — yahi customer ko dikhega</span>
+              Final Rate Customer Pays (₹) <span style={{ fontWeight:400, color:'#888', fontSize:'.75rem' }}>Auto — this is what the customer sees</span>
             </label>
             <input
               type="text"

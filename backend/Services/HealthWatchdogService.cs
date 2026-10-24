@@ -99,12 +99,12 @@ public class HealthWatchdogService : BackgroundService
             if (_lastSignature.Length > 0)
             {
                 await notifier.NotifyAsync(
-                    "Mahalaxmi: sab theek ho gaya",
-                    AdminNotifier.Wrap("Theek ho gaya", $@"
-<p style=""margin:0 0 12px"">Jo kharabi pehle batayi thi, wo ab nahi hai.</p>
-<p style=""margin:0;color:#666;font-size:13px"">Pehle: <b>{WebUtility.HtmlEncode(_lastSignature)}</b><br>
-Jaancha gaya: {IndiaTime.Now:dd MMM yyyy, h:mm tt} IST</p>"));
-                await TrySmsAsync(sms, "theek ho gaya - sab chalu hai");
+                    "Mahalaxmi: everything is back to normal",
+                    AdminNotifier.Wrap("Back to normal", $@"
+<p style=""margin:0 0 12px"">The problem reported earlier has cleared.</p>
+<p style=""margin:0;color:#666;font-size:13px"">Earlier: <b>{WebUtility.HtmlEncode(_lastSignature)}</b><br>
+Checked: {IndiaTime.Now:dd MMM yyyy, h:mm tt} IST</p>"));
+                await TrySmsAsync(sms, "back to normal - everything is running");
                 _lastSignature = "";
                 _lastSentAt = DateTimeOffset.MinValue;
             }
@@ -123,12 +123,12 @@ Jaancha gaya: {IndiaTime.Now:dd MMM yyyy, h:mm tt} IST</p>"));
     <td style=""padding:6px 0;color:#444"">{WebUtility.HtmlEncode(p.Detail)}</td></tr>"));
 
         await notifier.NotifyAsync(
-            isNew ? "Mahalaxmi: website me kharabi" : "Mahalaxmi: kharabi abhi tak theek nahi hui",
-            AdminNotifier.Wrap(isNew ? "Kharabi mili" : "Kharabi abhi tak hai", $@"
+            isNew ? "Mahalaxmi: something is wrong with the website" : "Mahalaxmi: the problem is still not fixed",
+            AdminNotifier.Wrap(isNew ? "Problem found" : "Problem still there", $@"
 <table style=""width:100%;border-collapse:collapse;font-size:14px"">{rows}</table>
 <p style=""margin:14px 0 0;color:#666;font-size:13px"">
-  Jaancha gaya: {IndiaTime.Now:dd MMM yyyy, h:mm tt} IST<br>
-  Ye jaanch server ke andar se hui hai, yani server us waqt chal raha tha.
+  Checked: {IndiaTime.Now:dd MMM yyyy, h:mm tt} IST<br>
+  This check ran from inside the server, so the server itself was up at the time.
 </p>"));
 
         // SMS me sirf pehli kharabi jati hai. Teen kharabi ek saath ho to
