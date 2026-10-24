@@ -497,8 +497,11 @@ public class OrdersController : ControllerBase
         // the price) is dropped when the shipping address is a Balotra post office / pincode.
         var shipCity = (req.ShippingCity ?? "").Trim();
         var shipPin  = new string((req.ShippingPincode ?? "").Where(char.IsDigit).ToArray());
-        bool isBalotra = shipCity.IndexOf("balotra", StringComparison.OrdinalIgnoreCase) >= 0
-                         || shipPin == "344022";
+        // The same test the Cashfree webhook applies when it prices a recovered
+        // order, shared so the two cannot drift: an order that skipped the free
+        // local delivery here and got it there would be worth two different
+        // amounts depending on whether the browser came back.
+        bool isBalotra = Services.CartPricing.IsLocalDelivery(shipCity, shipPin);
 
         // ── FRAUD / RISK: Cash-on-Delivery guards (server-side, can't be bypassed) ──
         // Only apply to COD; prepaid orders are already paid so they carry no COD risk.

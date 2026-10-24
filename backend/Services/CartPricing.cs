@@ -128,8 +128,22 @@ public static class CartPricing
     /// What the lines in this stored cart are worth at our own prices, or null
     /// when that cannot be established - an unknown SKU, an unparseable cart, a
     /// line naming no product. Null means "do not conclude it was paid for".
+    ///
+    /// <paramref name="withShipping"/> folds in each product's own shipping
+    /// charge, the way PlaceOrder does. Two callers want two different
+    /// answers and both are right:
+    ///
+    /// create-order wants it LEFT OUT. It is checking a floor before the money
+    /// moves, it is not sure yet whether the address earns free local
+    /// delivery, and a floor set too high turns an honest customer away.
+    ///
+    /// The webhook wants it IN. It is recording what an order was actually
+    /// worth, it has the delivery address in front of it, and a figure set too
+    /// low means the shop charged her more than its own books show - on the
+    /// invoice and in the GST on it. The shop has two products carrying a
+    /// charge today, one of them Rs.70 and on sale.
     /// </summary>
-    public static async Task<decimal?> ItemValueAsync(AppDbContext db, string? cartJson)
+    public static async Task<decimal?> ItemValueAsync(AppDbContext db, string? cartJson, bool withShipping = false)
     {
         var lines = await ResolveAsync(db, cartJson);
         if (lines is null) return null;
@@ -139,9 +153,21 @@ public static class CartPricing
         {
             var unit = prod.DiscountPrice.HasValue && prod.DiscountPrice.Value > 0
                 ? prod.DiscountPrice.Value : prod.Price;
+            if (withShipping) unit += Math.Max(0m, prod.ShippingCharge);
             total += unit * qty;
         }
         return total;
+    }
+
+    /// <summary>
+    /// Does this address earn the free local delivery Balotra gets? The same
+    /// test PlaceOrder applies, in one place so the two cannot drift.
+    /// </summary>
+    public static bool IsLocalDelivery(string? city, string? pincode)
+    {
+        var digits = new string((pincode ?? "").Where(char.IsDigit).ToArray());
+        return (city ?? "").IndexOf("balotra", StringComparison.OrdinalIgnoreCase) >= 0
+               || digits == "344022";
     }
 
     /// <summary>

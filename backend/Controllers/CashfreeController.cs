@@ -406,7 +406,7 @@ public class CashfreeController : ControllerBase
                     // Guest online orders have no logged-in customer object — recover the buyer
                     // identity from the shipping details captured at create-order time, auto-create
                     // or link a customer profile, and store a proper customer JSON (name shows in admin).
-                    string sName = "", sEmail = "", sPhone = "";
+                    string sName = "", sEmail = "", sPhone = "", sCity = "", sPin = "";
                     try
                     {
                         var sj = JsonSerializer.Deserialize<JsonElement>(order.ShippingJson ?? "{}");
@@ -414,6 +414,9 @@ public class CashfreeController : ControllerBase
                         {
                             string G(string k) => sj.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.String ? (v.GetString() ?? "") : "";
                             sName = G("name"); sEmail = G("email"); sPhone = G("phone");
+                            // Needed for the free-local-delivery test below, which
+                            // decides whether this cart carries per-product shipping.
+                            sCity = G("city"); sPin = G("pincode");
                         }
                     }
                     catch { /* malformed shipping json — proceed without identity */ }
@@ -448,7 +451,17 @@ public class CashfreeController : ControllerBase
                     // overwrites them with its own fuller pricing, which also
                     // folds in per-product shipping. The coupon is spent once
                     // either way, because the claim is keyed on the order id.
-                    var goods = await CartPricing.ItemValueAsync(_db, order.CartJson) ?? fullTotal;
+                    // Priced the way PlaceOrder prices it, per-product shipping
+                    // and all. Leaving that out recorded an order as worth LESS
+                    // than the shop had just charged for it: the shipping is
+                    // folded into the price the checkout shows and collects, so
+                    // the customer pays it, and the invoice and the GST on it
+                    // were being written from the smaller figure. Two products
+                    // carry a charge today - one at Rs.70 and on sale - and no
+                    // webhook-written order has held either yet, which is luck,
+                    // not a design.
+                    var localDelivery = CartPricing.IsLocalDelivery(sCity, sPin);
+                    var goods = await CartPricing.ItemValueAsync(_db, order.CartJson, withShipping: !localDelivery) ?? fullTotal;
                     decimal discount = 0m;
                     string? usedCode = null;
 
