@@ -55,10 +55,27 @@ function googleCategory(category?: string, subcategory?: string): string {
 export async function GET() {
   let products: FeedProduct[] = [];
   try {
-    const res = await fetch(`${API_BASE}/products?pageSize=2000`, { next: { revalidate: 3600 } });
-    if (res.ok) {
-      const data = await res.json();
-      products = data.products ?? [];
+    // The shop's own view of /products is capped at 100 a page — a public
+    // ?pageSize=2000 is clamped, not honoured. This route used to take that one
+    // answer as the whole catalogue, so for every product past the hundredth
+    // Merchant Center was never told the product exists: 70 of 170 on the day
+    // this was found, every one of them live on the website and advertised
+    // nowhere. So the pages are walked until `total` is reached.
+    const askPage = async (page: number) => {
+      const res = await fetch(`${API_BASE}/products?page=${page}&pageSize=100`, { next: { revalidate: 3600 } });
+      if (!res.ok) return null;
+      return (await res.json()) as { products?: FeedProduct[]; total?: number };
+    };
+
+    const first = await askPage(1);
+    products = first?.products ?? [];
+    const total = Number(first?.total) || products.length;
+    // The ceiling is a guard, not a limit: 60 pages of 100 is far beyond the
+    // catalogue, and it stops a wrong `total` turning this into a loop.
+    for (let page = 2; products.length < total && page <= 60; page++) {
+      const next = await askPage(page);
+      if (!next?.products?.length) break;
+      products = products.concat(next.products);
     }
   } catch { /* API down — empty feed, next revalidate retries */ }
 
