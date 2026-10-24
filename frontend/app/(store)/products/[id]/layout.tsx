@@ -65,7 +65,13 @@ export async function generateMetadata({ params }: { params: { id: string } }): 
         title: fullTitle,
         description,
         url: `${BASE}${canonical}`,
-        images: [{ url: ogImage, width: 1200, height: 630, alt: name }],
+        // Width and height are NOT declared. They used to say 1200x630, the
+        // shape of the site-wide banner - but a product photo here is 900x1200,
+        // portrait. A crawler that believes those numbers works out the wrong
+        // aspect ratio and either crops the photo badly or gives up on the
+        // preview. Leaving them out costs one extra fetch and tells no lie:
+        // WhatsApp, LinkedIn and Facebook all read the real size off the image.
+        images: [{ url: ogImage, alt: name }],
       },
       // Facebook ke apne product tag. Inhe Next sirf name= se likh pata hai,
       // property= se nahi, isliye Facebook inpar bharosa nahi karega. Rehne
