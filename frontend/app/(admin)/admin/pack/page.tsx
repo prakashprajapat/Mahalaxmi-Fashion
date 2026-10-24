@@ -175,8 +175,18 @@ export default function PackAndScanPage() {
         };
         tick();
       }, 0);
-    } catch {
-      setCamErr('The camera could not be opened. Allow camera access, or use a scanner gun.');
+    } catch (e) {
+      // The browser says exactly what went wrong and the packer can act on
+      // most of them. One message for all four had him allowing a permission
+      // that was never the problem.
+      const name = (e as { name?: string })?.name ?? '';
+      setCamErr(
+        name === 'NotAllowedError'  ? 'Camera access was refused. Allow it for this site in the browser, then press Camera again.'
+        : name === 'NotFoundError'  ? 'No camera was found on this device. Use a scanner gun.'
+        : name === 'NotReadableError' ? 'The camera is being used by another app. Close it and press Camera again.'
+        : name === 'SecurityError'  ? 'The camera needs a secure (https) connection.'
+        : 'The camera could not be opened. Use a scanner gun.'
+      );
     }
   };
 

@@ -104,7 +104,18 @@ const nextConfig = {
           { key: 'X-Frame-Options', value: 'DENY' },
           { key: 'X-Content-Type-Options', value: 'nosniff' },
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
-          { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
+          // camera=(self), not camera=(): the empty list refuses EVERY origin
+          // including this one, so Pack & Scan's camera button threw before the
+          // browser had a chance to ask - no prompt, just "could not be opened".
+          // (self) lets our own pages request it and still refuses every
+          // third-party frame, and the viewer is still asked by the browser. The
+          // storefront never calls getUserMedia, so nothing else changes.
+          //
+          // One rule rather than a second one scoped to /admin: two matching
+          // rules emit the header twice and which one wins is not something to
+          // leave to a browser, and copying the CSP block to go with it is how
+          // the two drift apart.
+          { key: 'Permissions-Policy', value: 'camera=(self), microphone=(), geolocation=()' },
           { key: 'Strict-Transport-Security', value: 'max-age=31536000; includeSubDomains; preload' },
           // Content-Security-Policy: XSS defense-in-depth. Allowlists exactly the external
           // sources this site uses — GA4/GTM, Meta Pixel, Razorpay checkout, Cloudinary/HTTPS
