@@ -35,6 +35,50 @@ const DEFAULTS: Required<CompressOptions> = {
 
 const UNTOUCHED = /^image\/(gif|svg\+xml|avif)$/i;
 
+/**
+ * Why this file cannot be uploaded, or null when it can.
+ *
+ * The server checks the same three things and answers 400. By then the file
+ * has crossed the shop's own upload line - a 12 MB photo on a Balotra
+ * connection is a minute of waiting for "Image too large", and in the console
+ * it is a bare 400 with no reason in sight.
+ *
+ * compressImage does not save us here. It leaves a GIF, an SVG and an AVIF
+ * untouched on purpose, it skips anything under 220 KB, and it hands back the
+ * original whenever the browser cannot decode the file - so a big one can
+ * still reach the wire whole.
+ *
+ * Same limits as SettingsController.UploadImage and UploadMedia, deliberately
+ * worded as something to do rather than something that went wrong.
+ */
+export function uploadRefusal(file: File, opts: { allowVideo?: boolean } = {}): string | null {
+  const MAX = 8 * 1024 * 1024;
+  if (!file || file.size === 0) return 'That file is empty. Please choose another one.';
+
+  const type = (file.type || '').toLowerCase();
+  if (!type) {
+    return opts.allowVideo
+      ? 'This browser cannot tell what kind of file that is. Please choose a JPG, PNG, WebP or MP4.'
+      : 'This browser cannot tell what kind of file that is. Please choose a JPG, PNG or WebP.';
+  }
+  const ok = opts.allowVideo
+    ? type.startsWith('image/') || type.startsWith('video/')
+    : type.startsWith('image/');
+  if (!ok) {
+    return opts.allowVideo
+      ? 'Only a photo or a video can be uploaded here.'
+      : 'Only a photo can be uploaded here.';
+  }
+
+  // Checked AFTER compressImage by the caller, so this is the size that would
+  // actually be sent.
+  if (file.size > MAX) {
+    const mb = (file.size / 1024 / 1024).toFixed(1);
+    return `That file is ${mb} MB and the limit is 8 MB. Please choose a smaller one.`;
+  }
+  return null;
+}
+
 export async function compressImage(file: File, opts: CompressOptions = {}): Promise<File> {
   const { maxEdge, quality, skipBelowBytes } = { ...DEFAULTS, ...opts };
 

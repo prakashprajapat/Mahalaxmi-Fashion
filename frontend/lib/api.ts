@@ -1,4 +1,4 @@
-import { compressImage } from '@/lib/imageCompress';
+import { compressImage, uploadRefusal } from '@/lib/imageCompress';
 import { renewAccess } from '@/lib/session';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL
@@ -701,7 +701,12 @@ export const settingsApi = {
     const fd = new FormData();
     // Shrunk here so a 5 MB phone photo never crosses the wire; a video or
     // anything already small is handed back untouched.
-    fd.append('file', await compressImage(file));
+    const shrunk = await compressImage(file);
+    // The server answers 400 for the same three things, but only once the file
+    // has gone up. Saying it here costs nothing and names the reason.
+    const refusal = uploadRefusal(shrunk);
+    if (refusal) throw new Error(refusal);
+    fd.append('file', shrunk);
     const res = await fetch(`${API_BASE}/settings/upload-image`, {
       method: 'POST',
       headers: token ? { Authorization: `Bearer ${token}` } : undefined,
@@ -726,7 +731,10 @@ export const settingsApi = {
   // touched.
   uploadMedia: async (file: File, token: string): Promise<string> => {
     const fd = new FormData();
-    fd.append('file', await compressImage(file));
+    const shrunk = await compressImage(file);
+    const refusal = uploadRefusal(shrunk, { allowVideo: true });
+    if (refusal) throw new Error(refusal);
+    fd.append('file', shrunk);
     const res = await fetch(`${API_BASE}/settings/upload-media`, {
       method: 'POST',
       headers: token ? { Authorization: `Bearer ${token}` } : undefined,
@@ -944,7 +952,13 @@ export const reviewsApi = {
     const fd = new FormData();
     // Shrunk here so a 5 MB phone photo never crosses the wire; a video or
     // anything already small is handed back untouched.
-    fd.append('file', await compressImage(file));
+    const shrunk = await compressImage(file);
+    // A shopper writing a review gets the clearest version of this: she is on
+    // a phone, on mobile data, and a silent 400 after a long wait reads as the
+    // site being broken.
+    const refusal = uploadRefusal(shrunk);
+    if (refusal) throw new Error(refusal);
+    fd.append('file', shrunk);
     const res = await fetch(`${API_BASE}/reviews/upload`, {
       method: 'POST',
       headers: token ? { Authorization: `Bearer ${token}` } : undefined,
