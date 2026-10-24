@@ -52,7 +52,7 @@ export function trackEvent(name: string, params: Params = {}): void {
 // otherwise happen.
 
 /** GA4's name for a thing → Meta's name for the same thing. */
-import { feedIdFor } from '@/lib/merchantFeed';
+import { pixelIdFor } from '@/lib/merchantFeed';
 
 const META_EVENTS: Record<string, string> = {
   view_item: 'ViewContent',
@@ -272,6 +272,9 @@ export function toGa4Items(
   lines: Array<{
     dbId?: number; sku?: string; name?: string; category?: string; quantity?: number; price?: number;
     selectedSize?: string; selectedColor?: string;
+    // Needed to work out which feed row this line is: the sizes and colours
+    // live in here, and the colour she picked may not be one the feed kept.
+    extraJson?: string;
   }>,
 ): Array<Record<string, unknown>> {
   return lines.map(l => ({
@@ -281,7 +284,7 @@ export function toGa4Items(
     price: l.price ?? 0,
     quantity: l.quantity ?? 1,
     item_group_id: l.sku || String(l.dbId ?? ''),
-    item_variant_id: feedIdFor(l.sku, l.dbId, l.selectedSize, l.selectedColor),
+    item_variant_id: pixelIdFor(l, l.selectedSize, l.selectedColor),
   }));
 }
 

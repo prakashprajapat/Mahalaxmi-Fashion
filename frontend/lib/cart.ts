@@ -3,7 +3,7 @@ import type { CartItem, Product } from '@/types';
 import { productImageSrc } from '@/lib/productImages';
 import { unitBase, finalUnitPrice } from '@/lib/price';
 import { trackEvent } from '@/lib/analytics';
-import { feedIdFor } from '@/lib/merchantFeed';
+import { pixelIdFor } from '@/lib/merchantFeed';
 import { storage } from '@/lib/safeStorage';
 
 export { unitBase, finalUnitPrice };
@@ -51,7 +51,7 @@ export function addToCart(product: Product & { selectedColor?: string }, quantit
     items: [{
       item_id: (product as any).sku || String(product.dbId ?? ''),
       item_group_id: (product as any).sku || String(product.dbId ?? ''),
-      item_variant_id: feedIdFor((product as any).sku, product.dbId, size, selectedColor),
+      item_variant_id: pixelIdFor(product as never, size, selectedColor),
       item_name: product.name ?? '',
       item_category: (product as any).category ?? '',
       price: finalUnitPrice(product),

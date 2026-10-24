@@ -17,7 +17,7 @@ import RecentlyViewed from '@/components/product/RecentlyViewed';
 import DeliveryEstimate from '@/components/product/DeliveryEstimate';
 import { addRecentlyViewed } from '@/lib/recentlyViewed';
 import { trackEvent } from '@/lib/analytics';
-import { feedIdFor, variantsOf } from '@/lib/merchantFeed';
+import { pixelIdFor, variantsOf } from '@/lib/merchantFeed';
 import { allSlotPhotos, colourPhotos, colourSetsOf } from '@/lib/photoExtras';
 import type { Product, Review } from '@/types';
 import { variantStockFor } from '@/lib/variantStock';
@@ -600,8 +600,11 @@ export default function ProductDetail({ params, initialProduct = null }: { param
       items: [{
         item_id: (product as any).sku || String(product.dbId),
         item_group_id: (product as any).sku || String(product.dbId),
-        // Yahan size aur rang dono maloom hain, to feed ki poori row ka id.
-        item_variant_id: feedIdFor((product as any).sku, product.dbId, size || undefined, color || undefined),
+        // Yahan size aur rang dono maloom hain, to feed ki poori row ka id -
+        // par wahi row jo feed ne SACH ME bheji hai. Rang ko feed chhod deta
+        // hai jab Google use rang maanta hi nahi ("Design White"), aur tab
+        // bhi -design-white joda ja raha tha.
+        item_variant_id: pixelIdFor(product as never, size || undefined, color || undefined),
         item_name: product.name,
         item_category: product.category ?? '',
         price: finalUnitPrice(product),
