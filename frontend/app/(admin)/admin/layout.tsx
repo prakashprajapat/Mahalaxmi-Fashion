@@ -357,7 +357,54 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               <strong style={{ color: '#fff', fontSize: '.95rem' }}>{storeName}</strong>
               <span style={{ display: 'block', color: '#aaa', fontSize: '.75rem' }}>Admin Panel</span>
             </div>
-            {navGroups.map((g, gi) => (
+
+            {/*
+              The same menu search as the sidebar, which the phone never had.
+              The sidebar is display:none under 900px and this drawer is what
+              replaces it - but the drawer was built from the nav groups alone,
+              so on a phone the only way to any of the thirty-odd screens was to
+              open the right group and scroll. The box is the fastest way there
+              on the smallest screen, which is where it was missing.
+
+              Same navQuery, same matches, same Enter behaviour. Two search
+              boxes with two states would disagree the moment one was typed in.
+            */}
+            <div style={{ padding: '0 1rem .8rem' }}>
+              <input
+                value={navQuery}
+                onChange={e => setNavQuery(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') { e.preventDefault(); goToFirstMatch(); }
+                  else if (e.key === 'Escape') setNavQuery('');
+                }}
+                placeholder="Search the menu…"
+                aria-label="Search the menu"
+                style={{
+                  width: '100%', boxSizing: 'border-box', padding: '.55rem .7rem',
+                  borderRadius: 8, border: '1px solid rgba(255,255,255,.18)',
+                  background: 'rgba(255,255,255,.08)', color: '#fff', fontSize: '.9rem',
+                }}
+              />
+            </div>
+
+            {navQuery.trim() && (
+              navMatches.length === 0
+                ? <p style={{ padding: '.5rem 1.25rem', color: '#aaa', fontSize: '.85rem' }}>Nothing by that name.</p>
+                : navMatches.map(m => (
+                    <Link key={'ms' + m.href} href={m.href!}
+                      onClick={() => { setNavQuery(''); setMobileNavOpen(false); }}
+                      style={{
+                        display: 'block', padding: '.7rem 1.25rem', fontSize: '.9rem',
+                        color: isActive(m) ? '#fff' : '#aaa',
+                        background: isActive(m) ? 'rgba(167,53,77,.4)' : 'transparent',
+                        textDecoration: 'none',
+                      }}>
+                      {m.label}
+                    </Link>
+                  ))
+            )}
+
+            {!navQuery.trim() && navGroups.map((g, gi) => (
               <Fragment key={'m' + (g.heading ?? 'top' + gi)}>
                 {g.heading && (
                   <button type="button" onClick={() => toggleGroup(g.heading!)}
