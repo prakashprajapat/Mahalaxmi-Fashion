@@ -5,6 +5,7 @@ import { ordersApi } from '@/lib/api';
 import { fetchAllProducts } from '@/lib/adminPaged';
 import { getAdminToken } from '@/lib/auth';
 import type { Order, Product } from '@/types';
+import { bucketAccepts, claimedBy } from '@/lib/orderStatus';
 
 // The admin home.
 //
@@ -27,21 +28,31 @@ const LOW_STOCK = ['Out of Stock', 'Limited Stock'];
 
 const orderDate = (o: Order) => new Date(o.placedAt ?? o.createdAt ?? '');
 
-// key = the Orders screen's own tab, so the count and the page always agree.
+// key = the Orders screen's own tab, so the count and the page always agree -
+// and now they really do, because which statuses each one stands for is read
+// from lib/orderStatus.ts rather than listed again here.
 //
-// `covers` is the list of statuses a card counts. In Transit counts "Shipped"
-// too, exactly as the Orders chip does: Delhivery moves an order to Transit as
-// soon as the AWB syncs, so "Shipped" is where an order by a MANUAL courier
-// (India Post, DTDC) stops for good. Drop the card without saying where its
-// orders go and they would be counted nowhere at all - which is how a parcel
-// gets forgotten.
-const STATUS_CARDS: { key: string; label: string; colour: string; covers?: string[] }[] = [
+// It was listed again here, and the two drifted. The Orders screen knew that a
+// webhook-written order is saved as "Paid" and counted it under Pending; this
+// card list did not, so that order was counted by NO card and the five numbers
+// added up to one less than the Total Orders tile right above them. A paid,
+// unpacked parcel showing as zero on the shop's first screen is how one gets
+// forgotten.
+const STATUS_CARDS: { key: string; label: string; colour: string }[] = [
   { key: 'Pending',            label: 'Pending',      colour: '#c26a12' },
   { key: 'Ready for Shipping', label: 'Ready to Ship', colour: '#7a5cc4' },
-  { key: 'Transit',            label: 'On the way',   colour: '#1d74a8', covers: ['Transit', 'Shipped'] },
+  { key: 'Transit',            label: 'On the way',   colour: '#1d74a8' },
   { key: 'Delivered',          label: 'Delivered',    colour: '#2e7d32' },
   { key: 'Cancelled',          label: 'Cancelled',    colour: '#c0392b' },
 ];
+
+// What these five cards do NOT cover: On Hold, Cancel Requested, the returns,
+// an exchange, and whatever status the backend grows next. Those have their
+// own screens, so they get no tile of their own here - but they must not be
+// silently missing either, which is the whole bug above. The Other card
+// appears only when something is in it, and is the reason the tiles can be
+// trusted to add up.
+const CARD_STATUSES = claimedBy(STATUS_CARDS.map(c => c.key));
 
 const ACTIONS = [
   { href: '/admin/products/add', title: 'Add Product',     sub: 'Put a new product in the store',     primary: true },
@@ -90,6 +101,14 @@ export default function AdminDashboard() {
 
   const recent = [...os].sort((a, b) => +orderDate(b) - +orderDate(a)).slice(0, 5);
 
+  // Anything the five cards do not claim - On Hold, a return, an exchange, a
+  // status added later. Shown only when it is not empty, so the ordinary day
+  // looks the same, and the numbers always add up to Total Orders.
+  const otherCount = os.filter(o => !CARD_STATUSES.has(o.status)).length;
+  const cards = otherCount > 0
+    ? [...STATUS_CARDS, { key: 'other', label: 'Other', colour: '#6b6b6b' }]
+    : STATUS_CARDS;
+
   return (
     <div className="admin-page">
       <div className="admin-page-header">
@@ -120,10 +139,14 @@ export default function AdminDashboard() {
 
       {/* Where the orders have reached */}
       <div className="adm-grid-6" style={{ display: 'grid', gap: '.6rem', marginBottom: '1.4rem' }}>
-        {STATUS_CARDS.map(s => {
-          const n = os.filter(o => (s.covers ?? [s.key]).includes(o.status)).length;
+        {cards.map(s => {
+          const n = s.key === 'other'
+            ? os.filter(o => !CARD_STATUSES.has(o.status)).length
+            : os.filter(o => bucketAccepts(s.key, o.status)).length;
           return (
-            <Link key={s.key} href={`/admin/orders?status=${encodeURIComponent(s.key)}`} style={{ ...cardBox, padding: '.7rem .75rem' }}>
+            <Link key={s.key}
+                  href={s.key === 'other' ? '/admin/orders' : `/admin/orders?status=${encodeURIComponent(s.key)}`}
+                  style={{ ...cardBox, padding: '.7rem .75rem' }}>
               <div style={{ fontSize: '.64rem', fontWeight: 800, letterSpacing: '.09em', textTransform: 'uppercase', color: s.colour }}>
                 {s.label}
               </div>

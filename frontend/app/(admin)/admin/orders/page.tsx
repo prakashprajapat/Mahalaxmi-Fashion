@@ -9,6 +9,7 @@ import type { Order } from '@/types';
 import { openOrderLabels, openPicklist } from '@/lib/orderLabel';
 import { inr } from '@/lib/price';
 import { PageHeader, Card, Stat, StatGrid, Chips, Empty } from '@/components/admin/Ui';
+import { bucketAccepts, claimedBy } from '@/lib/orderStatus';
 
 const ORDER_STATUS_TABS: { key: string; label: string; hidden?: boolean }[] = [
   { key: 'all',                  label: 'All Orders' },
@@ -34,39 +35,22 @@ const ORDER_STATUS_TABS: { key: string; label: string; hidden?: boolean }[] = [
 ];
 
 // A chip may stand for more than one status, because the backend has more
-// statuses than this screen has chips.
-//
-// Pending covers four. An order placed the ordinary way is "Pending", but one
-// created by the Cashfree or Razorpay WEBHOOK — the customer paid and never
-// came back to the site — is written as "Paid". No chip claimed that, so a
-// paid, unpacked parcel showed up only under All Orders, was missing from
-// "Waiting to be packed", and could sit unshipped with nobody the wiser.
-// "Order Received" and "Pending confirmation" were homeless the same way.
-//
-// Transit covers two because Delhivery moves an order to Transit as soon as
-// the AWB syncs, while a manual courier (India Post, DTDC) stops at Shipped
-// and never moves again.
-const TAB_MATCHES: Record<string, string[]> = {
-  Pending: ['Pending', 'Paid', 'Order Received', 'Pending confirmation'],
-  'Ready for Shipping': ['Ready for Shipping', 'Order Packed'],
-  Transit: ['Transit', 'Shipped'],
-};
+// statuses than this screen has chips. The mapping is shared with the
+// Dashboard - see lib/orderStatus.ts for which statuses and why.
 
 // Every status some chip claims. Anything outside this set belongs to no chip,
-// and an order in it would be invisible on every tab but All — exactly the bug
-// above. Rather than remember to add a chip the next time the backend grows a
-// status, "Other" sweeps up whatever is left, so an order can never go missing
-// again; it just turns up somewhere slightly odd, which is noticeable.
-const CLAIMED_STATUSES = new Set(
-  ORDER_STATUS_TABS
-    .filter(t => t.key !== 'all' && t.key !== 'other')
-    .flatMap(t => TAB_MATCHES[t.key] ?? [t.key])
+// and an order in it would be invisible on every tab but All. Rather than
+// remember to add a chip the next time the backend grows a status, "Other"
+// sweeps up whatever is left, so an order can never go missing again; it just
+// turns up somewhere slightly odd, which is noticeable.
+const CLAIMED_STATUSES = claimedBy(
+  ORDER_STATUS_TABS.filter(t => t.key !== 'all' && t.key !== 'other').map(t => t.key)
 );
 
 const tabAccepts = (tabKey: string, status: string) =>
   tabKey === 'all' ? true
     : tabKey === 'other' ? !CLAIMED_STATUSES.has(status)
-      : (TAB_MATCHES[tabKey] ?? [tabKey]).includes(status);
+      : bucketAccepts(tabKey, status);
 
 const RETURN_STATUS_TABS: { key: string; label: string; hidden?: boolean }[] = [
   { key: 'all',              label: 'All Returns' },
