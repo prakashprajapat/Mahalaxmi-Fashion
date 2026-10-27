@@ -25,8 +25,6 @@ public class PopupLeadsController : ControllerBase
         _log = log;
     }
 
-    // A phone as digits only, so the same number typed three ways is one number.
-    private static string Digits(string? s) => new((s ?? "").Where(char.IsDigit).ToArray());
 
     // Public — called from WelcomePopup form
     [HttpPost]
@@ -48,12 +46,27 @@ public class PopupLeadsController : ControllerBase
         // Email is matched lowercased and the phone on its digits, because the
         // same person types "+91 87490 39868" one time and "8749039868" the
         // next, and those are not two people.
-        var email = req.Email?.Trim().ToLower();
-        var phone = Digits(req.Phone);
+        // CustomerKeys, not a private helper. The private one kept every digit,
+        // so +91 87490 39868 became 918749039868 and never matched the
+        // 8749039868 the same person typed next time - the exact case the
+        // comment above claims to handle. Last ten digits is what identifies
+        // the phone, and CustomerKeys has said so everywhere else all along.
+        var email = CustomerKeys.Email(req.Email);
+        var phone = CustomerKeys.Phone(req.Phone);
 
+        // A nine-digit number and a string with no @ are not an identity. The
+        // check at the top of this method saw the raw text; this one sees what
+        // is left of it, so a lead that cannot be recognised later is refused
+        // now rather than saved as a row nobody can match or message.
+        if (email is null && phone is null)
+            return BadRequest(new { success = false, message = "A valid email address or 10-digit mobile number is required." });
+
+        // Plain equality on both sides, because both columns now hold the
+        // normalised form - which also means the unique index can be used
+        // rather than a Replace() chain the database has to run per row.
         var existing = await _db.PopupLeads.FirstOrDefaultAsync(l =>
-            (!string.IsNullOrEmpty(email) && l.Email == email) ||
-            (!string.IsNullOrEmpty(phone) && l.Phone != null && l.Phone.Replace(" ", "").Replace("-", "").Replace("+", "") == phone));
+            (email != null && l.Email == email) ||
+            (phone != null && l.Phone == phone));
 
         if (existing is not null)
         {
@@ -73,10 +86,21 @@ public class PopupLeadsController : ControllerBase
             {
                 Name   = req.Name?.Trim(),
                 Email  = email,
-                Phone  = string.IsNullOrEmpty(phone) ? null : phone,
+                Phone  = phone,
                 Source = req.Source ?? "welcome_popup",
             });
-            await _db.SaveChangesAsync();
+            try
+            {
+                await _db.SaveChangesAsync();
+            }
+            catch (DbUpdateException)
+            {
+                // Two submits in the same instant: neither saw the other, and
+                // the unique index let one through. The person is on the list,
+                // which is all they asked for, so this is not an error to show
+                // them - it is the same answer the duplicate branch gives.
+                return Ok(new { success = true, duplicate = true });
+            }
 
             // Notify admin of the new popup lead (email — fire-and-forget).
             await _notify.NotifyAsync("New popup lead",

@@ -709,6 +709,57 @@ using (var scope = app.Services.CreateScope())
             created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
         ALTER TABLE popup_leads ADD COLUMN IF NOT EXISTS name VARCHAR(255);
+        -- One person, one row. Two people may share a name - two Dineshes are
+        -- two customers - but a number or an address belongs to one person, and
+        -- a list holding the same person twice messages them twice, which is
+        -- how a shop earns a block on WhatsApp.
+        --
+        -- The de-duplicating was already being attempted in code and did not
+        -- work on the commonest Indian case: it kept every digit, so
+        -- +91 87490 39868 was stored as 918749039868 and never matched the
+        -- 8749039868 the same person typed the next time. Last ten digits is
+        -- what identifies the phone; 91, +91 and a leading 0 are how it was
+        -- dialled. The rest of this codebase has always known that - see
+        -- CustomerKeys.Phone - and this one corner did not.
+        --
+        -- Blank is not a value: an empty string would collide with every other
+        -- empty string under the unique index below.
+        UPDATE popup_leads SET email = NULL WHERE email IS NOT NULL AND btrim(email) = '';
+        UPDATE popup_leads SET phone = NULL WHERE phone IS NOT NULL AND btrim(phone) = '';
+        UPDATE popup_leads SET email = lower(btrim(email))
+         WHERE email IS NOT NULL AND email <> lower(btrim(email));
+        UPDATE popup_leads
+           SET phone = right(regexp_replace(phone, '[^0-9]', '', 'g'), 10)
+         WHERE phone IS NOT NULL
+           AND length(regexp_replace(phone, '[^0-9]', '', 'g')) >= 10
+           AND phone <> right(regexp_replace(phone, '[^0-9]', '', 'g'), 10);
+
+        -- The index is what makes it a rule rather than a check two requests
+        -- can both pass. But it is created only once the table can take it:
+        -- the rows already there may hold the same person twice, now that the
+        -- numbers line up, and a CREATE UNIQUE INDEX that fails would stop the
+        -- API from starting. So it is skipped with a notice instead, and the
+        -- next restart puts it in once the duplicates are cleared.
+        DO $$
+        BEGIN
+            IF NOT EXISTS (SELECT 1 FROM popup_leads WHERE email IS NOT NULL
+                            GROUP BY email HAVING count(*) > 1) THEN
+                CREATE UNIQUE INDEX IF NOT EXISTS ux_popup_leads_email
+                    ON popup_leads (email) WHERE email IS NOT NULL;
+            ELSE
+                RAISE NOTICE 'popup_leads: same email on more than one row, unique index not created yet';
+            END IF;
+
+            IF NOT EXISTS (SELECT 1 FROM popup_leads WHERE phone IS NOT NULL
+                            GROUP BY phone HAVING count(*) > 1) THEN
+                CREATE UNIQUE INDEX IF NOT EXISTS ux_popup_leads_phone
+                    ON popup_leads (phone) WHERE phone IS NOT NULL;
+            ELSE
+                RAISE NOTICE 'popup_leads: same phone on more than one row, unique index not created yet';
+            END IF;
+        EXCEPTION WHEN OTHERS THEN
+            RAISE NOTICE 'popup_leads unique indexes skipped: %', SQLERRM;
+        END $$;
         CREATE TABLE IF NOT EXISTS feedback (
             id          SERIAL PRIMARY KEY,
             name        VARCHAR(120),
