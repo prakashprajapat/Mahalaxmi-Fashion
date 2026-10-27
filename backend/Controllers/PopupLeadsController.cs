@@ -61,12 +61,20 @@ public class PopupLeadsController : ControllerBase
         if (email is null && phone is null)
             return BadRequest(new { success = false, message = "A valid email address or 10-digit mobile number is required." });
 
-        // Plain equality on both sides, because both columns now hold the
-        // normalised form - which also means the unique index can be used
-        // rather than a Replace() chain the database has to run per row.
+        // A repeat is the same number AND the same address. Not either.
+        //
+        // One man reaches the shop on two numbers from one address, and from
+        // one number under two addresses - three ways to reach him, all three
+        // worth having on the list. Refusing on either column alone would have
+        // kept the first and thrown the other two away.
+        //
+        // When she leaves only one of the two, that one deciding is right: she
+        // has told us nothing we did not already have, so there is nothing to
+        // add. Hence the null checks read as -- this field, if she gave one,
+        // must match.
         var existing = await _db.PopupLeads.FirstOrDefaultAsync(l =>
-            (email != null && l.Email == email) ||
-            (phone != null && l.Phone == phone));
+            (email == null || l.Email == email) &&
+            (phone == null || l.Phone == phone));
 
         if (existing is not null)
         {

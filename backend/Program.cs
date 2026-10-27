@@ -734,31 +734,33 @@ using (var scope = app.Services.CreateScope())
            AND length(regexp_replace(phone, '[^0-9]', '', 'g')) >= 10
            AND phone <> right(regexp_replace(phone, '[^0-9]', '', 'g'), 10);
 
-        -- The index is what makes it a rule rather than a check two requests
-        -- can both pass. But it is created only once the table can take it:
-        -- the rows already there may hold the same person twice, now that the
-        -- numbers line up, and a CREATE UNIQUE INDEX that fails would stop the
-        -- API from starting. So it is skipped with a notice instead, and the
-        -- next restart puts it in once the duplicates are cleared.
+        -- What must be unique is the PAIR, not each column on its own.
+        --
+        -- One man reaches the shop on two numbers from one address, and from
+        -- one number under two addresses. Those are three ways to reach him
+        -- and all three are worth keeping; a rule that made the email unique
+        -- would have thrown the second away, and one that made the phone
+        -- unique would have thrown the third away. Only the same number AND
+        -- the same address together is the same contact twice.
+        --
+        -- coalesce rather than a plain two-column index, because in SQL two
+        -- NULLs are not equal: without it, a row with a phone and no address
+        -- could be inserted again and again. NULLS NOT DISTINCT would say it
+        -- too and needs PostgreSQL 15; this says it on any version.
+        DROP INDEX IF EXISTS ux_popup_leads_email;   -- rolling-deploy: safe, never served a query
+        DROP INDEX IF EXISTS ux_popup_leads_phone;   -- rolling-deploy: safe, never served a query
         DO $$
         BEGIN
-            IF NOT EXISTS (SELECT 1 FROM popup_leads WHERE email IS NOT NULL
-                            GROUP BY email HAVING count(*) > 1) THEN
-                CREATE UNIQUE INDEX IF NOT EXISTS ux_popup_leads_email
-                    ON popup_leads (email) WHERE email IS NOT NULL;
+            IF NOT EXISTS (SELECT 1 FROM popup_leads
+                            GROUP BY coalesce(email, ''), coalesce(phone, '')
+                           HAVING count(*) > 1) THEN
+                CREATE UNIQUE INDEX IF NOT EXISTS ux_popup_leads_person
+                    ON popup_leads (coalesce(email, ''), coalesce(phone, ''));
             ELSE
-                RAISE NOTICE 'popup_leads: same email on more than one row, unique index not created yet';
-            END IF;
-
-            IF NOT EXISTS (SELECT 1 FROM popup_leads WHERE phone IS NOT NULL
-                            GROUP BY phone HAVING count(*) > 1) THEN
-                CREATE UNIQUE INDEX IF NOT EXISTS ux_popup_leads_phone
-                    ON popup_leads (phone) WHERE phone IS NOT NULL;
-            ELSE
-                RAISE NOTICE 'popup_leads: same phone on more than one row, unique index not created yet';
+                RAISE NOTICE 'popup_leads: the same number and address on more than one row, unique index not created yet';
             END IF;
         EXCEPTION WHEN OTHERS THEN
-            RAISE NOTICE 'popup_leads unique indexes skipped: %', SQLERRM;
+            RAISE NOTICE 'popup_leads unique index skipped: %', SQLERRM;
         END $$;
         CREATE TABLE IF NOT EXISTS feedback (
             id          SERIAL PRIMARY KEY,
