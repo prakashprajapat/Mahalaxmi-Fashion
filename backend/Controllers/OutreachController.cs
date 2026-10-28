@@ -87,7 +87,8 @@ public class OutreachController : ControllerBase
             : await _db.PopupLeads.Select(l => new Contact(l.Id, l.Email, l.Phone)).ToListAsync();
 
         // channel -> contact -> (when, how many). Two indexes, because a row may
-        // carry an email, a phone, or both, and a person may match on either.
+        // carry an email, a phone, or both - but which one is consulted depends
+        // on the channel. See the loop below.
         var byEmail = new Dictionary<(string Channel, string Email), (DateTimeOffset At, int N)>();
         var byPhone = new Dictionary<(string Channel, string Phone), (DateTimeOffset At, int N)>();
 
@@ -121,25 +122,37 @@ public class OutreachController : ControllerBase
 
             foreach (var channel in Channels)
             {
+                // A tick follows the thing the channel actually writes to.
+                //
+                // It used to be matched on the address OR the number, whichever
+                // hit first, so that a person reached on one would show as
+                // written to on the other. That reads well until a hundred and
+                // sixty people type no@gmail.com into the popup: WhatsApp one of
+                // them and all hundred and sixty went green, because the address
+                // they share is not an address at all.
+                //
+                // A WhatsApp message goes to a NUMBER. Writing to 9172643849
+                // says nothing about 9922264003 and never did, whatever either
+                // of them wrote in the email box. An email goes to an ADDRESS,
+                // and there the shared no@gmail.com is the right answer: it has
+                // been written to, and writing again lands in the same inbox.
                 var found = false;
                 var at = DateTimeOffset.MinValue;
                 var times = 0;
 
-                if (email is not null && byEmail.TryGetValue((channel, email), out var e))
+                if (channel == "whatsapp")
                 {
-                    found = true;
-                    at = e.At;
-                    times = e.N;
+                    if (phone is not null && byPhone.TryGetValue((channel, phone), out var f))
+                    {
+                        found = true; at = f.At; times = f.N;
+                    }
                 }
-
-                // Matched on both the address and the number: the later date, and
-                // the larger count rather than the sum, because one send is
-                // counted in both indexes.
-                if (phone is not null && byPhone.TryGetValue((channel, phone), out var f))
+                else
                 {
-                    found = true;
-                    if (f.At > at) at = f.At;
-                    if (f.N > times) times = f.N;
+                    if (email is not null && byEmail.TryGetValue((channel, email), out var e))
+                    {
+                        found = true; at = e.At; times = e.N;
+                    }
                 }
 
                 if (found)
