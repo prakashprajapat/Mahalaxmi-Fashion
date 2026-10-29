@@ -10,6 +10,7 @@ import { productSlug } from '@/lib/productSlug';
 import { productImageSrc } from '@/lib/productImages';
 import {
   isFeedable, variantsOf, googleCategoryOf, productTypeOf, genderOf, ageGroupOf,
+  imageForColour, extraImagesFor,
 } from '@/lib/merchantFeed';
 
 export const dynamic = 'force-dynamic';
@@ -53,8 +54,11 @@ export async function GET() {
     .filter((p: any) => isFeedable(p))
     .flatMap((p: any) => {
       const link = `${BASE}/products/${productSlug(p.name, p.dbId)}`;
-      const img = productImageSrc(p.image);
-      const imageLink = img ? (/^https?:/i.test(img) ? img : `${BASE}${img}`) : '';
+      const abs = (src?: string | null): string => {
+        const v = productImageSrc(src ?? '');
+        if (!v) return '';
+        return /^https?:/i.test(v) ? v : `${BASE}${v}`;
+      };
       const avail = (p.stock ?? '').toLowerCase().includes('out') ? 'out_of_stock' : 'in_stock';
       const regular = Number(p.price) || 0;
       const sale = (p.discountPrice != null && Number(p.discountPrice) > 0 && Number(p.discountPrice) < regular)
@@ -66,6 +70,14 @@ export async function GET() {
       // and colour attributes take a single value each, so this is the only
       // shape in which a four-size nighty can be offered as four sizes.
       return variants.map(v => {
+        // This feed sent the product's main photo on every row, so a dress in
+        // five colours went to Google as five rows showing the same colour -
+        // the other two feeds were fixed and this one was missed.
+        const mainRaw = imageForColour(p, v.colour) ?? p.image;
+        const imageLink = abs(mainRaw);
+        const extras = extraImagesFor(p, v.colour, mainRaw)
+          .map(abs)
+          .filter(u => u && u !== imageLink);
         let s = '<item>';
         s += `<g:id>${esc(v.id)}</g:id>`;
         if (variants.length > 1) s += `<g:item_group_id>${esc(v.itemGroupId)}</g:item_group_id>`;
@@ -73,6 +85,9 @@ export async function GET() {
         s += `<g:description>${esc(desc)}</g:description>`;
         s += `<g:link>${esc(link)}</g:link>`;
         if (imageLink) s += `<g:image_link>${esc(imageLink)}</g:image_link>`;
+        // Merchant Center scores the average number of photos an offer
+        // carries. One each was all three feeds ever sent.
+        extras.forEach(u => { s += `<g:additional_image_link>${esc(u)}</g:additional_image_link>`; });
         s += `<g:availability>${avail}</g:availability>`;
         s += `<g:price>${regular.toFixed(2)} INR</g:price>`;
         if (sale != null) s += `<g:sale_price>${sale.toFixed(2)} INR</g:sale_price>`;

@@ -3,7 +3,7 @@ import { productSlug } from '@/lib/productSlug';
 import { productImageSrc } from '@/lib/productImages';
 import {
   isFeedable, variantsOf, productTypeOf, genderOf, ageGroupOf, googleCategoryOf,
-  imageForColour,
+  imageForColour, extraImagesFor,
 } from '@/lib/merchantFeed';
 
 // The Meta catalogue feed. Commerce Manager pulls this URL on a schedule to
@@ -67,13 +67,24 @@ export async function GET() {
       const variants = variantsOf(p, usedIds);
       const ptype = productTypeOf(p);
 
-      return variants.map(v => `  <item>
+      return variants.map(v => {
+        // A colour with no photograph of its own borrows the product's, so the
+        // extras are filtered against the image actually sent - not against
+        // the colour photo that does not exist.
+        const mainRaw = imageForColour(p, v.colour);
+        const mainAbs = absImage(mainRaw) || image;
+        const extras = extraImagesFor(p, v.colour, mainRaw ?? p.image)
+          .map(absImage)
+          .filter(u => u && u !== mainAbs)
+          .map(u => `\n    <g:additional_image_link>${esc(u)}</g:additional_image_link>`)
+          .join('');
+        return `  <item>
     <g:id>${esc(v.id)}</g:id>${variants.length > 1 ? `
     <g:item_group_id>${esc(v.itemGroupId)}</g:item_group_id>` : ''}
     <g:title>${esc(String(p.name).slice(0, 150))}</g:title>
     <g:description>${esc(desc)}</g:description>
     <g:link>${esc(link)}</g:link>
-    <g:image_link>${esc(absImage(imageForColour(p, v.colour)) || image)}</g:image_link>
+    <g:image_link>${esc(mainAbs)}</g:image_link>${extras}
     <g:availability>${outOfStock ? 'out of stock' : 'in stock'}</g:availability>
     <g:condition>new</g:condition>
     <g:price>${price.toFixed(2)} INR</g:price>${selling ? `
@@ -85,7 +96,8 @@ export async function GET() {
     <g:color>${esc(v.colour)}</g:color>` : ''}
     <g:gender>${genderOf(p)}</g:gender>
     <g:age_group>${ageGroupOf(p)}</g:age_group>
-  </item>`);
+  </item>`;
+      });
     })
     .join('\n');
 

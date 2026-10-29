@@ -1,4 +1,4 @@
-import { colourSetsOf, colourPhotos } from './photoExtras';
+import { allSlotPhotos, colourSetsOf, colourPhotos } from './photoExtras';
 import { isColourValid } from './googleColours';
 // Deliberately a narrow structural type rather than the full Product: the two
 // feed routes fetch their products differently and one of them has its own
@@ -68,6 +68,78 @@ export function imageForColour(p: FeedInput, colour?: string): string | undefine
     const own = typeof set.photo === 'string' ? set.photo : '';
     return own || colourPhotos(set)[0] || undefined;
   } catch { return undefined; }
+}
+
+/** Google accepts ten additional images per item; Meta accepts more, so ten is the cap. */
+export const MAX_ADDITIONAL_IMAGES = 10;
+
+/**
+ * The OTHER photos that belong on one feed row.
+ *
+ * Merchant Center's store quality scorecard scores "Images per item" - the
+ * average number of photographs an offer carries - and reported Incomplete,
+ * because all three feeds sent exactly one image_link and there was nothing to
+ * average. The photographs exist: every garment is shot front, side, back and
+ * zoomed, and several carry fabric and label close-ups past those. They were
+ * simply never offered to anyone outside the product page.
+ *
+ * Which photos belong on a row depends on what the row IS. A green row must
+ * not carry four pictures of the black one - that is the same mistake
+ * image_link used to make, one shopper-facing step worse, because an ad can
+ * show any of these images as the main one.
+ *
+ * So: the colour's own set when the shop has filled in more than a single
+ * photo for it, exactly the rule the product page follows. Otherwise the
+ * product's own gallery - the four named views, then `images`, then the
+ * colour's lone photo, then the pack columns nobody named. The main image_link
+ * is left out, since repeating it is what Google calls a duplicate image.
+ */
+export function extraImagesFor(p: FeedInput, colour?: string, main?: string): string[] {
+  let pool: string[] = [];
+  try {
+    const e = (p.extraJson ? JSON.parse(p.extraJson) : {}) as Record<string, unknown>;
+    const set = colour
+      ? colourSetsOf(e).find(c => c.name.toLowerCase() === colour.trim().toLowerCase())
+      : undefined;
+    const own = set ? colourPhotos(set) : [];
+
+    if (own.length >= 2) {
+      // The shop photographed this colour properly. The row is that colour.
+      pool = own;
+    } else {
+      const strings = (v: unknown): string[] =>
+        Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [];
+      pool = [
+        ...allSlotPhotos(e.productPhotos as Record<string, unknown>),
+        ...strings(e.images),
+        ...own,
+      ];
+      const cols = (e.packImages ?? e.packColumnPhotos ?? e.variantColumns ?? []) as unknown[];
+      for (const col of Array.isArray(cols) ? cols : []) {
+        if (typeof col === 'string') { pool.push(col); continue; }
+        if (!col || typeof col !== 'object') continue;
+        const c = col as Record<string, unknown>;
+        // A named column is some other colour's photographs. Only the columns
+        // nobody named can belong to the product at large.
+        const named = String(c.colour ?? c.colorName ?? c.color ?? '').trim();
+        if (!named) pool.push(...allSlotPhotos(c));
+      }
+    }
+  } catch { return []; }
+
+  const seen = new Set<string>();
+  const skip = (main ?? '').trim();
+  if (skip) seen.add(skip);
+
+  const out: string[] = [];
+  for (const raw of pool) {
+    const v = (raw ?? '').trim();
+    if (!v || seen.has(v)) continue;
+    seen.add(v);
+    out.push(v);
+    if (out.length >= MAX_ADDITIONAL_IMAGES) break;
+  }
+  return out;
 }
 
 export function sizesOf(p: FeedInput): string[] {

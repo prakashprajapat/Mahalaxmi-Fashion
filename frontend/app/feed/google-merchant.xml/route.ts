@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { productSlug } from '@/lib/productSlug';
 import {
-  isFeedable, variantsOf, googleCategoryOf, productTypeOf, genderOf, ageGroupOf, imageForColour } from '@/lib/merchantFeed';
+  isFeedable, variantsOf, googleCategoryOf, productTypeOf, genderOf, ageGroupOf,
+  imageForColour, extraImagesFor } from '@/lib/merchantFeed';
 
 /**
  * Google Merchant Center product feed (RSS 2.0)
@@ -104,13 +105,25 @@ export async function GET() {
       // One row per size and colour, sharing an item_group_id — Google's size
       // and colour attributes hold one value each, and it requires both for
       // apparel. Their absence is what leaves products at "Limited".
-      return variants.map(v => `  <item>
+      return variants.map(v => {
+        const mainRaw = imageForColour(p, v.colour) ?? p.image;
+        const mainAbs = absImage(mainRaw);
+        // Repeating image_link here is a duplicate, not a second photograph,
+        // so the main one is filtered out after both have been made absolute -
+        // the same file can be stored as a path on one row and a full URL on
+        // the next.
+        const extras = extraImagesFor(p, v.colour, mainRaw)
+          .map(absImage)
+          .filter(u => u && u !== mainAbs)
+          .map(u => `\n    <g:additional_image_link>${esc(u)}</g:additional_image_link>`)
+          .join('');
+        return `  <item>
     <g:id>${esc(v.id)}</g:id>${variants.length > 1 ? `
     <g:item_group_id>${esc(v.itemGroupId)}</g:item_group_id>` : ''}
     <g:title>${esc(p.name.slice(0, 150))}</g:title>
     <g:description>${esc(desc)}</g:description>
     <g:link>${BASE}/products/${productSlug(p.name, p.dbId)}</g:link>
-    <g:image_link>${esc(absImage(imageForColour(p, v.colour) ?? p.image))}</g:image_link>
+    <g:image_link>${esc(mainAbs)}</g:image_link>${extras}
     <g:availability>${outOfStock ? 'out_of_stock' : 'in_stock'}</g:availability>
     <g:price>${p.price.toFixed(2)} INR</g:price>${selling ? `
     <g:sale_price>${selling.toFixed(2)} INR</g:sale_price>` : ''}
@@ -123,7 +136,8 @@ export async function GET() {
     <g:color>${esc(v.colour)}</g:color>` : ''}
     <g:gender>${genderOf(p)}</g:gender>
     <g:age_group>${ageGroupOf(p)}</g:age_group>${excluded}
-  </item>`);
+  </item>`;
+      });
     })
     .join('\n');
 
