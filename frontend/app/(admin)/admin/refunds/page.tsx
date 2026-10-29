@@ -216,7 +216,12 @@ export default function RefundsPage() {
             <div style={{ marginTop: '.7rem', display: 'flex', gap: '.5rem', flexWrap: 'wrap' }}>
               <button
                 className="adm-btn"
-                onClick={() => { setError(''); setNotice(''); setCancelling(null); setPaying({ r, amount: String(r.suggestedAmount), method: r.hasWallet ? 'gateway' : 'gateway', note: '' }); }}
+                onClick={() => { setError(''); setNotice(''); setCancelling(null); // Always the gateway to begin with, even when a wallet is available:
+                  // money goes back the way it came unless somebody decides
+                  // otherwise. (This used to read `r.hasWallet ? 'gateway' : 'gateway'`
+                  // - the same answer on both sides, an unfinished thought left
+                  // in the one screen where money leaves the business.)
+                  setPaying({ r, amount: String(r.suggestedAmount), method: 'gateway', note: '' }); }}
                 style={{ padding: '.4rem .9rem', fontSize: '.84rem', fontWeight: 700, background: '#a7354d', color: '#fff', borderColor: '#a7354d' }}>
                 Refund this
               </button>
@@ -241,20 +246,65 @@ export default function RefundsPage() {
                     style={{ marginTop: '.2rem', padding: '.45rem .6rem', border: '1px solid #ddd', borderRadius: 7, width: 130, fontSize: '.9rem' }}
                   />
                 </label>
-                <label style={{ fontSize: '.8rem', color: '#555' }}>
-                  Where to<br />
-                  <select
-                    value={paying.method}
-                    onChange={e => setPaying({ ...paying, method: e.target.value })}
-                    style={{ marginTop: '.2rem', padding: '.45rem .6rem', border: '1px solid #ddd', borderRadius: 7, fontSize: '.9rem' }}>
-                    <option value="gateway">
-                      Back to {r.gateway === 'cashfree' ? 'Cashfree' : 'Razorpay'} (original payment)
-                    </option>
-                    <option value="wallet" disabled={!r.hasWallet}>
-                      {r.hasWallet ? 'Store wallet' : 'Store wallet (no customer account)'}
-                    </option>
-                  </select>
-                </label>
+                {/* Both destinations, side by side and readable without opening
+                    anything. This was a dropdown: the two choices were real and
+                    both worked, but one of them was hidden behind a tap, the
+                    disabled one gave no reason for being disabled, and on a
+                    phone the whole thing read as a single grey box. On the one
+                    screen where money leaves the business, what the money is
+                    about to do should not need a tap to find out. */}
+                <fieldset style={{ border: 'none', margin: 0, padding: 0, minWidth: 260, flex: 1 }}>
+                  <legend style={{ fontSize: '.8rem', color: '#555', padding: 0, marginBottom: '.3rem' }}>
+                    Where the money goes
+                  </legend>
+                  <div style={{ display: 'grid', gap: '.4rem' }}>
+                    {([
+                      {
+                        value: 'gateway',
+                        title: `Back to ${r.gateway === 'cashfree' ? 'Cashfree' : 'Razorpay'}`,
+                        sub: 'To the card or UPI they paid with. 5-7 working days, and it cannot be undone from here.',
+                        can: true,
+                      },
+                      {
+                        value: 'wallet',
+                        title: 'Store wallet',
+                        sub: r.hasWallet
+                          ? 'Credited at once. They spend it on their next order, and the money stays in the business.'
+                          : 'This order was placed without an account, so there is no wallet to credit.',
+                        can: r.hasWallet,
+                      },
+                    ] as const).map(opt => (
+                      <label
+                        key={opt.value}
+                        style={{
+                          display: 'flex', gap: '.55rem', alignItems: 'flex-start',
+                          padding: '.55rem .7rem', borderRadius: 9,
+                          border: `1.5px solid ${paying.method === opt.value ? '#a7354d' : '#e4e4e4'}`,
+                          background: paying.method === opt.value ? '#fdf5f7' : opt.can ? '#fff' : '#fafafa',
+                          cursor: opt.can ? 'pointer' : 'not-allowed',
+                          opacity: opt.can ? 1 : .6,
+                        }}>
+                        <input
+                          type="radio"
+                          name={`refund-method-${r.id}`}
+                          value={opt.value}
+                          checked={paying.method === opt.value}
+                          disabled={!opt.can}
+                          onChange={() => setPaying({ ...paying, method: opt.value })}
+                          style={{ marginTop: '.2rem', accentColor: '#a7354d' }}
+                        />
+                        <span>
+                          <span style={{ display: 'block', fontSize: '.88rem', fontWeight: 700, color: '#333' }}>
+                            {opt.title}
+                          </span>
+                          <span style={{ display: 'block', fontSize: '.78rem', color: '#777', lineHeight: 1.5 }}>
+                            {opt.sub}
+                          </span>
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
                 <label style={{ fontSize: '.8rem', color: '#555', flex: 1, minWidth: 180 }}>
                   Note (why less, if less)<br />
                   <input
@@ -273,8 +323,15 @@ export default function RefundsPage() {
                   Cancel
                 </button>
               </div>
+              {/* One sentence, about the choice actually made. It used to warn
+                  about a bank transfer regardless, so an owner crediting a
+                  wallet was told their store credit could not be undone and
+                  would take a week - neither of which is true, and a warning
+                  that is wrong half the time stops being read at all. */}
               <p style={{ margin: '.6rem 0 0', fontSize: '.78rem', color: '#999', lineHeight: 1.6 }}>
-                This moves real money. A gateway refund reaches the customer&apos;s bank in 5–7 working days and cannot be undone from here.
+                {paying.method === 'wallet'
+                  ? `This adds ${money(Number(paying.amount) || 0)} to ${r.customerName || 'the customer'}'s wallet straight away. It stays in the business until they spend it.`
+                  : 'This moves real money. It reaches the customer’s bank in 5–7 working days and cannot be undone from here.'}
               </p>
             </div>
           )}
