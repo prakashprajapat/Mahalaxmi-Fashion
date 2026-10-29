@@ -885,6 +885,34 @@ using (var scope = app.Services.CreateScope())
         ALTER TABLE products  ADD COLUMN IF NOT EXISTS shipping_charge NUMERIC NOT NULL DEFAULT 0;
         -- Customer-uploaded review photos (JSON array of image URLs).
         ALTER TABLE reviews   ADD COLUMN IF NOT EXISTS image_urls TEXT;
+
+        -- What a customer thinks of the shop, said from inside the app.
+        -- Kept apart from reviews on purpose: that table is guarded by a
+        -- delivered order and the product having been on it, which is what
+        -- makes its verified-purchase badge mean anything. A rating of the
+        -- shop has neither, and bending the one to hold the other would
+        -- weaken every product review on the site.
+        CREATE TABLE IF NOT EXISTS app_reviews (
+            id              SERIAL PRIMARY KEY,
+            customer_id     INTEGER,
+            name            VARCHAR(120),
+            rating          SMALLINT NOT NULL,
+            body            TEXT,
+            status          VARCHAR(20) NOT NULL DEFAULT 'pending',
+            source          VARCHAR(20) NOT NULL DEFAULT 'app',
+            play_invited_at TIMESTAMPTZ,
+            created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+            updated_at      TIMESTAMPTZ
+        );
+        -- The admin queue reads pending, newest first; the website reads
+        -- approved, newest first. One index answers both.
+        CREATE INDEX IF NOT EXISTS ix_app_reviews_status_created
+            ON app_reviews (status, created_at DESC);
+        -- A signed-in customer has one rating of the shop. Rating again is
+        -- changing their mind, and the controller rewrites the row; this
+        -- stops two rows existing if two taps ever race each other.
+        CREATE UNIQUE INDEX IF NOT EXISTS ux_app_reviews_customer
+            ON app_reviews (customer_id) WHERE customer_id IS NOT NULL;
         CREATE TABLE IF NOT EXISTS supplier_applications (
             id                SERIAL PRIMARY KEY,
             firm_name         VARCHAR(255) NOT NULL,

@@ -21,6 +21,7 @@ public class AppDbContext : DbContext
     public DbSet<OtpToken>    OtpTokens    { get; set; }
     public DbSet<SiteSetting> SiteSettings { get; set; }
     public DbSet<Review>      Reviews      { get; set; }
+    public DbSet<AppReview>   AppReviews   { get; set; }
     public DbSet<Coupon>      Coupons      { get; set; }
     public DbSet<CouponRedemption> CouponRedemptions { get; set; }
     public DbSet<Influencer>  Influencers  { get; set; }
