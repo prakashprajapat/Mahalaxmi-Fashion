@@ -20,8 +20,21 @@ import { trackEvent } from '@/lib/analytics';
 // So the app gets its own greeting instead. Someone who has signed in on this
 // phone before is welcomed back by name; someone who never has is told, in one
 // line, what an account is actually worth.
-const SNOOZE_KEY = 'mfh_app_login_prompt';
-const SNOOZE_MS = 3 * 24 * 60 * 60 * 1000;   // asked again after three days, not every launch
+// Once per install, and that is all.
+//
+// It used to come back every three days. Three days is a reasonable gap for a
+// nudge nobody minds; it is not reasonable for a sheet that covers the shop
+// before you have seen a single product. Someone who has decided to browse
+// without an account has decided it, and asking again on Thursday does not
+// change the answer - it just makes the app feel like it is nagging.
+//
+// So: shown once, never again on this install. Clearing the app's data or
+// reinstalling brings it back, which is right - that IS a fresh install.
+const SEEN_KEY = 'mfh_app_login_prompt_seen';
+// The old three-day key. Anyone carrying one has already been shown this
+// sheet at least once, so they are done too - an existing customer should not
+// get one last goodbye nudge on the day this ships.
+const LEGACY_SNOOZE_KEY = 'mfh_app_login_prompt';
 
 // Pages where this would be in the way: anything under /account (the login form
 // lives on /account itself, with register and the rest beneath it), the password
@@ -39,11 +52,16 @@ export default function AppLoginPrompt() {
     if (getToken()) return;                                   // already signed in
     if (QUIET_PATHS.some(p => (pathname ?? '').startsWith(p))) return;
 
-    const snoozed = storage.get(SNOOZE_KEY);
-    if (snoozed && Date.now() - Number(snoozed) < SNOOZE_MS) return;
+    if (storage.get(SEEN_KEY) || storage.get(LEGACY_SNOOZE_KEY)) return;
 
     setName(getKnownName());
-    const t = setTimeout(() => setVisible(true), 1200);       // let the first screen paint first
+    const t = setTimeout(() => {
+      // Written when it is SHOWN, not when it is dismissed. A sheet the
+      // customer answers by force-closing the app was still shown to them,
+      // and it must not be waiting again at the next launch.
+      storage.set(SEEN_KEY, String(Date.now()));
+      setVisible(true);
+    }, 1200);                                                 // let the first screen paint first
     return () => clearTimeout(t);
   }, [pathname]);
 
@@ -62,13 +80,11 @@ export default function AppLoginPrompt() {
   if (!visible) return null;
 
   const dismiss = () => {
-    storage.set(SNOOZE_KEY, String(Date.now()));
     setVisible(false);
     trackEvent('app_login_prompt_dismissed', { returning: name ? 1 : 0 });
   };
 
   const went = (where: string) => {
-    storage.set(SNOOZE_KEY, String(Date.now()));
     setVisible(false);
     trackEvent('app_login_prompt_click', { to: where });
   };
