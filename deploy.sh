@@ -52,12 +52,43 @@ git fetch origin main || { echo "ERROR: git fetch failed"; exit 1; }
 PREV=$(git rev-parse HEAD)   # remember current commit so we can roll back on a failed build
 echo "   Current commit: $PREV  (rollback target if the build fails)"
 
+# If THIS script changed, hand over to the new one before touching anything.
+#
+# Bash does not read a script in one go. It reads a chunk, runs it, and comes
+# back for more at a remembered byte offset. The reset below overwrites
+# deploy.sh while bash is in the middle of doing exactly that, so a deploy
+# that changes deploy.sh can leave bash resuming the NEW file at the OLD
+# offset - mid-word, mid-line, mid-function. What runs then is not a version
+# of this script; it is whatever those bytes happen to spell. It can equally
+# well do nothing visible, which is worse, because then nobody looks.
+#
+# So: compare what is on disk with what was just fetched, and if they differ,
+# check out the new script and exec it. This happens BEFORE the reset and
+# before the backups are restored, so the server's own appsettings.json is
+# still in place and the second pass backs up the real one, not the
+# repository's placeholder. MFH_DEPLOY_REEXEC makes it happen at most once.
+if [ -z "${MFH_DEPLOY_REEXEC:-}" ]; then
+  SELF_NOW=$(md5sum "$APP/deploy.sh" 2>/dev/null | cut -d' ' -f1)
+  SELF_NEW=$(git show origin/main:deploy.sh 2>/dev/null | md5sum | cut -d' ' -f1)
+  if [ -n "$SELF_NEW" ] && [ -n "$SELF_NOW" ] && [ "$SELF_NEW" != "$SELF_NOW" ]; then
+    echo "   deploy.sh itself changed in this pull - starting again with the new one."
+    git checkout origin/main -- deploy.sh || { echo "ERROR: could not update deploy.sh"; exit 1; }
+    export MFH_DEPLOY_REEXEC=1
+    exec bash "$APP/deploy.sh" "$@"
+  fi
+fi
+
 # git reset --hard throws away every change made on this machine. Two of them
 # are known and copied back below; anything else edited here in an emergency —
 # a hotfix typed at 11pm, a config touched to get the site up — vanished without
 # a word. Now it is put in a dated archive first and the fact is said out loud,
 # so a deploy can still never be the reason something was lost.
 DIRTY=$(git status --porcelain --untracked-files=no)
+# The hand-over above checked deploy.sh out of origin/main deliberately, so on
+# the second pass git reports it as a local change. It is not one - the reset
+# below writes the identical bytes - and announcing it would be this script
+# warning about its own doing.
+[ -n "${MFH_DEPLOY_REEXEC:-}" ] && DIRTY=$(printf '%s' "$DIRTY" | grep -v 'deploy\.sh$')
 if [ -n "$DIRTY" ]; then
   KEEP="/root/mfh-preserved-$(date +%Y%m%d-%H%M%S).tar.gz"
   echo "   !! Files changed on this server are about to be overwritten:"
