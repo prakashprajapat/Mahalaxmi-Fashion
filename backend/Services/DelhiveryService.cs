@@ -193,7 +193,44 @@ public class DelhiveryService
     /// are simply absent from the result — callers treat that as "no change".
     /// </summary>
     /// <summary>What the bulk tracking call says about one parcel.</summary>
-    public readonly record struct TrackLine(string Status, DateTimeOffset? Expected);
+    public readonly record struct TrackLine(string Status, DateTimeOffset? Expected, string StatusType = "");
+
+    /// <summary>
+    /// Is this parcel on its way BACK to us rather than on to the customer?
+    ///
+    /// A parcel nobody could deliver turns around and comes home, on the same
+    /// waybill. Delhivery calls it an RTO, shows it as "Out for Return", and
+    /// gives it an Expected Return Date in place of a delivery date - but the
+    /// scans in between go on reading "Vehicle Departed" and "Trip Arrived"
+    /// exactly as they did on the way out. So a shop watching only the scan
+    /// text sees a parcel still travelling, and keeps the order in Transit
+    /// while the goods are moving away from the customer.
+    ///
+    /// StatusType is the courier's own answer and is used whenever it is
+    /// there: RT means return leg. The text is the fallback, because the
+    /// field is not on every response.
+    /// </summary>
+    public static bool IsReturnLeg(string? status, string? statusType)
+    {
+        var t = (statusType ?? "").Trim().ToUpperInvariant();
+        if (t == "RT") return true;
+
+        var s = (status ?? "").ToLowerInvariant();
+        return s.Contains("rto") || s.Contains("dto") || s.Contains("return");
+    }
+
+    /// <summary>
+    /// Has it finished coming back - is the parcel with us again?
+    ///
+    /// Only then is the stock ours and the money owed. "Out for Return" is
+    /// still a parcel in a van somewhere in West Bengal.
+    /// </summary>
+    public static bool IsBackWithUs(string? status, string? statusType)
+    {
+        if (!IsReturnLeg(status, statusType)) return false;
+        var s = (status ?? "").ToLowerInvariant();
+        return s.Contains("delivered") || s.Contains("received");
+    }
 
     /// <summary>
     /// Delhivery sends its own expected delivery date in the SAME object this
@@ -235,6 +272,13 @@ public class DelhiveryService
                 var awb = ship.TryGetProperty("AWB", out var a) ? a.GetString() : null;
                 var status = ship.TryGetProperty("Status", out var st) && st.TryGetProperty("Status", out var ss)
                     ? ss.GetString() : null;
+                // The courier's own classification, which is what actually
+                // separates a parcel going out from one coming back. Absent on
+                // some responses, so everything downstream treats it as a hint
+                // that wins when present rather than as a requirement.
+                var statusType = st.ValueKind == JsonValueKind.Object
+                    && st.TryGetProperty("StatusType", out var stt) && stt.ValueKind == JsonValueKind.String
+                    ? (stt.GetString() ?? "") : "";
                 var expectedRaw =
                     (ship.TryGetProperty("ExpectedDeliveryDate", out var e1) && e1.ValueKind == JsonValueKind.String
                         ? e1.GetString() : null)
@@ -242,7 +286,7 @@ public class DelhiveryService
                         ? e2.GetString() : null);
 
                 if (!string.IsNullOrWhiteSpace(awb) && !string.IsNullOrWhiteSpace(status))
-                    result[awb!] = new TrackLine(status!, CourierDate(expectedRaw));
+                    result[awb!] = new TrackLine(status!, CourierDate(expectedRaw), statusType);
             }
         }
         catch { /* tracking is best-effort — sync service will retry next cycle */ }

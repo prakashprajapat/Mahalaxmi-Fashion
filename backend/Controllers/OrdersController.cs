@@ -1316,80 +1316,22 @@ public class OrdersController : ControllerBase
         await _wallet.MoveAsync(cid, order.WalletUsed, "refund", order.OrderId, $"Wallet refund for {order.Status.ToLower()} order {order.OrderId}");
     }
 
-    // What the customer paid ONLINE on this order, and so what can be sent
-    // back to them. Not the order total: the wallet part goes back through the
-    // wallet on its own, and the cash a courier collected was never ours to
-    // refund through a gateway.
-    //
-    //   prepaid  -> everything except the wallet part
-    //   COD      -> only the advance they paid before dispatch
-    //
-    // Public and static so the rule lives in one place and can be checked on
-    // its own rather than re-derived on each screen.
-    public static decimal OnlinePaidAmount(SiteOrder order)
-    {
-        var isCod = string.Equals(order.Method, "cod", StringComparison.OrdinalIgnoreCase);
-        var paid = isCod ? order.AdvancePaid : order.Total - order.WalletUsed;
-        return paid > 0m ? Math.Round(paid, 2) : 0m;
-    }
+    // What the customer paid online, and opening the row that says so, both
+    // live in Services.RefundOpener now. They were here while an owner
+    // pressing Return was the only way an order could come back; the tracking
+    // sweep finds an undelivered parcel coming home on its own, with no
+    // controller anywhere near it, and that amount rule is the last one that
+    // should exist in two copies. The public wrapper that stood here had no
+    // callers left once it delegated, so it is gone rather than kept as a
+    // second name for the same thing.
 
     // Open a pending refund when an order is first returned or cancelled.
     //
     // Nothing is paid here. The row only says "this much is owed, decide what
     // to do" — the amount and the destination are the owner's call on the
     // Refunds screen, because once money leaves it does not come back.
-    private async Task OpenRefundForOrderAsync(SiteOrder order)
-    {
-        var owed = OnlinePaidAmount(order);
-        if (owed <= 0m) return;
-
-        // Already handled, or already being handled. A second Return -> Return
-        // save, or two admins at once, must not create a second payout.
-        var already = await _db.OrderRefunds
-            .AnyAsync(r => r.OrderId == order.OrderId && (r.Status == "pending" || r.Status == "paid"));
-        if (already) return;
-
-        var isCod = string.Equals(order.Method, "cod", StringComparison.OrdinalIgnoreCase);
-
-        // Which gateway holds the money, from the payment rows. This used to be
-        // guessed from order.Method - cod or cashfree meant Cashfree, anything
-        // else meant Razorpay - which is a guess about how the shop was wired
-        // on the day, not a fact about the order. A COD advance taken through
-        // Razorpay would have been recorded as a Cashfree refund and refused.
-        //
-        // It is only a hint: the payout re-resolves it, so a row opened before
-        // a payment row existed still ends up at the right gateway.
-        var gateway = await Services.PaymentGateways.ForOrderAsync(_db, order.OrderId) ?? "";
-
-        _db.OrderRefunds.Add(new OrderRefund
-        {
-            OrderId          = order.OrderId,
-            SuggestedAmount  = owed,
-            Amount           = 0m,
-            Method           = "",
-            Gateway          = gateway,
-            Status           = "pending",
-            Note             = isCod
-                ? "COD advance paid online before dispatch"
-                : "Prepaid order, wallet part returned separately",
-            CreatedAt        = DateTimeOffset.UtcNow,
-        });
-        await _db.SaveChangesAsync();
-
-        _log.LogWarning("Refund of Rs {Amount} opened for {Status} order {Order}",
-            owed, order.Status, order.OrderId);
-
-        try
-        {
-            await _notify.NotifyAsync($"Refund to pay - {order.OrderId} Rs.{owed:0}",
-                Services.AdminNotifier.Wrap("Refund to pay", $@"
-                    <p><strong>Order:</strong> {order.OrderId}</p>
-                    <p><strong>Now:</strong> {order.Status}</p>
-                    <p><strong>Owed back to the customer:</strong> Rs.{owed:0.00}</p>
-                    <p>Pay it from Admin &rarr; Refunds.</p>"));
-        }
-        catch { /* the row is written; the email is a courtesy */ }
-    }
+    private Task OpenRefundForOrderAsync(SiteOrder order)
+        => Services.RefundOpener.OpenAsync(_db, order, _log, _notify);
 
     // GET /api/orders/{orderId}/invoice — customer-downloadable HTML bill/invoice.
     // Valid for 12 months from the order date; after that an "expired" page is returned.
