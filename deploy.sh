@@ -348,7 +348,13 @@ echo "8. Swapping in the new frontend and restarting..."
 # finished build is a fraction of a second, against the two or three minutes
 # the old in-place build left it broken for.
 rm -rf "frontend/$PREV_DIR"
-[ -d frontend/.next ] && mv frontend/.next "frontend/$PREV_DIR"
+# mv into a directory that still exists puts the source INSIDE it, which is
+# how .next ends up holding .next-build instead of being it. If the parking
+# spot did not go away, stop here: nothing has been touched yet.
+[ -e "frontend/$PREV_DIR" ] && rollback "Could not clear frontend/$PREV_DIR, so the swap would nest instead of replace."
+[ -d frontend/.next ] && { mv frontend/.next "frontend/$PREV_DIR" \
+  || rollback "Could not park the running frontend build."; }
+[ -e frontend/.next ] && rollback "frontend/.next is still there after parking it; the swap would nest inside it."
 
 # Banayi hui photo ko nayi build me saath le jate hain.
 #
@@ -368,8 +374,30 @@ if [ -d "frontend/$PREV_DIR/cache/images" ]; then
   echo "   Image cache carried over."
 fi
 
-mv "frontend/$BUILD_DIR" frontend/.next
+mv "frontend/$BUILD_DIR" frontend/.next || rollback "Could not move the new build into place."
 SWAPPED=yes
+
+# The one check that was missing, and the reason today cost an outage window
+# rather than a one-line message.
+#
+# Step 6 proves the new build has a BUILD_ID. Nothing proved that the build was still
+# where next start looks for it AFTER the two renames - and next start throws
+# exactly one error for exactly one cause: .next/BUILD_ID could not be read
+# (node_modules/next/dist/server/lib/router-utils/filesystem.js). So the
+# frontend was reloaded onto a directory with no build in it, crash-looped 77
+# times in 90 seconds, failed the health check, and only then did the rollback
+# work out what to put back.
+#
+# Asked here instead, the same fault costs nothing: the shop is still serving
+# the parked build, which has not been reloaded yet, and the rollback puts it
+# back without a single bad request.
+if [ ! -f frontend/.next/BUILD_ID ]; then
+  echo "    What is actually in frontend/ right now:"
+  ls -la frontend/ | grep -E '\.next' || true
+  ls frontend/.next 2>/dev/null | head -20 || true
+  rollback "The new build is not in frontend/.next after the swap - no BUILD_ID there."
+fi
+echo "   Swapped. Build $(cat frontend/.next/BUILD_ID) is in place."
 
 # reload, not restart. In cluster mode pm2 replaces the workers one at a time,
 # so the port is never unserved; restart stops the site and then starts it. In
@@ -401,7 +429,17 @@ for _ in 1 2 3 4 5 6; do
   if curl -fs --max-time 10 -o /dev/null "http://localhost:3000/"; then WEB_OK=1; break; fi
   sleep 5
 done
-[ -n "$WEB_OK" ] && echo "   Website OK" || rollback "The website is not answering after the restart."
+if [ -z "$WEB_OK" ]; then
+  # Without this the only trace is pm2's error log, which has no timestamps and
+  # is thousands of lines long by the time anyone looks. Printing it here puts
+  # the reason next to the failure that caused it.
+  echo "    The frontend's own last words:"
+  tail -n 20 /root/.pm2/logs/mahalaxmi-frontend-error.log 2>/dev/null | sed 's/^/      /' || true
+  echo "    frontend/ right now:"
+  ls -la frontend/ | grep -E '\.next' | sed 's/^/      /' || true
+  rollback "The website is not answering after the restart."
+fi
+echo "   Website OK"
 
 echo "   Warming up..."
 
