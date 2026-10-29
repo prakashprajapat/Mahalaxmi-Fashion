@@ -2502,6 +2502,8 @@ public class OrdersController : ControllerBase
             }
         }
 
+        var legs = Services.DelhiveryService.SplitLegs(detail.Scans);
+
         return Ok(new
         {
             success = true,
@@ -2510,7 +2512,20 @@ public class OrdersController : ControllerBase
             siteStatus = order.Status,
             courierStatus = detail.Status,
             expectedDate = detail.ExpectedDate,
-            scans = detail.Scans.Select(x => new { time = x.Time, location = x.Location, remark = x.Remark }),
+            // Is this parcel on its way back to us? The screen needs to say so
+            // at the top, because every other line on it reads the same
+            // whichever way the parcel is pointing.
+            returning = Services.DelhiveryService.IsReturnLeg(detail.Status, null),
+            // Each scan tagged with which half of the journey it belongs to,
+            // so the return gets a timeline of its own instead of being
+            // thirty more lines on the end of the delivery.
+            scans = detail.Scans.Select((x, i) => new
+            {
+                time = x.Time,
+                location = x.Location,
+                remark = x.Remark,
+                back = legs[i],
+            }),
         });
     }
 

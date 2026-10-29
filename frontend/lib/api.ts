@@ -183,7 +183,10 @@ export const ordersApi = {
     request<{
       success: boolean; live: boolean; orderId: string; siteStatus: string;
       courierStatus?: string; expectedDate?: string;
-      scans?: Array<{ time: string; location: string; remark: string }>;
+      /** True when the parcel is on its way back to us rather than on to the customer. */
+      returning?: boolean;
+      /** `back` marks a scan from the journey home; the same waybill carries both. */
+      scans?: Array<{ time: string; location: string; remark: string; back?: boolean }>;
     }>(`/orders/live-track/${encodeURIComponent(awb)}`),
   place: (order: unknown, token?: string) =>
     request<{ success: boolean; orderId: string }>('/orders', {

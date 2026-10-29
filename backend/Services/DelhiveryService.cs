@@ -388,7 +388,7 @@ public class DelhiveryService
         catch { return none; }
     }
 
-    public record TrackScan(string Time, string Location, string Remark);
+    public record TrackScan(string Time, string Location, string Remark, string StatusType = "");
     public record TrackDetail(bool Success, string? Status, string? ExpectedDate, List<TrackScan> Scans);
 
     /// <summary>
@@ -440,12 +440,80 @@ public class DelhiveryService
                     scans.Add(new TrackScan(
                         GetStr(d, "ScanDateTime") ?? GetStr(d, "StatusDateTime") ?? "",
                         GetStr(d, "ScannedLocation") ?? "",
-                        remark));
+                        remark,
+                        // Per-scan direction, when the courier sends it. Not
+                        // relied on: SplitLegs falls back to the words and
+                        // then to showing one timeline, which is what this
+                        // screen did before any of it existed.
+                        GetStr(d, "StatusType") ?? ""));
                 }
             }
             return new TrackDetail(true, status, expected, scans);
         }
         catch { return none; }
+    }
+
+    /// <summary>
+    /// Which scans belong to the journey out, and which to the journey back.
+    ///
+    /// An undelivered parcel comes home on the SAME waybill, so one tracking
+    /// call returns both halves of its life as one list - and the way back
+    /// reads exactly like the way out, "Vehicle Departed" and "Trip Arrived"
+    /// all over again. Shown as one timeline, as it was, the shop reads a
+    /// parcel that has been in transit for three weeks and cannot tell that
+    /// the last two were spent coming back.
+    ///
+    /// Three answers, in order of how much they can be trusted:
+    ///
+    ///   1. The courier's own per-scan StatusType. RT is the return leg. Used
+    ///      whenever any scan carries one.
+    ///   2. The words. The first scan that says the parcel has turned round,
+    ///      in time order, and everything after it.
+    ///   3. Neither: every scan is the way out, and the screen shows the one
+    ///      timeline it always showed. A split nobody can justify is worse
+    ///      than no split, because it invents a date the parcel turned round.
+    /// </summary>
+    public static bool[] SplitLegs(IReadOnlyList<TrackScan> scans)
+    {
+        var back = new bool[scans.Count];
+        if (scans.Count == 0) return back;
+
+        if (scans.Any(s => (s.StatusType ?? "").Trim().ToUpperInvariant() == "RT"))
+        {
+            for (var i = 0; i < scans.Count; i++)
+                back[i] = (scans[i].StatusType ?? "").Trim().ToUpperInvariant() == "RT";
+            return back;
+        }
+
+        // In time order, whatever order the courier happened to send them in.
+        // A scan with an unreadable date keeps its place in the list rather
+        // than being thrown to one end, where it would drag the turning point
+        // with it.
+        var order = Enumerable.Range(0, scans.Count)
+            .OrderBy(i => CourierDate(scans[i].Time) ?? DateTimeOffset.MinValue)
+            .ThenBy(i => i)
+            .ToList();
+
+        var turned = false;
+        foreach (var i in order)
+        {
+            if (!turned && SaysItTurnedRound(scans[i].Remark)) turned = true;
+            back[i] = turned;
+        }
+        return back;
+    }
+
+    /// The words a scan uses when the parcel stops going to the customer and
+    /// starts coming home. Deliberately narrow: "Undelivered" is not one of
+    /// them, because a failed attempt is followed by another attempt far more
+    /// often than by a return.
+    private static bool SaysItTurnedRound(string? remark)
+    {
+        var s = (remark ?? "").ToLowerInvariant();
+        return s.Contains("rto") || s.Contains("dto")
+            || s.Contains("out for return") || s.Contains("return to origin")
+            || s.Contains("returned to origin") || s.Contains("return initiated")
+            || s.Contains("rts");
     }
 
     /// <param name="from">The customer address the courier picks up FROM.</param>

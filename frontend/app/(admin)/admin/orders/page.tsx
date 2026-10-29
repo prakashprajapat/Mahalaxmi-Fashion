@@ -1011,12 +1011,27 @@ export default function AdminOrdersPage() {
             {!liveModal.loading && liveModal.data?.live && (() => {
               const d = liveModal.data!;
               const s = (d.courierStatus ?? '').toLowerCase();
-              const stage = s.includes('delivered') && !s.includes('undelivered') ? 4
+
+              // One waybill, two journeys. A parcel nobody could deliver comes
+              // home on the same number, and its scans on the way back read
+              // exactly like the scans on the way out - the same "Vehicle
+              // Departed", the same "Trip Arrived". Run together in one list,
+              // as they were, this box showed a parcel that had been in
+              // transit for three weeks and gave no hint that the last two
+              // were spent travelling away from the customer.
+              const allScans = (d.scans ?? []).slice().reverse();
+              const backScans = allScans.filter(sc => sc.back);
+              const scans = allScans.filter(sc => !sc.back);
+              const coming = Boolean(d.returning) || backScans.length > 0;
+
+              // A returning parcel must not light up "Delivered". The courier
+              // calls the end of a return "RTO Delivered", which contains the
+              // word and means the opposite of it.
+              const stage = s.includes('delivered') && !s.includes('undelivered') && !coming ? 4
                 : (s.includes('out for delivery') || s.includes('dispatched')) ? 3
                 : (s.includes('transit') || s.includes('reached')) ? 2
                 : (s.includes('picked') || s.includes('manifest')) ? 1 : 0;
               const steps = ['Order Placed', 'Picked Up', 'On the Way', 'Out for Delivery', 'Delivered'];
-              const scans = (d.scans ?? []).slice().reverse();
 
               // Every update belongs under the step it describes. Listed
               // separately at the bottom, the four scans said the same four
@@ -1032,8 +1047,30 @@ export default function AdminOrdersPage() {
                         and one of them is a word we wrote down when the label was
                         printed; only one of them knows where the parcel is. */}
                     <span style={{ fontSize: '.85rem', color: '#555' }}>Order: <strong>{d.orderId}</strong></span>
-                    {d.expectedDate && <span style={{ color: '#2e7d32', fontWeight: 700, fontSize: '.85rem' }}>Expected: {new Date(d.expectedDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</span>}
+                    {d.expectedDate && (
+                      <span style={{ color: coming ? '#a7354d' : '#2e7d32', fontWeight: 700, fontSize: '.85rem' }}>
+                        {coming ? 'Expected back: ' : 'Expected: '}
+                        {new Date(d.expectedDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                      </span>
+                    )}
                   </div>
+
+                  {/* Said once, at the top, before anything else on this
+                      screen. Every other line reads the same whichever way the
+                      parcel is pointing. */}
+                  {coming && (
+                    <div style={{ background: '#fdf0f3', border: '1px solid #f0d2da', borderRadius: 9,
+                                  padding: '.6rem .8rem', marginBottom: '.9rem' }}>
+                      <p style={{ margin: 0, fontWeight: 700, color: '#a7354d', fontSize: '.88rem' }}>
+                        This parcel is coming back to you
+                      </p>
+                      <p style={{ margin: '.15rem 0 0', color: '#7a6a6e', fontSize: '.78rem', lineHeight: 1.5 }}>
+                        It could not be delivered, so Delhivery is returning it on the same waybill.
+                        The order sits under Returns, and anything the customer paid online is owed back
+                        once it reaches you.
+                      </p>
+                    </div>
+                  )}
 
                   {steps.map((label, i) => {
                     const done = i <= stage;
@@ -1071,6 +1108,50 @@ export default function AdminOrdersPage() {
                     );
                   })}
 
+                  {/* The journey home, on its own, in its own colour. Not a
+                      five-step timeline: a return has no "Out for Delivery"
+                      and inventing one would be drawing a journey the courier
+                      never described. */}
+                  {backScans.length > 0 && (
+                    <div style={{ marginTop: '1rem', paddingTop: '.9rem', borderTop: '1px dashed #e4ccd3' }}>
+                      <p style={{ margin: '0 0 .5rem', fontWeight: 800, color: '#a7354d', fontSize: '.9rem' }}>
+                        Coming back to you
+                      </p>
+                      {backScans.map((sc, k) => (
+                        <div key={k} style={{ display: 'flex', gap: '.7rem' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                            <span style={{ width: 11, height: 11, borderRadius: '50%', marginTop: 4, flexShrink: 0,
+                                           background: k === 0 ? '#a7354d' : '#fff',
+                                           border: '2px solid #a7354d' }} />
+                            {k < backScans.length - 1 && (
+                              <span style={{ width: 2, flex: 1, minHeight: 14, background: '#edd6dc' }} />
+                            )}
+                          </div>
+                          <p style={{ margin: '0 0 .35rem', fontSize: '.78rem', lineHeight: 1.5,
+                                      color: k === 0 ? '#a7354d' : '#777',
+                                      fontWeight: k === 0 ? 600 : 400 }}>
+                            {sc.remark}
+                            <span style={{ color: '#9a9a9a', fontWeight: 400 }}>
+                              {' \u00b7 '}{scanWhen(sc.time)}
+                              {sc.location ? ` \u00b7 ${sc.location}` : ''}
+                            </span>
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Delhivery says it is returning, but no scan has been
+                      tagged as part of the way back. Rather than guess which
+                      of the scans above belong to which journey, say what is
+                      known and leave the list whole. */}
+                  {coming && backScans.length === 0 && (
+                    <p style={{ margin: '.9rem 0 0', paddingTop: '.7rem', borderTop: '1px dashed #e4ccd3',
+                                fontSize: '.78rem', color: '#8a7a7e', lineHeight: 1.6 }}>
+                      Delhivery has not yet marked which of these updates belong to the return,
+                      so they are all shown together above.
+                    </p>
+                  )}
                 </>
               );
             })()}
