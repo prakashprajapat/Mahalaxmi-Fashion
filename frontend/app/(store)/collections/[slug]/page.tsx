@@ -42,8 +42,13 @@ export async function generateMetadata({ params }: { params: { slug: string } })
     // decided per request from the live catalogue, so the page comes back
     // into the index by itself the day it has stock — nothing to remember,
     // nothing to undo.
+  // The whole catalogue, not one subcategory: the API matches a subcategory
+  // exactly, and the names on the product form are typed by hand - "Sarees"
+  // against a collection asking for "saree" returned nothing at all.
+  // matchesCollection now does the subcategory test itself, the way a person
+  // reads those names. getAll pages through on its own when pageSize is given.
   const { products } = await productsApi
-    .getAll({ subcategory: def.subcategory, pageSize: 500 })
+    .getAll({ pageSize: 1000 })
     .catch(() => ({ products: [] as any[] }));
   const isEmpty = (products as any[]).filter(p => matchesCollection(p, def)).length === 0;
 
@@ -73,7 +78,7 @@ export default async function CollectionPage({ params }: { params: { slug: strin
   if (!def) notFound();
 
   const { products } = await productsApi
-    .getAll({ subcategory: def.subcategory, pageSize: 500 })
+    .getAll({ pageSize: 1000 })
     .catch(() => ({ products: [] as any[] }));
   const matched = (products as any[]).filter(p => matchesCollection(p, def));
 

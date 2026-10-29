@@ -262,10 +262,10 @@ export async function POST(req: NextRequest) {
   const empties: FindingItem[] = [];
 
   for (const def of Object.values(COLLECTIONS)) {
-    const inSub = products.filter(
-      p => (p.subcategory ?? '').trim().toLowerCase() === def.subcategory.trim().toLowerCase(),
-    );
-    const matched = inSub.filter(p => matchesCollection(p, def));
+    // This reported every saree, petticoat and premium-nighty collection as
+    // empty, because it compared the subcategory with === against names the
+    // shop types by hand. matchesCollection reads them the way the page does.
+    const matched = products.filter(p => matchesCollection(p, def));
     collectionSets.set(
       def.slug,
       matched.map(p => p.dbId).sort((a, b) => a - b),

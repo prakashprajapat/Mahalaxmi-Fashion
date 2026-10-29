@@ -35,10 +35,51 @@ export interface CollectionDef {
 const sellingPrice = (p: Product) =>
   p.discountPrice && p.discountPrice > 0 && p.discountPrice < p.price ? p.discountPrice : p.price;
 
+/**
+ * Does a product's subcategory answer to what a collection asked for?
+ *
+ * Every saree collection on the site was empty. /collections/saree-under-1000
+ * asks for "saree"; the shop types "Sarees" into the product form; the API
+ * matches the subcategory exactly (ILIKE with no wildcard), so it returned
+ * nothing and the page printed "New products are being added to this
+ * collection soon" over a catalogue holding 27 sarees. The petticoat pages
+ * showed 1 of 21 - the one product typed in lower case - and the nighty pages
+ * 24 of 42, missing every "Premium Nighty" and "Rayon nighty".
+ *
+ * The names are typed by hand on the product form and will go on varying,
+ * so the rule has to read them the way a person does. Word by word: every
+ * word the collection asks for must appear in the product's subcategory,
+ * with a trailing plural ignored. "saree" finds "Sarees", "nighty" finds
+ * "Premium Nighty", "formal shoes" finds "FORMAL SHOES".
+ *
+ * Word by word rather than a plain substring, because a substring reaches
+ * too far in both directions: "Suit" sits inside "Swimsuit", and a
+ * collection for one would quietly collect the other.
+ */
+const subcategoryWords = (v: string): string[] =>
+  v.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean)
+    // "shoes" and "shoe" are the same word; "dress" is not "dres".
+    .map(w => (w.length > 3 && w.endsWith('s') && !w.endsWith('ss') ? w.slice(0, -1) : w));
+
+export function matchesSubcategory(productSub: string | null | undefined, want: string | null | undefined): boolean {
+  const asked = subcategoryWords((want ?? '').trim());
+  if (asked.length === 0) return true;           // no subcategory named = the whole catalogue
+  const has = new Set(subcategoryWords((productSub ?? '').trim()));
+  return asked.every(w => has.has(w));
+}
+
 export function matchesCollection(p: Product, def: CollectionDef): boolean {
   // Draft products failed the quality gate and are not on the website;
   // a collection page listing one would 404 the moment anyone clicked it.
   if (p.stock === 'Inactive' || p.stock === 'Draft') return false;
+  // The subcategory used to be checked by whoever called this, three times in
+  // three different ways: the page asked the API for an exact match, the
+  // sitemap used a substring, and the admin audit used ===. So the sitemap
+  // submitted collection pages to Google that the page itself was serving
+  // empty and marking noindex - the "Submitted URL marked noindex" notice in
+  // Search Console that the sitemap had already been edited once to fix.
+  // One rule now, here, where the rest of the filter already lives.
+  if (!matchesSubcategory(p.subcategory, def.subcategory)) return false;
   if (def.maxPrice !== undefined && sellingPrice(p) > def.maxPrice) return false;
   if (def.terms && def.terms.length > 0) {
     const hay = `${p.name} ${p.subcategory ?? ''} ${p.description ?? ''}`.toLowerCase();

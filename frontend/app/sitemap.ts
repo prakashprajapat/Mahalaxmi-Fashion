@@ -40,20 +40,19 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // the admin panel as keyword landing pages, often before the stock arrives,
   // so an empty one is normal rather than rare.
   //
-  // The test here is deliberately LOOSER than the page's own: the page asks the
-  // API for one subcategory and then applies matchesCollection, while this uses
-  // a substring on the product's own subcategory. Looser can only keep a page
-  // in, never drop one the page would have indexed - and dropping a good page
-  // from the sitemap would cost more than the notice this fixes. When the API
-  // could not be read at all, nothing is dropped.
+  // This used to carry its own, looser copy of the subcategory test, on the
+  // reasoning that looser can only keep a page in and never drop a good one.
+  // It did worse than that: the page's own test was exact and this one was a
+  // substring, so "saree" matched "Sarees" here and nowhere else - and every
+  // saree collection went into the sitemap while the page served it empty and
+  // marked it noindex. Exactly the notice this guard was added to stop.
+  // matchesCollection now owns the subcategory test, so there is one answer.
+  // When the API could not be read at all, nothing is dropped.
   const hasStock = (slug: string) => {
     const def = collections[slug];
     if (!def) return false;
     if (allProducts.length === 0) return true;
-    const want = (def.subcategory ?? '').toLowerCase().trim();
-    return allProducts.some(p =>
-      (want.length === 0 || (p.subcategory ?? '').toLowerCase().includes(want))
-      && matchesCollection(p, def));
+    return allProducts.some(p => matchesCollection(p, def));
   };
 
   const collectionSlugs = Object.keys(collections).filter(hasStock);

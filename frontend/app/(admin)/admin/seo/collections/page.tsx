@@ -64,11 +64,11 @@ export default function CollectionsEditorPage() {
   /** How many products each filter would actually show, right now. */
   const countFor = useMemo(() => (c: Coll) => {
     if (!c.subcategory) return 0;
-    const sub = c.subcategory.trim().toLowerCase();
-    return products
-      .filter(p => (p.subcategory ?? '').trim().toLowerCase() === sub)
-      .filter(p => matchesCollection(p, c as CollectionDef))
-      .length;
+    // The count shown here has to be the count the page will show. It was an
+    // === on the subcategory, so this screen said 0 beside collections the
+    // live page would now fill - and 0 beside a collection is what makes an
+    // owner delete it.
+    return products.filter(p => matchesCollection(p, c as CollectionDef)).length;
   }, [products]);
 
   const subcategories = useMemo(() => {
