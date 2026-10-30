@@ -780,6 +780,11 @@ export const paymentsApi = {
   reconcile: (from: string, to: string, token: string) =>
     request<{
       success: boolean;
+      /** Which gateways were actually asked. Both are checked when both are set up. */
+      gateways?: { razorpay: boolean; cashfree: boolean };
+      /** Cashfree has no list-payments API, so its orders are asked about one by one. */
+      cashfreeOrdersChecked?: number;
+      cashfreeTruncated?: boolean;
       summary: {
         totalPayments: number; matched: number; amountMismatch: number;
         paymentWithoutOrder: number; orderWithoutPayment: number;

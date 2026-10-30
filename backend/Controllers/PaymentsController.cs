@@ -19,11 +19,13 @@ public class PaymentsController : ControllerBase
     private readonly AppDbContext _db;
     private readonly IConfiguration _config;
     private readonly HttpClient _http;
+    private readonly IHttpClientFactory _httpFactory;
 
     public PaymentsController(AppDbContext db, IConfiguration config, IHttpClientFactory httpFactory)
     {
         _db = db;
         _config = config;
+        _httpFactory = httpFactory;
         _http = httpFactory.CreateClient("razorpay");
     }
 
@@ -269,7 +271,21 @@ public class PaymentsController : ControllerBase
     }
 
     // GET /api/payments/reconcile?from=2026-07-01&to=2026-07-13  (Admin only)
-    // Razorpay payments vs site_orders match — mismatch/missing turant dikhta hai.
+    //
+    // Every online payment matched against the orders. Money in with no order,
+    // or an order with no money, shows up here.
+    //
+    // It used to ask Razorpay and nobody else. The shop moved to Cashfree, so
+    // the question "which of my orders has no money against it" was being put
+    // to a gateway that had not taken a rupee in months: it came back with
+    // nothing, every order fell into "order with no payment", and the screen
+    // read 14 of 14 mismatched with zero money taken. A reconciliation that
+    // reports everything as wrong is not a warning, it is noise, and the first
+    // real mismatch would have sat in the middle of it unnoticed.
+    //
+    // Both gateways are asked now, and each row says which one answered.
+    // Razorpay still has history worth checking; Cashfree is where the money
+    // comes in today.
     [HttpGet("reconcile")]
     [Authorize]
     [RequirePerm("reconcile")]
@@ -277,8 +293,16 @@ public class PaymentsController : ControllerBase
     {
         var keyId     = _config["Razorpay:KeyId"] ?? "";
         var keySecret = _config["Razorpay:KeySecret"] ?? "";
-        if (!keyId.StartsWith("rzp_") || string.IsNullOrEmpty(keySecret))
-            return StatusCode(500, new { success = false, message = "Razorpay not configured." });
+        var hasRazorpay = keyId.StartsWith("rzp_") && !string.IsNullOrEmpty(keySecret);
+
+        var cfAppId  = _config["Cashfree:AppId"] ?? "";
+        var cfSecret = _config["Cashfree:SecretKey"] ?? "";
+        var cfMode   = (_config["Cashfree:Mode"] ?? "production").ToLowerInvariant();
+        var cfBase   = cfMode == "sandbox" ? "https://sandbox.cashfree.com/pg" : "https://api.cashfree.com/pg";
+        var hasCashfree = !string.IsNullOrEmpty(cfAppId) && !string.IsNullOrEmpty(cfSecret);
+
+        if (!hasRazorpay && !hasCashfree)
+            return StatusCode(500, new { success = false, message = "No payment gateway is configured, so there is nothing to reconcile against." });
 
         var toDate   = string.IsNullOrWhiteSpace(to)   ? DateTimeOffset.UtcNow : DateTimeOffset.Parse(to).AddDays(1);
         var fromDate = string.IsNullOrWhiteSpace(from) ? toDate.AddDays(-31)   : DateTimeOffset.Parse(from);
@@ -288,7 +312,7 @@ public class PaymentsController : ControllerBase
         // ── 1. Razorpay se saare payments fetch (paginated) ──────────────────
         var credentials = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{keyId}:{keySecret}"));
         var payments = new List<JsonElement>();
-        for (var skip = 0; skip < 10000; skip += 100)
+        for (var skip = 0; hasRazorpay && skip < 10000; skip += 100)
         {
             var url = $"https://api.razorpay.com/v1/payments?from={fromDate.ToUnixTimeSeconds()}&to={toDate.ToUnixTimeSeconds()}&count=100&skip={skip}";
             using var rq = new HttpRequestMessage(HttpMethod.Get, url);
@@ -305,7 +329,7 @@ public class PaymentsController : ControllerBase
         // ── 2. DB orders (same window, thoda buffer) ─────────────────────────
         var orders = await _db.SiteOrders
             .Where(o => o.PlacedAt >= fromDate.AddDays(-2) && o.PlacedAt <= toDate.AddDays(2))
-            .Select(o => new { o.OrderId, o.PaymentId, o.Total, o.Status, o.Method, o.PlacedAt })
+            .Select(o => new { o.OrderId, o.PaymentId, o.Total, o.Status, o.Method, o.PlacedAt, o.WalletUsed, o.AdvancePaid })
             .ToListAsync();
         var ordersByPaymentId = orders
             .Where(o => !string.IsNullOrEmpty(o.PaymentId))
@@ -359,11 +383,129 @@ public class PaymentsController : ControllerBase
             });
         }
 
+        // ── 3b. Cashfree, asked order by order ───────────────────────────────
+        //
+        // Razorpay hands over every payment in a date range in one call.
+        // Cashfree's payment gateway API has no such list - payments are read
+        // per order - so the orders that went through a Cashfree checkout are
+        // asked about one at a time. That set is exactly the cashfree_orders
+        // rows, which is also what makes a payment with no site order
+        // findable: the row is written when the checkout opens, before the
+        // order exists.
+        //
+        // One call per order, capped. An admin pressing a button can wait for
+        // a few hundred; a year of orders behind one press is a different
+        // thing, and the screen says when it stopped.
+        var cfSettled = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var cfChecked = 0;
+        var cfTruncated = false;
+        const int CfCallCap = 300;
+
+        if (hasCashfree)
+        {
+            var cfRows = await _db.CashfreeOrders
+                .Where(c => c.CreatedAt >= fromDate.AddDays(-2) && c.CreatedAt <= toDate.AddDays(2))
+                .Select(c => new { c.LocalOrderId, c.CreatedAt })
+                .ToListAsync();
+
+            var ordersById = orders.ToDictionary(o => o.OrderId, o => o, StringComparer.OrdinalIgnoreCase);
+            var cfHttp = _httpFactory.CreateClient("cashfree");
+
+            foreach (var cf in cfRows)
+            {
+                if (cfChecked >= CfCallCap) { cfTruncated = true; break; }
+                cfChecked++;
+
+                decimal cfPaid = 0m;
+                string cfPaymentId = "";
+                string cfStatus = "";
+                DateTimeOffset? cfWhen = null;
+
+                try
+                {
+                    using var rq = new HttpRequestMessage(HttpMethod.Get, $"{cfBase}/orders/{Uri.EscapeDataString(cf.LocalOrderId)}/payments");
+                    rq.Headers.Add("x-client-id", cfAppId);
+                    rq.Headers.Add("x-client-secret", cfSecret);
+                    rq.Headers.Add("x-api-version", "2023-08-01");
+                    rq.Headers.Add("accept", "application/json");
+                    using var rs = await cfHttp.SendAsync(rq);
+                    if (rs.IsSuccessStatusCode)
+                    {
+                        var arr = JsonSerializer.Deserialize<JsonElement>(await rs.Content.ReadAsStringAsync());
+                        if (arr.ValueKind == JsonValueKind.Array)
+                        {
+                            foreach (var pay in arr.EnumerateArray())
+                            {
+                                var st = pay.TryGetProperty("payment_status", out var pst) && pst.ValueKind == JsonValueKind.String
+                                    ? (pst.GetString() ?? "") : "";
+                                if (!string.Equals(st, "SUCCESS", StringComparison.OrdinalIgnoreCase)) continue;
+                                if (pay.TryGetProperty("payment_amount", out var pa) && pa.ValueKind == JsonValueKind.Number)
+                                    cfPaid += pa.GetDecimal();
+                                if (cfPaymentId.Length == 0 && pay.TryGetProperty("cf_payment_id", out var cpi))
+                                    cfPaymentId = cpi.ToString();
+                                cfStatus = "SUCCESS";
+                                if (cfWhen is null && pay.TryGetProperty("payment_time", out var pt)
+                                    && pt.ValueKind == JsonValueKind.String
+                                    && DateTimeOffset.TryParse(pt.GetString(), out var parsed))
+                                    cfWhen = parsed;
+                            }
+                        }
+                    }
+                }
+                catch
+                {
+                    // One unreachable order must not take the whole report
+                    // down. It falls through as "no payment found", which is
+                    // the safe way round: it asks to be looked at.
+                }
+
+                if (cfPaid <= 0m) continue;   // nothing settled - the order-side pass below reports it
+
+                capturedTotal += cfPaid;
+                cfSettled.Add(cf.LocalOrderId);
+
+                ordersById.TryGetValue(cf.LocalOrderId, out var ord);
+                string category;
+                if (ord is null) { category = "PAYMENT_NO_ORDER"; paymentNoOrder++; }
+                else
+                {
+                    // What the site asked Cashfree to collect, which is the
+                    // order minus anything paid out of the wallet - not the
+                    // order total. Comparing against the total would report a
+                    // mismatch on every order that used wallet credit.
+                    var expected = string.Equals(ord.Method, "cod", StringComparison.OrdinalIgnoreCase)
+                        ? ord.AdvancePaid
+                        : ord.Total - ord.WalletUsed;
+                    if (Math.Abs(expected - cfPaid) > 0.5m) { category = "AMOUNT_MISMATCH"; mismatch++; }
+                    else { category = "MATCHED"; matched++; }
+                }
+
+                rows.Add(new
+                {
+                    category,
+                    paymentId = cfPaymentId.Length > 0 ? cfPaymentId : cf.LocalOrderId,
+                    paymentAmount = cfPaid,
+                    refundedAmount = 0m,
+                    paymentStatus = cfStatus,
+                    paymentDate = cfWhen ?? cf.CreatedAt,
+                    email = "", contact = "",
+                    orderId = ord?.OrderId ?? cf.LocalOrderId,
+                    orderTotal = ord?.Total,
+                    orderStatus = ord?.Status,
+                });
+            }
+        }
+
         // ── 4. Online orders jinke against koi captured payment nahi mila ────
+        //
+        // An order counts as settled when EITHER gateway has paid for it.
+        // Checking only the Razorpay side is what put every Cashfree order in
+        // this list.
         var orphanOrders = orders
             .Where(o => o.Method != "cod"
                      && o.PlacedAt >= fromDate && o.PlacedAt <= toDate
                      && (string.IsNullOrEmpty(o.PaymentId) || !matchedPaymentIds.Contains(o.PaymentId!))
+                     && !cfSettled.Contains(o.OrderId)
                      && o.Status is not ("Cancelled" or "Pending" or "Pending confirmation"))
             .ToList();
         foreach (var o in orphanOrders)
@@ -385,9 +527,12 @@ public class PaymentsController : ControllerBase
         {
             success = true,
             from = fromDate, to = toDate,
+            gateways = new { razorpay = hasRazorpay, cashfree = hasCashfree },
+            cashfreeOrdersChecked = cfChecked,
+            cashfreeTruncated = cfTruncated,
             summary = new
             {
-                totalPayments = payments.Count,
+                totalPayments = payments.Count + cfSettled.Count,
                 matched, amountMismatch = mismatch,
                 paymentWithoutOrder = paymentNoOrder,
                 orderWithoutPayment = orphanOrders.Count,

@@ -85,7 +85,7 @@ export default function ReconcilePage() {
     <div className="admin-page">
       <PageHeader
         title="Payment reconcile"
-        sub="Every Razorpay payment matched against your orders. Money in with no order, or an order with no money, shows up here."
+        sub="Every online payment matched against your orders. Money in with no order, or an order with no money, shows up here."
         right={data ? <button className="adm-btn adm-btn-primary" onClick={exportXlsx}>Export Excel</button> : undefined}
       />
 
