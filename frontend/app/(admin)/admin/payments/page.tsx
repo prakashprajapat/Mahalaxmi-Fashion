@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { cashfreeApi } from '@/lib/api';
 import { getAdminToken } from '@/lib/auth';
+import * as XLSX from 'xlsx';
 import { PageHeader, Card, Stat, StatGrid, Empty, Pill, Chips } from '@/components/admin/Ui';
 
 // Everyone who reached a payment page, whether or not they paid.
@@ -80,6 +81,7 @@ export default function AdminPaymentsPage() {
   const [data, setData] = useState<Awaited<ReturnType<typeof cashfreeApi.payments>> | null>(null);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
 
   const load = useCallback(async (toPage = page) => {
@@ -126,6 +128,85 @@ export default function AdminPaymentsPage() {
     }
   };
 
+  // Excel gets EVERY row the filters match, not the twenty-five on screen.
+  //
+  // Exporting the visible page would be the quiet kind of wrong: the file
+  // opens, it has rows in it, the columns are right - and it is a quarter of
+  // the answer. Nothing about it looks truncated, which is exactly why it
+  // would be believed. So the pages are walked until `total` is reached.
+  const exportXlsx = async () => {
+    setExporting(true);
+    setMsg(null);
+    try {
+      const token = getAdminToken() ?? '';
+      const first = await cashfreeApi.payments(
+        { from, to, status, method, q, page: 1, pageSize: 200 }, token);
+
+      const all = [...first.rows];
+      // The ceiling is a guard, not a limit: 50 pages of 200 is far beyond
+      // this shop, and it stops a wrong total turning this into a loop.
+      for (let p = 2; all.length < first.total && p <= 50; p++) {
+        const next = await cashfreeApi.payments(
+          { from, to, status, method, q, page: p, pageSize: 200 }, token);
+        if (next.rows.length === 0) break;
+        all.push(...next.rows);
+      }
+
+      const sheet = all.map(r => ({
+        When: new Date(r.createdAt).toLocaleString('en-IN'),
+        'Transaction ID': r.transactionId || '',
+        'Amount': r.amount,
+        'Wallet used': r.walletUsed || '',
+        'Order total': r.fullTotal || '',
+        'How': r.method ? r.method.replace(/_/g, ' ') : '',
+        'What happened': STATUS_LABEL[r.status] ?? r.status,
+        // The raw word as well as the friendly one: a filter in Excel wants
+        // something stable to sort on, and "Walked away" is ours, not
+        // Cashfree's.
+        'Status code': r.status,
+        'Checked with Cashfree': r.asked ? 'yes' : 'not yet',
+        Name: r.name || '',
+        Phone: r.phone || '',
+        Email: r.email || '',
+        'Order ID': r.orderId,
+        'Paid at': r.paidAt ? new Date(r.paidAt).toLocaleString('en-IN') : '',
+      }));
+
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(sheet), 'Payments');
+
+      // What this file is a list OF. Opened in three months, a sheet of
+      // numbers with no record of the filters behind it is a sheet nobody
+      // can trust - and "why does this not match Cashfree" has one answer
+      // written right here.
+      const sm = first.summary;
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet([
+        { Item: 'From', Value: from },
+        { Item: 'To', Value: to },
+        { Item: 'Status filter', Value: status === 'ALL' ? 'Everything' : (STATUS_LABEL[status] ?? status) },
+        { Item: 'Paid how', Value: method === 'all' ? 'Any way' : method },
+        { Item: 'Search', Value: q || '(none)' },
+        { Item: 'Rows in this file', Value: all.length },
+        { Item: 'Rows matching', Value: first.total },
+        { Item: 'Paid - count', Value: sm.paidCount },
+        { Item: 'Paid - rupees', Value: sm.paidTotal },
+        { Item: 'Left on the table - count', Value: sm.droppedCount },
+        { Item: 'Left on the table - rupees', Value: sm.droppedTotal },
+        { Item: 'Not checked with Cashfree yet', Value: sm.notAsked },
+        { Item: 'Exported', Value: new Date().toLocaleString('en-IN') },
+      ]), 'What this is');
+
+      XLSX.writeFile(wb, `payments-${from}-to-${to}.xlsx`);
+
+      if (all.length < first.total)
+        setMsg({ kind: 'err', text: `The file has ${all.length} of ${first.total} rows. Narrow the dates and export again for the rest.` });
+    } catch (e) {
+      setMsg({ kind: 'err', text: (e as Error).message });
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const s = data?.summary;
   const rows = data?.rows ?? [];
   const pages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;
@@ -136,9 +217,15 @@ export default function AdminPaymentsPage() {
         title="Payments"
         sub="Everyone who reached a payment page, paid or not. The ones who walked away are money still on the table."
         right={
-          <button className="adm-btn" onClick={refresh} disabled={syncing}>
-            {syncing ? 'Asking Cashfree…' : 'Refresh from Cashfree'}
-          </button>
+          <span style={{ display: 'inline-flex', gap: '.5rem', flexWrap: 'wrap' }}>
+            <button className="adm-btn" onClick={refresh} disabled={syncing}>
+              {syncing ? 'Asking Cashfree…' : 'Refresh from Cashfree'}
+            </button>
+            <button className="adm-btn adm-btn-primary" onClick={exportXlsx}
+                    disabled={exporting || !data || data.total === 0}>
+              {exporting ? 'Building the file…' : `Export Excel${data ? ` (${data.total})` : ''}`}
+            </button>
+          </span>
         }
       />
 
