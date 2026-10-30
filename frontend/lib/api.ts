@@ -795,7 +795,51 @@ export const paymentsApi = {
 };
 
 // ── Cashfree (primary online gateway) ────────────────────────────────────────
+
+/** One checkout attempt, paid or not. */
+export interface CfPaymentRow {
+  orderId: string;
+  transactionId: string;
+  amount: number;
+  walletUsed: number;
+  fullTotal: number;
+  /** Cashfree's own word: SUCCESS, USER_DROPPED, FAILED, PENDING, NOT_ATTEMPTED, CANCELLED - or UNKNOWN until asked. */
+  status: string;
+  /** False when Cashfree has never been asked about this row. */
+  asked: boolean;
+  method: string;
+  name: string;
+  phone: string;
+  email: string;
+  createdAt: string;
+  paidAt: string | null;
+}
+
 export const cashfreeApi = {
+  /** Every checkout attempt in a window, filtered and paged. Reads our own table, so it is instant. */
+  payments: (
+    p: { from: string; to: string; status?: string; method?: string; q?: string; page?: number; pageSize?: number },
+    token: string,
+  ) => {
+    const qs = new URLSearchParams({
+      from: p.from, to: p.to,
+      status: p.status ?? 'ALL', method: p.method ?? 'all', q: p.q ?? '',
+      page: String(p.page ?? 1), pageSize: String(p.pageSize ?? 25),
+    }).toString();
+    return request<{
+      success: boolean; page: number; pageSize: number; total: number;
+      summary: {
+        paidCount: number; paidTotal: number;
+        droppedCount: number; droppedTotal: number;
+        notAsked: number;
+      };
+      rows: CfPaymentRow[];
+    }>(`/cashfree/payments?${qs}`, undefined, token);
+  },
+  /** Ask Cashfree what became of each checkout in the window, and write it down. */
+  syncPayments: (p: { from: string; to: string }, token: string) =>
+    request<{ success: boolean; asked: number; changed: number; capped: boolean }>(
+      `/cashfree/payments/sync?from=${p.from}&to=${p.to}`, { method: 'POST' }, token),
   createOrder: (data: {
     amount: number; currency?: string; cart?: unknown; customer?: unknown; shipping?: unknown;
     customerId?: string; customerName?: string; customerEmail?: string; customerPhone?: string;

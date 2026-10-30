@@ -73,4 +73,30 @@ public class CashfreeOrder
 
     [Column("paid_at")]
     public DateTimeOffset? PaidAt { get; set; }
+
+    /// <summary>
+    /// Cashfree's own word for what happened, kept verbatim: SUCCESS,
+    /// USER_DROPPED, FAILED, PENDING, CANCELLED - or NOT_ATTEMPTED when the
+    /// checkout was opened and no payment was ever started.
+    ///
+    /// `Status` above is ours and has two values, created and paid. That is
+    /// enough to decide whether an order exists, and useless for the question
+    /// an owner actually asks: of the people who reached the payment page
+    /// yesterday, how many walked away, and with how much. A row sitting at
+    /// "created" could be someone who changed their mind, a card that was
+    /// declined, or a payment still in flight, and those are three different
+    /// things to do something about.
+    /// </summary>
+    [Column("cf_status")]
+    public string? CfStatus { get; set; }
+
+    /// upi, card, netbanking, wallet, app - as Cashfree names it.
+    [Column("payment_method")]
+    public string? PaymentMethod { get; set; }
+
+    /// When Cashfree was last asked about this row. Null means never, which
+    /// is why a screen built on these columns has to say so rather than show
+    /// a blank and let it read as "nothing happened".
+    [Column("synced_at")]
+    public DateTimeOffset? SyncedAt { get; set; }
 }

@@ -886,6 +886,21 @@ using (var scope = app.Services.CreateScope())
         -- Customer-uploaded review photos (JSON array of image URLs).
         ALTER TABLE reviews   ADD COLUMN IF NOT EXISTS image_urls TEXT;
 
+        -- What Cashfree says happened at the payment page, kept beside our own
+        -- two-value status. Ours answers whether an order exists; these answer
+        -- who reached the payment page and walked away, and with how much -
+        -- which is the question with money in it.
+        -- (No double quotes in this comment: the C# verbatim string holding
+        -- this SQL ends at the first one, and the checker catches it.)
+        ALTER TABLE cashfree_orders ADD COLUMN IF NOT EXISTS cf_status      VARCHAR(32);
+        ALTER TABLE cashfree_orders ADD COLUMN IF NOT EXISTS payment_method VARCHAR(32);
+        ALTER TABLE cashfree_orders ADD COLUMN IF NOT EXISTS synced_at      TIMESTAMPTZ;
+        -- The payments screen reads newest first and filters on these two.
+        CREATE INDEX IF NOT EXISTS ix_cashfree_orders_created
+            ON cashfree_orders (created_at DESC);
+        CREATE INDEX IF NOT EXISTS ix_cashfree_orders_cf_status
+            ON cashfree_orders (cf_status);
+
         -- What a customer thinks of the shop, said from inside the app.
         -- Kept apart from reviews on purpose: that table is guarded by a
         -- delivered order and the product having been on it, which is what

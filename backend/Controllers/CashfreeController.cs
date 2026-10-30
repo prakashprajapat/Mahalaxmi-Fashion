@@ -7,6 +7,8 @@ using System.Text.Json;
 using MahalaxmiApi.Data;
 using MahalaxmiApi.Models;
 using MahalaxmiApi.Services;
+using Microsoft.AspNetCore.Authorization;
+using MahalaxmiApi.Authorization;
 
 namespace MahalaxmiApi.Controllers;
 
@@ -592,6 +594,276 @@ public class CashfreeController : ControllerBase
 
         return Ok(new { success = true });
     }
+
+    // ── The payments screen ──────────────────────────────────────────────────
+    //
+    // Everyone who reached a Cashfree payment page, whether or not they paid.
+    //
+    // One row exists here per checkout ATTEMPT - written when the payment
+    // page opens, before any order exists - which is the only reason this can
+    // be shown at all. An orders list cannot answer it: the people worth
+    // looking at are precisely the ones who never became an order.
+
+    private static readonly string[] FinalCfStatuses = ["SUCCESS", "FAILED", "USER_DROPPED", "CANCELLED"];
+
+    /// What the payments array says, boiled down to one word and one method.
+    private static (string Status, string Method, string PaymentId, DateTimeOffset? When) ReadPayments(JsonElement arr)
+    {
+        if (arr.ValueKind != JsonValueKind.Array || arr.GetArrayLength() == 0)
+            return ("NOT_ATTEMPTED", "", "", null);
+
+        string status = "", method = "", id = "";
+        DateTimeOffset? when = null;
+
+        foreach (var p in arr.EnumerateArray())
+        {
+            var st = p.TryGetProperty("payment_status", out var pst) && pst.ValueKind == JsonValueKind.String
+                ? (pst.GetString() ?? "") : "";
+
+            // A success anywhere in the list settles it, however many attempts
+            // came before. Otherwise the last word stands.
+            var wins = string.Equals(st, "SUCCESS", StringComparison.OrdinalIgnoreCase) || status.Length == 0
+                || !string.Equals(status, "SUCCESS", StringComparison.OrdinalIgnoreCase);
+            if (!wins) continue;
+
+            status = st.Length > 0 ? st.ToUpperInvariant() : status;
+            if (p.TryGetProperty("cf_payment_id", out var pid)) id = pid.ToString();
+            if (p.TryGetProperty("payment_time", out var pt) && pt.ValueKind == JsonValueKind.String
+                && DateTimeOffset.TryParse(pt.GetString(), out var parsed)) when = parsed;
+
+            // payment_group is Cashfree's own grouping - upi, card, net_banking,
+            // wallet. Preferred over digging through payment_method, which is an
+            // object whose single key is the method.
+            if (p.TryGetProperty("payment_group", out var pg) && pg.ValueKind == JsonValueKind.String)
+                method = pg.GetString() ?? "";
+            else if (p.TryGetProperty("payment_method", out var pm) && pm.ValueKind == JsonValueKind.Object)
+                foreach (var one in pm.EnumerateObject()) { method = one.Name; break; }
+        }
+
+        if (status.Length == 0) status = "PENDING";
+        return (status, method, id, when);
+    }
+
+    // POST /api/cashfree/payments/sync?from=&to=
+    //
+    // Asks Cashfree what became of each checkout in the window and writes the
+    // answer down. Separate from the listing on purpose: the list must open
+    // instantly off our own table, and a screen that made a few hundred API
+    // calls before painting would be a screen nobody opens.
+    [HttpPost("payments/sync")]
+    [Authorize]
+    [RequirePerm("reconcile")]
+    public async Task<IActionResult> SyncPayments([FromQuery] string? from, [FromQuery] string? to)
+    {
+        var (appId, secret, _, baseUrl) = Creds();
+        if (string.IsNullOrEmpty(appId) || string.IsNullOrEmpty(secret))
+            return StatusCode(500, new { success = false, message = "Cashfree is not configured." });
+
+        var (fromDate, toDate, rangeError) = Window(from, to);
+        if (rangeError is not null) return BadRequest(new { success = false, message = rangeError });
+
+        // Rows worth asking about: never asked, or whose answer can still
+        // change. A SUCCESS or a USER_DROPPED from last month will not become
+        // anything else, and asking again is a call spent on a settled fact.
+        var stale = DateTimeOffset.UtcNow.AddDays(-7);
+        var rows = await _db.CashfreeOrders
+            .Where(c => c.CreatedAt >= fromDate && c.CreatedAt <= toDate)
+            .Where(c => c.SyncedAt == null
+                     || c.CfStatus == null
+                     || !FinalCfStatuses.Contains(c.CfStatus)
+                     || c.CreatedAt >= stale)
+            .OrderByDescending(c => c.CreatedAt)
+            .Take(300)
+            .ToListAsync();
+
+        var asked = 0;
+        var changed = 0;
+        foreach (var row in rows)
+        {
+            asked++;
+            try
+            {
+                using var rq = CfRequest(HttpMethod.Get, $"{baseUrl}/orders/{Uri.EscapeDataString(row.LocalOrderId)}/payments", appId, secret);
+                using var rs = await _http.SendAsync(rq);
+                if (!rs.IsSuccessStatusCode) continue;
+
+                var arr = JsonSerializer.Deserialize<JsonElement>(await rs.Content.ReadAsStringAsync());
+                var (status, method, payId, when) = ReadPayments(arr);
+
+                var before = row.CfStatus;
+                row.CfStatus = status;
+                if (method.Length > 0) row.PaymentMethod = method;
+                if (payId.Length > 0) row.CfPaymentId = payId;
+                if (when is not null && row.PaidAt is null
+                    && string.Equals(status, "SUCCESS", StringComparison.OrdinalIgnoreCase))
+                    row.PaidAt = when;
+                row.SyncedAt = DateTimeOffset.UtcNow;
+                if (before != status) changed++;
+            }
+            catch
+            {
+                // One unreachable row must not end the sweep. It keeps its
+                // null synced_at, so the screen goes on saying it has not
+                // been asked rather than showing a blank that reads as
+                // nothing happened.
+            }
+        }
+
+        if (asked > 0) await _db.SaveChangesAsync();
+        return Ok(new { success = true, asked, changed, capped = rows.Count == 300 });
+    }
+
+    // GET /api/cashfree/payments?from=&to=&status=&method=&q=&page=&pageSize=
+    [HttpGet("payments")]
+    [Authorize]
+    [RequirePerm("reconcile")]
+    public async Task<IActionResult> ListPayments(
+        [FromQuery] string? from, [FromQuery] string? to,
+        [FromQuery] string? status, [FromQuery] string? method,
+        [FromQuery] string? q, [FromQuery] int page = 1, [FromQuery] int pageSize = 25)
+    {
+        var (fromDate, toDate, rangeError) = Window(from, to);
+        if (rangeError is not null) return BadRequest(new { success = false, message = rangeError });
+
+        if (page < 1) page = 1;
+        pageSize = Math.Clamp(pageSize, 5, 200);
+
+        var query = _db.CashfreeOrders.AsNoTracking()
+            .Where(c => c.CreatedAt >= fromDate && c.CreatedAt <= toDate);
+
+        var wantStatus = (status ?? "").Trim().ToUpperInvariant();
+        if (wantStatus.Length > 0 && wantStatus != "ALL")
+            query = wantStatus == "UNKNOWN"
+                ? query.Where(c => c.CfStatus == null)
+                : query.Where(c => c.CfStatus == wantStatus);
+
+        var wantMethod = (method ?? "").Trim().ToLowerInvariant();
+        if (wantMethod.Length > 0 && wantMethod != "all")
+            query = query.Where(c => c.PaymentMethod != null && c.PaymentMethod.ToLower() == wantMethod);
+
+        // The date filter has already cut this to a window, and the search has
+        // to reach the phone number, which lives inside a jsonb blob. Rather
+        // than ask the database to pick a value out of that blob - which it
+        // can do, differently, depending on how the column is mapped - the
+        // window is read and the text search done here. A shop this size has
+        // tens of rows a month, not millions, and a search that is merely
+        // correct beats one that is clever and might not translate.
+        var window = await query
+            .OrderByDescending(c => c.CreatedAt)
+            .Take(5000)
+            .Select(c => new
+            {
+                c.LocalOrderId, c.CfPaymentId, c.AmountPaise, c.WalletUsed, c.FullTotal,
+                c.Status, c.CfStatus, c.PaymentMethod, c.CreatedAt, c.PaidAt, c.SyncedAt,
+                c.CustomerJson,
+            })
+            .ToListAsync();
+
+        string? Field(string? json, string key)
+        {
+            if (string.IsNullOrWhiteSpace(json)) return null;
+            try
+            {
+                var el = JsonSerializer.Deserialize<JsonElement>(json);
+                if (el.ValueKind != JsonValueKind.Object || !el.TryGetProperty(key, out var v)) return null;
+                return v.ValueKind == JsonValueKind.String ? v.GetString() : v.ToString();
+            }
+            catch { return null; }
+        }
+
+        var shaped = window.Select(c => new
+        {
+            orderId = c.LocalOrderId,
+            transactionId = c.CfPaymentId ?? "",
+            amount = c.AmountPaise / 100m,
+            walletUsed = c.WalletUsed,
+            fullTotal = c.FullTotal,
+            // Cashfree's word when we have it. Until this row has been asked
+            // about, it says so - a blank here would read as nothing happened,
+            // and nothing happened is itself one of the answers.
+            status = c.CfStatus ?? (c.Status == "paid" ? "SUCCESS" : "UNKNOWN"),
+            asked = c.SyncedAt != null,
+            method = c.PaymentMethod ?? "",
+            name = Field(c.CustomerJson, "name") ?? "",
+            phone = Field(c.CustomerJson, "phone") ?? "",
+            email = Field(c.CustomerJson, "email") ?? "",
+            createdAt = c.CreatedAt,
+            paidAt = c.PaidAt,
+        }).ToList();
+
+        var needle = (q ?? "").Trim();
+        if (needle.Length > 0)
+        {
+            // A number is searched the way the rest of this codebase stores
+            // one: by its last ten digits. Cashfree prints "+91 9353568638"
+            // and that is what gets copied and pasted into this box, so a
+            // plain substring would find nothing - the stored number has no
+            // country code to match against. Fewer than ten digits is a
+            // fragment of a number and stays a substring search, which is how
+            // somebody looks up the last four they can remember.
+            var digits = new string(needle.Where(char.IsDigit).ToArray());
+            var tail = digits.Length > 10 ? digits.Substring(digits.Length - 10) : digits;
+
+            bool PhoneHit(string stored)
+            {
+                if (tail.Length < 4) return false;
+                var d = new string(stored.Where(char.IsDigit).ToArray());
+                if (d.Length == 0) return false;
+                if (tail.Length == 10)
+                {
+                    var last = d.Length > 10 ? d.Substring(d.Length - 10) : d;
+                    return last == tail;
+                }
+                return d.Contains(tail);
+            }
+
+            shaped = shaped.Where(r =>
+                r.orderId.Contains(needle, StringComparison.OrdinalIgnoreCase)
+                || r.transactionId.Contains(needle, StringComparison.OrdinalIgnoreCase)
+                || r.name.Contains(needle, StringComparison.OrdinalIgnoreCase)
+                || r.email.Contains(needle, StringComparison.OrdinalIgnoreCase)
+                || PhoneHit(r.phone))
+                .ToList();
+        }
+
+        var total = shaped.Count;
+
+        // The numbers an owner is actually after: what came in, and what was
+        // left on the table by people who reached the payment page.
+        var paid = shaped.Where(r => r.status == "SUCCESS").ToList();
+        var dropped = shaped.Where(r => r.status is "USER_DROPPED" or "FAILED" or "PENDING" or "NOT_ATTEMPTED").ToList();
+
+        return Ok(new
+        {
+            success = true,
+            page, pageSize, total,
+            summary = new
+            {
+                paidCount = paid.Count,
+                paidTotal = paid.Sum(r => r.amount),
+                droppedCount = dropped.Count,
+                droppedTotal = dropped.Sum(r => r.amount),
+                notAsked = shaped.Count(r => !r.asked),
+            },
+            rows = shaped.Skip((page - 1) * pageSize).Take(pageSize),
+        });
+    }
+
+    /// The date window both payment endpoints read, with one rule about how
+    /// far back a single request may reach.
+    private static (DateTimeOffset From, DateTimeOffset To, string? Error) Window(string? from, string? to)
+    {
+        var toDate = string.IsNullOrWhiteSpace(to)
+            ? DateTimeOffset.UtcNow.AddDays(1)
+            : DateTimeOffset.Parse(to, CultureInfo.InvariantCulture).AddDays(1);
+        var fromDate = string.IsNullOrWhiteSpace(from)
+            ? toDate.AddDays(-31)
+            : DateTimeOffset.Parse(from, CultureInfo.InvariantCulture);
+        if (toDate < fromDate) return (fromDate, toDate, "The To date is before the From date.");
+        if ((toDate - fromDate).TotalDays > 400) return (fromDate, toDate, "Please choose a range of a year or less.");
+        return (fromDate, toDate, null);
+    }
+
 }
 
 public record CreateCfOrderRequest(
