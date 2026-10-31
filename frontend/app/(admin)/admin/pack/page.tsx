@@ -25,7 +25,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { ordersApi } from '@/lib/api';
+import { ordersApi, packApi, type PackEvent } from '@/lib/api';
 import { getAdminToken } from '@/lib/auth';
 import { PageHeader, Card } from '@/components/admin/Ui';
 import type { Order } from '@/types';
@@ -47,6 +47,46 @@ export default function PackAndScanPage() {
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<string[]>([]);       // order ids finished this session
   const [code, setCode] = useState('');
+
+  // The bench's own history. It used to live in `done` above and nowhere else,
+  // which meant it lasted until somebody pressed F5 - and the questions it
+  // gets asked (which bag did this go in, who packed it) are asked days later.
+  const [history, setHistory] = useState<PackEvent[]>([]);
+  const [histQ, setHistQ] = useState('');
+  const [histBusy, setHistBusy] = useState(false);
+  const [undoId, setUndoId] = useState<number | null>(null);
+  const [undoWhy, setUndoWhy] = useState('');
+  const [undoBusy, setUndoBusy] = useState(false);
+  const [afterUndo, setAfterUndo] = useState<string[] | null>(null);
+
+  const loadHistory = useCallback(async (q = '') => {
+    setHistBusy(true);
+    try {
+      const r = await packApi.history(getAdminToken() ?? '', q);
+      setHistory(r.events ?? []);
+    } catch {
+      setHistory([]);
+    } finally { setHistBusy(false); }
+  }, []);
+
+  useEffect(() => { loadHistory(); }, [loadHistory]);
+
+  const doUndo = async (ev: PackEvent) => {
+    setUndoBusy(true); setAfterUndo(null);
+    try {
+      const r = await packApi.undo(ev.id, undoWhy, getAdminToken() ?? '');
+      setAfterUndo(r.stillStands ?? []);
+      setNote({
+        kind: 'ok',
+        text: `${r.orderId} is back at "${r.status}".`
+          + (r.bagFreed ? ` Bag ${r.bagFreed} is free to use again.` : ''),
+      });
+      setUndoId(null); setUndoWhy('');
+      await loadHistory(histQ);
+    } catch (e) {
+      setNote({ kind: 'err', text: (e as Error).message || 'That could not be undone.' });
+    } finally { setUndoBusy(false); }
+  };
 
   const [camErr, setCamErr] = useState('');
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -103,6 +143,7 @@ export default function PackAndScanPage() {
       try {
         await ordersApi.updateStatus({ orderId: r.orderId, status: 'Ready for Shipping' }, token);
         setDone(d => [r.orderId, ...d].slice(0, 25));
+        loadHistory(histQ);
         setNote({ kind: 'ok', text: `${r.orderId} → Ready to Ship. Bag ${r.bagBarcode}. Next parcel.` });
         setOrder(null);
       } catch (e) {
@@ -322,15 +363,114 @@ export default function PackAndScanPage() {
         </Card>
       )}
 
-      {done.length > 0 && (
-        <Card title={`Packed in this session (${done.length})`}>
-          <div style={{ fontFamily: 'monospace', fontSize: '.8rem', lineHeight: 1.9 }}>
-            {done.map(id => <div key={id}>✓ {id}</div>)}
+      <Card
+        title="History"
+        right={
+          <span style={{ display: 'inline-flex', gap: '.4rem' }}>
+            <input
+              value={histQ}
+              onChange={e => setHistQ(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); loadHistory(histQ); } }}
+              placeholder="Order, AWB or bag"
+              style={{ padding: '.4rem .6rem', border: '1px solid #ccc', borderRadius: 6, fontSize: '.82rem', width: 170 }}
+            />
+            <button className="adm-btn" onClick={() => loadHistory(histQ)} disabled={histBusy}>
+              {histBusy ? 'Looking\u2026' : 'Search'}
+            </button>
+          </span>
+        }
+      >
+        {afterUndo && afterUndo.length > 0 && (
+          <div style={{
+            marginBottom: '.9rem', padding: '.7rem .8rem', borderRadius: 8,
+            background: '#fff8e8', border: '1px solid #f0dcb0', fontSize: '.84rem', color: '#6b4e13',
+          }}>
+            <strong>Undone \u2014 but these still stand:</strong>
+            <ul style={{ margin: '.4rem 0 0', paddingLeft: '1.1rem', lineHeight: 1.6 }}>
+              {afterUndo.map((l, i) => <li key={i}>{l}</li>)}
+            </ul>
           </div>
-        </Card>
-      )}
+        )}
+
+        {history.length === 0 ? (
+          <p style={{ color: '#888', fontSize: '.85rem', margin: 0 }}>
+            {histBusy ? 'Looking\u2026' : 'Nothing packed yet. Every scan from here on is kept.'}
+          </p>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '.55rem' }}>
+            {history.map(ev => (
+              <div key={ev.id} style={{
+                border: '1px solid #eee', borderRadius: 8, padding: '.6rem .75rem',
+                background: ev.action === 'undone' ? '#fbf6f7' : '#fff',
+              }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '.5rem', alignItems: 'baseline' }}>
+                  <strong style={{ fontFamily: 'monospace', fontSize: '.88rem' }}>{ev.orderId}</strong>
+                  <span style={{ fontSize: '.78rem', color: '#a7354d', fontWeight: 700 }}>{ev.action}</span>
+                  <span style={{ flex: 1 }} />
+                  <span style={{ fontSize: '.75rem', color: '#999' }}>{whenIst(ev.createdAt)}</span>
+                </div>
+
+                <div style={{ fontSize: '.8rem', color: '#555', marginTop: '.25rem', lineHeight: 1.6 }}>
+                  {ev.bagBarcode && <>Bag <code>{ev.bagBarcode}</code>{ev.previousBag ? <> (was <code>{ev.previousBag}</code>)</> : null} \u00b7 </>}
+                  {ev.previousBag && !ev.bagBarcode && <>Bag <code>{ev.previousBag}</code> freed \u00b7 </>}
+                  {ev.awb && <>AWB {ev.awb} \u00b7 </>}
+                  {ev.who && <>by {ev.who}</>}
+                  {ev.note && <> \u00b7 {ev.note}</>}
+                </div>
+
+                <div style={{ fontSize: '.78rem', color: '#777', marginTop: '.2rem' }}>
+                  {ev.previousStatus && ev.previousStatus !== ev.currentStatus
+                    ? <>was &ldquo;{ev.previousStatus}&rdquo;, now &ldquo;{ev.currentStatus}&rdquo;</>
+                    : <>now &ldquo;{ev.currentStatus}&rdquo;</>}
+                  {ev.hasInvoice && <> \u00b7 invoice issued</>}
+                </div>
+
+                {undoId === ev.id ? (
+                  <div style={{ marginTop: '.6rem', padding: '.6rem .7rem', background: '#fdf3f2', border: '1px solid #f0cdc9', borderRadius: 8 }}>
+                    <p style={{ margin: '0 0 .4rem', fontSize: '.82rem', color: '#8c2b22', lineHeight: 1.6 }}>
+                      This frees the bag and puts the order back to
+                      &ldquo;{ev.previousStatus || ev.currentStatus}&rdquo;. It does <strong>not</strong> cancel
+                      the waybill at Delhivery, does not take back the invoice number, and cannot unsend
+                      a message the customer has already had.
+                    </p>
+                    <input
+                      value={undoWhy}
+                      onChange={e => setUndoWhy(e.target.value)}
+                      placeholder="Why? (kept with the entry)"
+                      style={{ width: '100%', padding: '.45rem .6rem', border: '1px solid #ccc', borderRadius: 6, fontSize: '.82rem' }}
+                    />
+                    <div style={{ display: 'flex', gap: '.5rem', marginTop: '.5rem' }}>
+                      <button className="adm-btn adm-btn-primary" disabled={undoBusy} onClick={() => doUndo(ev)}>
+                        {undoBusy ? 'Undoing\u2026' : 'Yes, undo it'}
+                      </button>
+                      <button className="adm-btn" disabled={undoBusy} onClick={() => { setUndoId(null); setUndoWhy(''); }}>
+                        Keep it
+                      </button>
+                    </div>
+                  </div>
+                ) : ev.canUndo ? (
+                  <button className="adm-btn" style={{ marginTop: '.5rem' }} onClick={() => { setUndoId(ev.id); setUndoWhy(''); setAfterUndo(null); }}>
+                    Undo this pack
+                  </button>
+                ) : (
+                  <p style={{ margin: '.4rem 0 0', fontSize: '.76rem', color: '#999' }}>
+                    {ev.undoBlockedBecause}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
     </div>
   );
+}
+
+function whenIst(raw: string) {
+  const d = new Date(raw);
+  return isNaN(d.getTime()) ? raw : d.toLocaleString('en-IN', {
+    day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
+  });
 }
 
 function Step({ n, on, text }: { n: number; on: boolean; text: string }) {

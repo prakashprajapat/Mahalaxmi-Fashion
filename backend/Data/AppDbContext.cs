@@ -23,6 +23,7 @@ public class AppDbContext : DbContext
     public DbSet<Review>      Reviews      { get; set; }
     public DbSet<AppReview>   AppReviews   { get; set; }
     public DbSet<MessageSend> MessageSends { get; set; }
+    public DbSet<PackEvent>   PackEvents   { get; set; }
     public DbSet<Coupon>      Coupons      { get; set; }
     public DbSet<CouponRedemption> CouponRedemptions { get; set; }
     public DbSet<Influencer>  Influencers  { get; set; }

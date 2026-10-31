@@ -690,6 +690,38 @@ export const backupApi = {
     }>('/backup/run', { method: 'POST' }, token),
 };
 
+/** One thing that happened at the packing bench. */
+export interface PackEvent {
+  id: number;
+  orderId: string;
+  awb: string | null;
+  action: string;
+  bagBarcode: string | null;
+  previousBag: string | null;
+  previousStatus: string | null;
+  newStatus: string | null;
+  who: string | null;
+  note: string | null;
+  createdAt: string;
+  currentStatus: string | null;
+  currentBag: string | null;
+  hasInvoice: boolean;
+  canUndo: boolean;
+  /** Said in words when it cannot, because a greyed-out button teaches nobody. */
+  undoBlockedBecause: string | null;
+}
+
+export const packApi = {
+  history: (token: string, q = '', take = 50) =>
+    request<{ success: boolean; events: PackEvent[] }>(
+      `/pack/history?take=${take}${q ? `&q=${encodeURIComponent(q)}` : ''}`, {}, token),
+  undo: (eventId: number, reason: string, token: string) =>
+    request<{
+      success: boolean; orderId: string; status: string;
+      bagFreed: string | null; stillStands: string[];
+    }>('/pack/undo', { method: 'POST', body: JSON.stringify({ eventId, reason }) }, token),
+};
+
 export const settingsApi = {
   getAll: (): Promise<SettingsResp> => {
     if (typeof window === 'undefined')

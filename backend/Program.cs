@@ -1105,6 +1105,27 @@ using (var scope = app.Services.CreateScope())
         CREATE INDEX IF NOT EXISTS ix_message_sends_sent_at
             ON message_sends (sent_at DESC);
 
+        -- What happened at the packing bench. The screen used to remember the
+        -- last twenty-five in the page itself, which is to say until somebody
+        -- pressed F5 - and the two questions that get asked later are which bag
+        -- this order went into and who packed it. Rows are added and never
+        -- changed: an undo is another row, not the removal of the one before.
+        CREATE TABLE IF NOT EXISTS pack_events (
+            id              BIGSERIAL PRIMARY KEY,
+            order_id        VARCHAR(64) NOT NULL,
+            awb             VARCHAR(64),
+            action          VARCHAR(20) NOT NULL,
+            bag_barcode     VARCHAR(64),
+            previous_bag    VARCHAR(64),
+            previous_status VARCHAR(40),
+            new_status      VARCHAR(40),
+            who             VARCHAR(160),
+            note            VARCHAR(250),
+            created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        CREATE INDEX IF NOT EXISTS ix_pack_events_order   ON pack_events (order_id);
+        CREATE INDEX IF NOT EXISTS ix_pack_events_newest  ON pack_events (id DESC);
+
         ALTER TABLE site_orders ADD COLUMN IF NOT EXISTS courier_status  VARCHAR(120);
         ALTER TABLE site_orders ADD COLUMN IF NOT EXISTS courier_note    VARCHAR(250);
         ALTER TABLE site_orders ADD COLUMN IF NOT EXISTS courier_seen_at TIMESTAMPTZ;

@@ -1289,8 +1289,26 @@ public class OrdersController : ControllerBase
         // Re-packing into a fresh bag is ordinary, so an existing code is
         // replaced rather than refused - but it is written down, because a bag
         // changing after the parcel was packed is worth being able to look up.
-        if (!string.IsNullOrWhiteSpace(order.BagBarcode) && order.BagBarcode != code)
-            _log.LogInformation("Order {Order}: bag code changed from {Old} to {New}.", order.OrderId, order.BagBarcode, code);
+        var previousBag = order.BagBarcode;
+        if (!string.IsNullOrWhiteSpace(previousBag) && previousBag != code)
+            _log.LogInformation("Order {Order}: bag code changed from {Old} to {New}.", order.OrderId, previousBag, code);
+
+        // Written down before the status moves, so previous_status is the one
+        // an undo has to put back. The screen asks for "Ready for Shipping" in
+        // a separate call straight after this one, and by then this row is the
+        // only record of where the order stood.
+        _db.PackEvents.Add(new PackEvent
+        {
+            OrderId = order.OrderId,
+            Awb = order.Awb,
+            Action = string.IsNullOrWhiteSpace(previousBag)
+                ? PackController.Packed : PackController.BagChanged,
+            BagBarcode = code,
+            PreviousBag = previousBag,
+            PreviousStatus = order.Status,
+            NewStatus = order.Status,
+            Who = PackedBy(),
+        });
 
         order.BagBarcode = code;
         order.UpdatedAt = DateTimeOffset.UtcNow;
@@ -1330,10 +1348,32 @@ public class OrdersController : ControllerBase
         if (order is null)
             return NotFound(new { success = false, message = "No order matches that number." });
 
+        _db.PackEvents.Add(new PackEvent
+        {
+            OrderId = order.OrderId,
+            Awb = order.Awb,
+            Action = PackController.BagCleared,
+            PreviousBag = order.BagBarcode,
+            PreviousStatus = order.Status,
+            NewStatus = order.Status,
+            Who = PackedBy(),
+        });
+
         order.BagBarcode = null;
         order.UpdatedAt = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync();
         return Ok(new { success = true, orderId = order.OrderId });
+    }
+
+    /// Whoever is at the bench, by the email they signed in with. A history
+    /// that cannot say who did something answers half the question it exists
+    /// for.
+    private string PackedBy()
+    {
+        var email = User.FindFirstValue("email");
+        if (!string.IsNullOrWhiteSpace(email)) return email.Trim();
+        var role = User.FindFirstValue("role");
+        return string.IsNullOrWhiteSpace(role) ? "admin" : role.Trim();
     }
 
     // Return the wallet amount spent on an order back to the customer (once). Safe to call more
