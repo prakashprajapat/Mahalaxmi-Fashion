@@ -127,13 +127,13 @@ export async function POST(req: Request) {
 
   if (tooMany(callerIp(req)))
     return NextResponse.json({
-      reply: `One moment 🙏 Please ask again in a few seconds, or message us on WhatsApp: https://wa.me/${WA}`,
+      reply: `One moment Please ask again in a few seconds, or message us on WhatsApp: https://wa.me/${WA}`,
     }, { status: 429 });
 
   const key = process.env.OPENAI_API_KEY;
   if (!key) {
     return NextResponse.json({
-      reply: `Our live assistant is being set up 🙏 For quick help, message us on WhatsApp: https://wa.me/${WA}`,
+      reply: `Our live assistant is being set up For quick help, message us on WhatsApp: https://wa.me/${WA}`,
     });
   }
 
@@ -163,16 +163,16 @@ export async function POST(req: Request) {
     });
     if (!resp.ok) {
       return NextResponse.json({
-        reply: `Sorry, I'm having a little trouble right now 🙏 Get quick help on WhatsApp: https://wa.me/${WA}`,
+        reply: `Sorry, I'm having a little trouble right now Get quick help on WhatsApp: https://wa.me/${WA}`,
       });
     }
     const data = (await resp.json()) as { choices?: Array<{ message?: { content?: string } }> };
     const reply = data.choices?.[0]?.message?.content?.trim()
-      || `Sorry, I didn't quite get that 🙏 Chat with us on WhatsApp: https://wa.me/${WA}`;
+      || `Sorry, I didn't quite get that Chat with us on WhatsApp: https://wa.me/${WA}`;
     return NextResponse.json({ reply });
   } catch {
     return NextResponse.json({
-      reply: `We're having a connection issue 🙏 Please message us on WhatsApp: https://wa.me/${WA}`,
+      reply: `We're having a connection issue Please message us on WhatsApp: https://wa.me/${WA}`,
     });
   }
 }

@@ -31,7 +31,7 @@ export default async function KidsPage() {
   const { products } = await productsApi.getAll({ category: 'kids', pageSize: 200 }).catch(() => ({ products: [] }));
   return (
     <>
-      <CategoryPageContent products={toListingProducts(products as any[]) as any} category="Kids" icon="👶" desc="Cute & comfortable kids clothing" allHref="/products?category=kids" />
+      <CategoryPageContent products={toListingProducts(products as any[]) as any} category="Kids" icon="" desc="Cute & comfortable kids clothing" allHref="/products?category=kids" />
       <CategorySeoBlock slug="kids" />
     </>
   );

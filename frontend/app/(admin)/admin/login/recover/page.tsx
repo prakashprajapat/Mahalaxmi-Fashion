@@ -123,7 +123,7 @@ export default function AdminRecoverPage() {
                 <h2 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '.5rem', gridColumn: '1 / -1' }}>Step 2 — Enter OTP</h2>
                 {devOtp ? (
                   <div style={{ gridColumn: '1 / -1', background: '#e8f5e9', border: '1.5px solid #c8e6c9', borderRadius: '10px', padding: '.85rem 1rem', marginBottom: '.5rem' }}>
-                    <p style={{ fontSize: '.8rem', color: '#2e7d32', fontWeight: 700, margin: '0 0 .3rem' }}>📋 Your OTP (email not configured yet):</p>
+                    <p style={{ fontSize: '.8rem', color: '#2e7d32', fontWeight: 700, margin: '0 0 .3rem' }}>Your OTP (email not configured yet):</p>
                     <p style={{ fontSize: '1.8rem', fontWeight: 800, letterSpacing: '.2em', color: '#1b5e20', margin: 0 }}>{devOtp}</p>
                     <p style={{ fontSize: '.75rem', color: '#555', margin: '.3rem 0 0' }}>Copy this code and enter below. Valid for 15 minutes.</p>
                   </div>
@@ -158,7 +158,7 @@ export default function AdminRecoverPage() {
                 <h2 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '.5rem', gridColumn: '1 / -1' }}>Step 3 — New Password</h2>
                 {success ? (
                   <div style={{ padding: '1rem', background: '#e8f5e9', borderRadius: '8px', color: '#2e7d32', fontWeight: 600, gridColumn: '1 / -1', textAlign: 'center' }}>
-                    ✅ {success}
+                    {success}
                   </div>
                 ) : (
                   <>
@@ -176,7 +176,7 @@ export default function AdminRecoverPage() {
                     {error && <p className="wiz-message full-field">{error}</p>}
                     <div className="form-actions">
                       <button className="button primary" onClick={handleReset} disabled={loading}>
-                        {loading ? 'Updating…' : '🔐 Update Password'}
+                        {loading ? 'Updating…' : 'Update Password'}
                       </button>
                       <Link href="/admin/login" className="button secondary">← Back to Login</Link>
                     </div>

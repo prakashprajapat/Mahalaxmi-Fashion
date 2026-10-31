@@ -106,7 +106,6 @@ export default function ForgotPasswordPage() {
               <h2>Enter OTP</h2>
               <p style={{ color: '#555', fontSize: '.9rem', marginBottom: '.5rem' }}>OTP sent to <strong>{sentMsg}</strong></p>
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: '.5rem', background: '#fff8e1', border: '1px solid #ffe082', borderRadius: '8px', padding: '.65rem .85rem', margin: '.5rem 0 .75rem', fontSize: '.84rem', color: '#795548' }}>
-                <span style={{ fontSize: '1.1rem', flexShrink: 0 }}>📬</span>
                 <span>Check your <strong>Spam / Junk</strong> folder (email) or wait a few seconds (SMS) if you did not receive the OTP.</span>
               </div>
               {error && <p className="wiz-message">{error}</p>}
@@ -145,7 +144,7 @@ export default function ForgotPasswordPage() {
 
           {step === 'done' && (
             <div className="form-card" style={{ textAlign: 'center', padding: '2rem 1rem' }}>
-              <div style={{ fontSize: '3rem', marginBottom: '.75rem' }}>✅</div>
+              <div style={{ fontSize: '3rem', marginBottom: '.75rem' }}>✓</div>
               <h2 style={{ color: '#27ae60' }}>Password Reset!</h2>
               <p style={{ color: '#555', marginBottom: '1.5rem' }}>Your password has been updated. You can now login with your new password.</p>
               <div className="form-actions" style={{ justifyContent: 'center' }}>

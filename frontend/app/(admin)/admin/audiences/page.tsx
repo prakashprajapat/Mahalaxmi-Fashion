@@ -304,7 +304,7 @@ export default function AudiencesPage() {
       {result && (
         <div style={{ ...box, marginTop: '1.1rem' }}>
           <p style={{ margin: '0 0 .6rem', fontWeight: 700, fontSize: '.95rem' }}>
-            {result.success ? '✅ Sent' : '⚠️ Partly sent'}
+            {result.success ? 'Sent' : 'Partly sent'}
           </p>
           {result.meta && (
             <p style={{ margin: '0 0 .4rem', fontSize: '.87rem', lineHeight: 1.65 }}>

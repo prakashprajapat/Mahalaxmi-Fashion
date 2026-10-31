@@ -357,7 +357,7 @@ function PhotoSlot({
     }
   };
 
-  const icon = label.includes('SIDE') ? '↔️' : label.includes('BACK') ? '🔄' : label.includes('ZOOM') ? '🔍' : '📷';
+  const icon = label.includes('SIDE') ? '↔' : label.includes('BACK') ? '' : label.includes('ZOOM') ? '' : '';
 
   return (
     <div style={{ border: isFirst ? '2px solid #1a1a2e' : '2px dashed #ddd', borderRadius: '10px', overflow: 'hidden', background: '#fff' }}>
@@ -546,7 +546,7 @@ function CustomColourModal({
 
         {/* Header */}
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'1rem' }}>
-          <h3 style={{ fontWeight:700, fontSize:'1rem', margin:0 }}>🎨 Add New Custom Colour</h3>
+          <h3 style={{ fontWeight:700, fontSize:'1rem', margin:0 }}>Add New Custom Colour</h3>
           <button onClick={onClose} style={{ background:'none', border:'none', fontSize:'1.3rem', cursor:'pointer', color:'#888', lineHeight:1 }}>✕</button>
         </div>
 
@@ -626,7 +626,7 @@ function CustomColourModal({
         {/* ── Colour Code ── */}
         <div style={{ background:'#f9f9f9', borderRadius:'10px', padding:'1rem', marginBottom:'1rem' }}>
           <div style={{ display:'flex', alignItems:'center', gap:'.5rem', marginBottom:'.75rem' }}>
-            <span style={{ fontSize:'.85rem', fontWeight:700 }}>🎯 Colour Code</span>
+            <span style={{ fontSize:'.85rem', fontWeight:700 }}>Colour Code</span>
             <span style={{ fontSize:'.72rem', color:'#888' }}>(for the circle)</span>
           </div>
 
@@ -649,7 +649,7 @@ function CustomColourModal({
           {/* Eyedropper from uploaded photo */}
           <button onClick={() => eyeFileRef.current?.click()}
             style={{ width:'100%', background:'#fdecea', color:'#a7354d', border:'1.5px solid #f5c6cb', borderRadius:'8px', padding:'.45rem', fontSize:'.8rem', fontWeight:600, cursor:'pointer', marginBottom:'.4rem' }}>
-            📷 Upload a photo and pick the colour
+            Upload a photo and pick the colour
           </button>
           <input ref={eyeFileRef} type="file" accept="image/*" hidden
             onChange={e => { if (e.target.files?.[0]) { readFile(e.target.files[0], setEyedropSrc); setLocked(false); } }} />
@@ -657,7 +657,7 @@ function CustomColourModal({
           {eyedropSrc && (
             <>
               <p style={{ fontSize:'.7rem', color:'#888', margin:'.2rem 0 .3rem' }}>
-                📌 Hover over a photo to preview the colour. <strong>Click</strong> to {locked ? 'unlock 🔓' : 'lock 🔒'}
+                Hover over a photo to preview the colour. <strong>Click</strong> to {locked ? 'unlock' : 'lock'}
               </p>
               <canvas ref={canvasRef}
                 onMouseMove={pickColour}
@@ -708,7 +708,7 @@ function PickFilter({ label, options, selectedValues, onToggle }: {
     <div style={{ position:'relative', display:'inline-block' }}>
       <button type="button" onClick={() => setOpen(o => !o)}
         style={{ border:'1.5px solid #a7354d', background: count > 0 ? '#fdf0f3' : '#fff', color:'#a7354d', borderRadius:'20px', padding:'.28rem .8rem', fontSize:'.8rem', fontWeight:700, cursor:'pointer' }}>
-        🔍 {label}{count > 0 ? ` (${count})` : ''} ▾
+        {label}{count > 0 ? ` (${count})` : ''} ▾
       </button>
       {open && (
         <>
@@ -1257,9 +1257,9 @@ export default function AddProductPage() {
       if (/sku/i.test(msg) && /already (exists|used)/i.test(msg)) {
         const fresh = await fetchNextSku();
         setSku(fresh);
-        alert(`❌ ${msg}\n\nA new SKU has been taken: ${fresh}. Press Save again.`);
+        alert(`${msg}\n\nA new SKU has been taken: ${fresh}. Press Save again.`);
       } else {
-        alert('❌ ' + msg);
+        alert(msg);
       }
     }
     finally { setSaving(false); }
@@ -1885,7 +1885,7 @@ export default function AddProductPage() {
             <div style={{ marginTop:'.85rem', border:'1.5px solid #eee', borderRadius:'10px', overflow:'auto' }}>
               <div style={{ background:'#fafafa', padding:'.65rem .85rem', display:'flex', justifyContent:'space-between', gap:'.75rem', alignItems:'center', flexWrap:'wrap' }}>
                 <span style={{ fontSize:'.84rem', fontWeight:700, color:'#444' }}>
-                  📦 Stock by {selectedColours.length ? 'Size × Colour/Design' : 'Size'}
+                  Stock by {selectedColours.length ? 'Size × Colour/Design' : 'Size'}
                 </span>
                 <span style={{ fontSize:'.78rem', color:'#888' }}>Total: {stockTotal} pcs</span>
               </div>
@@ -2199,7 +2199,7 @@ export default function AddProductPage() {
               product has to be saveable, and that is what a draft is. */}
           <button onClick={() => handleSave()} disabled={saving}
             style={{ background: saving ? '#bbb' : gate.passed ? '#2e7d32' : '#c26a12', color:'#fff', border:'none', borderRadius:'8px', padding:'.7rem 2rem', fontSize:'.95rem', fontWeight:700, cursor: saving ? 'not-allowed' : 'pointer' }}>
-            {saving ? 'Adding…' : gate.passed ? '✅ Add & publish' : `💾 Add as draft (${gate.blocking.length} to fix)`}
+            {saving ? 'Adding…' : gate.passed ? 'Add & publish' : `Add as draft (${gate.blocking.length} to fix)`}
           </button>
           <button onClick={clearAll}
             style={{ background:'#f5f5f5', color:'#555', border:'none', borderRadius:'8px', padding:'.7rem 2rem', fontSize:'.95rem', fontWeight:700, cursor:'pointer' }}>

@@ -348,7 +348,7 @@ public class BackupService : BackgroundService
 
     private static string SubjectFor(BackupResult r, string stamp) =>
         r.DatabaseError is not null
-            ? $"⚠ Mahalaxmi backup {stamp} — DATABASE FAILED"
+            ? $"Mahalaxmi backup {stamp} — DATABASE FAILED"
             : "Mahalaxmi backup " + stamp + " — database + " + r.PhotoCount
               + (r.PhotoCount == 1 ? " new photo" : " new photos");
 

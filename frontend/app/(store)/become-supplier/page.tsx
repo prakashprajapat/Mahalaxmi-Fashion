@@ -52,7 +52,7 @@ export default function BecomeSupplierPage() {
         </section>
         <main className="account-shell" style={{ display: 'block' }}>
           <div className="form-card" style={{ textAlign: 'center', padding: '2.5rem 1.5rem' }}>
-            <div style={{ fontSize: '2.5rem' }}>✅</div>
+            <div style={{ fontSize: '2.5rem' }}>✓</div>
             <h2 style={{ marginTop: '.5rem' }}>Thank you, {form.contactName.split(' ')[0] || 'Partner'}!</h2>
             <p style={{ color: '#666', maxWidth: 520, margin: '.5rem auto 1.25rem' }}>
               Your supplier application has been received. Our team will review your details and contact you soon on <strong>{form.phone}</strong>.

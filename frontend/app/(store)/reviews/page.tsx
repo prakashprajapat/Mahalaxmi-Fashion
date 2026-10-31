@@ -28,6 +28,7 @@ export default function ReviewsPage() {
   const [text, setText] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [msg, setMsg] = useState('');
+  const [msgOk, setMsgOk] = useState(false);
 
   // Photos. This page had no way to add one at all - the box existed only on
   // the product page, so a customer who came here from My Account to review a
@@ -62,8 +63,8 @@ export default function ReviewsPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedProductId) { setMsg('Please select a product to review.'); return; }
-    if (!text.trim()) { setMsg('Please write a review.'); return; }
+    if (!selectedProductId) { setMsgOk(false); setMsg('Please select a product to review.'); return; }
+    if (!text.trim()) { setMsgOk(false); setMsg('Please write a review.'); return; }
     setSubmitting(true); setMsg('');
     try {
       const token = getToken() ?? '';
@@ -73,6 +74,7 @@ export default function ReviewsPage() {
       // it does not have.
       let images: string[] = [];
       if (files.length > 0) {
+        setMsgOk(true);
         setMsg('Uploading photos…');
         images = await Promise.all(files.slice(0, 3).map(f => reviewsApi.uploadImage(f, token)));
       }
@@ -84,10 +86,11 @@ export default function ReviewsPage() {
         orderId: selectedOrderId,
         images,
       }, token);
-      setMsg('✅ Review submitted! It will appear after approval.');
+      setMsgOk(true);
+      setMsg('Review submitted! It will appear after approval.');
       setText(''); setRating(5); setSelectedProductId(''); setSelectedOrderId('');
       setFiles([]);
-    } catch (e) { setMsg('❌ ' + (e as Error).message); }
+    } catch (e) { setMsgOk(false); setMsg((e as Error).message); }
     finally { setSubmitting(false); }
   };
 
@@ -109,7 +112,6 @@ export default function ReviewsPage() {
               <p style={{ color: '#aaa' }}>Loading your orders…</p>
             ) : orders.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '2rem', color: '#888' }}>
-                <div style={{ fontSize: '2.5rem', marginBottom: '.75rem' }}>📦</div>
                 <p>No delivered orders found. Reviews can only be submitted for delivered orders.</p>
                 <Link href="/orders" className="button primary" style={{ display: 'inline-block', marginTop: '1rem' }}>View Orders</Link>
               </div>
@@ -162,7 +164,7 @@ export default function ReviewsPage() {
                   )}
                 </div>
 
-                {msg && <p className="full-field" style={{ color: msg.startsWith('✅') ? '#27ae60' : '#c0392b', fontWeight: 600 }}>{msg}</p>}
+                {msg && <p className="full-field" style={{ color: msgOk ? '#27ae60' : '#c0392b', fontWeight: 600 }}>{msg}</p>}
 
                 <div className="form-actions">
                   <button type="submit" className="button primary" disabled={submitting}>

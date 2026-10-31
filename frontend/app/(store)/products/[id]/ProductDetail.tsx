@@ -89,7 +89,7 @@ function Stars({ n, onClick }: { n: number; onClick?: (v: number) => void }) {
  * Wahi photo jo neeche wala effect chunega.
  *
  * activeImg khali se shuru hota tha, isliye product khulte hi ek badi halki
- * 👗 emoji jhalakti thi aur uske baad photo aati thi — har baar. Server product
+ * emoji jhalakti thi aur uske baad photo aati thi — har baar. Server product
  * pehle hi bhej chuka hota hai, to photo pehle hi render me daal dete hain:
  * emoji khatam, aur photo HTML me hi aa jati hai (page bhi jaldi dikhta hai).
  */
@@ -193,6 +193,7 @@ export default function ProductDetail({ params, initialProduct = null }: { param
     return () => urls.forEach(URL.revokeObjectURL);
   }, [reviewFiles]);
   const [reviewMsg, setReviewMsg] = useState('');
+  const [reviewMsgOk, setReviewMsgOk] = useState(false);
   const [submittingReview, setSubmittingReview] = useState(false);
 
   // The review already written for the order now selected, if there is one.
@@ -650,8 +651,8 @@ export default function ProductDetail({ params, initialProduct = null }: { param
   const handleReviewSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const customer = getCustomer();
-    if (!customer) { setReviewMsg('Please login to submit a review.'); return; }
-    if (!reviewText.trim()) { setReviewMsg('Please write your review.'); return; }
+    if (!customer) { setReviewMsgOk(false); setReviewMsg('Please login to submit a review.'); return; }
+    if (!reviewText.trim()) { setReviewMsgOk(false); setReviewMsg('Please write your review.'); return; }
     setSubmittingReview(true); setReviewMsg('');
     try {
       const token = getToken() ?? '';
@@ -667,17 +668,19 @@ export default function ProductDetail({ params, initialProduct = null }: { param
           ? images
           : (() => { try { return JSON.parse(existingReview.imageUrls ?? '[]') as string[]; } catch { return []; } })();
         await reviewsApi.update(existingReview.id, { rating, text: reviewText.trim(), images: keep }, token);
-        setReviewMsg('✅ Your review has been updated. It will appear again after approval.');
+        setReviewMsgOk(true);
+        setReviewMsg('Your review has been updated. It will appear again after approval.');
       } else {
-        if (!reviewOrderId) { setReviewMsg('❌ Could not tell which order this is about. Reload the page.'); return; }
+        if (!reviewOrderId) { setReviewMsgOk(false); setReviewMsg('Could not tell which order this is about. Reload the page.'); return; }
         await reviewsApi.submit({ productId: product.dbId, rating, text: reviewText.trim(), orderId: reviewOrderId, images }, token);
-        setReviewMsg('✅ Review submitted! It will appear after approval.');
+        setReviewMsgOk(true);
+        setReviewMsg('Review submitted! It will appear after approval.');
       }
 
       setReviewFiles([]);
       const fresh = await reviewsApi.mine(product.dbId, token).catch(() => null);
       if (fresh) setMyReviews(fresh.reviews ?? []);
-    } catch (e) { setReviewMsg('❌ ' + (e as Error).message); }
+    } catch (e) { setReviewMsgOk(false); setReviewMsg((e as Error).message); }
     finally { setSubmittingReview(false); }
   };
 
@@ -1088,6 +1091,9 @@ export default function ProductDetail({ params, initialProduct = null }: { param
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '.5rem' }}>
                         <div>
                           <span style={{ fontWeight: 700, fontSize: '.9rem' }}>{r.customerName || 'Customer'}</span>
+                          {r.place && (
+                            <div style={{ fontSize: '.75rem', color: '#999', marginTop: '.1rem' }}>{r.place}</div>
+                          )}
                           <div style={{ marginTop: '.15rem' }}><Stars n={r.rating} /></div>
                         </div>
                         {r.createdAt && (
@@ -1175,7 +1181,7 @@ export default function ProductDetail({ params, initialProduct = null }: { param
                       </div>
                     )}
                   </div>
-                  {reviewMsg && <p style={{ fontSize: '.85rem', color: reviewMsg.startsWith('✅') ? '#27ae60' : '#c0392b', fontWeight: 600 }}>{reviewMsg}</p>}
+                  {reviewMsg && <p style={{ fontSize: '.85rem', color: reviewMsgOk ? '#27ae60' : '#c0392b', fontWeight: 600 }}>{reviewMsg}</p>}
                   <button type="submit" disabled={submittingReview} className="button primary" style={{ alignSelf: 'flex-start' }}>
                     {submittingReview
                       ? (existingReview ? 'Saving…' : 'Submitting…')
@@ -1185,7 +1191,7 @@ export default function ProductDetail({ params, initialProduct = null }: { param
               </div>
             ) : (
               <div style={{ background: '#f9f9f9', borderRadius: '12px', padding: '1.25rem', border: '1.5px solid #eee', color: '#888', fontSize: '.88rem', textAlign: 'center' }}>
-                🛍️ Purchase &amp; receive this product to write a review.
+                Purchase &amp; receive this product to write a review.
               </div>
             )}
           </div>

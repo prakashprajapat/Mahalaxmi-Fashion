@@ -107,7 +107,7 @@ export default function NotFound() {
             ⌂ Go to Homepage
           </Link>
           <Link href="/products" className="button secondary">
-            🛍️ Browse Products
+            Browse Products
           </Link>
         </div>
 

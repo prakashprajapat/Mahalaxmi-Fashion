@@ -12,6 +12,9 @@ export default function NewsletterPage() {
   const [consent, setConsent] = useState(false);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState('');
+  // Whether that message is good news, kept beside it rather than read
+  // back out of its first character.
+  const [msgOk, setMsgOk] = useState(false);
 
   useEffect(() => {
     const c = getCustomer();
@@ -27,9 +30,11 @@ export default function NewsletterPage() {
       await customersApi.updateProfile(customer.id, { ...customer, marketingConsent: consent }, getToken() ?? '');
       saveCustomer({ ...customer, marketingConsent: consent });
       window.dispatchEvent(new Event('auth-changed'));
-      setMsg(consent ? '✅ You are now subscribed to newsletters and offers.' : '✅ You have been unsubscribed.');
+      setMsgOk(true);
+      setMsg(consent ? 'You are now subscribed to newsletters and offers.' : 'You have been unsubscribed.');
     } catch (e) {
-      setMsg('❌ Error: ' + (e as Error).message);
+      setMsgOk(false);
+      setMsg('Error: ' + (e as Error).message);
     } finally { setSaving(false); }
   };
 
@@ -69,7 +74,7 @@ export default function NewsletterPage() {
             </div>
 
             {msg && (
-              <p style={{ color: msg.startsWith('✅') ? '#27ae60' : '#c0392b', fontWeight: 600, marginBottom: '1rem', fontSize: '.9rem' }}>{msg}</p>
+              <p style={{ color: msgOk ? '#27ae60' : '#c0392b', fontWeight: 600, marginBottom: '1rem', fontSize: '.9rem' }}>{msg}</p>
             )}
 
             <div className="form-actions">

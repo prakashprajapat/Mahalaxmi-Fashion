@@ -928,6 +928,8 @@ export interface PublicReview {
   productName: string | null;
   productImage: string | null;
   customerName: string;
+  /** "Barmer, Rajasthan", or empty when the shop never recorded one. */
+  place: string;
   rating: number;
   text: string;
   imageUrls: string | null;

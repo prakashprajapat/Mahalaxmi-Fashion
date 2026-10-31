@@ -17,7 +17,7 @@ export default function SizeGuideButton() {
     <>
       <button onClick={() => setOpen(true)}
         style={{ background: 'none', border: 'none', color: '#722f37', fontWeight: 600, fontSize: '.82rem', cursor: 'pointer', textDecoration: 'underline', padding: 0 }}>
-        📏 Size Guide
+        Size Guide
       </button>
 
       {open && (

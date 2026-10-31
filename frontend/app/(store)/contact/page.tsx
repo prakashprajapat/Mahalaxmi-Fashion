@@ -120,7 +120,7 @@ export default function ContactPage() {
 
             {sent && (
               <div style={{ background: '#e8f5e9', color: '#2e7d32', border: '1px solid #c8e6c9', borderRadius: '8px', padding: '.75rem 1rem', marginBottom: '1rem', fontWeight: 600, fontSize: '.9rem' }}>
-                ✅ WhatsApp opened with your message! We will respond shortly.
+                WhatsApp opened with your message! We will respond shortly.
               </div>
             )}
 

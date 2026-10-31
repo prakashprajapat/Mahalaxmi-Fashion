@@ -122,7 +122,6 @@ export default function FloatingCart() {
         <div className="fcart-inner">
           {/* Left: cart info */}
           <div className="fcart-info">
-            <span className="fcart-emoji" aria-hidden="true">🛒</span>
             <div style={{ minWidth: 0 }}>
               <span className="fcart-count">
                 {count} item{count !== 1 ? 's' : ''}

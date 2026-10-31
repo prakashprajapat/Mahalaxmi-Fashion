@@ -359,7 +359,7 @@ export default function OrdersPage() {
                   borderBottom: activeTab === tab ? '2.5px solid #722f37' : '2.5px solid transparent',
                   marginBottom: '-2px',
                 }}>
-                {tab === 'orders' ? `📦 My Orders (${orders.length})` : `🔄 My Returns (${returnOrders.length})`}
+                {tab === 'orders' ? `My Orders (${orders.length})` : `My Returns (${returnOrders.length})`}
               </button>
             ))}
           </div>
@@ -383,7 +383,7 @@ export default function OrdersPage() {
                     color: statusFilter === f ? '#fff' : '#555',
                     fontSize: '.82rem', fontWeight: 600, cursor: 'pointer',
                   }}>
-                  {f === 'all' ? 'All Orders' : f === 'active' ? '🕐 Active' : f === 'delivered' ? '✅ Delivered' : '❌ Cancelled'}
+                  {f === 'all' ? 'All Orders' : f === 'active' ? 'Active' : f === 'delivered' ? '✓ Delivered' : '✕ Cancelled'}
                 </button>
               ))}
             </div>
@@ -394,7 +394,6 @@ export default function OrdersPage() {
           ) : activeTab === 'returns' ? (
             returnOrders.length === 0 ? (
               <div className="form-card" style={{ textAlign: 'center', padding: '3rem' }}>
-                <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🔄</div>
                 <h3 style={{ color: '#555' }}>No return requests yet</h3>
                 <p style={{ color: '#888' }}>Items eligible for return will appear here.</p>
               </div>
@@ -443,7 +442,6 @@ export default function OrdersPage() {
             )
           ) : filteredOrders.length === 0 ? (
             <div className="form-card" style={{ textAlign: 'center', padding: '3rem' }}>
-              <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📦</div>
               <h3 style={{ color: '#555' }}>{orders.length === 0 ? 'No orders yet' : 'No orders in this category'}</h3>
               <p style={{ color: '#888', marginBottom: '1.5rem' }}>{orders.length === 0 ? 'Your order history will appear here.' : 'Try a different filter.'}</p>
               {orders.length === 0 && <Link href="/products" className="button primary">Start Shopping</Link>}
@@ -483,7 +481,7 @@ export default function OrdersPage() {
                           <div key={i} className="ord-item">
                             {thumb
                               ? <img className="ord-item-img" src={thumb} alt={item.name} loading="lazy" />
-                              : <div className="ord-item-img ord-item-img-ph">👗</div>}
+                              : <div className="ord-item-img ord-item-img-ph"></div>}
                             <div className="ord-item-body">
                               <span className="ord-item-name">{item.name}</span>
                               {(sizeOnly || item.color) && (
@@ -554,16 +552,16 @@ export default function OrdersPage() {
 
                       {/* ── Media uploads (all optional) ────────────────────────── */}
                       <div style={{ borderTop: '1px dashed #e0e0e0', margin: '.85rem 0 .35rem', paddingTop: '.6rem' }}>
-                        <p style={{ fontSize: '.8rem', fontWeight: 700, color: '#555', margin: '0 0 .1rem' }}>📷 Photos &amp; Videos <span style={{ fontWeight: 400, color: '#999' }}>(optional, but recommended)</span></p>
+                        <p style={{ fontSize: '.8rem', fontWeight: 700, color: '#555', margin: '0 0 .1rem' }}>Photos &amp; Videos <span style={{ fontWeight: 400, color: '#999' }}>(optional, but recommended)</span></p>
                         <p style={{ fontSize: '.72rem', color: '#999', margin: '0 0 .6rem' }}>Add an opening video/photos (parcel being opened) and return-pack video/photos (item being re-packed). This speeds up return approval.</p>
                       </div>
 
                       {/* Opening video */}
                       <div style={{ marginBottom: '.7rem' }}>
-                        <label style={{ fontSize: '.8rem', fontWeight: 600, color: '#555', display: 'block', marginBottom: '.25rem' }}>🎬 Opening Video</label>
+                        <label style={{ fontSize: '.8rem', fontWeight: 600, color: '#555', display: 'block', marginBottom: '.25rem' }}>Opening Video</label>
                         {openVideo ? (
                           <div style={{ display: 'flex', alignItems: 'center', gap: '.5rem', fontSize: '.8rem', color: '#333', background: '#fff', border: '1px solid #eee', borderRadius: '8px', padding: '.4rem .6rem' }}>
-                            <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>🎬 {openVideo.name} · {(openVideo.size / 1048576).toFixed(1)} MB</span>
+                            <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{openVideo.name} · {(openVideo.size / 1048576).toFixed(1)} MB</span>
                             <button type="button" onClick={() => setOpenVideo(null)} style={{ background: 'none', border: 'none', color: '#e74c3c', cursor: 'pointer', fontWeight: 700 }}>Remove</button>
                           </div>
                         ) : (
@@ -573,7 +571,7 @@ export default function OrdersPage() {
 
                       {/* Opening photos */}
                       <div style={{ marginBottom: '.7rem' }}>
-                        <label style={{ fontSize: '.8rem', fontWeight: 600, color: '#555', display: 'block', marginBottom: '.25rem' }}>🖼️ Opening Photos <span style={{ color: '#999', fontWeight: 400 }}>({openPhotos.length}/{MAX_PHOTOS})</span></label>
+                        <label style={{ fontSize: '.8rem', fontWeight: 600, color: '#555', display: 'block', marginBottom: '.25rem' }}>Opening Photos <span style={{ color: '#999', fontWeight: 400 }}>({openPhotos.length}/{MAX_PHOTOS})</span></label>
                         {openPhotos.length > 0 && (
                           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '.4rem', marginBottom: '.4rem' }}>
                             {openPhotos.map((p, i) => (
@@ -591,10 +589,10 @@ export default function OrdersPage() {
 
                       {/* Return-pack video */}
                       <div style={{ marginBottom: '.7rem' }}>
-                        <label style={{ fontSize: '.8rem', fontWeight: 600, color: '#555', display: 'block', marginBottom: '.25rem' }}>🎬 Return-Pack Video <span style={{ color: '#999', fontWeight: 400 }}>(closing)</span></label>
+                        <label style={{ fontSize: '.8rem', fontWeight: 600, color: '#555', display: 'block', marginBottom: '.25rem' }}>Return-Pack Video <span style={{ color: '#999', fontWeight: 400 }}>(closing)</span></label>
                         {closeVideo ? (
                           <div style={{ display: 'flex', alignItems: 'center', gap: '.5rem', fontSize: '.8rem', color: '#333', background: '#fff', border: '1px solid #eee', borderRadius: '8px', padding: '.4rem .6rem' }}>
-                            <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>🎬 {closeVideo.name} · {(closeVideo.size / 1048576).toFixed(1)} MB</span>
+                            <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{closeVideo.name} · {(closeVideo.size / 1048576).toFixed(1)} MB</span>
                             <button type="button" onClick={() => setCloseVideo(null)} style={{ background: 'none', border: 'none', color: '#e74c3c', cursor: 'pointer', fontWeight: 700 }}>Remove</button>
                           </div>
                         ) : (
@@ -604,7 +602,7 @@ export default function OrdersPage() {
 
                       {/* Return-pack photos */}
                       <div style={{ marginBottom: '.7rem' }}>
-                        <label style={{ fontSize: '.8rem', fontWeight: 600, color: '#555', display: 'block', marginBottom: '.25rem' }}>🖼️ Return-Pack Photos <span style={{ color: '#999', fontWeight: 400 }}>(closing · {closePhotos.length}/{MAX_PHOTOS})</span></label>
+                        <label style={{ fontSize: '.8rem', fontWeight: 600, color: '#555', display: 'block', marginBottom: '.25rem' }}>Return-Pack Photos <span style={{ color: '#999', fontWeight: 400 }}>(closing · {closePhotos.length}/{MAX_PHOTOS})</span></label>
                         {closePhotos.length > 0 && (
                           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '.4rem', marginBottom: '.4rem' }}>
                             {closePhotos.map((p, i) => (
@@ -644,10 +642,10 @@ export default function OrdersPage() {
                     {invoiceValid(order) ? (
                       <button className="button secondary" onClick={() => handleInvoice(order.id)}
                         style={{ fontSize: '.82rem', padding: '.4rem .85rem', borderColor: '#722f37', color: '#722f37' }}>
-                        🧾 Download Invoice
+                        Download Invoice
                       </button>
                     ) : (
-                      <span style={{ fontSize: '.78rem', color: '#999', alignSelf: 'center' }}>🧾 Invoice expired</span>
+                      <span style={{ fontSize: '.78rem', color: '#999', alignSelf: 'center' }}>Invoice expired</span>
                     )}
                     {canCancel(order) && (
                       <button
@@ -663,7 +661,7 @@ export default function OrdersPage() {
                         className="button secondary"
                         onClick={() => setReturnOrderId(order.id)}
                         style={{ fontSize: '.82rem', padding: '.4rem .85rem' }}>
-                        🔄 Request Return
+                        Request Return
                       </button>
                     )}
                     {canReturn(order) && !exchangeAsked.includes(order.id) && (
@@ -685,7 +683,7 @@ export default function OrdersPage() {
                       </Link>
                     )}
                     <Link href={`/tracking?awb=${order.awb ?? ''}`} className="button secondary" style={{ fontSize: '.82rem', padding: '.4rem .85rem' }}>
-                      📦 Track
+                      Track
                     </Link>
                   </div>{/* /ord-actions */}
                   </div>{/* /ord-body */}
@@ -729,7 +727,7 @@ export default function OrdersPage() {
                   <div key={i} style={{ display: 'flex', gap: '.75rem', alignItems: 'center', borderBottom: '1px solid #f5f5f5', paddingBottom: '.75rem' }}>
                     {thumb
                       ? <img src={thumb} alt="" style={{ width: 56, height: 56, borderRadius: 8, objectFit: 'cover', border: '1px solid #eee', flexShrink: 0 }} />
-                      : <div style={{ width: 56, height: 56, borderRadius: 8, background: '#f5f5f5', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.4rem', flexShrink: 0 }}>👗</div>}
+                      : <div style={{ width: 56, height: 56, borderRadius: 8, background: '#f5f5f5', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.4rem', flexShrink: 0 }}></div>}
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontWeight: 600, fontSize: '.9rem', color: '#333' }}>{item.name}</div>
                       <div style={{ fontSize: '.75rem', color: '#888', fontFamily: 'monospace' }}>SKU: {item.sku || '—'}{item.colorColumn ? ` · Col ${item.colorColumn}` : ''}</div>
@@ -775,7 +773,7 @@ export default function OrdersPage() {
                   {cancellingId === detailOrder.id ? 'Cancelling…' : '✕ Cancel Order'}
                 </button>
               )}
-              <Link href={`/tracking?awb=${detailOrder.awb ?? ''}`} className="button secondary" style={{ fontSize: '.82rem', padding: '.4rem .85rem' }}>📦 Track</Link>
+              <Link href={`/tracking?awb=${detailOrder.awb ?? ''}`} className="button secondary" style={{ fontSize: '.82rem', padding: '.4rem .85rem' }}>Track</Link>
               <button className="button primary" onClick={() => setDetailOrder(null)} style={{ fontSize: '.82rem', padding: '.4rem .85rem', marginLeft: 'auto' }}>Close</button>
             </div>
           </div>

@@ -189,7 +189,7 @@ export default function ColourFixPage() {
           <strong>1 to 3 real colours</strong> from the print, the most visible one first:{' '}
           <code style={{ background: '#f4f4f4', padding: '0 .3rem', borderRadius: 3 }}>Navy/White/Red</code>.
           <br />
-          Press <strong>📷 Fill colours from the photo</strong> on each product — it takes the colours
+          Press <strong>Fill colours from the photo</strong> on each product — it takes the colours
           from the photo itself. Change a name if it does not look right, then Save.
         </p>
       </Card>

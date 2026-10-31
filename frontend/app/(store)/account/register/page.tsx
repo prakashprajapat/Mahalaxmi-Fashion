@@ -459,7 +459,6 @@ export default function RegisterPage() {
           {/* ── Step 2: OTP verification ─────────────────────── */}
           {step === 'otp' && (
             <div className="form-card" style={{ maxWidth: '460px', margin: '0 auto', textAlign: 'center' }}>
-              <div style={{ fontSize: '2.5rem', marginBottom: '.4rem' }}>📱</div>
               <h2 style={{ marginBottom: '.3rem' }}>Verify Your Mobile</h2>
               <p style={{ color: '#666', fontSize: '.88rem', marginBottom: '1.25rem', lineHeight: 1.5 }}>
                 Enter the 6-digit OTP sent to <strong>+91 {cleanPhone()}</strong>.
@@ -484,7 +483,7 @@ export default function RegisterPage() {
 
               <div style={{ display: 'flex', gap: '.75rem', justifyContent: 'center', flexWrap: 'wrap', marginTop: '.75rem' }}>
                 <button type="button" onClick={handleVerifyAndCreate} disabled={loading} className="button primary">
-                  {loading ? 'Verifying…' : '✅ Verify & Create Account'}
+                  {loading ? 'Verifying…' : 'Verify & Create Account'}
                 </button>
                 <button type="button" onClick={() => { setStep('details'); setOtpError(''); setOtpInfo(''); }} className="button secondary">
                   ← Edit Details
@@ -507,7 +506,7 @@ export default function RegisterPage() {
             <div style={{ maxWidth: '520px', margin: '0 auto' }}>
               {/* Success banner */}
               <div style={{ background: '#e8f5e9', border: '1px solid #c8e6c9', borderRadius: '12px', padding: '1rem 1.25rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '.75rem' }}>
-                <span style={{ fontSize: '1.6rem' }}>✅</span>
+                <span style={{ fontSize: '1.6rem' }}>✓</span>
                 <div>
                   <p style={{ fontWeight: 700, color: '#2e7d32', margin: 0 }}>Account Created Successfully!</p>
                   <p style={{ color: '#555', fontSize: '.85rem', margin: '2px 0 0' }}>
@@ -540,7 +539,6 @@ export default function RegisterPage() {
 
               {/* Birthday/Anniversary Card */}
               <div className="form-card" style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: '3rem', marginBottom: '.5rem' }}>🎁</div>
                 <h2 style={{ color: '#722f37', marginBottom: '.4rem' }}>Get Special Offers!</h2>
                 <p style={{ color: '#666', fontSize: '.88rem', marginBottom: '1.5rem', lineHeight: 1.5 }}>
                   Share your special dates to receive exclusive Birthday &amp; Anniversary discounts and surprises. This is completely optional!
@@ -562,13 +560,13 @@ export default function RegisterPage() {
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', textAlign: 'left', marginBottom: '1.5rem' }}>
                   <label style={{ fontWeight: 600, fontSize: '.88rem', display: 'block' }}>
-                    🎂 Date of Birth
+                    Date of Birth
                     <input type="date" value={birthdayForm.dob}
                       onChange={e => setBirthdayForm(f => ({ ...f, dob: e.target.value }))}
                       style={{ marginTop: '.35rem', border: '1.5px solid #ddd', borderRadius: '8px', padding: '.55rem .75rem', fontSize: '.9rem', width: '100%', boxSizing: 'border-box' }} />
                   </label>
                   <label style={{ fontWeight: 600, fontSize: '.88rem', display: 'block' }}>
-                    💍 Anniversary Date
+                    Anniversary Date
                     <input type="date" value={birthdayForm.anniv}
                       onChange={e => setBirthdayForm(f => ({ ...f, anniv: e.target.value }))}
                       style={{ marginTop: '.35rem', border: '1.5px solid #ddd', borderRadius: '8px', padding: '.55rem .75rem', fontSize: '.9rem', width: '100%', boxSizing: 'border-box' }} />
@@ -577,7 +575,7 @@ export default function RegisterPage() {
 
                 <div style={{ display: 'flex', gap: '.75rem', justifyContent: 'center', flexWrap: 'wrap' }}>
                   <button onClick={handleSaveBirthday} disabled={loading} className="button primary">
-                    {loading ? 'Saving…' : '🎉 Save & Go to Account'}
+                    {loading ? 'Saving…' : 'Save & Go to Account'}
                   </button>
                   <button onClick={() => router.push('/')} className="button secondary">
                     Skip for Now

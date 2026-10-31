@@ -126,7 +126,7 @@ export default async function CollectionPage({ params }: { params: { slug: strin
           pages print theirs. The empty branch keeps an H1 of its own, because a
           collection with no stock yet is still a page Google reads. */}
       {matched.length > 0 ? (
-        <CategoryPageContent products={toListingProducts(matched as any[]) as any} category={def.h1} icon="🛍️" desc={def.sub} allHref="/products" />
+        <CategoryPageContent products={toListingProducts(matched as any[]) as any} category={def.h1} icon="" desc={def.sub} allHref="/products" />
       ) : (
         <section style={{ textAlign: 'center', padding: '2.5rem 1.5rem 3rem' }}>
           <h1 style={{ fontSize: '1.3rem', fontWeight: 800, color: '#1a1a1a', margin: '0 0 .3rem' }}>{def.h1}</h1>

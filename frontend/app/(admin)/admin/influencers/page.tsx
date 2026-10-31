@@ -236,7 +236,7 @@ export default function InfluencersAdminPage() {
                     <tr key={inf.id} style={{borderBottom:'1px solid #f5f5f5',background:i%2===0?'#fff':'#fafafa'}}>
                       <td data-label="Name" style={{padding:'.7rem 1rem',fontWeight:600}}>
                         <div>{inf.name}</div><div style={{fontSize:'.75rem',color:'#888'}}>{inf.email}</div>
-                        {inf.resetRequestedAt && <div style={{marginTop:'.3rem',display:'inline-block',background:'#fff3e0',color:'#e65100',fontSize:'.68rem',fontWeight:700,padding:'.12rem .5rem',borderRadius:'10px'}}>🔔 Password reset requested</div>}
+                        {inf.resetRequestedAt && <div style={{marginTop:'.3rem',display:'inline-block',background:'#fff3e0',color:'#e65100',fontSize:'.68rem',fontWeight:700,padding:'.12rem .5rem',borderRadius:'10px'}}>Password reset requested</div>}
                       </td>
                       <td data-label="Platform / Handle" style={{padding:'.7rem 1rem'}}><div style={{fontWeight:600}}>{inf.platform}</div><div style={{fontSize:'.75rem',color:'#888'}}>{inf.socialHandle??'—'}</div></td>
                       <td data-label="Followers" style={{padding:'.7rem 1rem',color:'#555'}}>{inf.followersCount??'—'}</td>
@@ -278,7 +278,7 @@ export default function InfluencersAdminPage() {
 
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'.75rem',flexWrap:'wrap',gap:'.5rem'}}>
             <h3 style={{margin:0,fontWeight:700,fontSize:'1rem'}}>Creator Performance <span style={{fontWeight:400,color:'#999',fontSize:'.8rem'}}>(click a column to sort)</span></h3>
-            <button onClick={downloadCsv} style={{padding:'.4rem .9rem',borderRadius:'8px',border:'1.5px solid #a7354d',background:'#fff',color:'#a7354d',cursor:'pointer',fontWeight:600,fontSize:'.82rem'}}>⬇ Download CSV</button>
+            <button onClick={downloadCsv} style={{padding:'.4rem .9rem',borderRadius:'8px',border:'1.5px solid #a7354d',background:'#fff',color:'#a7354d',cursor:'pointer',fontWeight:600,fontSize:'.82rem'}}>Download CSV</button>
           </div>
 
           <div style={{background:'#fff',borderRadius:'12px',boxShadow:'0 1px 6px rgba(0,0,0,.08)',overflowX:'auto'}}>
@@ -340,7 +340,7 @@ export default function InfluencersAdminPage() {
             : fraudFlag === 'returned' ? o.flags.includes('Returned')
             : fraudFlag === 'cancelled' ? o.flags.includes('Cancelled')
             : true);
-          const rc = sel ? (sel.risk==='high'?{bg:'#fef2f2',txt:'#b91c1c',label:'🔴 High risk'}:sel.risk==='medium'?{bg:'#fffbeb',txt:'#b45309',label:'🟡 Medium'}:{bg:'#f0fdf4',txt:'#15803d',label:'🟢 Low'}) : null;
+          const rc = sel ? (sel.risk==='high'?{bg:'#fef2f2',txt:'#b91c1c',label:'High risk'}:sel.risk==='medium'?{bg:'#fffbeb',txt:'#b45309',label:'Medium'}:{bg:'#f0fdf4',txt:'#15803d',label:'Low'}) : null;
           return (
           <div>
             <div style={{display:'flex',gap:'1rem',marginBottom:'1.25rem',flexWrap:'wrap'}}>
@@ -365,13 +365,13 @@ export default function InfluencersAdminPage() {
                 <select value={fraudFlag} onChange={e=>setFraudFlag(e.target.value)}
                   style={{padding:'.45rem .8rem',borderRadius:'8px',border:'1.5px solid #ddd',fontSize:'.85rem',background:'#fff'}}>
                   <option value="all">All orders</option>
-                  <option value="self">🚩 Self-orders</option>
+                  <option value="self">Self-orders</option>
                   <option value="flagged">Flagged only</option>
                   <option value="returned">Returned</option>
                   <option value="cancelled">Cancelled</option>
                 </select>
               </div>
-              <button onClick={downloadFraudCsv} style={{padding:'.45rem 1rem',borderRadius:'8px',border:'none',background:'#16a34a',color:'#fff',cursor:'pointer',fontWeight:700,fontSize:'.83rem'}}>⬇ Export to Excel</button>
+              <button onClick={downloadFraudCsv} style={{padding:'.45rem 1rem',borderRadius:'8px',border:'none',background:'#16a34a',color:'#fff',cursor:'pointer',fontWeight:700,fontSize:'.83rem'}}>Export to Excel</button>
             </div>
 
             {sel && rc && (
@@ -463,22 +463,22 @@ export default function InfluencersAdminPage() {
                 <textarea value={editNotes} onChange={e=>setEditNotes(e.target.value)} rows={2} placeholder="Internal notes..." style={{width:'100%',padding:'.55rem .75rem',borderRadius:'8px',border:'1.5px solid #ddd',fontSize:'.85rem',resize:'vertical',fontFamily:'inherit',boxSizing:'border-box'}} />
               </div>
               <div><label style={{fontWeight:700,fontSize:'.82rem',display:'block',marginBottom:'.3rem'}}>Set / Reset Login Password <span style={{fontWeight:400,color:'#888'}}>(leave blank to keep)</span></label>
-                {selected.resetRequestedAt && <div style={{background:'#fff3e0',color:'#e65100',fontSize:'.78rem',fontWeight:600,padding:'.5rem .7rem',borderRadius:'8px',marginBottom:'.5rem'}}>🔔 This creator requested a password reset. Set a new password below and share it with them.</div>}
+                {selected.resetRequestedAt && <div style={{background:'#fff3e0',color:'#e65100',fontSize:'.78rem',fontWeight:600,padding:'.5rem .7rem',borderRadius:'8px',marginBottom:'.5rem'}}>This creator requested a password reset. Set a new password below and share it with them.</div>}
                 <input type="text" value={editPassword} onChange={e=>setEditPassword(e.target.value)} placeholder="New password for this creator" style={{width:'100%',padding:'.55rem .75rem',borderRadius:'8px',border:'1.5px solid #ddd',fontSize:'.88rem',boxSizing:'border-box'}} />
                 <p style={{fontSize:'.72rem',color:'#999',margin:'.3rem 0 0'}}>The creator logs in with their email + this password. Share it with them securely.</p>
               </div>
               <div style={{display:'flex',gap:'.5rem'}}>
                 <button onClick={save} disabled={saving} style={{flex:1,padding:'.65rem',borderRadius:'8px',border:'none',background:saving?'#ccc':'#a7354d',color:'#fff',fontWeight:700,cursor:saving?'not-allowed':'pointer'}}>
-                  {saving ? 'Saving...' : '💾 Save'}
+                  {saving ? 'Saving...' : 'Save'}
                 </button>
-                <button onClick={()=>remove(selected.id)} style={{padding:'.65rem 1rem',borderRadius:'8px',border:'1.5px solid #ef4444',background:'#fff',color:'#ef4444',fontWeight:700,cursor:'pointer'}}>🗑️</button>
+                <button onClick={()=>remove(selected.id)} style={{padding:'.65rem 1rem',borderRadius:'8px',border:'1.5px solid #ef4444',background:'#fff',color:'#ef4444',fontWeight:700,cursor:'pointer'}}></button>
               </div>
             </div>
             <div style={{borderTop:'1.5px solid #f0f0f0',paddingTop:'1rem'}}>
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'.75rem'}}>
                 <h4 style={{margin:0,fontWeight:700}}>Order Report</h4>
                 {stats && stats.orders.length>0 && (
-                  <button onClick={downloadCreatorReport} style={{padding:'.35rem .8rem',borderRadius:'8px',border:'1.5px solid #16a34a',background:'#fff',color:'#16a34a',cursor:'pointer',fontWeight:700,fontSize:'.78rem'}}>⬇ Export to Excel</button>
+                  <button onClick={downloadCreatorReport} style={{padding:'.35rem .8rem',borderRadius:'8px',border:'1.5px solid #16a34a',background:'#fff',color:'#16a34a',cursor:'pointer',fontWeight:700,fontSize:'.78rem'}}>Export to Excel</button>
                 )}
               </div>
               {statsLoading ? <p style={{color:'#999',fontSize:'.85rem'}}>Loading stats...</p>

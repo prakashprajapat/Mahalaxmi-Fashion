@@ -23,7 +23,7 @@ export default async function BeautyPage() {
   const { products } = await productsApi.getAll({ category: 'beauty', pageSize: 200 }).catch(() => ({ products: [] }));
   return (
     <>
-      <CategoryPageContent products={toListingProducts(products as any[]) as any} category="Beauty" icon="💄" desc="Beauty & personal care essentials" allHref="/products?category=beauty" />
+      <CategoryPageContent products={toListingProducts(products as any[]) as any} category="Beauty" icon="" desc="Beauty & personal care essentials" allHref="/products?category=beauty" />
       <CategorySeoBlock slug="beauty" />
     </>
   );

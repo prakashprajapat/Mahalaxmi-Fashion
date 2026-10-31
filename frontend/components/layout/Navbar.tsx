@@ -288,7 +288,7 @@ export default function Navbar() {
           <span className="mg-avatar" aria-hidden="true">
             {isLoggedIn && customerPhoto
               ? <img src={customerPhoto} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
-              : (isLoggedIn && customerName ? customerName.charAt(0).toUpperCase() : '🙏')}
+              : (isLoggedIn && customerName ? customerName.charAt(0).toUpperCase() : '')}
           </span>
           <span className="mg-text">
             {isLoggedIn && customerName
@@ -541,14 +541,14 @@ export default function Navbar() {
         </button>
 
         {[
-          { href: '/', img: '/nav-icons/home.webp', emoji: '🏠', label: 'Home' },
-          { href: '/best-sellers', img: '/nav-icons/best-sellers.webp', emoji: '⭐', label: 'Best Sellers' },
-          { href: '/women', img: '/nav-icons/women.webp', emoji: '👩', label: 'Women' },
-          { href: '/men', img: '/nav-icons/men.webp', emoji: '👔', label: 'Men' },
-          { href: '/kids', img: '/nav-icons/kids.webp', emoji: '👶', label: 'Kids' },
-          { href: '/beauty', img: '/nav-icons/beauty.webp', emoji: '💄', label: 'Beauty' },
-          { href: '/fabrics', img: '/nav-icons/fabrics.webp', emoji: '🧵', label: 'Fabrics' },
-          { href: '/more', img: '/nav-icons/more.webp', emoji: '🛍️', label: 'More Styles' },
+          { href: '/', img: '/nav-icons/home.webp', emoji: '', label: 'Home' },
+          { href: '/best-sellers', img: '/nav-icons/best-sellers.webp', emoji: '', label: 'Best Sellers' },
+          { href: '/women', img: '/nav-icons/women.webp', emoji: '', label: 'Women' },
+          { href: '/men', img: '/nav-icons/men.webp', emoji: '', label: 'Men' },
+          { href: '/kids', img: '/nav-icons/kids.webp', emoji: '', label: 'Kids' },
+          { href: '/beauty', img: '/nav-icons/beauty.webp', emoji: '', label: 'Beauty' },
+          { href: '/fabrics', img: '/nav-icons/fabrics.webp', emoji: '', label: 'Fabrics' },
+          { href: '/more', img: '/nav-icons/more.webp', emoji: '', label: 'More Styles' },
         ].map(item => (
           <Link key={item.href} href={item.href} className={`dept-link${pathname === item.href ? ' active' : ''}`} style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", minWidth: 60 }}>
             <span>{item.label}</span>
@@ -576,19 +576,19 @@ export default function Navbar() {
             {isLoggedIn ? (
               <div style={{ padding: '0 1.25rem' }}>
                 {[
-                  { href: '/account', label: '🏠 Dashboard' },
-                  { href: '/orders', label: '📦 My Orders' },
-                  { href: '/account/wallet', label: '👛 My Wallet' },
-                  { href: '/account/refer', label: '🤝 Refer & Earn' },
-                  { href: '/wishlist', label: '❤️ Wishlist' },
-                  { href: '/cart', label: '🛒 Cart' },
-                  { href: '/account/address', label: '📍 My Address' },
-                  { href: '/account/edit', label: '✏️ Edit Profile' },
-                  { href: '/account/pan', label: '🪪 PAN Card' },
-                  { href: '/account/newsletter', label: '📧 Newsletter' },
-                  { href: '/account/saved-cards', label: '💳 Saved Cards' },
-                  { href: '/account/downloads', label: '📥 Downloads' },
-                  { href: '/reviews', label: '⭐ My Reviews' },
+                  { href: '/account', label: 'Dashboard' },
+                  { href: '/orders', label: 'My Orders' },
+                  { href: '/account/wallet', label: 'My Wallet' },
+                  { href: '/account/refer', label: 'Refer & Earn' },
+                  { href: '/wishlist', label: 'Wishlist' },
+                  { href: '/cart', label: 'Cart' },
+                  { href: '/account/address', label: 'My Address' },
+                  { href: '/account/edit', label: 'Edit Profile' },
+                  { href: '/account/pan', label: 'PAN Card' },
+                  { href: '/account/newsletter', label: 'Newsletter' },
+                  { href: '/account/saved-cards', label: 'Saved Cards' },
+                  { href: '/account/downloads', label: 'Downloads' },
+                  { href: '/reviews', label: 'My Reviews' },
                 ].map(l => (
                   <Link key={l.href + l.label} href={l.href} onClick={() => setAccountOpen(false)}
                     style={{ display: 'block', padding: '.6rem .25rem', color: '#444', fontSize: '.92rem', textDecoration: 'none', borderBottom: '1px solid #f5f5f5' }}>
@@ -598,18 +598,18 @@ export default function Navbar() {
                 <button type="button"
                   onClick={() => { logout(); resetLoginForm(); setAccountOpen(false); window.dispatchEvent(new Event('auth-changed')); router.push('/account'); }}
                   style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '.4rem', width: '100%', padding: '.65rem', color: '#fff', fontSize: '.92rem', background: '#722f37', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: 700, margin: '.8rem 0 .3rem' }}>
-                  🔓 Logout
+                  Logout
                 </button>
               </div>
             ) : (
               <div style={{ padding: '0 1.25rem' }}>
                 <button type="button" onClick={() => { setAccountOpen(false); openLogin(); }}
                   style={{ display: 'block', width: '100%', padding: '.72rem', color: '#fff', fontSize: '.95rem', background: '#722f37', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: 700, marginBottom: '.8rem' }}>
-                  🔑 Login / Signup
+                  Login / Signup
                 </button>
-                <Link href="/wishlist" onClick={() => setAccountOpen(false)} style={{ display: 'block', padding: '.6rem .25rem', color: '#444', fontSize: '.92rem', textDecoration: 'none', borderBottom: '1px solid #f5f5f5' }}>❤️ Wishlist</Link>
-                <Link href="/cart" onClick={() => setAccountOpen(false)} style={{ display: 'block', padding: '.6rem .25rem', color: '#444', fontSize: '.92rem', textDecoration: 'none', borderBottom: '1px solid #f5f5f5' }}>🛒 Cart ({count})</Link>
-                <Link href="/tracking" onClick={() => setAccountOpen(false)} style={{ display: 'block', padding: '.6rem .25rem', color: '#444', fontSize: '.92rem', textDecoration: 'none', borderBottom: '1px solid #f5f5f5' }}>🚚 Track Order</Link>
+                <Link href="/wishlist" onClick={() => setAccountOpen(false)} style={{ display: 'block', padding: '.6rem .25rem', color: '#444', fontSize: '.92rem', textDecoration: 'none', borderBottom: '1px solid #f5f5f5' }}>Wishlist</Link>
+                <Link href="/cart" onClick={() => setAccountOpen(false)} style={{ display: 'block', padding: '.6rem .25rem', color: '#444', fontSize: '.92rem', textDecoration: 'none', borderBottom: '1px solid #f5f5f5' }}>Cart ({count})</Link>
+                <Link href="/tracking" onClick={() => setAccountOpen(false)} style={{ display: 'block', padding: '.6rem .25rem', color: '#444', fontSize: '.92rem', textDecoration: 'none', borderBottom: '1px solid #f5f5f5' }}>Track Order</Link>
               </div>
             )}
           </nav>
@@ -668,21 +668,21 @@ export default function Navbar() {
             {isLoggedIn ? (
               <div style={{ padding: '0 1.25rem 1rem', borderBottom: '1px solid #eee', marginBottom: '1rem' }}>
                 <p style={{ fontSize: '.75rem', fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: '.25rem' }}>My Account</p>
-                {customerName && <p style={{ fontSize: '.85rem', fontWeight: 600, color: '#722f37', marginBottom: '.5rem' }}>👋 {customerName}</p>}
+                {customerName && <p style={{ fontSize: '.85rem', fontWeight: 600, color: '#722f37', marginBottom: '.5rem' }}>{customerName}</p>}
                 {[
-                  { href: '/account', label: '🏠 Dashboard' },
-                  { href: '/orders', label: '📦 My Orders' },
-                  { href: '/account/wallet', label: '👛 My Wallet' },
-                  { href: '/account/refer', label: '🤝 Refer & Earn' },
-                  { href: '/wishlist', label: '❤️ Wishlist' },
-                  { href: '/cart', label: '🛒 Cart' },
-                  { href: '/account/address', label: '📍 My Address' },
-                  { href: '/account/edit', label: '✏️ Edit Profile' },
-                  { href: '/account/pan', label: '🪪 PAN Card' },
-                  { href: '/account/newsletter', label: '📧 Newsletter' },
-                  { href: '/account/saved-cards', label: '💳 Saved Cards' },
-                  { href: '/account/downloads', label: '📥 Downloads' },
-                  { href: '/reviews', label: '⭐ My Reviews' },
+                  { href: '/account', label: 'Dashboard' },
+                  { href: '/orders', label: 'My Orders' },
+                  { href: '/account/wallet', label: 'My Wallet' },
+                  { href: '/account/refer', label: 'Refer & Earn' },
+                  { href: '/wishlist', label: 'Wishlist' },
+                  { href: '/cart', label: 'Cart' },
+                  { href: '/account/address', label: 'My Address' },
+                  { href: '/account/edit', label: 'Edit Profile' },
+                  { href: '/account/pan', label: 'PAN Card' },
+                  { href: '/account/newsletter', label: 'Newsletter' },
+                  { href: '/account/saved-cards', label: 'Saved Cards' },
+                  { href: '/account/downloads', label: 'Downloads' },
+                  { href: '/reviews', label: 'My Reviews' },
                 ].map(l => (
                   <Link key={l.href + l.label} href={l.href} onClick={() => setMenuOpen(false)}
                     style={{ display: 'block', padding: '.45rem .25rem', color: '#555', fontSize: '.9rem', textDecoration: 'none' }}>
@@ -693,15 +693,15 @@ export default function Navbar() {
                   <button type="button"
                     onClick={() => { logout(); resetLoginForm(); setMenuOpen(false); window.dispatchEvent(new Event('auth-changed')); router.push('/account'); }}
                     style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '.4rem', width: '100%', textAlign: 'center', padding: '.6rem .25rem', color: '#fff', fontSize: '.92rem', background: '#722f37', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: 700, marginBottom: '.4rem' }}>
-                    🔓 Logout
+                    Logout
                   </button>
                   <Link href="/account/deactivate" onClick={() => setMenuOpen(false)}
                     style={{ display: 'block', padding: '.4rem .25rem', color: '#c0392b', fontSize: '.82rem', textDecoration: 'none' }}>
-                    ⏸️ Deactivate Account
+                    ⏸ Deactivate Account
                   </Link>
                   <Link href="/account/delete" onClick={() => setMenuOpen(false)}
                     style={{ display: 'block', padding: '.4rem .25rem', color: '#c0392b', fontSize: '.82rem', textDecoration: 'none' }}>
-                    🗑️ Delete Account
+                    Delete Account
                   </Link>
                 </div>
               </div>
@@ -709,14 +709,14 @@ export default function Navbar() {
               <div style={{ padding: '0 1.25rem 1rem', borderBottom: '1px solid #eee', marginBottom: '1rem' }}>
                 <button type="button" onClick={openLogin}
                   style={{ display: 'block', width: '100%', textAlign: 'left', padding: '.5rem', color: '#722f37', fontSize: '.95rem', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700 }}>
-                  🔑 Login / Signup
+                  Login / Signup
                 </button>
                 <Link href="/wishlist" onClick={() => setMenuOpen(false)}
-                  style={{ display: 'block', padding: '.5rem', color: '#555', fontSize: '.9rem', textDecoration: 'none' }}>❤️ Wishlist</Link>
+                  style={{ display: 'block', padding: '.5rem', color: '#555', fontSize: '.9rem', textDecoration: 'none' }}>Wishlist</Link>
                 <Link href="/cart" onClick={() => setMenuOpen(false)}
-                  style={{ display: 'block', padding: '.5rem', color: '#555', fontSize: '.9rem', textDecoration: 'none' }}>🛒 Cart ({count})</Link>
+                  style={{ display: 'block', padding: '.5rem', color: '#555', fontSize: '.9rem', textDecoration: 'none' }}>Cart ({count})</Link>
                 <Link href="/tracking" onClick={() => setMenuOpen(false)}
-                  style={{ display: 'block', padding: '.5rem', color: '#555', fontSize: '.9rem', textDecoration: 'none' }}>🚚 Track Order</Link>
+                  style={{ display: 'block', padding: '.5rem', color: '#555', fontSize: '.9rem', textDecoration: 'none' }}>Track Order</Link>
               </div>
             )}
 
@@ -748,7 +748,7 @@ export default function Navbar() {
                 { href: '/privacy-policy', label: 'Privacy Policy' },
                 { href: '/safety-center', label: 'Safety Center' },
                 { href: '/contact', label: 'Contact Us' },
-                { href: 'https://affiliate.mahalaxmifashionhub.com/', label: '💸 Earn With Us' },
+                { href: 'https://affiliate.mahalaxmifashionhub.com/', label: 'Earn With Us' },
               ].map(l => (
                 <Link key={l.href} href={l.href} onClick={() => setMenuOpen(false)}
                   style={{ display: 'block', padding: '.4rem', color: l.href.startsWith('http') ? '#722f37' : '#666', fontWeight: l.href.startsWith('http') ? 700 : 400, fontSize: '.85rem', textDecoration: 'none' }}>

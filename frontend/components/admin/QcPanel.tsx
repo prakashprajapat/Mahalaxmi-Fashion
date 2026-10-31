@@ -26,7 +26,7 @@ export default function QcPanel({
     }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '.6rem' }}>
         <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 800, color: fails.length ? '#c62828' : allClear ? '#2e7d32' : '#f57f17' }}>
-          {allClear ? '✅ QC Passed — ready to upload' : fails.length ? `❌ QC Failed — ${fails.length} issue${fails.length > 1 ? 's' : ''} to fix` : `⚠️ QC — ${warns.length} warning${warns.length > 1 ? 's' : ''}`}
+          {allClear ? 'QC Passed — ready to upload' : fails.length ? `QC Failed — ${fails.length} issue${fails.length > 1 ? 's' : ''} to fix` : `QC — ${warns.length} warning${warns.length > 1 ? 's' : ''}`}
         </h3>
         <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer', color: '#999' }}>✕</button>
       </div>
@@ -40,7 +40,6 @@ export default function QcPanel({
         ))}
         {warns.map((w, i) => (
           <div key={'w' + i} style={{ display: 'flex', gap: '.5rem', fontSize: '.88rem', color: '#333' }}>
-            <span style={{ color: '#f9a825', fontWeight: 800 }}>⚠</span>
             <span>{w.message}</span>
           </div>
         ))}
@@ -52,7 +51,7 @@ export default function QcPanel({
       <div style={{ display: 'flex', gap: '.6rem', marginTop: '.9rem', flexWrap: 'wrap' }}>
         <button onClick={onRecheck} disabled={checking}
           style={{ background: '#a7354d', color: '#fff', border: 'none', borderRadius: 8, padding: '.55rem 1.3rem', fontWeight: 700, fontSize: '.88rem', cursor: 'pointer', opacity: checking ? .6 : 1 }}>
-          {checking ? 'Checking…' : fails.length ? '🔄 Re-check & Upload' : '⬆️ Upload'}
+          {checking ? 'Checking…' : fails.length ? 'Re-check & Upload' : 'Upload'}
         </button>
         {fails.length === 0 && warns.length > 0 && onForceUpload && (
           <button onClick={onForceUpload}

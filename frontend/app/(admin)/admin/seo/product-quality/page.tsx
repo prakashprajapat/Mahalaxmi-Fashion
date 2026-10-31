@@ -241,7 +241,7 @@ export default function ProductQualityPage() {
         ))}
         {rows.length === 0 && (
           <div style={{ padding: '3rem', textAlign: 'center', color: '#2e7d32' }}>
-            <div style={{ fontSize: '2.5rem', marginBottom: '.5rem' }}>✅</div>
+            <div style={{ fontSize: '2.5rem', marginBottom: '.5rem' }}>✓</div>
             <p style={{ margin: 0 }}>Every product passes.</p>
           </div>
         )}

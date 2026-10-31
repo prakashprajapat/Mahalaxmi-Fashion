@@ -11,7 +11,7 @@ type Lead = { name: string; phone: string };
 const LEAD_KEY = 'mfh-chat-lead';
 
 const greetingFor = (name: string) =>
-  `Hi ${name.split(' ')[0]}! 👋 I'm Laxmi, your shopping assistant at Mahalaxmi Fashion Hub. Ask me about sarees, nighty, delivery, returns, or any product — I'm here to help 😊`;
+  `Hi ${name.split(' ')[0]}! I'm Laxmi, your shopping assistant at Mahalaxmi Fashion Hub. Ask me about sarees, nighty, delivery, returns, or any product — I'm here to help`;
 
 // 10 digits, Indian mobile numbers start with 6-9.
 const normalisePhone = (v: string) => v.replace(/\D/g, '').slice(-10);
@@ -145,9 +145,9 @@ export default function AiChatWidget() {
         body: JSON.stringify({ messages: next }),
       });
       const data = (await r.json()) as { reply?: string };
-      setMsgs(m => [...m, { role: 'assistant', content: data.reply || 'Sorry, please try again 🙏' }]);
+      setMsgs(m => [...m, { role: 'assistant', content: data.reply || 'Sorry, please try again' }]);
     } catch {
-      setMsgs(m => [...m, { role: 'assistant', content: 'Connection issue 🙏 Chat with us on WhatsApp: https://wa.me/919429429880' }]);
+      setMsgs(m => [...m, { role: 'assistant', content: 'Connection issue Chat with us on WhatsApp: https://wa.me/919429429880' }]);
     } finally {
       setBusy(false);
     }
@@ -182,7 +182,7 @@ export default function AiChatWidget() {
             /* ── Step 1: who are we talking to? ── */
             <div style={{ flex: 1, overflowY: 'auto', padding: '1.1rem 1rem', background: '#faf6f2', display: 'flex', flexDirection: 'column', gap: '.7rem' }}>
               <div style={{ background: '#fff', borderRadius: 12, padding: '.7rem .8rem', fontSize: '.86rem', lineHeight: 1.45, boxShadow: '0 1px 3px rgba(0,0,0,.08)' }}>
-                Namaste! 🙏 Before we start, please tell me your name and mobile number so I can help you better.
+                Namaste! Before we start, please tell me your name and mobile number so I can help you better.
               </div>
 
               <label style={{ fontSize: '.76rem', fontWeight: 700, color: '#4a1f27', marginTop: '.2rem' }}>Your Name</label>

@@ -20,7 +20,7 @@ export default function ReferPage() {
   const origin = typeof window !== 'undefined' ? window.location.origin : 'https://www.mahalaxmifashionhub.com';
   const link = data ? `${origin}/?ref=${data.code}` : '';
   const shareMsg = data
-    ? `Hey! Shop premium sarees, nighty & more at Mahalaxmi Fashion Hub and get ₹${data.discount} OFF your first order (min ₹${data.minOrder}) with my code ${data.code} 🛍️\n${link}`
+    ? `Hey! Shop premium sarees, nighty & more at Mahalaxmi Fashion Hub and get ₹${data.discount} OFF your first order (min ₹${data.minOrder}) with my code ${data.code} \n${link}`
     : '';
 
   const copy = async (text: string, what: string) => {
@@ -33,7 +33,7 @@ export default function ReferPage() {
         <Link href="/account" style={{ color: '#722f37', textDecoration: 'none', fontSize: '.9rem', fontWeight: 600 }}>← Back to Account</Link>
       </div>
 
-      <h1 style={{ fontSize: '1.35rem', fontWeight: 800, color: '#1a1a1a', margin: '0 0 1rem' }}>Refer &amp; Earn 🤝</h1>
+      <h1 style={{ fontSize: '1.35rem', fontWeight: 800, color: '#1a1a1a', margin: '0 0 1rem' }}>Refer &amp; Earn</h1>
 
       {loading ? (
         <div style={{ padding: '2rem', textAlign: 'center', color: '#aaa' }}>Loading…</div>
@@ -74,7 +74,7 @@ export default function ReferPage() {
             </a>
             <button onClick={() => copy(link, 'link')}
               style={{ flex: 1, minWidth: 160, background: '#fff', color: '#722f37', border: '1.5px solid #722f37', borderRadius: 10, padding: '.75rem', fontWeight: 800, fontSize: '.9rem', cursor: 'pointer' }}>
-              {copied === 'link' ? '✓ Link copied' : '🔗 Copy link'}
+              {copied === 'link' ? '✓ Link copied' : 'Copy link'}
             </button>
           </div>
 

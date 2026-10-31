@@ -130,7 +130,7 @@ export default function WelcomePopup() {
             padding: '.75rem 1rem', marginTop: '.5rem',
           }}>
             <p style={{ margin: 0, color: '#fff', fontWeight: 800, fontSize: '1.4rem', lineHeight: 1 }}>
-              🎉 Special
+              Special
             </p>
             <p style={{ margin: '.3rem 0 0', color: 'rgba(255,255,255,.9)', fontSize: '.82rem', fontWeight: 600 }}>
               Offers &amp; Exclusive<br />Deals — Just For You!
@@ -142,7 +142,6 @@ export default function WelcomePopup() {
         <div className="mfh-popup-content" style={{ padding: '2rem 1.75rem', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
           {submitted ? (
             <div style={{ textAlign: 'center', padding: '1rem 0' }}>
-              <div style={{ fontSize: '3.5rem', marginBottom: '.75rem' }}>🎁</div>
               <h2 style={{ color: '#722f37', fontWeight: 800, margin: '0 0 .4rem' }}>Welcome to the Family!</h2>
               <p style={{ color: '#666', fontSize: '.9rem', margin: 0 }}>
                 You&apos;ll be the first to know about new arrivals, offers and exclusive deals.
@@ -165,7 +164,7 @@ export default function WelcomePopup() {
           ) : (
             <>
               <h2 style={{ margin: '0 0 .3rem', fontSize: '1.5rem', fontWeight: 800, color: '#1a1a1a' }}>
-                Join Our Family 🛍️
+                Join Our Family
               </h2>
               <p style={{ margin: '0 0 1.25rem', color: '#888', fontSize: '.85rem' }}>
                 Get exclusive offers, new arrivals &amp; festive deals — directly on WhatsApp &amp; email.
@@ -204,7 +203,7 @@ export default function WelcomePopup() {
                     display: 'flex', alignItems: 'center', gap: '.4rem',
                     fontSize: '.9rem', color: '#333', whiteSpace: 'nowrap', flexShrink: 0,
                   }}>
-                    🇮🇳 +91
+                    +91
                   </div>
                   <input
                     type="tel"

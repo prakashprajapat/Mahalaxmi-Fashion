@@ -77,7 +77,7 @@ public class ChatController : ControllerBase
 
         try
         {
-            await _email.SendAsync(adminEmail, $"💬 Chat: {name}", html);
+            await _email.SendAsync(adminEmail, $"Chat: {name}", html);
         }
         catch { /* never fail the caller because of email delivery */ }
 

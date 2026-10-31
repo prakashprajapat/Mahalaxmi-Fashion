@@ -262,7 +262,7 @@ export default function PackAndScanPage() {
               {busy ? 'Working…' : 'Enter'}
             </button>
             <button type="button" className="adm-btn" onClick={camOpen ? stopCam : startCam} disabled={busy}>
-              {camOpen ? 'Close camera' : '📷 Camera'}
+              {camOpen ? 'Close camera' : 'Camera'}
             </button>
           </div>
           <div style={{ fontSize: '.73rem', color: '#888', marginTop: '.35rem' }}>

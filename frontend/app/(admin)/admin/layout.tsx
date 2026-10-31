@@ -8,76 +8,76 @@ import { settingsApi } from '@/lib/api';
 // All nav items (admin sees everything). Items with `heading` render as a
 // non-clickable group label.
 const ALL_NAV: { href?: string; label?: string; exact?: boolean; heading?: string }[] = [
-  { href: '/admin',             label: '📊 Dashboard',       exact: true },
+  { href: '/admin',             label: 'Dashboard',       exact: true },
 
   { heading: 'Sales' },
-  { href: '/admin/orders',      label: '📦 Orders' },
-  { href: '/admin/pack',        label: '🔫 Pack & Scan' },
-  { href: '/admin/risk',        label: '🛡️ Fraud & Risk' },
+  { href: '/admin/orders',      label: 'Orders' },
+  { href: '/admin/pack',        label: 'Pack & Scan' },
+  { href: '/admin/risk',        label: 'Fraud & Risk' },
   { href: '/admin/orders/exchanges', label: '⇄ Exchanges' },
-  { href: '/admin/refunds',     label: '💰 Refunds' },
+  { href: '/admin/refunds',     label: 'Refunds' },
 
   { heading: 'Catalogue' },
-  { href: '/admin/products',    label: '👗 Products' },
-  { href: '/admin/products/add',label: '➕ Add / Edit Product' },
-  { href: '/admin/products/drafts', label: '📝 Drafts (not on the website)' },
-  { href: '/admin/products/colour-fix', label: '🎨 Colour Fix (Google)' },
-  { href: '/admin/products/import', label: '📥 Import from Supplier' },
-  { href: '/admin/stock',       label: '🔄 Stock Manager' },
-  { href: '/admin/categories',  label: '🗂️ Categories' },
+  { href: '/admin/products',    label: 'Products' },
+  { href: '/admin/products/add',label: 'Add / Edit Product' },
+  { href: '/admin/products/drafts', label: 'Drafts (not on the website)' },
+  { href: '/admin/products/colour-fix', label: 'Colour Fix (Google)' },
+  { href: '/admin/products/import', label: 'Import from Supplier' },
+  { href: '/admin/stock',       label: 'Stock Manager' },
+  { href: '/admin/categories',  label: 'Categories' },
 
   { heading: 'Customers' },
-  { href: '/admin/customers',   label: '👥 Customers' },
-  { href: '/admin/reviews',     label: '⭐ Reviews' },
-  { href: '/admin/suppliers',   label: '🏪 Seller Applications' },
+  { href: '/admin/customers',   label: 'Customers' },
+  { href: '/admin/reviews',     label: 'Reviews' },
+  { href: '/admin/suppliers',   label: 'Seller Applications' },
 
   { heading: 'Marketing' },
-  { href: '/admin/meta-leads',  label: '📥 Meta Ad Leads' },
-  { href: '/admin/google-leads', label: '📨 Google Ad Leads' },
-  { href: '/admin/funnel',     label: '📉 Where Visitors Stop' },
-  { href: '/admin/google-ads', label: '💸 Google Ads' },
-  { href: '/admin/meta-ads',   label: '📱 Meta Ads' },
-  { href: '/admin/audiences',  label: '🎯 Audiences (Target List)' },
-  { href: '/admin/popup-leads', label: '📋 Popup Leads' },
-  { href: '/admin/feedback', label: '💬 Feedback' },
-  { href: '/admin/tracking', label: '📡 Tracking' },
-  { href: '/admin/campaigns',   label: '📣 Bulk Campaigns' },
-  { href: '/admin/notifications', label: '🔔 Push Notifications' },
-  { href: '/admin/influencers', label: '🌟 Influencer Marketing' },
-  { href: '/admin/coupons',     label: '🎟️ Coupons & Discounts' },
-  { href: '/admin/birthday',    label: '🎂 Birthday & Anniversary Offers' },
+  { href: '/admin/meta-leads',  label: 'Meta Ad Leads' },
+  { href: '/admin/google-leads', label: 'Google Ad Leads' },
+  { href: '/admin/funnel',     label: 'Where Visitors Stop' },
+  { href: '/admin/google-ads', label: 'Google Ads' },
+  { href: '/admin/meta-ads',   label: 'Meta Ads' },
+  { href: '/admin/audiences',  label: 'Audiences (Target List)' },
+  { href: '/admin/popup-leads', label: 'Popup Leads' },
+  { href: '/admin/feedback', label: 'Feedback' },
+  { href: '/admin/tracking', label: 'Tracking' },
+  { href: '/admin/campaigns',   label: 'Bulk Campaigns' },
+  { href: '/admin/notifications', label: 'Push Notifications' },
+  { href: '/admin/influencers', label: 'Influencer Marketing' },
+  { href: '/admin/coupons',     label: 'Coupons & Discounts' },
+  { href: '/admin/birthday',    label: 'Birthday & Anniversary Offers' },
 
   // SEO used to sit at the bottom of Marketing, where five entries were lost
   // among a dozen advertising ones. They are a different job — advertising is
   // what you pay for, SEO is what you earn — and they are used together, so
   // they get their own section.
   { heading: 'SEO' },
-  { href: '/admin/seo',                 label: '🔍 SEO Check' },
-  { href: '/admin/seo/product-quality', label: '✅ Product Quality' },
-  { href: '/admin/seo/blog',            label: '✍️ Blog Articles' },
-  { href: '/admin/seo/collections',     label: '🏷️ Collection Pages' },
-  { href: '/admin/seo/categories',      label: '📄 Category Copy' },
-  { href: '/admin/seo/home-categories', label: '🏠 Home Categories' },
+  { href: '/admin/seo',                 label: 'SEO Check' },
+  { href: '/admin/seo/product-quality', label: 'Product Quality' },
+  { href: '/admin/seo/blog',            label: 'Blog Articles' },
+  { href: '/admin/seo/collections',     label: 'Collection Pages' },
+  { href: '/admin/seo/categories',      label: 'Category Copy' },
+  { href: '/admin/seo/home-categories', label: 'Home Categories' },
   // Lives under /admin/settings because that is the permission it actually
   // needs - it writes site settings, not SEO content - but it is listed here,
   // beside Home Categories, because both are the homepage.
-  { href: '/admin/settings/instagram', label: '📸 As Seen on Instagram' },
+  { href: '/admin/settings/instagram', label: 'As Seen on Instagram' },
 
   { heading: 'Accounts' },
-  { href: '/admin/reports',     label: '📈 Reports & GSTR-1' },
-  { href: '/admin/payments',    label: '💳 Payments' },
-  { href: '/admin/reconcile',   label: '💰 Payment Reconcile' },
+  { href: '/admin/reports',     label: 'Reports & GSTR-1' },
+  { href: '/admin/payments',    label: 'Payments' },
+  { href: '/admin/reconcile',   label: 'Payment Reconcile' },
   // Listed for staff too, not just the owner: a vendor opening this sees
   // only his own shop, which is the whole point of giving him a login.
-  { href: '/admin/earnings',    label: '🤝 Shop Settlement' },
+  { href: '/admin/earnings',    label: 'Shop Settlement' },
 
   { heading: 'Settings' },
-  { href: '/admin/staff',       label: '👤 Staff Management' },
-  { href: '/admin/settings',    label: '⚙️ Settings' },
+  { href: '/admin/staff',       label: 'Staff Management' },
+  { href: '/admin/settings',    label: 'Settings' },
   // Beside Settings because that is where the seven flow ids are typed, and
   // because a flow id that is saved but wrongly named looks identical there.
-  { href: '/admin/message-test', label: '📩 Check Order Messages' },
-  { href: '/admin/flags',       label: '🎚️ Feature Switches' },
+  { href: '/admin/message-test', label: 'Check Order Messages' },
+  { href: '/admin/flags',       label: 'Feature Switches' },
 ];
 
 // The four sections the phone tab bar shows. Everything else lives behind "More",
@@ -328,12 +328,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </nav>
         <div style={{ padding: '1rem', borderTop: '1px solid rgba(255,255,255,.1)', marginTop: 'auto' }}>
           <Link href="/" style={{ color: '#aaa', fontSize: '.85rem', display: 'block', marginBottom: '.5rem' }}>
-            🌐 View Website
+            View Website
           </Link>
           <button
             onClick={() => { adminLogout(); router.push('/admin/login'); }}
             style={{ background: 'none', border: 'none', color: '#aaa', fontSize: '.85rem', cursor: 'pointer', padding: 0, textAlign: 'left' }}>
-            🚪 Logout
+            Logout
           </button>
         </div>
       </aside>
@@ -342,8 +342,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <div className="admin-topbar">
         <h1>{currentLabel}</h1>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', fontSize: '.85rem', color: '#666' }}>
-          {adminName && <span style={{ fontWeight: 600, color: '#333' }}>👋 {adminName}</span>}
-          <Link href="/" style={{ color: '#a7354d', fontWeight: 600, fontSize: '.82rem' }}>🌐 Store</Link>
+          {adminName && <span style={{ fontWeight: 600, color: '#333' }}>{adminName}</span>}
+          <Link href="/" style={{ color: '#a7354d', fontWeight: 600, fontSize: '.82rem' }}>Store</Link>
           <button onClick={() => { adminLogout(); router.push('/admin/login'); }}
             style={{ background: 'none', border: 'none', color: '#a7354d', cursor: 'pointer', fontWeight: 600, fontSize: '.85rem' }}>
             Logout

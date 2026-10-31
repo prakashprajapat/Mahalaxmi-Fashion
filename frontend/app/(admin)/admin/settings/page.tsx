@@ -39,7 +39,7 @@ const SECTIONS = [
   },
   {
     title: 'Delhivery Shipping (Auto AWB)',
-    desc: 'For automatic AWB generation via "⚡ Generate" in Orders. Enter the API Token from your Delhivery business account and the exact registered pickup warehouse name. Leave blank to use manual AWB entry.',
+    desc: 'For automatic AWB generation via "Generate" in Orders. Enter the API Token from your Delhivery business account and the exact registered pickup warehouse name. Leave blank to use manual AWB entry.',
     fields: [
       { key: 'delhivery_token', label: 'Delhivery API Token', type: 'password' },
       { key: 'delhivery_pickup_name', label: 'Registered Pickup / Warehouse Name (exact)', type: 'text' },
@@ -74,7 +74,7 @@ const SECTIONS = [
   },
   {
     title: 'Meta Lead Ads (Facebook / Instagram)',
-    desc: 'Bring leads from your Facebook & Instagram Lead Ads straight into the "📥 Meta Ad Leads" page. In your Meta app, add the Webhooks product, set the Callback URL to https://mahalaxmifashionhub.com/api/meta/webhook and the Verify Token to the same value you enter below, then subscribe your Page to the "leadgen" field. App Secret is from your Meta app (Settings → Basic). Page Access Token needs the leads_retrieval permission. Secrets stay blank here after saving for security — re-enter only to change them.',
+    desc: 'Bring leads from your Facebook & Instagram Lead Ads straight into the "Meta Ad Leads" page. In your Meta app, add the Webhooks product, set the Callback URL to https://mahalaxmifashionhub.com/api/meta/webhook and the Verify Token to the same value you enter below, then subscribe your Page to the "leadgen" field. App Secret is from your Meta app (Settings → Basic). Page Access Token needs the leads_retrieval permission. Secrets stay blank here after saving for security — re-enter only to change them.',
     fields: [
       { key: 'facebookAppSecret', label: 'Meta App Secret', type: 'password' },
       { key: 'metaPageAccessToken', label: 'Page Access Token (with leads_retrieval)', type: 'password' },
@@ -177,10 +177,10 @@ const SECTIONS = [
       { key: 'msg91AuthKey',              label: 'MSG91 Auth Key', type: 'password' },
       { key: 'msg91WhatsappTemplateId',   label: 'WhatsApp OTP Template ID', type: 'text' },
       { key: 'msg91SmsTemplateId',        label: 'SMS OTP Template ID', type: 'text' },
-      { key: 'msg91BirthdayTemplateId',         label: '🎂 Birthday UPCOMING — MSG91 id for DLT template "Combirthday" (variables: date, percent, code)', type: 'text' },
-      { key: 'msg91BirthdayTodayTemplateId',    label: '🎂 Birthday TODAY — MSG91 id for DLT template "HappyBirthday" (variables: percent, code)', type: 'text' },
-      { key: 'msg91AnniversaryTemplateId',      label: '💍 Anniversary UPCOMING — MSG91 id for DLT template "ComAnni" (variables: date, percent, code)', type: 'text' },
-      { key: 'msg91AnniversaryTodayTemplateId', label: '💍 Anniversary TODAY — MSG91 id for DLT template "HappyAnniversary" (variables: percent, code)', type: 'text' },
+      { key: 'msg91BirthdayTemplateId',         label: 'Birthday UPCOMING — MSG91 id for DLT template "Combirthday" (variables: date, percent, code)', type: 'text' },
+      { key: 'msg91BirthdayTodayTemplateId',    label: 'Birthday TODAY — MSG91 id for DLT template "HappyBirthday" (variables: percent, code)', type: 'text' },
+      { key: 'msg91AnniversaryTemplateId',      label: 'Anniversary UPCOMING — MSG91 id for DLT template "ComAnni" (variables: date, percent, code)', type: 'text' },
+      { key: 'msg91AnniversaryTodayTemplateId', label: 'Anniversary TODAY — MSG91 id for DLT template "HappyAnniversary" (variables: percent, code)', type: 'text' },
       { key: 'msg91CelebrationTemplateId',      label: 'Fallback OFFER Template ID — only used if a box above is blank. Leave empty once all four are filled.', type: 'text' },
       { key: 'celebrationOfferPercent',   label: 'Offer Discount % (default 10)', type: 'text' },
       { key: 'adminRecoveryPhone',        label: 'Admin Recovery Mobile (for password-reset OTP SMS, with 91)', type: 'text' },
@@ -205,7 +205,7 @@ const SECTIONS = [
     ]
   },
   {
-    title: '📊 Google Analytics — Reliable Purchase Tracking',
+    title: 'Google Analytics — Reliable Purchase Tracking',
     desc: 'Makes EVERY order show as a Purchase in GA4 — even when the customer\'s browser blocks analytics, or they pay through the app / a UPI redirect. Paste your API secret here: GA4 → Admin → Data Streams → your web stream → "Measurement Protocol API secrets" → Create → copy the Secret value. Leave the Measurement ID blank to use the site default.',
     fields: [
       { key: 'ga4ApiSecret',     label: 'GA4 Measurement Protocol API Secret', type: 'password' },
@@ -219,12 +219,18 @@ export default function AdminSettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState('');
+  // Whether that message is good news. Kept beside it rather than read back
+  // out of its first character, which is how a tick in a sentence quietly
+  // became load-bearing.
+  const [msgOk, setMsgOk] = useState(false);
   const [backupMsg, setBackupMsg] = useState('');
+  const [backupMsgOk, setBackupMsgOk] = useState(false);
 
   // Email wala backup — settings ki file wale backup se alag cheez hai.
   const [mailStatus, setMailStatus] = useState<{ lastRunIst: string | null; nextRunIst: string; hoursSinceLastRun: number | null } | null>(null);
   const [mailBusy, setMailBusy] = useState(false);
   const [mailMsg, setMailMsg] = useState('');
+  const [mailMsgOk, setMailMsgOk] = useState(false);
 
   useEffect(() => {
     const token = getAdminToken();
@@ -236,13 +242,14 @@ export default function AdminSettingsPage() {
 
   const sendBackupNow = async () => {
     const token = getAdminToken();
-    if (!token) { setMailMsg('❌ Sign in again and retry.'); return; }
+    if (!token) { setMailMsgOk(false); setMailMsg('Sign in again and retry.'); return; }
     setMailBusy(true);
     setMailMsg('');
     try {
       const r = await backupApi.runNow(token);
+      setMailMsgOk(r.success);
       setMailMsg(
-        (r.success ? '✅ ' : '❌ ') + r.message +
+        r.message +
         (r.recipients?.length ? ` Sent to: ${r.recipients.join(', ')}.` : '') +
         ` Database ${r.databaseKb} KB, ${r.photoCount} photos (${r.photoKb} KB)` +
         (r.photosWaiting > 0 ? `, ${r.photosWaiting} photos left for the next run.` : '.') +
@@ -252,7 +259,8 @@ export default function AdminSettingsPage() {
       const st = await backupApi.status(token).catch(() => null);
       if (st) setMailStatus({ lastRunIst: st.lastRunIst, nextRunIst: st.nextRunIst, hoursSinceLastRun: st.hoursSinceLastRun });
     } catch (e) {
-      setMailMsg('❌ ' + ((e as Error)?.message || 'The request did not go through.'));
+      setMailMsgOk(false);
+      setMailMsg((e as Error)?.message || 'The request did not go through.');
     } finally {
       setMailBusy(false);
     }
@@ -270,9 +278,11 @@ export default function AdminSettingsPage() {
     setSaving(true); setMsg('');
     try {
       await settingsApi.bulkUpsert(form, getAdminToken() ?? '');
-      setMsg('✅ Settings saved successfully.');
+      setMsgOk(true);
+      setMsg('Settings saved successfully.');
     } catch (e) {
-      setMsg('❌ Error: ' + (e as Error).message);
+      setMsgOk(false);
+      setMsg('Error: ' + (e as Error).message);
     } finally { setSaving(false); }
   };
 
@@ -287,9 +297,11 @@ export default function AdminSettingsPage() {
     try {
       const url = await settingsApi.uploadImage(file, getAdminToken() ?? '');
       set(key, url);
-      setMsg('✅ Photo uploaded — now click "Save All Settings".');
+      setMsgOk(true);
+      setMsg('Photo uploaded — now click "Save All Settings".');
     } catch (e) {
-      setMsg('❌ Upload failed: ' + (e as Error).message);
+      setMsgOk(false);
+      setMsg('Upload failed: ' + (e as Error).message);
     } finally { setUploadingKey(null); }
   };
 
@@ -310,7 +322,8 @@ export default function AdminSettingsPage() {
     const a = document.createElement('a');
     a.href = url; a.download = `mahalaxmi-settings-${new Date().toISOString().slice(0,10)}.json`;
     a.click(); URL.revokeObjectURL(url);
-    setBackupMsg('✅ Settings exported successfully.');
+    setBackupMsgOk(true);
+    setBackupMsg('Settings exported successfully.');
   };
 
   const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -322,8 +335,9 @@ export default function AdminSettingsPage() {
         const parsed = JSON.parse(ev.target?.result as string);
         const imported: Record<string,string> = parsed.settings ?? parsed;
         setForm(prev => ({ ...prev, ...imported }));
-        setBackupMsg('✅ Settings imported — click "Save All Settings" to apply.');
-      } catch { setBackupMsg('❌ Invalid JSON file.'); }
+        setBackupMsgOk(true);
+        setBackupMsg('Settings imported — click "Save All Settings" to apply.');
+      } catch { setBackupMsgOk(false); setBackupMsg('Invalid JSON file.'); }
     };
     reader.readAsText(file);
     e.target.value = '';
@@ -351,10 +365,10 @@ export default function AdminSettingsPage() {
 
       {msg && (
         <div className="adm-card" style={{ marginBottom: '.85rem', fontSize: '.86rem', fontWeight: 600,
-          background: msg.startsWith('✅') ? '#f2faf3' : '#fdf3f2',
-          borderColor: msg.startsWith('✅') ? '#cbe6cf' : '#f0cdc9',
-          color: msg.startsWith('✅') ? '#2e7d32' : '#c0392b' }}>
-          {msg.replace(/^[✅❌]\s*/, '')}
+          background: msgOk ? '#f2faf3' : '#fdf3f2',
+          borderColor: msgOk ? '#cbe6cf' : '#f0cdc9',
+          color: msgOk ? '#2e7d32' : '#c0392b' }}>
+          {msg}
         </div>
       )}
 
@@ -382,8 +396,8 @@ export default function AdminSettingsPage() {
             <p style={{ fontSize: '.82rem', color: '#7d736d', margin: '0 0 .9rem', lineHeight: 1.6 }}>Save every setting to a file, or put a saved file back. Worth doing before you change a key you cannot easily get again.</p>
             {backupMsg && (
               <div style={{ padding: '.55rem .8rem', borderRadius: 10, marginBottom: '.85rem', fontSize: '.83rem', fontWeight: 600,
-                background: backupMsg.startsWith('✅') ? '#f2faf3' : '#fdf3f2',
-                color: backupMsg.startsWith('✅') ? '#2e7d32' : '#c0392b' }}>
+                background: backupMsgOk ? '#f2faf3' : '#fdf3f2',
+                color: backupMsgOk ? '#2e7d32' : '#c0392b' }}>
                 {backupMsg}
               </div>
             )}
@@ -415,8 +429,8 @@ export default function AdminSettingsPage() {
 
             {mailMsg && (
               <div style={{ padding: '.55rem .8rem', borderRadius: 10, marginBottom: '.85rem', fontSize: '.83rem', fontWeight: 600, lineHeight: 1.6,
-                background: mailMsg.startsWith('✅') ? '#f2faf3' : '#fdf3f2',
-                color: mailMsg.startsWith('✅') ? '#2e7d32' : '#c0392b' }}>
+                background: mailMsgOk ? '#f2faf3' : '#fdf3f2',
+                color: mailMsgOk ? '#2e7d32' : '#c0392b' }}>
                 {mailMsg}
               </div>
             )}

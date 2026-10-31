@@ -44,14 +44,13 @@ export default function DeleteAccountPage() {
         <section>
           {deleted ? (
             <div className="form-card" style={{ textAlign: 'center', padding: '3rem' }}>
-              <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🗑️</div>
               <h2 style={{ color: '#c0392b' }}>Account Deleted</h2>
               <p style={{ color: '#666', marginTop: '.5rem' }}>Your account has been permanently deleted. You will be logged out shortly.</p>
             </div>
           ) : (
             <div className="form-card">
               <div style={{ background: '#fdecea', border: '1.5px solid #f44336', borderRadius: '10px', padding: '1rem 1.25rem', marginBottom: '1.5rem' }}>
-                <strong style={{ color: '#c62828' }}>🚨 Permanent Action — Cannot be Undone</strong>
+                <strong style={{ color: '#c62828' }}>Permanent Action — Cannot be Undone</strong>
                 <ul style={{ fontSize: '.88rem', color: '#c62828', marginTop: '.5rem', paddingLeft: '1.25rem', lineHeight: 1.8 }}>
                   <li>All your order history will be permanently removed</li>
                   <li>Your address and profile information will be deleted</li>
@@ -85,7 +84,7 @@ export default function DeleteAccountPage() {
                   disabled={loading || !canDelete}
                   onClick={handleDelete}
                   style={{ background: canDelete ? '#c0392b' : '#ccc', borderColor: canDelete ? '#c0392b' : '#ccc', cursor: canDelete ? 'pointer' : 'not-allowed' }}>
-                  {loading ? 'Deleting…' : '🗑️ Delete My Account'}
+                  {loading ? 'Deleting…' : 'Delete My Account'}
                 </button>
                 <Link href="/account" className="button secondary">Cancel</Link>
               </div>

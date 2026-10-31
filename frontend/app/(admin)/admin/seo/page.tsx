@@ -193,7 +193,7 @@ export default function SeoPage() {
 
           {report.findings.length === 0 ? (
             <div style={{ background: '#fff', border: '1px solid #eae3e4', borderRadius: 13, padding: '3rem', textAlign: 'center', color: '#2e7d32' }}>
-              <div style={{ fontSize: '2.5rem', marginBottom: '.5rem' }}>✅</div>
+              <div style={{ fontSize: '2.5rem', marginBottom: '.5rem' }}>✓</div>
               <p style={{ margin: 0, fontWeight: 600 }}>All {report.checksRun} checks passed.</p>
               <p style={{ margin: '.4rem 0 0', color: '#8a7f76', fontSize: '.85rem' }}>
                 Nothing mechanical is holding the site back. What is left is backlinks, your Google Business

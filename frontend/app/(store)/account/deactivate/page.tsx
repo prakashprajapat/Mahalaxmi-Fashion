@@ -45,14 +45,14 @@ export default function DeactivatePage() {
         <section>
           {submitted ? (
             <div className="form-card" style={{ textAlign: 'center', padding: '3rem' }}>
-              <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>⏸️</div>
+              <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>⏸</div>
               <h2 style={{ color: '#e67e22' }}>Account Deactivated</h2>
               <p style={{ color: '#666', marginTop: '.5rem' }}>Your account has been deactivated. You will be logged out shortly.</p>
             </div>
           ) : (
             <div className="form-card">
               <div style={{ background: '#fff3cd', border: '1.5px solid #ffc107', borderRadius: '10px', padding: '1rem 1.25rem', marginBottom: '1.5rem' }}>
-                <strong style={{ color: '#856404' }}>⚠️ Warning</strong>
+                <strong style={{ color: '#856404' }}>Warning</strong>
                 <p style={{ fontSize: '.9rem', color: '#856404', marginTop: '.35rem' }}>
                   Deactivating your account will hide your profile and pause all notifications. You can reactivate by logging in again.
                 </p>

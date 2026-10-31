@@ -942,7 +942,7 @@ export default function CheckoutPage() {
 
   if (step === 'confirm') return (
     <div style={{ maxWidth: '520px', margin: '0 auto', padding: '4rem 1.5rem', textAlign: 'center' }}>
-      <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>✅</div>
+      <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>✓</div>
       <h1 style={{ fontSize: '1.75rem', fontWeight: 700, color: '#27ae60', marginBottom: '.5rem' }}>Order Placed!</h1>
       <p style={{ color: '#555', marginBottom: '.25rem' }}>Order ID: <strong>{orderId}</strong></p>
       <p style={{ color: '#666', fontSize: '.92rem', marginBottom: '1.5rem' }}>
@@ -1129,13 +1129,13 @@ export default function CheckoutPage() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '.6rem', marginBottom: '1rem' }}>
               <label style={{ display: 'flex', alignItems: 'center', gap: '.6rem', border: `1.5px solid ${payMethod === 'online' ? '#722f37' : '#ddd'}`, background: payMethod === 'online' ? '#fff8f9' : '#fff', borderRadius: '10px', padding: '.75rem .9rem', cursor: 'pointer' }}>
                 <input type="radio" name="payMethod" checked={payMethod === 'online'} onChange={() => setPayMethod('online')} style={{ accentColor: '#722f37' }} />
-                <span style={{ fontWeight: 600, fontSize: '.92rem' }}>💳 Pay Online</span>
+                <span style={{ fontWeight: 600, fontSize: '.92rem' }}>Pay Online</span>
                 <span style={{ fontSize: '.8rem', color: '#666' }}>UPI / Card / Net Banking</span>
               </label>
               {codAvailable ? (
                 <label style={{ display: 'flex', alignItems: 'center', gap: '.6rem', border: `1.5px solid ${payMethod === 'cod' ? '#722f37' : '#ddd'}`, background: payMethod === 'cod' ? '#fff8f9' : '#fff', borderRadius: '10px', padding: '.75rem .9rem', cursor: 'pointer' }}>
                   <input type="radio" name="payMethod" checked={payMethod === 'cod'} onChange={() => setPayMethod('cod')} style={{ accentColor: '#722f37' }} />
-                  <span style={{ fontWeight: 600, fontSize: '.92rem' }}>🚚 Cash on Delivery</span>
+                  <span style={{ fontWeight: 600, fontSize: '.92rem' }}>Cash on Delivery</span>
                   {codAdvanceAmt > 0
                     ? <span style={{ fontSize: '.8rem', color: '#c0392b', fontWeight: 600 }}>₹{codAdvanceAmt} advance online</span>
                     : codFeeAmt > 0
@@ -1144,7 +1144,7 @@ export default function CheckoutPage() {
                 </label>
               ) : (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '.6rem', border: '1.5px solid #eee', background: '#fafafa', borderRadius: '10px', padding: '.75rem .9rem', opacity: .7 }}>
-                  <span style={{ fontWeight: 600, fontSize: '.92rem', color: '#999' }}>🚚 Cash on Delivery</span>
+                  <span style={{ fontWeight: 600, fontSize: '.92rem', color: '#999' }}>Cash on Delivery</span>
                   <span style={{ fontSize: '.78rem', color: '#c0392b' }}>Not available for this pincode — please pay online</span>
                 </div>
               )}
@@ -1153,15 +1153,15 @@ export default function CheckoutPage() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '.75rem' }}>
               {payMethod === 'online' ? (
                 <button onClick={handlePayOnline} disabled={loading} className="button primary" style={{ width: '100%' }}>
-                  {loading ? 'Processing…' : `💳 Pay Online — ₹${amountToPay.toLocaleString('en-IN')}`}
+                  {loading ? 'Processing…' : `Pay Online — ₹${amountToPay.toLocaleString('en-IN')}`}
                 </button>
               ) : (
                 <button onClick={handlePlaceCod} disabled={loading} className="button primary" style={{ width: '100%' }}>
                   {loading
                     ? 'Placing order…'
                     : codAdvanceDue > 0
-                      ? `💳 Pay ₹${codAdvanceDue.toLocaleString('en-IN')} Advance & Place Order`
-                      : `🚚 Place COD Order — ₹${amountToPay.toLocaleString('en-IN')}`}
+                      ? `Pay ₹${codAdvanceDue.toLocaleString('en-IN')} Advance & Place Order`
+                      : `Place COD Order — ₹${amountToPay.toLocaleString('en-IN')}`}
                 </button>
               )}
               {payMethod === 'cod' && (
@@ -1190,7 +1190,7 @@ export default function CheckoutPage() {
                   <div className="ck-line-media">
                     {img
                       ? <img className="ck-line-img" src={img} alt="" loading="lazy" />
-                      : <div className="ck-line-img ck-line-img-ph" aria-hidden="true">👗</div>}
+                      : <div className="ck-line-img ck-line-img-ph" aria-hidden="true"></div>}
                     <div className="ck-line-qty">
                       <button type="button" onClick={() => changeQty(i, i.quantity - 1)}
                         aria-label={`Reduce quantity of ${i.name}`}>−</button>
@@ -1218,7 +1218,7 @@ export default function CheckoutPage() {
           <div style={{ borderTop: '1px solid #eee', paddingTop: '.75rem', marginBottom: '.5rem' }}>
             {couponApplied ? (
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f0fdf4', border: '1px solid #c8e6c9', borderRadius: '8px', padding: '.5rem .75rem', fontSize: '.85rem' }}>
-                <span style={{ color: '#166534', fontWeight: 600 }}>🎟️ {couponApplied.code} — ₹{couponApplied.discount.toLocaleString('en-IN')} off</span>
+                <span style={{ color: '#166534', fontWeight: 600 }}>{couponApplied.code} — ₹{couponApplied.discount.toLocaleString('en-IN')} off</span>
                 <button onClick={removeCoupon} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#888', fontSize: '1rem' }} aria-label="Remove coupon">✕</button>
               </div>
             ) : (
@@ -1243,7 +1243,7 @@ export default function CheckoutPage() {
             <div style={{ borderTop: '1px solid #eee', paddingTop: '.75rem', marginBottom: '.25rem' }}>
               <label style={{ display: 'flex', alignItems: 'center', gap: '.6rem', cursor: 'pointer' }}>
                 <input type="checkbox" checked={useWallet} onChange={e => setUseWallet(e.target.checked)} style={{ accentColor: '#722f37' }} />
-                <span style={{ fontSize: '.88rem', fontWeight: 600, color: '#1a1a1a' }}>👛 Use wallet balance</span>
+                <span style={{ fontSize: '.88rem', fontWeight: 600, color: '#1a1a1a' }}>Use wallet balance</span>
                 <span style={{ marginLeft: 'auto', fontSize: '.82rem', color: '#666' }}>₹{walletBalance.toLocaleString('en-IN')} available</span>
               </label>
               {useWallet && (walletApplied > 0
@@ -1278,7 +1278,7 @@ export default function CheckoutPage() {
             {walletApplied > 0 && (
               <>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '.9rem', marginTop: '.4rem', color: '#27ae60' }}>
-                  <span>👛 Paid from wallet</span><span>−₹{walletApplied.toLocaleString('en-IN')}</span>
+                  <span>Paid from wallet</span><span>−₹{walletApplied.toLocaleString('en-IN')}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 800, fontSize: '1.1rem', marginTop: '.3rem' }}>
                   <span>To Pay</span><span style={{ color: '#722f37' }}>₹{amountToPay.toLocaleString('en-IN')}</span>
@@ -1314,7 +1314,6 @@ export default function CheckoutPage() {
             <div style={{ padding: '1.25rem 1.4rem 0' }}>
               <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800, color: '#1a1a1a' }}>Confirm Cash on Delivery Order</h3>
               <div style={{ display: 'flex', alignItems: 'center', gap: '.85rem', margin: '.9rem 0 .3rem' }}>
-                <div style={{ fontSize: '2rem', lineHeight: 1 }}>🚚</div>
                 <p style={{ margin: 0, color: '#722f37', fontWeight: 600, fontSize: '.95rem' }}>
                   Pay via UPI or Cash when you receive your order
                 </p>

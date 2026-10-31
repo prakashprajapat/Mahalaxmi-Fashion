@@ -181,7 +181,7 @@ export default function GoogleColourPicker({
     <div style={{ border: '1px solid #eadfe1', borderRadius: 10, padding: compact ? '.6rem' : '.85rem', background: '#fffdfd' }}>
       {!compact && (
         <div style={{ fontSize: '.82rem', fontWeight: 700, color: '#722f37', marginBottom: '.5rem' }}>
-          🎨 Print / multi-colour — circle par click karke colour bharein
+          Print / multi-colour — circle par click karke colour bharein
         </div>
       )}
 
@@ -218,7 +218,7 @@ export default function GoogleColourPicker({
             <button
               type="button" onClick={() => fromScreen(i)}
               style={{ marginTop: '.2rem', border: 'none', background: 'none', color: '#888', fontSize: '.66rem', cursor: 'pointer' }}
-            >💧 screen se</button>
+            >screen se</button>
           </div>
         ))}
 
@@ -238,7 +238,7 @@ export default function GoogleColourPicker({
               border: '1px solid #c9a9b0', background: '#fff', color: '#722f37', borderRadius: 6,
               padding: '.28rem .6rem', fontSize: '.73rem', fontWeight: 700, cursor: busy ? 'wait' : 'pointer',
             }}
-          >{busy ? '⏳ Reading…' : '📷 Fill colours from the photo'}</button>
+          >{busy ? '⏳ Reading…' : 'Fill colours from the photo'}</button>
         )}
         {photo && (
           <button
@@ -247,7 +247,7 @@ export default function GoogleColourPicker({
               border: '1px solid #c9a9b0', background: '#fff', color: '#722f37', borderRadius: 6,
               padding: '.28rem .6rem', fontSize: '.73rem', fontWeight: 700, cursor: 'pointer',
             }}
-          >🎯 Pick part of the photo</button>
+          >Pick part of the photo</button>
         )}
       </div>
 

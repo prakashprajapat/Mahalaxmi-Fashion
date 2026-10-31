@@ -22,32 +22,32 @@ function buildMessage(pathname: string, sp: URLSearchParams): string {
     const title = typeof document !== 'undefined'
       ? document.title.replace(' | Mahalaxmi Fashion Hub', '').trim()
       : 'a product';
-    return `Hello! I'm interested in "${title}". Could you please share more information about it? 🙏`;
+    return `Hello! I'm interested in "${title}". Could you please share more information about it?`;
   }
 
   const category = sp.get('category');
   const q = sp.get('q');
   const bestSeller = sp.get('bestSeller');
 
-  if (q) return `Hello! I'm looking for "${q}" on your website. Is this available? 🙏`;
-  if (bestSeller === 'true') return `Hello! I'd like to see your Best Seller products. Please recommend some! 🙏`;
+  if (q) return `Hello! I'm looking for "${q}" on your website. Is this available?`;
+  if (bestSeller === 'true') return `Hello! I'd like to see your Best Seller products. Please recommend some!`;
   if (category) {
     const cat = category.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-    return `Hello! I'm browsing your ${cat} collection. Is there any special offer? 🙏`;
+    return `Hello! I'm browsing your ${cat} collection. Is there any special offer?`;
   }
-  if (pathname === '/') return `Hello! I'm on the Mahalaxmi Fashion Hub website. I'd like to know more about your collections. 🙏`;
-  if (pathname === '/cart') return `Hello! I have a few items in my cart. I need help placing the order. 🙏`;
-  if (pathname.startsWith('/orders')) return `Hello! I wanted to ask something about my order. Please help. 🙏`;
-  if (pathname === '/tracking') return `Hello! I'd like to track my order. Can you help me? 🙏`;
-  if (pathname === '/wishlist') return `Hello! I'm looking at my wishlist. Is there any offer available on these? 🙏`;
-  if (pathname.startsWith('/account')) return `Hello! I need some help related to my account. 🙏`;
-  if (pathname === '/contact') return `Hello! I'd like to get in touch with Mahalaxmi Fashion Hub. 🙏`;
+  if (pathname === '/') return `Hello! I'm on the Mahalaxmi Fashion Hub website. I'd like to know more about your collections.`;
+  if (pathname === '/cart') return `Hello! I have a few items in my cart. I need help placing the order.`;
+  if (pathname.startsWith('/orders')) return `Hello! I wanted to ask something about my order. Please help.`;
+  if (pathname === '/tracking') return `Hello! I'd like to track my order. Can you help me?`;
+  if (pathname === '/wishlist') return `Hello! I'm looking at my wishlist. Is there any offer available on these?`;
+  if (pathname.startsWith('/account')) return `Hello! I need some help related to my account.`;
+  if (pathname === '/contact') return `Hello! I'd like to get in touch with Mahalaxmi Fashion Hub.`;
 
   // Category shortcut pages like /saree, /women etc.
   const page = pathname.replace('/', '').replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-  if (page) return `Hello! I'm interested in your ${page} collection. Please share the details. 🙏`;
+  if (page) return `Hello! I'm interested in your ${page} collection. Please share the details.`;
 
-  return `Hello! I'm on the Mahalaxmi Fashion Hub website. Please help. 🙏`;
+  return `Hello! I'm on the Mahalaxmi Fashion Hub website. Please help.`;
 }
 
 // The WhatsApp button.

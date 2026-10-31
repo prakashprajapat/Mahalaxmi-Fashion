@@ -25,14 +25,14 @@ function fmtDate(raw: string) {
 }
 
 // Friendly label + icon for each ledger entry type.
-const TYPE_META: Record<string, { label: string; icon: string }> = {
-  earn:         { label: 'Reward earned',   icon: '🎉' },
-  redeem:       { label: 'Used at checkout', icon: '🛍️' },
-  refund:       { label: 'Refund',          icon: '↩️' },
-  referral:     { label: 'Referral bonus',  icon: '🤝' },
-  signup:       { label: 'Signup bonus',    icon: '🎁' },
-  topup:        { label: 'Money added',     icon: '➕' },
-  admin_adjust: { label: 'Adjustment',      icon: '⚙️' },
+const TYPE_META: Record<string, { label: string }> = {
+  earn:         { label: 'Reward earned' },
+  redeem:       { label: 'Used at checkout' },
+  refund:       { label: 'Refund' },
+  referral:     { label: 'Referral bonus' },
+  signup:       { label: 'Signup bonus' },
+  topup:        { label: 'Money added' },
+  admin_adjust: { label: 'Adjustment' },
 };
 
 export default function WalletPage() {
@@ -129,7 +129,7 @@ export default function WalletPage() {
         </div>
         <button onClick={() => { setShowAdd(true); setAddMsg(''); setAddAmt(''); }}
           style={{ marginTop: '1rem', background: '#fff', color: '#722f37', border: 'none', borderRadius: 10, padding: '.6rem 1.4rem', fontWeight: 800, fontSize: '.9rem', cursor: 'pointer' }}>
-          ➕ Add Money
+          Add Money
         </button>
       </div>
 
@@ -168,14 +168,13 @@ export default function WalletPage() {
         <div style={{ padding: '2rem', textAlign: 'center', color: '#aaa' }}>Loading…</div>
       ) : txns.length === 0 ? (
         <div style={{ background: '#fff', border: '1px solid #eee', borderRadius: 12, padding: '2.5rem 1rem', textAlign: 'center', color: '#999' }}>
-          <div style={{ fontSize: '2.2rem', marginBottom: '.4rem' }}>👛</div>
           <p style={{ margin: 0 }}>No wallet activity yet.</p>
           <p style={{ margin: '.3rem 0 0', fontSize: '.85rem', color: '#bbb' }}>Your reward will appear here once an order is delivered.</p>
         </div>
       ) : (
         <div style={{ background: '#fff', border: '1px solid #eee', borderRadius: 12, overflow: 'hidden' }}>
           {txns.map((t, i) => {
-            const meta = TYPE_META[t.type] || { label: t.type, icon: '•' };
+            const meta = TYPE_META[t.type] || { label: t.type };
             const credit = t.amount >= 0;
             return (
               <div key={t.id} style={{
@@ -185,7 +184,7 @@ export default function WalletPage() {
                 <div style={{
                   width: 38, height: 38, borderRadius: '50%', flex: '0 0 auto',
                   background: credit ? '#e8f5e9' : '#fdecea', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.1rem',
-                }}>{meta.icon}</div>
+                }}>{credit ? '+' : '−'}</div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 600, color: '#1a1a1a', fontSize: '.9rem' }}>{meta.label}</div>
                   <div style={{ fontSize: '.75rem', color: '#999', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>

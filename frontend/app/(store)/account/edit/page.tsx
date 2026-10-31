@@ -220,38 +220,38 @@ export default function AccountEditPage() {
               <span style={{ fontSize: '.88rem' }}>I agree to receive offers, newsletters, and updates from Mahalaxmi Fashion Hub.</span>
             </label>
 
-            <h2 style={{ marginTop: '1.75rem' }}>🎁 Special Offers</h2>
+            <h2 style={{ marginTop: '1.75rem' }}>Special Offers</h2>
             <p style={{ color: '#666', fontSize: '.88rem', margin: '0 0 1rem', lineHeight: 1.5 }}>
               Share your special dates to receive exclusive Birthday &amp; Anniversary discounts and surprises. This is completely optional!
             </p>
             <div className="form-grid">
               <label>
-                🎂 Date of Birth
+                Date of Birth
                 <input type="date" value={form.dateOfBirth} onChange={set('dateOfBirth')}
                   disabled={!!customer?.birthdayOfferUsed}
                   style={customer?.birthdayOfferUsed ? { background: '#f2f2f2', cursor: 'not-allowed', color: '#666' } : undefined} />
                 {customer?.birthdayOfferUsed ? (
                   <span style={{ fontSize: '.72rem', color: '#999', marginTop: '.25rem', display: 'block' }}>
-                    🔒 Locked — your birthday offer has been used. Contact support to change.
+                    Locked — your birthday offer has been used. Contact support to change.
                   </span>
                 ) : customer?.dateOfBirth && (
                   <span style={{ fontSize: '.72rem', color: '#27ae60', marginTop: '.25rem', display: 'block' }}>
-                    ✏️ Editable until you redeem your birthday offer.
+                    Editable until you redeem your birthday offer.
                   </span>
                 )}
               </label>
               <label>
-                💍 Marriage Anniversary
+                Marriage Anniversary
                 <input type="date" value={form.marriageDate} onChange={set('marriageDate')}
                   disabled={!!customer?.anniversaryOfferUsed}
                   style={customer?.anniversaryOfferUsed ? { background: '#f2f2f2', cursor: 'not-allowed', color: '#666' } : undefined} />
                 {customer?.anniversaryOfferUsed ? (
                   <span style={{ fontSize: '.72rem', color: '#999', marginTop: '.25rem', display: 'block' }}>
-                    🔒 Locked — your anniversary offer has been used. Contact support to change.
+                    Locked — your anniversary offer has been used. Contact support to change.
                   </span>
                 ) : customer?.marriageDate && (
                   <span style={{ fontSize: '.72rem', color: '#27ae60', marginTop: '.25rem', display: 'block' }}>
-                    ✏️ Editable until you redeem your anniversary offer.
+                    Editable until you redeem your anniversary offer.
                   </span>
                 )}
               </label>

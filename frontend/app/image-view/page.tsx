@@ -38,7 +38,7 @@ export default function ImageViewPage({ searchParams }: { searchParams: { src?: 
         <nav style={{ display: 'flex', gap: '.5rem', flexShrink: 0 }}>
           <Link href="/"
             style={{ display: 'inline-flex', alignItems: 'center', gap: '.35rem', background: '#fff', color: BRAND, fontWeight: 700, fontSize: '.9rem', padding: '.5rem .95rem', borderRadius: 999, textDecoration: 'none' }}>
-            🏠 Home
+            Home
           </Link>
           <Link href="/products"
             style={{ display: 'inline-flex', alignItems: 'center', background: 'rgba(255,255,255,.16)', color: '#fff', fontWeight: 700, fontSize: '.9rem', padding: '.5rem .95rem', borderRadius: 999, border: '1px solid rgba(255,255,255,.5)', textDecoration: 'none' }}>
@@ -56,13 +56,13 @@ export default function ImageViewPage({ searchParams }: { searchParams: { src?: 
               style={{ maxWidth: '100%', maxHeight: '78vh', width: 'auto', height: 'auto', borderRadius: 14, boxShadow: '0 10px 30px rgba(92,26,40,.18)', background: '#fff' }} />
             <Link href="/products"
               style={{ background: BRAND, color: '#fff', fontWeight: 800, fontSize: '.95rem', padding: '.7rem 1.6rem', borderRadius: 999, textDecoration: 'none', boxShadow: '0 6px 16px rgba(122,10,34,.28)' }}>
-              🛍️ Browse Our Collection
+              Browse Our Collection
             </Link>
           </>
         ) : (
           <div style={{ textAlign: 'center', color: '#7a0a22' }}>
             <p style={{ fontWeight: 700, marginBottom: '1rem' }}>Image not available.</p>
-            <Link href="/" style={{ background: BRAND, color: '#fff', fontWeight: 800, padding: '.7rem 1.6rem', borderRadius: 999, textDecoration: 'none' }}>🏠 Go to Home</Link>
+            <Link href="/" style={{ background: BRAND, color: '#fff', fontWeight: 800, padding: '.7rem 1.6rem', borderRadius: 999, textDecoration: 'none' }}>Go to Home</Link>
           </div>
         )}
       </main>

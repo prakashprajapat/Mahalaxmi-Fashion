@@ -23,7 +23,7 @@ export default async function WomenPage() {
   const { products } = await productsApi.getAll({ category: 'women', pageSize: 200 }).catch(() => ({ products: [] }));
   return (
     <>
-      <CategoryPageContent products={toListingProducts(products as any[]) as any} category="Women" icon="👩" desc="Women's ethnic wear and fashion essentials" allHref="/products?category=women" />
+      <CategoryPageContent products={toListingProducts(products as any[]) as any} category="Women" icon="" desc="Women's ethnic wear and fashion essentials" allHref="/products?category=women" />
       <CategorySeoBlock slug="women" />
     </>
   );

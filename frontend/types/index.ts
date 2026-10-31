@@ -153,6 +153,8 @@ export interface Review {
   productName?: string;
   customerId?: number;
   customerName?: string;
+  /** "Barmer, Rajasthan", or empty when the shop never recorded one. */
+  place?: string;
   rating: number;
   text: string;
   status?: 'pending' | 'approved' | 'rejected';

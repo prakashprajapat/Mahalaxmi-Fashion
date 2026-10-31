@@ -20,7 +20,6 @@ export default function CompareView() {
   if (!ready) return null;
   if (items.length === 0) return (
     <div style={{ textAlign: 'center', padding: '4rem 1rem', color: '#666' }}>
-      <div style={{ fontSize: '3rem', marginBottom: '.5rem' }}>⚖️</div>
       <h1 style={{ fontSize: '1.4rem', color: '#722f37', marginBottom: '.5rem' }}>Nothing to compare yet</h1>
       <p style={{ marginBottom: '1.5rem' }}>Add products to compare using the “Compare” button on any product card.</p>
       <Link href="/products" className="button primary">Browse Products</Link>

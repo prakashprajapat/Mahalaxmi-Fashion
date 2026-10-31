@@ -457,7 +457,7 @@ export default function QuickViewModal({ product, onClose }: Props) {
                   transition: 'background .2s',
                 }}
               >
-                {added ? '✓ Added to Cart' : inStock ? '🛒 Add to Cart' : 'Out of Stock'}
+                {added ? '✓ Added to Cart' : inStock ? 'Add to Cart' : 'Out of Stock'}
               </button>
               <button
                 onClick={handleWishlist}
@@ -470,7 +470,7 @@ export default function QuickViewModal({ product, onClose }: Props) {
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}
               >
-                <span aria-hidden="true">{wishlisted ? '❤️' : '🤍'}</span>
+                <span aria-hidden="true">{wishlisted ? '' : ''}</span>
               </button>
             </div>
 
@@ -525,9 +525,9 @@ export default function QuickViewModal({ product, onClose }: Props) {
                 )}
                 {/* Delivery info */}
                 <div style={{ background: '#f9f9f9', borderRadius: '8px', padding: '.6rem .9rem', fontSize: '.83rem', color: '#555', display: 'flex', flexDirection: 'column', gap: '.2rem' }}>
-                  <span>🚚 <strong>Free delivery</strong> on orders above ₹499</span>
-                  <span>🔄 <strong>Easy returns</strong> within 7 days</span>
-                  <span>✅ <strong>Genuine product</strong> — 100% original</span>
+                  <span><strong>Free delivery</strong> on orders above ₹499</span>
+                  <span><strong>Easy returns</strong> within 7 days</span>
+                  <span>✓ <strong>Genuine product</strong> — 100% original</span>
                 </div>
                 {/* Link to full page */}
                 <a href={`/products/${productSlug(product.name, product.dbId)}`} target="_blank" rel="noopener"

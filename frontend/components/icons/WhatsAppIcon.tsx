@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react';
 
-// Official WhatsApp glyph — use this instead of the 💬 emoji so every "WhatsApp" button
+// Official WhatsApp glyph — use this instead of the emoji so every "WhatsApp" button
 // shows the real logo. Defaults to white (for green buttons); pass `color` to change it.
 export default function WhatsAppIcon({ size = 18, color = '#fff', style }: { size?: number; color?: string; style?: CSSProperties }) {
   return (

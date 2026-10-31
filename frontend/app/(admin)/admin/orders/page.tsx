@@ -548,7 +548,7 @@ export default function AdminOrdersPage() {
   const bulkDelete = async () => {
     if (!selectedIds.size) return;
     const ids = [...selectedIds];
-    if (!confirm(`Permanently DELETE ${ids.length} order(s)?\n\n${ids.join('\n')}\n\n⚠️ This cannot be undone. Use only to remove test orders.`)) return;
+    if (!confirm(`Permanently DELETE ${ids.length} order(s)?\n\n${ids.join('\n')}\n\n This cannot be undone. Use only to remove test orders.`)) return;
     if (!confirm(`Last check — really delete ${ids.length} order(s) forever?`)) return;
     const token = getAdminToken() ?? '';
     let ok = 0, fail = 0;
@@ -1027,7 +1027,7 @@ export default function AdminOrdersPage() {
           <div onClick={e => e.stopPropagation()}
             style={{ background: '#fff', borderRadius: 12, padding: '1.3rem 1.5rem', width: '100%', maxWidth: 520, maxHeight: '85vh', overflowY: 'auto' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '.8rem' }}>
-              <h3 style={{ margin: 0, fontSize: '1.05rem' }}>📍 Live Tracking — {liveModal.awb}</h3>
+              <h3 style={{ margin: 0, fontSize: '1.05rem' }}>Live Tracking — {liveModal.awb}</h3>
               <button onClick={() => setLiveModal(null)} style={{ background: 'none', border: 'none', fontSize: '1.3rem', cursor: 'pointer', color: '#888' }}>✕</button>
             </div>
 
@@ -1206,7 +1206,7 @@ export default function AdminOrdersPage() {
                           maxHeight: '88vh', overflowY: 'auto', padding: '1.2rem 1.35rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '.75rem' }}>
                 <div>
-                  <h3 style={{ margin: 0, fontSize: '1.05rem' }}>📦 Packing — {o.id}</h3>
+                  <h3 style={{ margin: 0, fontSize: '1.05rem' }}>Packing — {o.id}</h3>
                   <p style={{ margin: '.2rem 0 0', fontSize: '.84rem', color: '#8a7f76' }}>
                     {o.customerName || 'no name'} · {pieces} {pieces === 1 ? 'piece' : 'pieces'}
                     {o.shippingPincode ? ` · ${o.shippingPincode}` : ''}
@@ -1385,21 +1385,21 @@ export default function AdminOrdersPage() {
                     <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginTop: '.75rem' }}>
                       {o.returnOpeningVideo && (
                         <div>
-                          <p style={lbl}>🎬 Opening video</p>
+                          <p style={lbl}>Opening video</p>
                           <video src={o.returnOpeningVideo} controls preload="metadata" style={vid} />
                           <div style={mediaLinks}>
                             <a href={o.returnOpeningVideo} target="_blank" rel="noreferrer" style={viewA}>↗ View</a>
-                            <a href={o.returnOpeningVideo} download style={dlA}>⬇ Download</a>
+                            <a href={o.returnOpeningVideo} download style={dlA}>Download</a>
                           </div>
                         </div>
                       )}
                       {o.returnClosingVideo && (
                         <div>
-                          <p style={lbl}>🎬 Return-pack video</p>
+                          <p style={lbl}>Return-pack video</p>
                           <video src={o.returnClosingVideo} controls preload="metadata" style={vid} />
                           <div style={mediaLinks}>
                             <a href={o.returnClosingVideo} target="_blank" rel="noreferrer" style={viewA}>↗ View</a>
-                            <a href={o.returnClosingVideo} download style={dlA}>⬇ Download</a>
+                            <a href={o.returnClosingVideo} download style={dlA}>Download</a>
                           </div>
                         </div>
                       )}
@@ -1407,7 +1407,7 @@ export default function AdminOrdersPage() {
                   )}
                   {photos.length > 0 && (
                     <>
-                      <p style={{ ...lbl, marginTop: '.85rem' }}>🖼️ Photos ({photos.length})</p>
+                      <p style={{ ...lbl, marginTop: '.85rem' }}>Photos ({photos.length})</p>
                       <div style={{ display: 'flex', gap: '.75rem', flexWrap: 'wrap' }}>
                         {photos.map((src, i) => (
                           <div key={i} style={{ textAlign: 'center' }}>
@@ -1416,7 +1416,7 @@ export default function AdminOrdersPage() {
                             </a>
                             <div style={mediaLinks}>
                               <a href={src} target="_blank" rel="noreferrer" style={viewA}>↗</a>
-                              <a href={src} download style={dlA}>⬇</a>
+                              <a href={src} download style={dlA}>Download</a>
                             </div>
                           </div>
                         ))}
@@ -1450,7 +1450,7 @@ export default function AdminOrdersPage() {
               <>
                 {o.returnDecision === 'approved' && o.status !== 'Return' && (
                   <div style={{ marginTop: '1rem', borderTop: '1px solid #eee', paddingTop: '.85rem' }}>
-                    <p style={{ ...lbl, marginBottom: '.4rem' }}>🚚 Return Pickup (reverse)</p>
+                    <p style={{ ...lbl, marginBottom: '.4rem' }}>Return Pickup (reverse)</p>
                     <div style={{ background: '#faf7f8', borderRadius: 8, padding: '.6rem .75rem', fontSize: '.78rem', color: '#555', marginBottom: '.6rem', lineHeight: 1.5 }}>
                       <strong>Pickup from customer:</strong><br />
                       {o.shippingName || o.customerName || '—'}{o.customerPhone ? ` · ${o.customerPhone}` : ''}<br />
@@ -1479,7 +1479,7 @@ export default function AdminOrdersPage() {
                             {decisionBusy ? '…' : 'Save AWB'}
                           </button>
                           <button onClick={() => assignReturnAwb(o, 'auto')} disabled={decisionBusy} style={{ ...btn, flex: '0 0 auto', padding: '.5rem .9rem', background: '#1565c0' }}>
-                            ⚡ Auto (Delhivery)
+                            Auto (Delhivery)
                           </button>
                         </div>
                       </>

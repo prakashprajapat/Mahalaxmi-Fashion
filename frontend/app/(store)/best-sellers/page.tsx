@@ -20,7 +20,7 @@ export default async function BestSellersPage() {
     <CategoryPageContent
       products={toListingProducts(products as any[]) as any}
       category="Best Sellers"
-      icon="⭐"
+      icon=""
       desc="Most loved products — handpicked bestsellers"
       allHref="/products?bestSeller=true"
     />

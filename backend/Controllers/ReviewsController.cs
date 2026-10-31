@@ -108,9 +108,11 @@ public class ReviewsController : ControllerBase
     /// Approved reviews across the whole catalogue, newest first — for the public
     /// reviews page and the homepage strip.
     ///
-    /// Only approved ones, and only the fields a visitor's page shows. The
-    /// customer's surname is cut to an initial: a review is public, a full name
-    /// on a public page is not something a shopper agreed to when they wrote it.
+    /// Only approved ones, and only the fields a visitor's page shows: the
+    /// buyer's name in full and the district and state the parcel went to, the
+    /// way every marketplace shows them, because a review signed "I***L" reads
+    /// as something the shop made up. Never the street, the pincode, the phone
+    /// or the email - those are for delivering a parcel, not for publishing.
     /// </summary>
     // GET /api/reviews/recent?take=24
     [HttpGet("recent")]
@@ -127,8 +129,11 @@ public class ReviewsController : ControllerBase
                 productId = r.ProductId,
                 productName = r.Product != null ? r.Product.Name : null,
                 productImage = r.Product != null ? r.Product.Image : null,
+                customerId = r.CustomerId,
                 first = r.Customer != null ? r.Customer.FirstName : null,
                 last = r.Customer != null ? r.Customer.LastName : null,
+                district = r.Customer != null ? r.Customer.District : null,
+                state = r.Customer != null ? r.Customer.State : null,
                 rating = r.Rating,
                 text = r.Body ?? "",
                 imageUrls = r.ImageUrls,
@@ -138,9 +143,14 @@ public class ReviewsController : ControllerBase
 
         var total = await _db.Reviews.CountAsync(r => r.Status == "approved");
 
+        var fallback = await PlacesFromAddressesAsync(
+            rows.Where(r => Place(r.district, r.state).Length == 0)
+                .Select(r => r.customerId));
+
         var reviews = rows.Select(r => new {
             r.id, r.productId, r.productName, r.productImage,
-            customerName = MaskedName(r.first, r.last),
+            customerName = FullName(r.first, r.last),
+            place = PlaceOrFallback(r.district, r.state, r.customerId, fallback),
             r.rating, r.text, r.imageUrls, r.createdAt,
         });
 
@@ -148,18 +158,60 @@ public class ReviewsController : ControllerBase
     }
 
     /// <summary>
-    /// "Yogita" -> "Y***a". The review is public; the name of the person who
-    /// wrote it is not something they agreed to publish, and a first name plus a
-    /// town is enough to find someone. Enough is left that a shopper reads it as
-    /// a person rather than a blank.
+    /// Both parts of the name the customer registered with. A review with
+    /// nobody's name on it is the one a shopper discounts, which is the whole
+    /// reason for collecting them.
     /// </summary>
-    private static string MaskedName(string? first, string? last)
+    private static string FullName(string? first, string? last)
     {
-        var n = (first ?? "").Trim();
-        if (n.Length == 0) n = (last ?? "").Trim();
-        if (n.Length == 0) return "Verified buyer";
-        if (n.Length <= 2) return $"{n[0]}***";
-        return $"{n[0]}***{n[^1]}";
+        var name = ((first ?? "").Trim() + " " + (last ?? "").Trim()).Trim();
+        while (name.Contains("  ")) name = name.Replace("  ", " ");
+        return name.Length == 0 ? "Verified buyer" : name;
+    }
+
+    /// <summary>
+    /// "Barmer, Rajasthan". District first, state after, and neither invented:
+    /// whichever half is missing is simply left out, because "Barmer, " on a
+    /// page looks like a fault and ", Rajasthan" looks like a worse one.
+    /// </summary>
+    private static string Place(string? district, string? state)
+    {
+        var d = (district ?? "").Trim();
+        var s = (state ?? "").Trim();
+        if (d.Length > 0 && s.Length > 0) return d + ", " + s;
+        return d.Length > 0 ? d : s;
+    }
+
+    /// <summary>
+    /// The district and state of the address a customer actually uses, for the
+    /// ones whose own record never had those columns filled in. Their default
+    /// address first, then the most recent - and one query for the whole page,
+    /// not one per review.
+    /// </summary>
+    private async Task<Dictionary<int, string>> PlacesFromAddressesAsync(IEnumerable<int?> customerIds)
+    {
+        var ids = customerIds.Where(i => i.HasValue).Select(i => i!.Value).Distinct().ToList();
+        if (ids.Count == 0) return new Dictionary<int, string>();
+
+        var rows = await _db.CustomerAddresses
+            .Where(a => ids.Contains(a.CustomerId))
+            .OrderByDescending(a => a.IsDefault)
+            .ThenByDescending(a => a.Id)
+            .Select(a => new { a.CustomerId, a.City, a.State })
+            .ToListAsync();
+
+        return rows
+            .GroupBy(a => a.CustomerId)
+            .ToDictionary(g => g.Key, g => Place(g.First().City, g.First().State));
+    }
+
+    private static string PlaceOrFallback(
+        string? district, string? state, int? customerId, Dictionary<int, string> fallback)
+    {
+        var place = Place(district, state);
+        if (place.Length > 0) return place;
+        if (customerId.HasValue && fallback.TryGetValue(customerId.Value, out var other)) return other;
+        return "";
     }
 
     // GET /api/reviews/product/{productId}
@@ -167,7 +219,7 @@ public class ReviewsController : ControllerBase
     public async Task<IActionResult> GetByProduct(int productId)
     {
         // PERF-7: Select projection — only fetch needed columns
-        var reviews = await _db.Reviews
+        var rows = await _db.Reviews
             .Where(r => r.ProductId == productId && r.Status == "approved")
             .OrderByDescending(r => r.CreatedAt)
             .Select(r => new {
@@ -175,6 +227,8 @@ public class ReviewsController : ControllerBase
                 productId = r.ProductId,
                 customerId = r.CustomerId,
                 customerName = r.Customer != null ? r.Customer.FirstName + " " + r.Customer.LastName : null,
+                district = r.Customer != null ? r.Customer.District : null,
+                state = r.Customer != null ? r.Customer.State : null,
                 rating = r.Rating,
                 text = r.Body ?? "",
                 status = r.Status,
@@ -183,6 +237,18 @@ public class ReviewsController : ControllerBase
                 createdAt = r.CreatedAt
             })
             .ToListAsync();
+
+        // The same place line as the homepage wall, so a review does not change
+        // shape depending on which page it is read on.
+        var places = await PlacesFromAddressesAsync(
+            rows.Where(r => Place(r.district, r.state).Length == 0).Select(r => r.customerId));
+
+        var reviews = rows.Select(r => new {
+            r.id, r.productId, r.customerId,
+            customerName = FullName(r.customerName, null),
+            place = PlaceOrFallback(r.district, r.state, r.customerId, places),
+            r.rating, r.text, r.status, r.orderId, r.imageUrls, r.createdAt,
+        });
 
         return Ok(new { success = true, reviews });
     }

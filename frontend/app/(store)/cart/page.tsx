@@ -61,7 +61,6 @@ export default function CartPage() {
 
   if (cart.length === 0) return (
     <div className="max-w-3xl mx-auto px-4 py-20 text-center">
-      <p className="text-5xl mb-4">🛒</p>
       <h2 className="text-2xl font-bold mb-2 text-gray-700">Your cart is empty</h2>
       <Link href="/products" className="btn-primary inline-block mt-4">Start Shopping</Link>
     </div>
@@ -85,7 +84,7 @@ export default function CartPage() {
                     /* sizes ke bina Next sabse badi (1080px) copy bhejta hai - yahan dabba
                        sirf 80px ka hai. Aur poora pata isliye, ki nayi upload hui photo bhi mile. */
                     ? <Image src={productImageSrc(item.image)} alt={item.name} fill sizes="80px" className="object-cover" />
-                    : <div className="w-full h-full flex items-center justify-center text-2xl">👗</div>}
+                    : <div className="w-full h-full flex items-center justify-center text-2xl"></div>}
                 </div>
                 <div className="flex-1">
                   <p className="font-semibold text-gray-900">{item.name}</p>

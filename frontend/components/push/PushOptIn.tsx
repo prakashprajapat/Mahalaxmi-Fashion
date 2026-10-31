@@ -140,7 +140,7 @@ export default function PushOptIn() {
         flexShrink: 0, width: 42, height: 42, borderRadius: '50%',
         background: 'linear-gradient(180deg,#722f37,#5c1420)', color: '#fff',
         display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.25rem',
-      }}>🔔</div>
+      }}></div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <p style={{ margin: 0, fontWeight: 700, fontSize: '.92rem', color: '#3a1219' }}>
           Get offers &amp; order updates

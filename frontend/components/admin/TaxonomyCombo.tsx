@@ -215,7 +215,7 @@ export default function TaxonomyCombo({
                   <div key="__add__" onMouseDown={e => { e.preventDefault(); add(); }}
                     onMouseEnter={() => setActive(idx)}
                     style={{ padding: '.48rem .75rem', cursor: 'pointer', color: '#a7354d', fontWeight: 700, fontSize: '.85rem', borderBottom: '1px solid #f5f5f5', background: isActive ? '#fdf0f3' : '#fff' }}>
-                    ➕ Add &ldquo;{text.trim()}&rdquo;
+                    Add &ldquo;{text.trim()}&rdquo;
                   </div>
                 );
               }
@@ -272,16 +272,16 @@ export default function TaxonomyCombo({
                   </span>
                   <button type="button" title="Rename this subcategory" aria-label={`Rename ${o}`}
                     onMouseDown={e => { e.preventDefault(); setNotice(null); setMerging(null); setEditing(o); setEditText(o); }}
-                    style={actionBtn('#eef3fb', '#1a4a7a')}>✏️ Modify</button>
+                    style={actionBtn('#eef3fb', '#1a4a7a')}>Modify</button>
                   <button type="button" title="Merge into another subcategory" aria-label={`Merge ${o}`}
                     onMouseDown={e => { e.preventDefault(); setNotice(null); setEditing(null); setMergeTo(''); setMerging(o); }}
-                    style={actionBtn('#f4eefb', '#5b2d86')}>🔀 Merge</button>
+                    style={actionBtn('#f4eefb', '#5b2d86')}>Merge</button>
                   {canDelete(o) && (
                     <button type="button" title="Remove from this list" aria-label={`Delete ${o}`}
                       disabled={busy === o}
                       onMouseDown={e => { e.preventDefault(); void del(o); }}
                       style={actionBtn('#fdecea', '#b02a1c')}>
-                      {busy === o ? '…' : '🗑 Delete'}
+                      {busy === o ? '…' : 'Delete'}
                     </button>
                   )}
                 </div>

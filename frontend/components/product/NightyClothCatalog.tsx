@@ -48,7 +48,6 @@ export default function NightyClothCatalog({ products }: { products: Product[] }
         alignItems: 'flex-start',
         gap: '1rem',
       }}>
-        <span style={{ fontSize: '1.8rem', flexShrink: 0 }}>📋</span>
         <div>
           <p style={{ fontWeight: 700, color: '#e65100', fontSize: '1rem', margin: '0 0 .3rem' }}>
             Catalog View — Online Ordering Not Available
@@ -75,7 +74,6 @@ export default function NightyClothCatalog({ products }: { products: Product[] }
 
       {products.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '3rem 1rem', color: '#888' }}>
-          <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🧶</div>
           <p>No products found in this category yet.</p>
         </div>
       ) : (

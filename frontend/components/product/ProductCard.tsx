@@ -136,7 +136,7 @@ export default function ProductCard({ product, priority = false }: { product: Pr
           {/* Wishlist */}
           <button className={`product-wishlist-btn ${wishlisted ? 'active' : ''}`} onClick={handleWishlist}
             aria-label={wishlisted ? 'Remove from wishlist' : 'Add to wishlist'} title="Add to Wishlist">
-            <span aria-hidden="true">{wishlisted ? '❤️' : '🤍'}</span>
+            <span aria-hidden="true">{wishlisted ? '' : ''}</span>
           </button>
         </div>
 

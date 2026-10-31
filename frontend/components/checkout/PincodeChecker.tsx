@@ -31,7 +31,7 @@ export default function PincodeChecker() {
   return (
     <div style={{ marginTop: '1rem', padding: '1rem 1.1rem', border: '1px solid #eadfe2', borderRadius: 12, background: '#faf7f4' }}>
       <label style={{ display: 'block', fontSize: '.85rem', fontWeight: 700, color: '#4a1f27', marginBottom: '.5rem' }}>
-        📍 Check delivery time for your pincode
+        Check delivery time for your pincode
       </label>
       <div style={{ display: 'flex', gap: '.5rem', maxWidth: 360 }}>
         <input type="text" inputMode="numeric" maxLength={6} value={pin}

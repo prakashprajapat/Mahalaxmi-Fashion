@@ -54,7 +54,6 @@ export default function WishlistPage() {
         <section className="auth-stack">
           {items.length === 0 ? (
             <div className="form-card" style={{ textAlign: 'center', padding: '3rem 1.5rem' }}>
-              <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🤍</div>
               <h2 style={{ marginBottom: '.5rem' }}>Your wishlist is empty</h2>
               <p style={{ color: '#777', marginBottom: '1.5rem' }}>Browse products and save your favourites here.</p>
               <Link href="/products" className="button primary">Browse Products</Link>
@@ -72,7 +71,7 @@ export default function WishlistPage() {
                         {product.image ? (
                           <Image src={productImageSrc(product.image)} alt={product.name} fill sizes="(max-width: 768px) 50vw, 220px" style={{ objectFit: 'cover' }} />
                         ) : (
-                          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '4rem', color: '#ddd' }}>👗</div>
+                          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#bbb', fontSize: '.8rem' }}>No photo</div>
                         )}
                         {saving > 0 && <span className="badge badge-red" style={{ position: 'absolute', top: 8, left: 8 }}>{saving}% off</span>}
                         <button

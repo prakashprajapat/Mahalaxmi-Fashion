@@ -19,7 +19,6 @@ export default function SavedCardsPage() {
       <main className="account-shell" style={{ display: 'block' }}>
         <section>
           <div className="form-card" style={{ textAlign: 'center', padding: '3rem 1.5rem' }}>
-            <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>💳</div>
             <h2 style={{ color: '#555' }}>No Saved Cards Yet</h2>
             <p style={{ color: '#888', marginTop: '.5rem', fontSize: '.95rem' }}>
               Cards are saved automatically after a successful online payment. Shop with us and your payment method will appear here for faster checkout.

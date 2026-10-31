@@ -65,12 +65,19 @@ echo "--- message variables ---"
 # against a lie.
 python3 -I backend/Scripts/check-message-vars.py | head -1; v=${PIPESTATUS[0]}
 
+echo "--- emoji ---"
+# A front-end check in the C# runner, deliberately: this is the script that
+# runs before a push, and a checker nobody runs is a checker that does not
+# exist. 592 emoji came out of the screens by hand; one goes back in with a
+# single keystroke.
+python3 -I Scripts/check-no-emoji.py | tail -3; e=${PIPESTATUS[0]}
+
 # Every checker is tested here. check-usings used to set a `fail` variable that
 # nothing read, so a missing using printed "all five checkers clean" and went
 # out - the one checker whose failure is a guaranteed build break was the one
 # that could not stop a push.
 if [ "$s" -ne 0 ] || [ "$b" -ne 0 ] || [ "$q" -ne 0 ] || [ "$u" -ne 0 ] \
-   || [ "$m" -ne 0 ] || [ "$v" -ne 0 ]; then
+   || [ "$m" -ne 0 ] || [ "$v" -ne 0 ] || [ "$e" -ne 0 ]; then
   echo; echo "NOT SAFE TO PUSH"; exit 1
 fi
-echo; echo "all six checkers clean"
+echo; echo "all seven checkers clean"

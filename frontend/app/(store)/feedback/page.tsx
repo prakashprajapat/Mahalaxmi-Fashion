@@ -71,7 +71,6 @@ export default function FeedbackPage() {
   if (sent) {
     return (
       <main style={{ maxWidth: 620, margin: '0 auto', padding: '3rem 1rem 4rem', textAlign: 'center' }}>
-        <div style={{ fontSize: '3.25rem', marginBottom: '.75rem' }}>🙏</div>
         <h1 style={{ color: '#722f37', fontSize: '1.6rem', fontWeight: 800, margin: '0 0 .5rem' }}>
           Thank you — this is read
         </h1>

@@ -79,7 +79,6 @@ export default function NoResults({ q, products, subcategories, activeFilterCoun
   return (
     <div>
       <div style={{ textAlign: 'center', padding: '2.25rem 1rem 1.5rem' }}>
-        <div style={{ fontSize: '2.75rem', marginBottom: '.5rem' }}>🔍</div>
         <p style={{ margin: '0 0 .35rem', fontWeight: 700, color: '#2d2724', fontSize: '1.05rem' }}>
           {term ? <>Nothing matched &ldquo;{term}&rdquo;</> : 'Nothing matches these filters'}
         </p>

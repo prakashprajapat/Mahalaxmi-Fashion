@@ -5,7 +5,7 @@ import { useState } from 'react';
    (Earlier the two floats overlapped each other in the corner.) */
 export default function HelpFab() {
   const [open, setOpen] = useState(false);
-  const wa = 'https://wa.me/919429429880?text=' + encodeURIComponent('Hello! I need some help. 🙏');
+  const wa = 'https://wa.me/919429429880?text=' + encodeURIComponent('Hello! I need some help.');
 
   return (
     <div className="help-fab-wrap">

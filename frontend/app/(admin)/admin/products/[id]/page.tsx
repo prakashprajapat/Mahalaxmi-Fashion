@@ -329,7 +329,7 @@ function PhotoSlot({
     }
   };
 
-  const icon = label.includes('SIDE') ? '↔️' : label.includes('BACK') ? '🔄' : label.includes('ZOOM') ? '🔍' : '📷';
+  const icon = label.includes('SIDE') ? '↔' : label.includes('BACK') ? '' : label.includes('ZOOM') ? '' : '';
 
   return (
     <div style={{ border: isFirst ? '2px solid #1a1a2e' : '2px dashed #ddd', borderRadius: '10px', overflow: 'hidden', background: '#fff' }}>
@@ -509,7 +509,7 @@ function CustomColourModal({
     <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.6)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:600, padding:'1rem', overflowY:'auto' }}>
       <div style={{ background:'#fff', borderRadius:'16px', padding:'1.25rem', width:'100%', maxWidth:'460px', maxHeight:'90vh', overflowY:'auto' }}>
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'1rem' }}>
-          <h3 style={{ fontWeight:700, fontSize:'1rem', margin:0 }}>🎨 Add Custom Colour</h3>
+          <h3 style={{ fontWeight:700, fontSize:'1rem', margin:0 }}>Add Custom Colour</h3>
           <button onClick={onClose} style={{ background:'none', border:'none', fontSize:'1.3rem', cursor:'pointer', color:'#888', lineHeight:1 }}>✕</button>
         </div>
 
@@ -588,7 +588,7 @@ function CustomColourModal({
 
         <div style={{ background:'#f9f9f9', borderRadius:'10px', padding:'1rem', marginBottom:'1rem' }}>
           <div style={{ display:'flex', alignItems:'center', gap:'.5rem', marginBottom:'.75rem' }}>
-            <span style={{ fontSize:'.85rem', fontWeight:700 }}>🎯 Colour Code</span>
+            <span style={{ fontSize:'.85rem', fontWeight:700 }}>Colour Code</span>
             <span style={{ fontSize:'.72rem', color:'#888' }}>(for the circle)</span>
           </div>
           <div style={{ display:'flex', alignItems:'center', gap:'.6rem', marginBottom:'.75rem', flexWrap:'wrap' }}>
@@ -606,14 +606,14 @@ function CustomColourModal({
           </div>
           <button onClick={() => eyeFileRef.current?.click()}
             style={{ width:'100%', background:'#fdecea', color:'#a7354d', border:'1.5px solid #f5c6cb', borderRadius:'8px', padding:'.45rem', fontSize:'.8rem', fontWeight:600, cursor:'pointer', marginBottom:'.4rem' }}>
-            📷 Upload a photo and pick the colour
+            Upload a photo and pick the colour
           </button>
           <input ref={eyeFileRef} type="file" accept="image/*" hidden
             onChange={e => { if (e.target.files?.[0]) { readFile(e.target.files[0], setEyedropSrc); setLocked(false); } }} />
           {eyedropSrc && (
             <>
               <p style={{ fontSize:'.7rem', color:'#888', margin:'.2rem 0 .3rem' }}>
-                📌 Hover to preview. <strong>Click</strong> to {locked ? 'unlock 🔓' : 'lock 🔒'}
+                Hover to preview. <strong>Click</strong> to {locked ? 'unlock' : 'lock'}
               </p>
               <canvas ref={canvasRef} onMouseMove={pickColour} onClick={() => setLocked(l => !l)}
                 style={{ width:'100%', borderRadius:'8px', cursor: locked ? 'default' : 'crosshair', border:'1.5px solid #ddd', display:'block' }} />
@@ -659,7 +659,7 @@ function PickFilter({ label, options, selectedValues, onToggle }: {
     <div style={{ position:'relative', display:'inline-block' }}>
       <button type="button" onClick={() => setOpen(o => !o)}
         style={{ border:'1.5px solid #a7354d', background: count > 0 ? '#fdf0f3' : '#fff', color:'#a7354d', borderRadius:'20px', padding:'.28rem .8rem', fontSize:'.8rem', fontWeight:700, cursor:'pointer' }}>
-        🔍 {label}{count > 0 ? ` (${count})` : ''} ▾
+        {label}{count > 0 ? ` (${count})` : ''} ▾
       </button>
       {open && (
         <>
@@ -1240,7 +1240,7 @@ export default function EditProductPage() {
 
       setServerGate(null);
       router.push('/admin/products');
-    } catch (e) { alert('❌ ' + (e as Error).message); }
+    } catch (e) { alert((e as Error).message); }
     finally { setSaving(false); }
   };
 
@@ -1365,7 +1365,6 @@ export default function EditProductPage() {
   if (notFound) {
     return (
       <div style={{ textAlign:'center', padding:'4rem 2rem' }}>
-        <p style={{ fontSize:'2rem', marginBottom:'1rem' }}>😕</p>
         <h2 style={{ fontWeight:700, marginBottom:'.5rem' }}>Product not found</h2>
         <Link href="/admin/products" style={{ color:'#a7354d', fontWeight:600 }}>← Back to Products</Link>
       </div>
@@ -1820,7 +1819,7 @@ export default function EditProductPage() {
             <div style={{ marginTop:'.85rem', border:'1.5px solid #eee', borderRadius:'10px', overflow:'auto' }}>
               <div style={{ background:'#fafafa', padding:'.65rem .85rem', display:'flex', justifyContent:'space-between', gap:'.75rem', alignItems:'center', flexWrap:'wrap' }}>
                 <span style={{ fontSize:'.84rem', fontWeight:700, color:'#444' }}>
-                  📦 Stock by {selectedColours.length ? 'Size × Colour/Design' : 'Size'}
+                  Stock by {selectedColours.length ? 'Size × Colour/Design' : 'Size'}
                 </span>
                 <span style={{ fontSize:'.78rem', color:'#888' }}>Total: {stockTotal} pcs</span>
               </div>
@@ -1958,7 +1957,7 @@ export default function EditProductPage() {
           {/* Best Seller */}
           <label style={{ display:'flex', alignItems:'center', gap:'.5rem', marginTop:'.6rem', background:'#f9f9f9', borderRadius:'8px', padding:'.55rem 1rem', cursor:'pointer' }}>
             <input type="checkbox" checked={bestSeller} onChange={e => setBestSeller(e.target.checked)} style={{ width:'15px', height:'15px' }} />
-            <span style={{ fontWeight:600, fontSize:'.88rem' }}>⭐ Show in Best Sellers</span>
+            <span style={{ fontWeight:600, fontSize:'.88rem' }}>Show in Best Sellers</span>
           </label>
         </div>
 
@@ -2127,7 +2126,7 @@ export default function EditProductPage() {
               label says which of the two is about to happen. */}
           <button onClick={() => handleSave()} disabled={saving}
             style={{ background: saving ? '#bbb' : gate.passed ? '#2e7d32' : '#c26a12', color:'#fff', border:'none', borderRadius:'8px', padding:'.7rem 2rem', fontSize:'.95rem', fontWeight:700, cursor: saving ? 'not-allowed' : 'pointer' }}>
-            {saving ? 'Saving…' : gate.passed ? '✅ Save & publish' : `💾 Save as draft (${gate.blocking.length} to fix)`}
+            {saving ? 'Saving…' : gate.passed ? 'Save & publish' : `Save as draft (${gate.blocking.length} to fix)`}
           </button>
           <Link href="/admin/products"
             style={{ background:'#f5f5f5', color:'#555', border:'none', borderRadius:'8px', padding:'.7rem 2rem', fontSize:'.95rem', fontWeight:700, cursor:'pointer', textDecoration:'none', display:'inline-block' }}>

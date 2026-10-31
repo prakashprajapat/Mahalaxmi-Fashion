@@ -232,7 +232,7 @@ export default function InfluencerPage() {
         }}>Get the app</a>
         {tab === 'dashboard' ? (
           <>
-            <span style={{ fontSize: '.85rem', color: '#666' }}>👋 {dashData?.name}</span>
+            <span style={{ fontSize: '.85rem', color: '#666' }}>{dashData?.name}</span>
             <button onClick={handleLogout} style={{
               background: 'none', border: `1.5px solid ${BRAND}`, color: BRAND,
               borderRadius: '20px', padding: '.3rem .9rem', fontSize: '.82rem',
@@ -320,10 +320,10 @@ export default function InfluencerPage() {
           </h2>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.5rem' }}>
             {[
-              ['💸', 'Commission on every sale', 'Earn a commission for every order made using your referral code.'],
-              ['🎁', 'Exclusive coupon code', 'Your followers get a special discount — a win for everyone.'],
-              ['📊', 'Real-time dashboard', 'Track your orders, sales and earnings live, anytime.'],
-              ['🤝', 'Dedicated support', 'Our team helps you grow with tips and quick WhatsApp support.'],
+              ['', 'Commission on every sale', 'Earn a commission for every order made using your referral code.'],
+              ['', 'Exclusive coupon code', 'Your followers get a special discount — a win for everyone.'],
+              ['', 'Real-time dashboard', 'Track your orders, sales and earnings live, anytime.'],
+              ['', 'Dedicated support', 'Our team helps you grow with tips and quick WhatsApp support.'],
             ].map(([icon, title, desc]) => (
               <div key={title} style={{ background: '#fff', borderRadius: 14, padding: '1.75rem 1.5rem', border: '1px solid #e8eaed' }}>
                 <div style={{ fontSize: '1.8rem', marginBottom: '.75rem' }}>{icon}</div>
@@ -372,7 +372,6 @@ export default function InfluencerPage() {
       <Nav />
       <div style={{ maxWidth: '420px', margin: '4rem auto', padding: '0 1.5rem' }}>
         <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-          <div style={{ fontSize: '2.5rem', marginBottom: '.5rem' }}>🔐</div>
           <h1 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#1a1a1a', margin: '0 0 .5rem' }}>Creator Login</h1>
           <p style={{ color: '#888', fontSize: '.9rem' }}>Access your dashboard</p>
         </div>
@@ -389,7 +388,7 @@ export default function InfluencerPage() {
                   cursor: 'pointer', background: loginMode === m ? '#fff' : 'transparent',
                   color: loginMode === m ? BRAND : '#888', boxShadow: loginMode === m ? '0 1px 4px rgba(0,0,0,.1)' : 'none',
                 }}>
-                {m === 'password' ? '🔑 Password' : '📱 OTP'}
+                {m === 'password' ? 'Password' : 'OTP'}
               </button>
             ))}
           </div>
@@ -428,7 +427,7 @@ export default function InfluencerPage() {
             </div>
             {loginError && (
               <div style={{ background: '#fce4ec', border: '1px solid #f48fb1', borderRadius: '10px', padding: '.65rem .9rem', fontSize: '.85rem', color: '#c62828', fontWeight: 600 }}>
-                ❌ {loginError}
+                {loginError}
               </div>
             )}
             <button type="submit" disabled={loginLoading} style={{
@@ -438,7 +437,7 @@ export default function InfluencerPage() {
               cursor: loginLoading ? 'not-allowed' : 'pointer',
               boxShadow: loginLoading ? 'none' : '0 4px 14px rgba(167,53,77,.3)',
             }}>
-              {loginLoading ? '⏳ Checking…' : '🚀 Open Dashboard'}
+              {loginLoading ? '⏳ Checking…' : 'Open Dashboard'}
             </button>
           </form>
           ) : (
@@ -497,7 +496,7 @@ export default function InfluencerPage() {
                   color: '#fff', border: 'none', borderRadius: '12px', padding: '.85rem', fontWeight: 700, fontSize: '1rem',
                   cursor: otpLoading ? 'not-allowed' : 'pointer',
                 }}>
-                  {otpLoading ? '⏳ Verifying…' : '🚀 Verify & Open Dashboard'}
+                  {otpLoading ? '⏳ Verifying…' : 'Verify & Open Dashboard'}
                 </button>
                 <button type="button" onClick={handleSendCreatorOtp} disabled={otpLoading}
                   style={{ background: 'none', border: 'none', color: BRAND, fontWeight: 700, fontSize: '.8rem', cursor: 'pointer', padding: 0 }}>
@@ -532,7 +531,6 @@ export default function InfluencerPage() {
         padding: '2.5rem 1.5rem 3.5rem', color: '#fff',
       }}>
         <div style={{ maxWidth: '900px', margin: '0 auto' }}>
-          <div style={{ fontSize: '1.8rem', marginBottom: '.4rem' }}>👋</div>
           <h1 style={{ fontSize: 'clamp(1.3rem, 4vw, 1.8rem)', fontWeight: 800, margin: '0 0 .4rem' }}>
             Welcome, {dashData.name}!
           </h1>
@@ -547,10 +545,10 @@ export default function InfluencerPage() {
         {/* Stats Cards */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
           {[
-            { icon: '🛍️', label: 'Total Orders', value: dashData.totalOrders.toString(), textColor: '#2e7d32' },
-            { icon: '💰', label: 'Total Sales', value: `₹${dashData.totalSales.toLocaleString('en-IN')}`, textColor: '#e65100' },
-            { icon: '🎉', label: 'Commission Earned', value: `₹${dashData.commissionEarned.toLocaleString('en-IN')}`, textColor: BRAND },
-            { icon: '📊', label: 'Commission Rate', value: `${dashData.commissionRate}%`, textColor: '#1565c0' },
+            { icon: '', label: 'Total Orders', value: dashData.totalOrders.toString(), textColor: '#2e7d32' },
+            { icon: '', label: 'Total Sales', value: `₹${dashData.totalSales.toLocaleString('en-IN')}`, textColor: '#e65100' },
+            { icon: '', label: 'Commission Earned', value: `₹${dashData.commissionEarned.toLocaleString('en-IN')}`, textColor: BRAND },
+            { icon: '', label: 'Commission Rate', value: `${dashData.commissionRate}%`, textColor: '#1565c0' },
           ].map(s => (
             <div key={s.label} style={{ background: '#fff', borderRadius: '16px', padding: '1.25rem', boxShadow: '0 2px 10px rgba(0,0,0,.06)' }}>
               <div style={{ fontSize: '1.5rem', marginBottom: '.4rem' }}>{s.icon}</div>
@@ -563,9 +561,9 @@ export default function InfluencerPage() {
         {/* My Profile */}
         <div style={{ background: '#fff', borderRadius: '20px', padding: '1.5rem', boxShadow: '0 2px 10px rgba(0,0,0,.06)', marginBottom: '1.5rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h2 style={{ fontSize: '1rem', fontWeight: 800, margin: 0, color: '#1a1a1a' }}>👤 My Profile</h2>
+            <h2 style={{ fontSize: '1rem', fontWeight: 800, margin: 0, color: '#1a1a1a' }}>My Profile</h2>
             {!editingProfile && (
-              <button onClick={openProfileEdit} style={{ background: BRAND_LIGHT, color: BRAND, border: `1.5px solid ${BRAND}`, borderRadius: '10px', padding: '.5rem 1rem', fontWeight: 700, fontSize: '.85rem', cursor: 'pointer' }}>✏️ Edit Profile</button>
+              <button onClick={openProfileEdit} style={{ background: BRAND_LIGHT, color: BRAND, border: `1.5px solid ${BRAND}`, borderRadius: '10px', padding: '.5rem 1rem', fontWeight: 700, fontSize: '.85rem', cursor: 'pointer' }}>Edit Profile</button>
             )}
           </div>
 
@@ -609,7 +607,7 @@ export default function InfluencerPage() {
               <p style={{ fontSize: '.75rem', color: '#999', margin: 0 }}>Email, coupon code and commission rate are managed by admin and can&apos;t be changed here.</p>
               {profileMsg && <p style={{ fontSize: '.82rem', margin: 0, color: '#c0392b' }}>{profileMsg}</p>}
               <div style={{ display: 'flex', gap: '.6rem' }}>
-                <button onClick={saveProfile} disabled={profileSaving} style={{ flex: 1, background: profileSaving ? '#ccc' : BRAND, color: '#fff', border: 'none', borderRadius: '10px', padding: '.7rem', fontWeight: 700, cursor: profileSaving ? 'not-allowed' : 'pointer' }}>{profileSaving ? 'Saving…' : '💾 Save Profile'}</button>
+                <button onClick={saveProfile} disabled={profileSaving} style={{ flex: 1, background: profileSaving ? '#ccc' : BRAND, color: '#fff', border: 'none', borderRadius: '10px', padding: '.7rem', fontWeight: 700, cursor: profileSaving ? 'not-allowed' : 'pointer' }}>{profileSaving ? 'Saving…' : 'Save Profile'}</button>
                 <button onClick={() => setEditingProfile(false)} style={{ background: '#f0f0f0', color: '#555', border: 'none', borderRadius: '10px', padding: '.7rem 1.2rem', fontWeight: 700, cursor: 'pointer' }}>Cancel</button>
               </div>
             </div>
@@ -619,7 +617,7 @@ export default function InfluencerPage() {
         {/* Affiliate Link & Code */}
         <div style={{ background: '#fff', borderRadius: '20px', padding: '1.5rem', boxShadow: '0 2px 10px rgba(0,0,0,.06)', marginBottom: '1.5rem' }}>
           <h2 style={{ fontSize: '1rem', fontWeight: 800, marginBottom: '1.25rem', color: '#1a1a1a' }}>
-            🔗 Your Affiliate Link & Code
+            Your Affiliate Link & Code
           </h2>
 
           {/* Coupon Code */}
@@ -641,7 +639,7 @@ export default function InfluencerPage() {
               borderRadius: '12px', padding: '.65rem 1rem', fontWeight: 700,
               fontSize: '.85rem', cursor: 'pointer', whiteSpace: 'nowrap',
             }}>
-              {copied === 'code' ? '✅ Copied!' : '📋 Copy Code'}
+              {copied === 'code' ? '✓ Copied!' : 'Copy Code'}
             </button>
           </div>
 
@@ -663,7 +661,7 @@ export default function InfluencerPage() {
                 borderRadius: '10px', padding: '.6rem .9rem', fontWeight: 700,
                 fontSize: '.82rem', cursor: 'pointer', whiteSpace: 'nowrap',
               }}>
-                {copied === 'link' ? '✅ Copied!' : '📋 Copy'}
+                {copied === 'link' ? '✓ Copied!' : 'Copy'}
               </button>
             </div>
           </div>
@@ -673,7 +671,7 @@ export default function InfluencerPage() {
             <div style={{ fontSize: '.72rem', color: '#888', fontWeight: 700, marginBottom: '.5rem', textTransform: 'uppercase' }}>Share</div>
             <div style={{ display: 'flex', gap: '.5rem', flexWrap: 'wrap' }}>
               <a
-                href={`https://wa.me/?text=${encodeURIComponent(`👗 Shop at Mahalaxmi Fashion Hub!\n\n🛍️ Click here: ${affLink}\n\n💥 Discount code: ${dashData.couponCode}\n\n✨ Ethnic, western and trendy fashion — all in one place!`)}`}
+                href={`https://wa.me/?text=${encodeURIComponent(`Shop at Mahalaxmi Fashion Hub!\n\n Click here: ${affLink}\n\n Discount code: ${dashData.couponCode}\n\n Ethnic, western and trendy fashion — all in one place!`)}`}
                 target="_blank" rel="noopener noreferrer"
                 style={{
                   background: '#25D366', color: '#fff', textDecoration: 'none',
@@ -684,7 +682,7 @@ export default function InfluencerPage() {
                 <WhatsAppIcon size={16} /> WhatsApp Share
               </a>
               <button onClick={() => {
-                copy(`👗 Shop at Mahalaxmi Fashion Hub!\n\nUse my code: ${dashData.couponCode} 💥 for a discount\n\n🛍️ Link: ${affLink}`, 'caption');
+                copy(`Shop at Mahalaxmi Fashion Hub!\n\nUse my code: ${dashData.couponCode} for a discount\n\n Link: ${affLink}`, 'caption');
               }} style={{
                 background: copied === 'caption' ? '#e8f5e9' : '#f5f0ff',
                 color: copied === 'caption' ? '#2e7d32' : '#6b21a8',
@@ -692,7 +690,7 @@ export default function InfluencerPage() {
                 borderRadius: '10px', padding: '.55rem 1rem', fontWeight: 700,
                 fontSize: '.82rem', cursor: 'pointer',
               }}>
-                {copied === 'caption' ? '✅ Copied!' : '📸 Copy Insta Caption'}
+                {copied === 'caption' ? '✓ Copied!' : 'Copy Insta Caption'}
               </button>
               <a
                 href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(affLink)}`}
@@ -703,7 +701,7 @@ export default function InfluencerPage() {
                   fontSize: '.82rem', display: 'inline-flex', alignItems: 'center', gap: '.4rem',
                 }}
               >
-                📘 Facebook
+                Facebook
               </a>
             </div>
           </div>
@@ -712,19 +710,19 @@ export default function InfluencerPage() {
         {/* Ready-to-Post Share Kit */}
         <div style={{ background: '#fff', borderRadius: '20px', padding: '1.5rem', boxShadow: '0 2px 10px rgba(0,0,0,.06)', marginBottom: '1.5rem' }}>
           <h2 style={{ fontSize: '1rem', fontWeight: 800, marginBottom: '.35rem', color: '#1a1a1a' }}>
-            📝 Ready-to-Post Share Kit
+            Ready-to-Post Share Kit
           </h2>
           <p style={{ fontSize: '.82rem', color: '#888', marginTop: 0, marginBottom: '1.25rem' }}>
             Copy any caption below and post it on Instagram, WhatsApp or your Story — your code &amp; link are already filled in.
           </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             {[
-              { key: 'cap-insta', label: '📸 Instagram Post / Reel',
-                text: `✨ Found my new favourite fashion destination — Mahalaxmi Fashion Hub! 👗\nSarees, kurtis, nighty & more at unbeatable prices.\n\n🎁 Use my code ${dashData.couponCode} for a special discount!\n🛍️ Shop here 👉 ${affLink}\n\n#MahalaxmiFashionHub #EthnicWear #SareeLove #FashionDeals` },
-              { key: 'cap-wa', label: '📱 WhatsApp Message / Status',
-                text: `👗 *Mahalaxmi Fashion Hub* — trendy ethnic & western wear at great prices!\n\n🎁 Discount code: *${dashData.couponCode}*\n🛍️ Shop now: ${affLink}\n\nGrab your favourites before they're gone! ✨` },
-              { key: 'cap-story', label: '⚡ Story / Short Caption',
-                text: `Mahalaxmi Fashion Hub ✨\nUse code ${dashData.couponCode} for a discount 🎁\n🛍️ ${affLink}` },
+              { key: 'cap-insta', label: 'Instagram Post / Reel',
+                text: `Found my new favourite fashion destination — Mahalaxmi Fashion Hub! \nSarees, kurtis, nighty & more at unbeatable prices.\n\n Use my code ${dashData.couponCode} for a special discount!\n Shop here ${affLink}\n\n#MahalaxmiFashionHub #EthnicWear #SareeLove #FashionDeals` },
+              { key: 'cap-wa', label: 'WhatsApp Message / Status',
+                text: `*Mahalaxmi Fashion Hub* — trendy ethnic & western wear at great prices!\n\n Discount code: *${dashData.couponCode}*\n Shop now: ${affLink}\n\nGrab your favourites before they're gone!` },
+              { key: 'cap-story', label: 'Story / Short Caption',
+                text: `Mahalaxmi Fashion Hub \nUse code ${dashData.couponCode} for a discount \n ${affLink}` },
             ].map(c => (
               <div key={c.key} style={{ border: '1px solid #eee', borderRadius: '12px', padding: '.9rem 1rem', background: '#fafafa' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '.5rem', gap: '.5rem' }}>
@@ -736,7 +734,7 @@ export default function InfluencerPage() {
                     borderRadius: '8px', padding: '.4rem .8rem', fontWeight: 700,
                     fontSize: '.78rem', cursor: 'pointer', whiteSpace: 'nowrap',
                   }}>
-                    {copied === c.key ? '✅ Copied!' : '📋 Copy'}
+                    {copied === c.key ? '✓ Copied!' : 'Copy'}
                   </button>
                 </div>
                 <div style={{ fontSize: '.82rem', color: '#555', whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>{c.text}</div>
@@ -748,12 +746,12 @@ export default function InfluencerPage() {
         {/* How to Share Tips */}
         <div style={{ background: '#fff', borderRadius: '20px', padding: '1.5rem', boxShadow: '0 2px 10px rgba(0,0,0,.06)', marginBottom: '1.5rem' }}>
           <h2 style={{ fontSize: '1rem', fontWeight: 800, marginBottom: '1.25rem', color: '#1a1a1a' }}>
-            💡 How to Share — Tips
+            How to Share — Tips
           </h2>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
             {[
               {
-                icon: '📸', title: 'Instagram Reels / Stories',
+                icon: '', title: 'Instagram Reels / Stories',
                 tips: [
                   'Create a photo/video of the product',
                   'Mention the code: ' + dashData.couponCode + ' in the caption',
@@ -761,7 +759,7 @@ export default function InfluencerPage() {
                 ],
               },
               {
-                icon: '📱', title: 'WhatsApp Status / Groups',
+                icon: '', title: 'WhatsApp Status / Groups',
                 tips: [
                   'Share the product photo',
                   '"Use code: ' + dashData.couponCode + '" in the caption',
@@ -769,7 +767,7 @@ export default function InfluencerPage() {
                 ],
               },
               {
-                icon: '▶️', title: 'YouTube / Facebook Video',
+                icon: '▶', title: 'YouTube / Facebook Video',
                 tips: [
                   'Make a haul or try-on video',
                   'Add the link in the description',
@@ -791,11 +789,10 @@ export default function InfluencerPage() {
         {/* Order History */}
         <div style={{ background: '#fff', borderRadius: '20px', padding: '1.5rem', boxShadow: '0 2px 10px rgba(0,0,0,.06)' }}>
           <h2 style={{ fontSize: '1rem', fontWeight: 800, marginBottom: '1.25rem', color: '#1a1a1a' }}>
-            📋 Orders — Placed With Your Code
+            Orders — Placed With Your Code
           </h2>
           {dashData.orders.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '3rem 1rem', color: '#aaa' }}>
-              <div style={{ fontSize: '2.5rem', marginBottom: '.5rem' }}>📦</div>
               <div style={{ fontWeight: 600, marginBottom: '.3rem', color: '#999' }}>No orders yet</div>
               <div style={{ fontSize: '.82rem' }}>Share your link — orders will appear here when someone buys</div>
             </div>
@@ -835,7 +832,7 @@ export default function InfluencerPage() {
 
         {/* Help Section */}
         <div style={{ marginTop: '1.5rem', background: BRAND_LIGHT, borderRadius: '16px', padding: '1.25rem', textAlign: 'center', border: `1px solid #f0d0d9` }}>
-          <div style={{ fontWeight: 700, marginBottom: '.3rem', color: '#1a1a1a' }}>💬 Need Help?</div>
+          <div style={{ fontWeight: 700, marginBottom: '.3rem', color: '#1a1a1a' }}>Need Help?</div>
           <p style={{ color: '#666', fontSize: '.85rem', margin: '0 0 .75rem' }}>WhatsApp us for commission payments, orders, or any questions</p>
           <a href="https://wa.me/919429429880" target="_blank" rel="noopener noreferrer"
             style={{ background: '#25D366', color: '#fff', textDecoration: 'none', borderRadius: '20px', padding: '.5rem 1.2rem', fontWeight: 700, fontSize: '.85rem', display: 'inline-flex', alignItems: 'center', gap: '.4rem' }}>
@@ -900,7 +897,6 @@ function ApplyForm({ onBack }: { onBack: () => void }) {
 
       <div style={{ maxWidth: '620px', margin: '0 auto', padding: '2.5rem 1.5rem' }}>
         <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-          <div style={{ fontSize: '2.5rem', marginBottom: '.5rem' }}>📝</div>
           <h1 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#1a1a1a', margin: '0 0 .5rem' }}>Become a Creator</h1>
           <p style={{ color: '#888', fontSize: '.9rem' }}>Fill in your details — our team will contact you within 2-3 days</p>
         </div>
@@ -911,14 +907,14 @@ function ApplyForm({ onBack }: { onBack: () => void }) {
             background: result.ok ? '#f0fdf4' : '#fff5f5',
             border: `1.5px solid ${result.ok ? '#86efac' : '#fca5a5'}`,
           }}>
-            <div style={{ fontSize: '2.5rem', marginBottom: '.75rem' }}>{result.ok ? '🎉' : '❌'}</div>
+            <div style={{ fontSize: '2.5rem', marginBottom: '.75rem' }}>{result.ok ? '' : '✕'}</div>
             <p style={{ fontWeight: 700, color: result.ok ? '#166534' : '#991b1b', margin: '0 0 .5rem', fontSize: '1.1rem' }}>
               {result.ok ? 'Application Submitted!' : 'Something Went Wrong'}
             </p>
             <p style={{ color: '#555', fontSize: '.88rem', margin: '0 0 1.5rem' }}>{result.msg}</p>
             {result.ok && (
               <p style={{ color: '#555', fontSize: '.85rem', marginBottom: '1.5rem' }}>
-                📧 We&apos;ll contact you by email or WhatsApp within 2-3 business days.
+                We&apos;ll contact you by email or WhatsApp within 2-3 business days.
               </p>
             )}
             <button onClick={onBack} style={{
@@ -1008,7 +1004,7 @@ function ApplyForm({ onBack }: { onBack: () => void }) {
                 boxShadow: submitting ? 'none' : '0 4px 14px rgba(167,53,77,.35)',
                 marginTop: '.5rem',
               }}>
-                {submitting ? '⏳ Submitting…' : '🚀 Apply Now'}
+                {submitting ? '⏳ Submitting…' : 'Apply Now'}
               </button>
             </form>
           </div>

@@ -78,6 +78,14 @@ export function ReviewCard({ r }: { r: PublicReview }) {
           {r.customerName}
         </div>
 
+        {/* Where she bought from. Left out entirely when the shop never
+            recorded one - a dangling comma reads as a broken page. */}
+        {r.place && (
+          <div style={{ fontSize: '.74rem', color: '#9a908a', marginTop: '-.15rem' }}>
+            {r.place}
+          </div>
+        )}
+
         {r.productName && (
           <Link href={`/products/${r.productId}`} style={{ fontSize: '.86rem', fontWeight: 600, color: '#722f37', lineHeight: 1.35 }}>
             {r.productName}
