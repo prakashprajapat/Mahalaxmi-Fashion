@@ -50,14 +50,27 @@ python3 -I backend/Scripts/check-cs-brackets.py $files | grep -v '^OK ' ; b=${PI
 echo "--- sql ---"
 python3 -I backend/Scripts/check-sql.py $files; q=$?
 echo "--- usings ---"
-python3 -I "$(dirname "$0")/check-usings.py" || fail=1
+python3 -I "$(dirname "$0")/check-usings.py"; u=$?
 
 echo "--- migrations ---"
 # Also the .sql files, because the schema is written in both places: the
 # startup block in Program.cs and database/*.sql.
 python3 -I backend/Scripts/check-migrations.py $files $(git ls-files 'database/*.sql'); m=$?
 
-if [ "$s" -ne 0 ] || [ "$b" -ne 0 ] || [ "$q" -ne 0 ] || [ "$m" -ne 0 ]; then
+echo "--- message variables ---"
+# The Check Order Messages screen reads its table from MessageTestController
+# while the real texts are built in OrderMessenger. Nothing in the language
+# ties the two together, and the day they disagree the screen does not break -
+# it reports a mapping customers are not receiving, and he verifies a template
+# against a lie.
+python3 -I backend/Scripts/check-message-vars.py | head -1; v=${PIPESTATUS[0]}
+
+# Every checker is tested here. check-usings used to set a `fail` variable that
+# nothing read, so a missing using printed "all five checkers clean" and went
+# out - the one checker whose failure is a guaranteed build break was the one
+# that could not stop a push.
+if [ "$s" -ne 0 ] || [ "$b" -ne 0 ] || [ "$q" -ne 0 ] || [ "$u" -ne 0 ] \
+   || [ "$m" -ne 0 ] || [ "$v" -ne 0 ]; then
   echo; echo "NOT SAFE TO PUSH"; exit 1
 fi
-echo; echo "all five checkers clean"
+echo; echo "all six checkers clean"
