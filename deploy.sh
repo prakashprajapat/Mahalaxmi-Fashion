@@ -378,15 +378,6 @@ echo "8. Swapping in the new frontend and restarting..."
 # Two renames on the same filesystem: the window where .next is not the
 # finished build is a fraction of a second, against the two or three minutes
 # the old in-place build left it broken for.
-rm -rf "frontend/$PREV_DIR"
-# mv into a directory that still exists puts the source INSIDE it, which is
-# how .next ends up holding .next-build instead of being it. If the parking
-# spot did not go away, stop here: nothing has been touched yet.
-[ -e "frontend/$PREV_DIR" ] && rollback "Could not clear frontend/$PREV_DIR, so the swap would nest instead of replace."
-[ -d frontend/.next ] && { mv frontend/.next "frontend/$PREV_DIR" \
-  || rollback "Could not park the running frontend build."; }
-[ -e frontend/.next ] && rollback "frontend/.next is still there after parking it; the swap would nest inside it."
-
 # Banayi hui photo ko nayi build me saath le jate hain.
 #
 # Optimiser har photo ko pehli maang par banata hai aur .next/cache/images me
@@ -397,15 +388,75 @@ rm -rf "frontend/$PREV_DIR"
 # Files ke naam me unka hash hai, isliye purani entry naye build me bhi utni
 # hi sahi hai. Hardlink se jodte hain — turant, aur disk bhi dugni nahi hoti;
 # na jude to seedhi nakal.
-if [ -d "frontend/$PREV_DIR/cache/images" ]; then
+#
+# Ye kaam ab parking se PEHLE hota hai, .next ke apni jagah rehte hue. Pehle
+# ye do rename ke BEECH me hota tha, aur hazaaron photo ka cp us khidki ko
+# seconds lamba kar deta tha - theek wahi khidki jisme chalta hua server
+# .next ko dobara bana deta hai. Dekhiye neeche.
+# The build directory has to be there already. Without that test the mkdir
+# below CREATES it, so a missing build comes back as a cache-only directory
+# and the swap puts that into place - a deploy that serves a folder with no
+# build in it. The replay found this while proving the swap fix.
+if [ -d "frontend/$BUILD_DIR" ] && [ -d "frontend/.next/cache/images" ]; then
   mkdir -p "frontend/$BUILD_DIR/cache"
-  cp -al "frontend/$PREV_DIR/cache/images" "frontend/$BUILD_DIR/cache/" 2>/dev/null \
-    || cp -a "frontend/$PREV_DIR/cache/images" "frontend/$BUILD_DIR/cache/" 2>/dev/null \
+  cp -al "frontend/.next/cache/images" "frontend/$BUILD_DIR/cache/" 2>/dev/null \
+    || cp -a "frontend/.next/cache/images" "frontend/$BUILD_DIR/cache/" 2>/dev/null \
     || true
   echo "   Image cache carried over."
 fi
 
-mv "frontend/$BUILD_DIR" frontend/.next || rollback "Could not move the new build into place."
+rm -rf "frontend/$PREV_DIR"
+# mv into a directory that still exists puts the source INSIDE it, which is
+# how .next ends up holding .next-build instead of being it. If the parking
+# spot did not go away, stop here: nothing has been touched yet.
+[ -e "frontend/$PREV_DIR" ] && rollback "Could not clear frontend/$PREV_DIR, so the swap would nest instead of replace."
+[ -d frontend/.next ] && { mv -T frontend/.next "frontend/$PREV_DIR" \
+  || rollback "Could not park the running frontend build."; }
+[ -e frontend/.next ] && rollback "frontend/.next is still there after parking it; the swap would nest inside it."
+
+# And now the thing that broke the deploy on 29 and 31 October.
+#
+# .next is checked as gone one line above and is BACK by the time the mv runs.
+# The frontend that is still serving shoppers writes into .next while it runs -
+# a revalidated page under .next/server/app, an optimised photo under
+# .next/cache - and the rename does not stop it. It writes to the path, the
+# path has just been renamed away, so the directory is created afresh.
+# Milliseconds later .next exists again as a near-empty skeleton.
+#
+# A plain `mv a b` onto an existing directory puts a INSIDE b. So the build
+# landed at .next/.next-build, .next/BUILD_ID did not exist, and next start
+# crash-looped on a directory with no build in it. Both times the listing
+# showed one visible child - server - and a link count of 4, the second child
+# being the nested .next-build that plain ls does not show.
+#
+# Three things fix it, and the first is the one that matters:
+#
+#   mv -T   never puts the source inside the destination. Whatever else goes
+#           wrong, the build can no longer be swallowed - the worst case is a
+#           clean failure instead of a site serving nothing.
+#   the rm  clears the skeleton the running server just made. It is a cache
+#           and a regenerated page, both of which come back on their own;
+#           the build being served is the parked one, untouched.
+#   retries because the server can write again while we are tidying up.
+#
+# A real build is never removed: BUILD_ID is what tells a skeleton apart from
+# a build, and if one is there we stop rather than delete somebody's site.
+swapped_in=no
+for attempt in 1 2 3; do
+  if [ -e frontend/.next ]; then
+    if [ -f frontend/.next/BUILD_ID ]; then
+      rollback "frontend/.next came back with a real build in it; refusing to delete it."
+    fi
+    echo "   (the running frontend re-made .next; clearing it - attempt $attempt)"
+    rm -rf frontend/.next
+  fi
+  if mv -T "frontend/$BUILD_DIR" frontend/.next 2>/dev/null; then
+    swapped_in=yes
+    break
+  fi
+  sleep 1
+done
+[ "$swapped_in" = yes ] || rollback "Could not move the new build into place."
 SWAPPED=yes
 
 # The one check that was missing, and the reason today cost an outage window
@@ -425,7 +476,10 @@ SWAPPED=yes
 if [ ! -f frontend/.next/BUILD_ID ]; then
   echo "    What is actually in frontend/ right now:"
   ls -la frontend/ | grep -E '\.next' || true
-  ls frontend/.next 2>/dev/null | head -20 || true
+  # -a, because the build nests under a dotted name and plain ls hides exactly
+  # the evidence that explains the failure.
+  ls -a frontend/.next 2>/dev/null | head -20 || true
+  [ -d "frontend/.next/$BUILD_DIR" ] && echo "    The build is NESTED at frontend/.next/$BUILD_DIR - .next existed when the swap ran."
   rollback "The new build is not in frontend/.next after the swap - no BUILD_ID there."
 fi
 echo "   Swapped. Build $(cat frontend/.next/BUILD_ID) is in place."
