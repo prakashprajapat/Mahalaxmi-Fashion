@@ -5,6 +5,7 @@ import { ordersApi } from '@/lib/api';
 import { getAdminToken } from '@/lib/auth';
 import { exportOrders } from '@/lib/exportExcel';
 import { productImageSrc } from '@/lib/productImages';
+import { FOLLOW_UP_GROUPS, followUpOf, type FollowUpKey } from '@/lib/courierFollowUp';
 import type { Order } from '@/types';
 import { openOrderLabels, openPicklist } from '@/lib/orderLabel';
 import { inr } from '@/lib/price';
@@ -186,6 +187,9 @@ export default function AdminOrdersPage() {
   const [filterSize, setFilterSize] = useState('');
   const [filterColour, setFilterColour] = useState('');
   const [dateFilter, setDateFilter] = useState('');
+  // Set only by the dashboard's courier boxes, and shown as a banner so a
+  // short list always says why it is short.
+  const [courierFilter, setCourierFilter] = useState<FollowUpKey | ''>('');
   const [filterPay, setFilterPay] = useState('');
   // Kis khaane me dhoondhna hai. "Sab" purani aadat hai aur wahi default hai;
   // ek khaana chun lene par 1786 jaisa number sirf Order ID me khojega,
@@ -399,7 +403,9 @@ export default function AdminOrdersPage() {
     mainTab === 'returns' ? RETURN_STATUSES.includes(o.status) : !RETURN_STATUSES.includes(o.status)
   );
 
-  const tabFiltered = mainFiltered.filter(o => tabAccepts(activeTab, o.status));
+  const tabFiltered = mainFiltered
+    .filter(o => tabAccepts(activeTab, o.status))
+    .filter(o => !courierFilter || followUpOf(o) === courierFilter);
 
   const filtered = tabFiltered.filter(o => {
     const q = search.toLowerCase();
@@ -500,6 +506,12 @@ export default function AdminOrdersPage() {
     if (t === 'returns' || t === 'orders') setMainTab(t);
     const st = q.get('status');
     if (st) setActiveTab(st);
+    // ?courier=outForDelivery / stuck - the dashboard's two courier boxes.
+    // Kept apart from ?status because it is not one of our statuses: it is
+    // what Delhivery last said, and an order can be On the way and out for
+    // delivery at the same time.
+    const cr = q.get('courier');
+    if (cr === 'outForDelivery' || cr === 'stuck' || cr === 'called') setCourierFilter(cr);
   }, []);
 
   const bulkUpdateStatus = async (status: string) => {
@@ -640,6 +652,23 @@ export default function AdminOrdersPage() {
               action="Review these"
               onClick={() => { setMainTab('returns'); setActiveTab('Return Requested'); }} />
       </StatGrid>
+
+      {courierFilter && (() => {
+        const g = FOLLOW_UP_GROUPS.find(x => x.key === courierFilter);
+        if (!g) return null;
+        return (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '.6rem', alignItems: 'center',
+                        background: '#fff', border: `1px solid ${g.colour}33`, borderLeft: `4px solid ${g.colour}`,
+                        borderRadius: 10, padding: '.6rem .85rem', margin: '0 0 .8rem' }}>
+            <span style={{ fontWeight: 800, color: g.colour, fontSize: '.88rem' }}>{g.label}</span>
+            <span style={{ fontSize: '.8rem', color: '#8a7f76' }}>{g.why}</span>
+            <button className="adm-btn" style={{ marginLeft: 'auto', padding: '.3rem .8rem', fontSize: '.8rem' }}
+                    onClick={() => setCourierFilter('')}>
+              Show every order
+            </button>
+          </div>
+        );
+      })()}
 
       <Card>
         {/* Orders and Returns are two different jobs, so they stay two tabs —

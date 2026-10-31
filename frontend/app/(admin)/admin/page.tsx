@@ -125,7 +125,9 @@ export default function AdminDashboard() {
 
   // What the courier is saying about parcels still on their way. Grouped once.
   const followUps = groupForFollowUp(os);
-  const followUpTotal = FOLLOW_UP_GROUPS.reduce((n, g) => n + followUps[g.key].length, 0);
+  // What these two boxes are a slice OF, so the row can say so rather than
+  // look like two more buckets that fail to add up.
+  const onTheWay = os.filter(o => bucketAccepts('Transit', o.status)).length;
 
   // Today and the six days after. A birthday is only worth a line on this
   // screen while there is still time to send something.
@@ -158,108 +160,6 @@ export default function AdminDashboard() {
       {failed && (
         <div style={{ background: '#fdecea', border: '1px solid #f5c6c2', color: '#c0392b', borderRadius: 10, padding: '.75rem 1rem', marginBottom: '1rem', fontSize: '.86rem', fontWeight: 600 }}>
           Some of this could not be loaded. The numbers below may be incomplete.
-        </div>
-      )}
-
-      {/* What the courier says needs doing, before anything else on the page.
-          These are the only numbers here with a deadline on them: a customer
-          the courier could not reach today is a return next week. */}
-      {!loading && followUpTotal > 0 && (
-        <div style={{ ...cardBox, display: 'block', marginBottom: '.85rem', cursor: 'default' }}>
-          <p style={{ margin: '0 0 .15rem', fontWeight: 800, color: '#2d2724', fontSize: '1rem' }}>
-            Parcels to follow up
-          </p>
-          <p style={{ margin: '0 0 .8rem', fontSize: '.8rem', color: '#8a7f76' }}>
-            What Delhivery last said. Refreshed every three hours.
-          </p>
-
-          {FOLLOW_UP_GROUPS.filter(g => followUps[g.key].length > 0).map(g => (
-            <div key={g.key} style={{ marginBottom: '.9rem' }}>
-              <p style={{ margin: '0 0 .1rem', fontWeight: 700, fontSize: '.88rem', color: g.colour }}>
-                {g.label} · {followUps[g.key].length}
-              </p>
-              <p style={{ margin: '0 0 .4rem', fontSize: '.76rem', color: '#9a908a' }}>{g.why}</p>
-              {followUps[g.key].slice(0, 6).map(o => (
-                <div key={o.id} style={{ display: 'flex', flexWrap: 'wrap', gap: '.5rem', alignItems: 'baseline',
-                                         padding: '.3rem 0', borderTop: '1px solid #f4efec' }}>
-                  <Link href={`/admin/orders?search=${encodeURIComponent(o.id)}`}
-                        style={{ fontFamily: 'monospace', fontSize: '.78rem', color: '#722f37', fontWeight: 700,
-                                 textDecoration: 'none' }}>
-                    {o.id}
-                  </Link>
-                  <span style={{ fontSize: '.8rem', color: '#2d2724' }}>{o.customerName || 'no name'}</span>
-                  {o.customerPhone && (
-                    <a href={`tel:${o.customerPhone}`}
-                       style={{ fontSize: '.8rem', color: '#1d74a8', textDecoration: 'none', fontWeight: 600 }}>
-                      {o.customerPhone}
-                    </a>
-                  )}
-                  {/* The courier's own sentence, not ours. Shortened, never
-                      reworded: an owner ringing a customer wants the line the
-                      courier actually logged. */}
-                  <span style={{ fontSize: '.74rem', color: '#9a908a' }}>
-                    {(o.courierNote || o.courierStatus || '').slice(0, 60)}
-                  </span>
-                </div>
-              ))}
-              {followUps[g.key].length > 6 && (
-                <p style={{ margin: '.35rem 0 0', fontSize: '.76rem', color: '#9a908a' }}>
-                  and {followUps[g.key].length - 6} more
-                </p>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Birthdays and anniversaries, which have a deadline of their own:
-          an offer that arrives the day after is worse than none. Shown only
-          when there is somebody in the next week, so an ordinary day's
-          dashboard is not carrying an empty box. */}
-      {soon.length > 0 && (
-        <div style={{ ...cardBox, display: 'block', marginBottom: '.85rem', cursor: 'default' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
-                        flexWrap: 'wrap', gap: '.4rem', marginBottom: '.1rem' }}>
-            <p style={{ margin: 0, fontWeight: 800, color: '#2d2724', fontSize: '1rem' }}>
-              Birthday &amp; Anniversary offers
-            </p>
-            <Link href="/admin/birthday" style={{ fontSize: '.82rem', color: '#722f37', fontWeight: 700, textDecoration: 'none' }}>
-              Send the offers →
-            </Link>
-          </div>
-          <p style={{ margin: '0 0 .7rem', fontSize: '.8rem', color: '#8a7f76' }}>
-            {todayCount > 0
-              ? `${todayCount} today, ${soon.length - todayCount} more this week.`
-              : `${soon.length} in the next seven days.`}
-          </p>
-
-          {soon.slice(0, 6).map((x, i) => (
-            <div key={`${x.c.customer.id}-${x.type}-${i}`}
-                 style={{ display: 'flex', flexWrap: 'wrap', gap: '.5rem', alignItems: 'baseline',
-                          padding: '.3rem 0', borderTop: i === 0 ? 'none' : '1px solid #f4efec' }}>
-              <span style={{ fontSize: '.78rem', fontWeight: 700,
-                             color: x.type === 'Birthday' ? '#c26a12' : '#7a5cc4' }}>
-                {x.type}
-              </span>
-              <span style={{ fontSize: '.8rem', color: '#2d2724' }}>
-                {`${x.c.customer.firstName ?? ''} ${x.c.customer.lastName ?? ''}`.trim() || 'no name'}
-              </span>
-              {x.c.customer.phone && (
-                <a href={`tel:${x.c.customer.phone}`}
-                   style={{ fontSize: '.8rem', color: '#1d74a8', textDecoration: 'none', fontWeight: 600 }}>
-                  {x.c.customer.phone}
-                </a>
-              )}
-              <span style={{ fontSize: '.76rem', color: x.days === 0 ? '#c0392b' : '#9a908a', fontWeight: x.days === 0 ? 700 : 400 }}>
-                {x.days === 0 ? 'today' : x.days === 1 ? 'tomorrow' : `in ${x.days} days`}
-              </span>
-            </div>
-          ))}
-          {soon.length > 6 && (
-            <p style={{ margin: '.35rem 0 0', fontSize: '.76rem', color: '#9a908a' }}>
-              and {soon.length - 6} more
-            </p>
-          )}
         </div>
       )}
 
@@ -296,6 +196,43 @@ export default function AdminDashboard() {
             </Link>
           );
         })}
+
+        {/* Two boxes from what the COURIER says, not from our own status.
+            They are a look inside "On the way" rather than two more buckets
+            beside it: a parcel out for delivery is also a parcel on the way,
+            and is counted in both. The small line under each number says so -
+            without it these two would break the one promise this row makes,
+            that its figures add up to Total Orders. That promise has been
+            broken here once before, by five tiles summing to 21 of 22, and a
+            number on the shop's first screen that quietly does not add up is
+            how a paid parcel gets forgotten. */}
+        {FOLLOW_UP_GROUPS.filter(g => g.key !== 'called').map(g => (
+          <Link key={g.key} href={`/admin/orders?courier=${g.key}`}
+                style={{ ...cardBox, padding: '.7rem .75rem' }}>
+            <div style={{ fontSize: '.64rem', fontWeight: 800, letterSpacing: '.09em', textTransform: 'uppercase', color: g.colour }}>
+              {g.key === 'outForDelivery' ? 'Out for delivery' : 'Failed delivery'}
+            </div>
+            <div style={{ fontSize: '1.35rem', fontWeight: 800, color: '#1e1b19', margin: '.25rem 0 .3rem' }}>
+              {loading ? '—' : followUps[g.key].length}
+            </div>
+            <div style={{ fontSize: '.68rem', color: '#9a908a', fontWeight: 600 }}>
+              {onTheWay > 0 ? `of ${onTheWay} on the way →` : 'Open →'}
+            </div>
+          </Link>
+        ))}
+
+        {/* The same box, for the other thing with a date on it. */}
+        <Link href="/admin/birthday" style={{ ...cardBox, padding: '.7rem .75rem' }}>
+          <div style={{ fontSize: '.64rem', fontWeight: 800, letterSpacing: '.09em', textTransform: 'uppercase', color: '#7a5cc4' }}>
+            Birthday &amp; Anniversary
+          </div>
+          <div style={{ fontSize: '1.35rem', fontWeight: 800, color: '#1e1b19', margin: '.25rem 0 .3rem' }}>
+            {soon.length}
+          </div>
+          <div style={{ fontSize: '.68rem', color: todayCount > 0 ? '#c0392b' : '#9a908a', fontWeight: todayCount > 0 ? 800 : 600 }}>
+            {todayCount > 0 ? `${todayCount} today →` : 'In 7 days →'}
+          </div>
+        </Link>
       </div>
 
       {/* What gets opened most */}
