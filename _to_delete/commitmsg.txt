@@ -1,0 +1,78 @@
+Automatic SMS to the customer about their own order
+
+Seven DLT templates, each on its own trigger, so a customer hears what is
+happening to their parcel without anybody typing anything.
+
+Five are sent where the thing happens:
+
+  OrderConfirm    PlaceOrder, once the order row exists
+  Tracking        the moment a waybill is generated, manual or automatic
+  OutForDelivery  the tracking sweep, when the courier says it is on a van
+  Delivered       the tracking sweep, when the courier says it arrived
+  Refund          an RTO that comes home owing money, and only when owed > 0
+
+Two are sent by a clock, in the new CustomerMessageService, hourly:
+
+  Review          an hour after delivery, then twice more 48 hours apart
+  UserDropped     an hour after somebody reached the payment page and did not pay
+
+message_sends, and why it is the whole feature
+----------------------------------------------
+One row per (order, template, attempt), with a unique index, written BEFORE
+the send rather than after. The tracking sweep runs every three hours and
+re-reads the same courier status each time: without the row, a parcel out for
+delivery all day tells the customer so eight times, and a delivered order asks
+for a review every three hours until somebody notices. The index, not a
+read-then-write, is what enforces "once" - two sweeps racing each other both
+see no row and both decide to send; only one gets to write.
+
+A failed send is recorded as failed, not deleted. A number MSG91 refuses is
+refused every time, and retrying for ever is how one bad number becomes a
+daily error. An order with no phone is recorded too, for the same reason.
+
+What the sweep refuses to send
+------------------------------
+  - a review ask, once a review exists for that order, whatever the count says
+  - a review ask after three, ever
+  - "your payment did not go through" to a Cashfree PENDING row. The bank is
+    still deciding; that message, sent while it succeeds, loses a sale that was
+    already won
+  - anything to a dropped checkout that later became an order - paid on a
+    second attempt, written by the webhook, or switched to Cash on Delivery
+  - more than one UserDropped per phone per day. Three attempts at the same
+    payment is one person having trouble, not three sales to chase, and the
+    unique index cannot catch it: three rows, three order ids, one person
+  - Tracking on a reverse-pickup waybill. That AWB is the shop's parcel coming
+    home, not the customer's parcel going out
+
+Both sweeps put every condition inside the query rather than filtering after
+the 25-row batch. The replay caught why: oldest-first, on a day with sixty
+deliveries the first 25 are asked and then fill the batch on every sweep for
+the next five days - skipped each time, but occupying the room. Customers 26
+to 60 would never be asked at all, and their window would close while the
+sweep reported success.
+
+Verified
+--------
+  frontend/scripts/customer-message-replay.js - 36 cases, all passing: the
+  schedule he asked for (1h, +48h, +48h, stop at three), 47 hours is not 48,
+  the review-arrived stop, pending/paid/paid-late payments, the webhook order,
+  one phone three attempts however the number is typed, both floors, both
+  switches, two sweeps racing, and sixty deliveries batched across three
+  hourly runs with none asked twice.
+
+  All five C# checkers clean. tsc --noEmit clean, eslint clean on the settings
+  page, check-english clean.
+
+Settings
+--------
+A new section holds the seven MSG91 flow ids and a master switch. A blank box
+means that one message is not sent and nothing else changes. Turning the
+review emails off turns the review texts off with them - a switch that half
+works is worse than none.
+
+The order and payment emails to a second address need no code: AdminNotifier
+already splits admin_email on commas.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_016V6PGEyxpfw2yiU5cNbXJf
