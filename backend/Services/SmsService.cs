@@ -227,10 +227,41 @@ public class SmsService
             using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
 
             var recipient = new Dictionary<string, string> { ["mobiles"] = phone };
+
+            // Every value goes under every spelling MSG91 might be holding it
+            // under, because a key that does not match the flow's variable name
+            // is not an error - MSG91 accepts the message and sends it with
+            // that variable blank. There is nothing in the response to see, and
+            // the first anybody knows of it is a customer reading "your order
+            //  has been delivered".
+            //
+            // So: var1 and VAR1 for a flow built on DLT's {#var#} placeholders,
+            // and the name in both cases, with and without its underscore, for
+            // one built on ##order_id##. Extra keys are ignored, and the whole
+            // class of fault goes away for the price of a few bytes.
+            void Put(string key, string value)
+            {
+                if (string.IsNullOrEmpty(key)) return;
+                // Never the recipient's own number. A template variable that
+                // happened to be called "mobiles" would otherwise overwrite it
+                // and the message would go to whatever that value was.
+                if (key.Equals("mobiles", StringComparison.OrdinalIgnoreCase)) return;
+                recipient[key] = value;
+                recipient[key.ToUpperInvariant()] = value;
+                recipient[key.ToLowerInvariant()] = value;
+                var tight = key.Replace("_", "");
+                if (tight.Length > 0 && tight != key)
+                {
+                    recipient[tight] = value;
+                    recipient[tight.ToUpperInvariant()] = value;
+                    recipient[tight.ToLowerInvariant()] = value;
+                }
+            }
+
             for (var i = 0; i < values.Count; i++)
-                recipient[$"var{i + 1}"] = values[i] ?? "";
+                Put($"var{i + 1}", values[i] ?? "");
             if (named is not null)
-                foreach (var kv in named) recipient[kv.Key] = kv.Value ?? "";
+                foreach (var kv in named) Put(kv.Key, kv.Value ?? "");
 
             var payload = new
             {
