@@ -193,7 +193,8 @@ public class DelhiveryService
     /// are simply absent from the result — callers treat that as "no change".
     /// </summary>
     /// <summary>What the bulk tracking call says about one parcel.</summary>
-    public readonly record struct TrackLine(string Status, DateTimeOffset? Expected, string StatusType = "");
+    public readonly record struct TrackLine(
+        string Status, DateTimeOffset? Expected, string StatusType = "", string Instruction = "");
 
     /// <summary>
     /// Is this parcel on its way BACK to us rather than on to the customer?
@@ -279,6 +280,13 @@ public class DelhiveryService
                 var statusType = st.ValueKind == JsonValueKind.Object
                     && st.TryGetProperty("StatusType", out var stt) && stt.ValueKind == JsonValueKind.String
                     ? (stt.GetString() ?? "") : "";
+                // The sentence under the status. "In Transit" is where a parcel
+                // is; "Call placed to consignee" and "Out for delivery" are what
+                // somebody has to do about it today, and they live here rather
+                // than in Status.
+                var instruction = st.ValueKind == JsonValueKind.Object
+                    && st.TryGetProperty("Instructions", out var ins) && ins.ValueKind == JsonValueKind.String
+                    ? (ins.GetString() ?? "") : "";
                 var expectedRaw =
                     (ship.TryGetProperty("ExpectedDeliveryDate", out var e1) && e1.ValueKind == JsonValueKind.String
                         ? e1.GetString() : null)
@@ -286,7 +294,7 @@ public class DelhiveryService
                         ? e2.GetString() : null);
 
                 if (!string.IsNullOrWhiteSpace(awb) && !string.IsNullOrWhiteSpace(status))
-                    result[awb!] = new TrackLine(status!, CourierDate(expectedRaw), statusType);
+                    result[awb!] = new TrackLine(status!, CourierDate(expectedRaw), statusType, instruction);
             }
         }
         catch { /* tracking is best-effort — sync service will retry next cycle */ }

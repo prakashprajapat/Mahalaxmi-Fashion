@@ -1073,6 +1073,14 @@ using (var scope = app.Services.CreateScope())
         -- 012 par 17/10), jo GST ki series todta hai.
         ALTER TABLE site_orders ADD COLUMN IF NOT EXISTS invoiced_at TIMESTAMPTZ;
         ALTER TABLE site_orders ADD COLUMN IF NOT EXISTS bag_barcode VARCHAR(64);
+
+        -- What the courier last said, kept beside what WE say. Our status
+        -- answers where an order is in the shop process; these answer which
+        -- parcels are on a van today and which customers the courier has
+        -- already phoned - the two lists worth working through in a morning.
+        ALTER TABLE site_orders ADD COLUMN IF NOT EXISTS courier_status  VARCHAR(120);
+        ALTER TABLE site_orders ADD COLUMN IF NOT EXISTS courier_note    VARCHAR(250);
+        ALTER TABLE site_orders ADD COLUMN IF NOT EXISTS courier_seen_at TIMESTAMPTZ;
         CREATE UNIQUE INDEX IF NOT EXISTS ux_site_orders_bag_barcode
             ON site_orders (bag_barcode) WHERE bag_barcode IS NOT NULL;
         -- Jo bill pehle hi chhap chuke hain unki tareekh nahi badalti: purane

@@ -6,6 +6,7 @@ import { fetchAllProducts } from '@/lib/adminPaged';
 import { getAdminToken } from '@/lib/auth';
 import type { Order, Product } from '@/types';
 import { bucketAccepts, claimedBy } from '@/lib/orderStatus';
+import { FOLLOW_UP_GROUPS, groupForFollowUp } from '@/lib/courierFollowUp';
 
 // The admin home.
 //
@@ -54,6 +55,13 @@ const STATUS_CARDS: { key: string; label: string; colour: string }[] = [
 // trusted to add up.
 const CARD_STATUSES = claimedBy(STATUS_CARDS.map(c => c.key));
 
+/** Somebody with a birthday or an anniversary close enough to act on. */
+interface Celebration {
+  customer: { id: number; firstName: string; lastName: string; phone: string; email: string };
+  birthdayIn: number | null;
+  anniversaryIn: number | null;
+}
+
 const ACTIONS = [
   { href: '/admin/products/add', title: 'Add Product',     sub: 'Put a new product in the store',     primary: true },
   { href: '/admin/products',     title: 'Manage Products',  sub: 'Edit, price and stock' },
@@ -65,6 +73,10 @@ export default function AdminDashboard() {
   const [orders, setOrders] = useState<Order[] | null>(null);
   const [products, setProducts] = useState<Product[] | null>(null);
   const [failed, setFailed] = useState(false);
+  // Its own request, and its own failure. A staff account without customer
+  // access gets a dashboard missing this one block rather than a dashboard
+  // covered in a warning about numbers that are all fine.
+  const [celebrations, setCelebrations] = useState<Celebration[]>([]);
 
   useEffect(() => {
     const token = getAdminToken() ?? '';
@@ -81,6 +93,16 @@ export default function AdminDashboard() {
       setOrders(o.status === 'fulfilled' ? o.value.orders : []);
       setProducts(p.status === 'fulfilled' ? (p.value as Product[]) : []);
     });
+
+    // Seven days, not the thirty the Birthday screen offers. A dashboard is
+    // read in a minute; a list of everyone with a birthday next month is a
+    // list nobody works through, and it would push the orders off the screen.
+    fetch('/api/customers/celebrations?days=7', { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => (r.ok ? r.json() : null))
+      // { success, celebrations, sends } - checked against the endpoint
+      // rather than guessed at with a chain of fallbacks.
+      .then(d => setCelebrations(d?.celebrations ?? []))
+      .catch(() => { /* the rest of the dashboard is not held up by this */ });
   }, []);
 
   const loading = orders === null || products === null;
@@ -100,6 +122,21 @@ export default function AdminDashboard() {
   ];
 
   const recent = [...os].sort((a, b) => +orderDate(b) - +orderDate(a)).slice(0, 5);
+
+  // What the courier is saying about parcels still on their way. Grouped once.
+  const followUps = groupForFollowUp(os);
+  const followUpTotal = FOLLOW_UP_GROUPS.reduce((n, g) => n + followUps[g.key].length, 0);
+
+  // Today and the six days after. A birthday is only worth a line on this
+  // screen while there is still time to send something.
+  const soon = celebrations
+    .flatMap(c => [
+      c.birthdayIn != null && c.birthdayIn <= 7 ? { c, type: 'Birthday', days: c.birthdayIn } : null,
+      c.anniversaryIn != null && c.anniversaryIn <= 7 ? { c, type: 'Anniversary', days: c.anniversaryIn } : null,
+    ])
+    .filter((x): x is { c: Celebration; type: string; days: number } => x !== null)
+    .sort((a, b) => a.days - b.days);
+  const todayCount = soon.filter(x => x.days === 0).length;
 
   // Anything the five cards do not claim - On Hold, a return, an exchange, a
   // status added later. Shown only when it is not empty, so the ordinary day
@@ -121,6 +158,108 @@ export default function AdminDashboard() {
       {failed && (
         <div style={{ background: '#fdecea', border: '1px solid #f5c6c2', color: '#c0392b', borderRadius: 10, padding: '.75rem 1rem', marginBottom: '1rem', fontSize: '.86rem', fontWeight: 600 }}>
           Some of this could not be loaded. The numbers below may be incomplete.
+        </div>
+      )}
+
+      {/* What the courier says needs doing, before anything else on the page.
+          These are the only numbers here with a deadline on them: a customer
+          the courier could not reach today is a return next week. */}
+      {!loading && followUpTotal > 0 && (
+        <div style={{ ...cardBox, display: 'block', marginBottom: '.85rem', cursor: 'default' }}>
+          <p style={{ margin: '0 0 .15rem', fontWeight: 800, color: '#2d2724', fontSize: '1rem' }}>
+            Parcels to follow up
+          </p>
+          <p style={{ margin: '0 0 .8rem', fontSize: '.8rem', color: '#8a7f76' }}>
+            What Delhivery last said. Refreshed every three hours.
+          </p>
+
+          {FOLLOW_UP_GROUPS.filter(g => followUps[g.key].length > 0).map(g => (
+            <div key={g.key} style={{ marginBottom: '.9rem' }}>
+              <p style={{ margin: '0 0 .1rem', fontWeight: 700, fontSize: '.88rem', color: g.colour }}>
+                {g.label} · {followUps[g.key].length}
+              </p>
+              <p style={{ margin: '0 0 .4rem', fontSize: '.76rem', color: '#9a908a' }}>{g.why}</p>
+              {followUps[g.key].slice(0, 6).map(o => (
+                <div key={o.id} style={{ display: 'flex', flexWrap: 'wrap', gap: '.5rem', alignItems: 'baseline',
+                                         padding: '.3rem 0', borderTop: '1px solid #f4efec' }}>
+                  <Link href={`/admin/orders?search=${encodeURIComponent(o.id)}`}
+                        style={{ fontFamily: 'monospace', fontSize: '.78rem', color: '#722f37', fontWeight: 700,
+                                 textDecoration: 'none' }}>
+                    {o.id}
+                  </Link>
+                  <span style={{ fontSize: '.8rem', color: '#2d2724' }}>{o.customerName || 'no name'}</span>
+                  {o.customerPhone && (
+                    <a href={`tel:${o.customerPhone}`}
+                       style={{ fontSize: '.8rem', color: '#1d74a8', textDecoration: 'none', fontWeight: 600 }}>
+                      {o.customerPhone}
+                    </a>
+                  )}
+                  {/* The courier's own sentence, not ours. Shortened, never
+                      reworded: an owner ringing a customer wants the line the
+                      courier actually logged. */}
+                  <span style={{ fontSize: '.74rem', color: '#9a908a' }}>
+                    {(o.courierNote || o.courierStatus || '').slice(0, 60)}
+                  </span>
+                </div>
+              ))}
+              {followUps[g.key].length > 6 && (
+                <p style={{ margin: '.35rem 0 0', fontSize: '.76rem', color: '#9a908a' }}>
+                  and {followUps[g.key].length - 6} more
+                </p>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Birthdays and anniversaries, which have a deadline of their own:
+          an offer that arrives the day after is worse than none. Shown only
+          when there is somebody in the next week, so an ordinary day's
+          dashboard is not carrying an empty box. */}
+      {soon.length > 0 && (
+        <div style={{ ...cardBox, display: 'block', marginBottom: '.85rem', cursor: 'default' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
+                        flexWrap: 'wrap', gap: '.4rem', marginBottom: '.1rem' }}>
+            <p style={{ margin: 0, fontWeight: 800, color: '#2d2724', fontSize: '1rem' }}>
+              Birthday &amp; Anniversary offers
+            </p>
+            <Link href="/admin/birthday" style={{ fontSize: '.82rem', color: '#722f37', fontWeight: 700, textDecoration: 'none' }}>
+              Send the offers →
+            </Link>
+          </div>
+          <p style={{ margin: '0 0 .7rem', fontSize: '.8rem', color: '#8a7f76' }}>
+            {todayCount > 0
+              ? `${todayCount} today, ${soon.length - todayCount} more this week.`
+              : `${soon.length} in the next seven days.`}
+          </p>
+
+          {soon.slice(0, 6).map((x, i) => (
+            <div key={`${x.c.customer.id}-${x.type}-${i}`}
+                 style={{ display: 'flex', flexWrap: 'wrap', gap: '.5rem', alignItems: 'baseline',
+                          padding: '.3rem 0', borderTop: i === 0 ? 'none' : '1px solid #f4efec' }}>
+              <span style={{ fontSize: '.78rem', fontWeight: 700,
+                             color: x.type === 'Birthday' ? '#c26a12' : '#7a5cc4' }}>
+                {x.type}
+              </span>
+              <span style={{ fontSize: '.8rem', color: '#2d2724' }}>
+                {`${x.c.customer.firstName ?? ''} ${x.c.customer.lastName ?? ''}`.trim() || 'no name'}
+              </span>
+              {x.c.customer.phone && (
+                <a href={`tel:${x.c.customer.phone}`}
+                   style={{ fontSize: '.8rem', color: '#1d74a8', textDecoration: 'none', fontWeight: 600 }}>
+                  {x.c.customer.phone}
+                </a>
+              )}
+              <span style={{ fontSize: '.76rem', color: x.days === 0 ? '#c0392b' : '#9a908a', fontWeight: x.days === 0 ? 700 : 400 }}>
+                {x.days === 0 ? 'today' : x.days === 1 ? 'tomorrow' : `in ${x.days} days`}
+              </span>
+            </div>
+          ))}
+          {soon.length > 6 && (
+            <p style={{ margin: '.35rem 0 0', fontSize: '.76rem', color: '#9a908a' }}>
+              and {soon.length - 6} more
+            </p>
+          )}
         </div>
       )}
 

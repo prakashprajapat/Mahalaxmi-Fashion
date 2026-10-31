@@ -116,6 +116,26 @@ public class DelhiveryTrackingSyncService : BackgroundService
                     updated++;
                 }
 
+                // Written down on every pass, whatever else changes. The
+                // follow-up lists on the dashboard are built from these two,
+                // and a status that is three hours old is fine; one that was
+                // only recorded when the ORDER status happened to change would
+                // be weeks old on a parcel that sat in transit.
+                var note = (line.Instruction ?? "").Trim();
+                if (note.Length > 250) note = note.Substring(0, 250);
+                var courierStatus = (line.Status ?? "").Trim();
+                if (courierStatus.Length > 120) courierStatus = courierStatus.Substring(0, 120);
+
+                if (order.CourierStatus != courierStatus || order.CourierNote != (note.Length > 0 ? note : null))
+                {
+                    order.CourierStatus = courierStatus;
+                    order.CourierNote = note.Length > 0 ? note : null;
+                    updated++;
+                }
+                // Touched every pass, so the screen can say how fresh this is
+                // rather than leaving the owner to guess.
+                order.CourierSeenAt = DateTimeOffset.UtcNow;
+
                 var returning = DelhiveryService.IsReturnLeg(line.Status, line.StatusType);
 
                 if (returning)

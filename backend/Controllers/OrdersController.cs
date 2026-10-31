@@ -2704,7 +2704,10 @@ public class OrdersController : ControllerBase
             WalletUsed: o.WalletUsed,
             AdvancePaid: o.AdvancePaid,
             ExpectedDelivery: o.ExpectedDelivery,
-            BagBarcode: o.BagBarcode
+            BagBarcode: o.BagBarcode,
+            CourierStatus: o.CourierStatus,
+            CourierNote: o.CourierNote,
+            CourierSeenAt: o.CourierSeenAt
         );
     }
 }

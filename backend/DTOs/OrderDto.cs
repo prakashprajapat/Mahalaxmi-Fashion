@@ -74,7 +74,10 @@ public record OrderDto(
     decimal WalletUsed = 0,
     decimal AdvancePaid = 0,
     DateTimeOffset? ExpectedDelivery = null,
-    string? BagBarcode = null
+    string? BagBarcode = null,
+    string? CourierStatus = null,
+    string? CourierNote = null,
+    DateTimeOffset? CourierSeenAt = null
 );
 
 public record PlaceOrderRequest(

@@ -125,6 +125,10 @@ export interface Order {
   invoiceNumber?: string;
   /** The code printed on the thaili this parcel went into, scanned at packing. */
   bagBarcode?: string | null;
+  /** What Delhivery last said about this parcel, and the sentence under it. */
+  courierStatus?: string | null;
+  courierNote?: string | null;
+  courierSeenAt?: string | null;
   // When the invoice number was issued, and so the invoice's own date. Falls
   // back to placedAt for orders invoiced before this was recorded.
   invoicedAt?: string | null;

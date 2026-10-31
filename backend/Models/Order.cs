@@ -98,6 +98,28 @@ public class SiteOrder
     [Column("bag_barcode")]
     public string? BagBarcode { get; set; }
 
+    /// <summary>
+    /// What the courier last said about this parcel, kept verbatim.
+    ///
+    /// Our own Status answers where the order is in the shop's process -
+    /// packed, shipped, delivered. It cannot answer the question an owner asks
+    /// in the morning: which parcels are out on a van right now, and which
+    /// ones has the courier phoned the customer about. Both of those are the
+    /// courier's words, and both are reasons to pick up the phone today -
+    /// a called customer who does not answer becomes an undelivered parcel
+    /// tomorrow and a return the week after.
+    /// </summary>
+    [Column("courier_status")]
+    public string? CourierStatus { get; set; }
+
+    /// The sentence under the status, which is where the useful half lives:
+    /// Out for delivery, Call placed to consignee, Consignee unavailable.
+    [Column("courier_note")]
+    public string? CourierNote { get; set; }
+
+    [Column("courier_seen_at")]
+    public DateTimeOffset? CourierSeenAt { get; set; }
+
     // GST invoice number (e.g. M/26-27/001), assigned once when the order is marked Ready for Shipping
     [Column("invoice_number")]
     public string? InvoiceNumber { get; set; }
