@@ -8,8 +8,59 @@ import type { Product } from '@/types';
 import { PageHeader, Card, Stat, StatGrid, Chips, Empty, Pill } from '@/components/admin/Ui';
 import { fetchAllProducts } from '@/lib/adminPaged';
 import { draftHoldReasons } from '@/lib/productQC';
+import { productImageSrc } from '@/lib/productImages';
+import { allSlotPhotos, colourSetsOf, colourPhotos } from '@/lib/photoExtras';
 
 const CATEGORIES = ['Women','Men','Kids','Beauty','Fabrics','More'];
+
+/**
+ * Every photograph a product has, grouped the way it was filled in.
+ *
+ * The thumbnail in this list is 36 pixels. Deciding whether the right photo
+ * is on a product, or whether a colour has pictures at all, cannot be done at
+ * 36 pixels - and opening the edit screen to look is four clicks and a page
+ * load, after which the gallery is at the bottom.
+ *
+ * The packing popup in Orders shows ONE photo, because a cart line is one
+ * thing. A product is not: it has four named views, numbered extras past
+ * them, and a set per colour. Showing only the main photo here would answer
+ * the easy half of the question and hide the half worth asking - which colour
+ * has no pictures behind it.
+ */
+function galleryOf(p: Product): { label: string; photos: string[] }[] {
+  const seen = new Set<string>();
+  const keep = (list: unknown[]): string[] => {
+    const out: string[] = [];
+    for (const raw of list) {
+      const src = productImageSrc(typeof raw === 'string' ? raw : '');
+      if (!src || seen.has(src)) continue;
+      seen.add(src);
+      out.push(src);
+    }
+    return out;
+  };
+
+  let extra: Record<string, unknown> = {};
+  try { extra = p.extraJson ? JSON.parse(p.extraJson) : {}; } catch { /* unreadable - the main photo still shows */ }
+
+  const groups: { label: string; photos: string[] }[] = [];
+
+  const main = keep([
+    p.image,
+    ...allSlotPhotos(extra.productPhotos as Record<string, unknown>),
+    ...(Array.isArray(extra.images) ? extra.images : []),
+  ]);
+  if (main.length > 0) groups.push({ label: 'Main photos', photos: main });
+
+  for (const c of colourSetsOf(extra)) {
+    const photos = keep(colourPhotos(c));
+    // A colour with no photographs is worth SEEING as empty - that is the
+    // state that puts the wrong picture under a colour name on the website.
+    groups.push({ label: c.name, photos });
+  }
+
+  return groups;
+}
 
 // ── CSV ────────────────────────────────────────────────────────────────────
 function parseCsvRow(line: string): string[] {
@@ -102,6 +153,7 @@ function readView(): SavedView | null {
 
 export default function AdminProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
+  const [photoOf, setPhotoOf] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   // Pehle render par hi purani halat — ek jhalak bina filter ke na dikhe.
   const saved = useRef<SavedView | null>(typeof window === 'undefined' ? null : readView());
@@ -442,8 +494,14 @@ export default function AdminProductsPage() {
                       <td data-label="Product">
                         <div style={{ display: 'flex', gap: '.5rem', alignItems: 'center' }}>
                           {p.image
-                            ? <img src={p.image} alt="" style={{ width: 36, height: 36, borderRadius: 6, objectFit: 'cover', flexShrink: 0,
-                                                                 border: '1px solid #f0eae7', filter: off ? 'grayscale(1)' : undefined }} />
+                            ? <button type="button" onClick={() => setPhotoOf(p)}
+                                      title="See the photos, big"
+                                      aria-label={`See the photos of ${p.name}`}
+                                      style={{ padding: 0, border: 'none', background: 'none', cursor: 'zoom-in',
+                                               lineHeight: 0, flexShrink: 0, borderRadius: 6 }}>
+                                <img src={p.image} alt="" style={{ width: 36, height: 36, borderRadius: 6, objectFit: 'cover',
+                                                                   border: '1px solid #f0eae7', filter: off ? 'grayscale(1)' : undefined }} />
+                              </button>
                             : <div className="adm-item-thumb" style={{ width: 36, height: 36, fontSize: '.85rem', flexShrink: 0 }}>&mdash;</div>}
                           <div style={{ minWidth: 0 }}>
                             <Link href={`/admin/products/${p.dbId}`}
@@ -507,6 +565,71 @@ export default function AdminProductsPage() {
           </div>
         )}
       </Card>
+
+      {/* The photos, big - the same popup the packing screen gives, for a
+          product rather than a cart line. */}
+      {photoOf && (() => {
+        const groups = galleryOf(photoOf);
+        const count = groups.reduce((n, g) => n + g.photos.length, 0);
+        return (
+          <div onClick={() => setPhotoOf(null)}
+               style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.55)', display: 'flex',
+                        alignItems: 'center', justifyContent: 'center', zIndex: 340, padding: '1rem' }}>
+            <div onClick={e => e.stopPropagation()}
+                 style={{ background: '#fff', borderRadius: 14, width: '100%', maxWidth: 560,
+                          maxHeight: '88vh', overflowY: 'auto', padding: '1.2rem 1.35rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '.75rem' }}>
+                <div style={{ minWidth: 0 }}>
+                  <h3 style={{ margin: 0, fontSize: '1.05rem' }}>{photoOf.name}</h3>
+                  <p style={{ margin: '.2rem 0 0', fontSize: '.84rem', color: '#8a7f76' }}>
+                    <span style={{ fontFamily: 'monospace', fontWeight: 700, color: '#722f37' }}>
+                      {photoOf.sku || 'no SKU'}
+                    </span>
+                    {` · ${count} ${count === 1 ? 'photo' : 'photos'}`}
+                    {photoOf.subcategory ? ` · ${photoOf.subcategory}` : ''}
+                  </p>
+                </div>
+                <button onClick={() => setPhotoOf(null)}
+                        style={{ background: 'none', border: 'none', fontSize: '1.3rem', cursor: 'pointer', color: '#888', lineHeight: 1 }}>
+                  ✕
+                </button>
+              </div>
+
+              {count === 0 ? (
+                <p style={{ color: '#8a7f76', fontSize: '.88rem', marginTop: '1rem' }}>
+                  This product has no photographs at all.
+                </p>
+              ) : groups.map((g, gi) => (
+                <div key={g.label + gi} style={{ marginTop: '1rem', paddingTop: gi === 0 ? 0 : '1rem',
+                                                 borderTop: gi === 0 ? 'none' : '1px solid #f0eae7' }}>
+                  <p style={{ margin: '0 0 .5rem', fontWeight: 700, color: '#2d2724', fontSize: '.9rem' }}>
+                    {g.label}
+                    <span style={{ fontWeight: 400, color: '#9a908a', fontSize: '.8rem' }}>
+                      {` · ${g.photos.length}`}
+                    </span>
+                  </p>
+                  {g.photos.length === 0 ? (
+                    <p style={{ margin: 0, fontSize: '.82rem', color: '#b26b00', fontWeight: 600 }}>
+                      No photograph for this colour. The website will show the main one under its name.
+                    </p>
+                  ) : g.photos.map((src, i) => (
+                    <img key={src + i} src={src} alt={`${photoOf.name} ${g.label}`} loading="lazy"
+                         style={{ width: '100%', maxHeight: 360, objectFit: 'contain', marginBottom: '.5rem',
+                                  borderRadius: 10, background: '#faf6f2', border: '1px solid #f0eae7' }} />
+                  ))}
+                </div>
+              ))}
+
+              <div style={{ marginTop: '1rem', paddingTop: '.8rem', borderTop: '1px solid #f0eae7' }}>
+                <Link href={`/admin/products/${photoOf.dbId}`} className="adm-btn"
+                      style={{ textDecoration: 'none' }}>
+                  Edit this product
+                </Link>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
