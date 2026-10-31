@@ -907,7 +907,7 @@ function ApplyForm({ onBack }: { onBack: () => void }) {
             background: result.ok ? '#f0fdf4' : '#fff5f5',
             border: `1.5px solid ${result.ok ? '#86efac' : '#fca5a5'}`,
           }}>
-            <div style={{ fontSize: '2.5rem', marginBottom: '.75rem' }}>{result.ok ? '' : '✕'}</div>
+            <div style={{ fontSize: '2.5rem', marginBottom: '.75rem' }}>{result.ok ? '✓' : '✕'}</div>
             <p style={{ fontWeight: 700, color: result.ok ? '#166534' : '#991b1b', margin: '0 0 .5rem', fontSize: '1.1rem' }}>
               {result.ok ? 'Application Submitted!' : 'Something Went Wrong'}
             </p>

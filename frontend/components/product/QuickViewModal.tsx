@@ -9,6 +9,7 @@ import { productSlug } from '@/lib/productSlug';
 import { presetColourCode, swatchBackground } from '@/lib/presetColours';
 import { variantStockFor } from '@/lib/variantStock';
 import { allSlotPhotos, colourPhotos } from '@/lib/photoExtras';
+import WishHeart from './WishHeart';
 
 interface ExtraJson {
   sizes?: string[];
@@ -465,12 +466,18 @@ export default function QuickViewModal({ product, onClose }: Props) {
                 title={wishlisted ? 'Remove from Wishlist' : 'Add to Wishlist'}
                 style={{
                   width: '44px', height: '44px', borderRadius: '10px',
-                  border: '1.5px solid #ddd', background: '#fff',
+                  // Saved says so three ways at once - the heart fills, the
+                  // colour changes and the border and tile follow it - because
+                  // one quiet difference is what made the old button feel dead.
+                  border: `1.5px solid ${wishlisted ? '#722f37' : '#ddd'}`,
+                  background: wishlisted ? '#f7eff0' : '#fff',
+                  color: wishlisted ? '#722f37' : '#8a8a8a',
                   fontSize: '1.2rem', cursor: 'pointer',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  transition: 'color .2s, background .2s, border-color .2s',
                 }}
               >
-                <span aria-hidden="true">{wishlisted ? '' : ''}</span>
+                <WishHeart on={wishlisted} size={21} />
               </button>
             </div>
 

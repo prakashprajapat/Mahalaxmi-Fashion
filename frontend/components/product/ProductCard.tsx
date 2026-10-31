@@ -5,6 +5,7 @@ import Image from 'next/image';
 import type { Product } from '@/types';
 import { finalUnitPrice } from '@/lib/cart';
 import { addToWishlist, removeFromWishlist, isInWishlist } from '@/lib/wishlist';
+import WishHeart from './WishHeart';
 import { productImageSrc, productImageThumb } from '@/lib/productImages';
 import { productSlug } from '@/lib/productSlug';
 
@@ -136,7 +137,7 @@ export default function ProductCard({ product, priority = false }: { product: Pr
           {/* Wishlist */}
           <button className={`product-wishlist-btn ${wishlisted ? 'active' : ''}`} onClick={handleWishlist}
             aria-label={wishlisted ? 'Remove from wishlist' : 'Add to wishlist'} title="Add to Wishlist">
-            <span aria-hidden="true">{wishlisted ? '' : ''}</span>
+            <WishHeart on={wishlisted} size={18} />
           </button>
         </div>
 

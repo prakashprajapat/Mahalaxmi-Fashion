@@ -918,6 +918,16 @@ button { cursor: pointer; font-family: inherit; }
 .product-badge-sale { background: #c62828; color: #fff; font-size: .7rem; font-weight: 700; padding: .2rem .55rem; border-radius: 4px; }
 .product-wishlist-btn { position: absolute; z-index: 2; top: 8px; right: 8px; background: #fff; border: none; border-radius: 50%; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,.15); font-size: 1rem; transition: transform .2s; }
 .product-wishlist-btn:hover { transform: scale(1.15); }
+/* Saved or not saved has to be visible at 34px on a white card. The outline
+   heart turns into a filled one AND the colour changes AND the circle tints:
+   three differences, because one of them alone was two emoji that looked
+   identical, and the shopper could not tell whether the tap had done
+   anything. */
+.product-wishlist-btn { color: #8a8a8a; }
+.product-wishlist-btn:hover { color: var(--brand); }
+.product-wishlist-btn.active { color: var(--brand); background: var(--brand-light); box-shadow: 0 1px 5px rgba(114,47,55,.28); }
+.product-wishlist-btn.active svg { animation: wish-pop .22s ease-out; }
+@keyframes wish-pop { 0% { transform: scale(.6); } 60% { transform: scale(1.2); } 100% { transform: scale(1); } }
 .product-card-body { padding: .85rem; display: flex; flex-direction: column; gap: .35rem; flex: 1; }
 .product-card-cat { font-size: .7rem; color: #767676; text-transform: uppercase; letter-spacing: .06em; margin: 0; }
 .product-stock-badge { display: inline-block; font-size: .72rem; font-weight: 700; padding: .18rem .55rem; border-radius: 20px; width: fit-content; }

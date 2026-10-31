@@ -7,6 +7,7 @@ import { productImageSrc } from '@/lib/productImages';
 import { getWishlist, removeFromWishlist, loadServerWishlist } from '@/lib/wishlist';
 import { addToCart, finalUnitPrice } from '@/lib/cart';
 import { trackEvent } from '@/lib/analytics';
+import WishHeart from '@/components/product/WishHeart';
 
 export default function WishlistPage() {
   const [items, setItems] = useState<Product[]>([]);
@@ -54,6 +55,10 @@ export default function WishlistPage() {
         <section className="auth-stack">
           {items.length === 0 ? (
             <div className="form-card" style={{ textAlign: 'center', padding: '3rem 1.5rem' }}>
+              {/* The same heart that sits on every product, so the empty page
+                  shows what to look for rather than just saying there is
+                  nothing here. */}
+              <div style={{ color: '#d8c7ca', marginBottom: '.4rem' }}><WishHeart on={false} size={46} /></div>
               <h2 style={{ marginBottom: '.5rem' }}>Your wishlist is empty</h2>
               <p style={{ color: '#777', marginBottom: '1.5rem' }}>Browse products and save your favourites here.</p>
               <Link href="/products" className="button primary">Browse Products</Link>

@@ -329,7 +329,11 @@ function PhotoSlot({
     }
   };
 
-  const icon = label.includes('SIDE') ? '↔' : label.includes('BACK') ? '' : label.includes('ZOOM') ? '' : '';
+  // An empty slot used to show a picture of a camera. Words say the same
+  // thing, and say it to somebody who has never seen this screen before.
+  const empty = label.includes('SIDE') ? 'Side photo'
+    : label.includes('BACK') ? 'Back photo'
+    : label.includes('ZOOM') ? 'Close-up' : 'Add photo';
 
   return (
     <div style={{ border: isFirst ? '2px solid #1a1a2e' : '2px dashed #ddd', borderRadius: '10px', overflow: 'hidden', background: '#fff' }}>
@@ -342,7 +346,7 @@ function PhotoSlot({
       >
         {value
           ? <img src={value} alt="" style={{ maxWidth: '100%', maxHeight: '100px', objectFit: 'contain' }} onError={e => (e.target as HTMLImageElement).style.display='none'} />
-          : <span style={{ fontSize: '1.8rem' }}>{icon}</span>}
+          : <span style={{ fontSize: '.78rem', color: '#9a9a9a', fontWeight: 600 }}>{empty}</span>}
       </div>
       <div style={{ borderTop: '1px solid #eee', padding: '.35rem .5rem', display: 'flex', gap: '.25rem', alignItems: 'center', background: '#fff', flexWrap: 'wrap' }}>
         <button onClick={() => fileRef.current?.click()}
