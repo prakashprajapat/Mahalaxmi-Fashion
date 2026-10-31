@@ -105,6 +105,7 @@ builder.Services.AddScoped<EmailService>();
 builder.Services.AddScoped<SmsService>();
 builder.Services.AddScoped<DelhiveryService>();
 builder.Services.AddScoped<AdminNotifier>();
+builder.Services.AddScoped<OrderMessenger>();
 builder.Services.AddScoped<WalletService>();
 builder.Services.AddScoped<TokenService>();
 builder.Services.AddScoped<FeatureFlags>();
@@ -154,6 +155,11 @@ builder.Services.AddHostedService<ProductGateSweepService>();
 builder.Services.AddHostedService<StaffPayoutSweepService>();
 builder.Services.AddHostedService<ReviewRequestService>();
 builder.Services.AddHostedService<AbandonedCartService>();
+// The two customer messages that are sent by a clock rather than by an event:
+// the review ask an hour after delivery, and the nudge an hour after a
+// payment nobody finished. The other five go from the code that handles
+// the event itself.
+builder.Services.AddHostedService<CustomerMessageService>();
 
 // Pulls the shop's own reels off Instagram every six hours and keeps the
 // homepage strip filled. Singleton as well as a hosted service so the admin
@@ -1078,6 +1084,27 @@ using (var scope = app.Services.CreateScope())
         -- answers where an order is in the shop process; these answer which
         -- parcels are on a van today and which customers the courier has
         -- already phoned - the two lists worth working through in a morning.
+        -- Every message sent to a customer about an order, so it cannot be
+        -- sent twice. The tracking sweep re-reads the same courier status
+        -- every three hours; without this table a parcel out for delivery all
+        -- day would say so eight times.
+        CREATE TABLE IF NOT EXISTS message_sends (
+            id        SERIAL PRIMARY KEY,
+            order_id  VARCHAR(64) NOT NULL,
+            template  VARCHAR(40) NOT NULL,
+            attempt   SMALLINT NOT NULL DEFAULT 1,
+            phone     VARCHAR(20),
+            status    VARCHAR(20) NOT NULL DEFAULT 'sent',
+            detail    VARCHAR(250),
+            sent_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        -- The index enforces it, not the code: two sweeps racing both see no
+        -- row and both decide to send, and only one of them may write.
+        CREATE UNIQUE INDEX IF NOT EXISTS ux_message_sends_once
+            ON message_sends (order_id, template, attempt);
+        CREATE INDEX IF NOT EXISTS ix_message_sends_sent_at
+            ON message_sends (sent_at DESC);
+
         ALTER TABLE site_orders ADD COLUMN IF NOT EXISTS courier_status  VARCHAR(120);
         ALTER TABLE site_orders ADD COLUMN IF NOT EXISTS courier_note    VARCHAR(250);
         ALTER TABLE site_orders ADD COLUMN IF NOT EXISTS courier_seen_at TIMESTAMPTZ;

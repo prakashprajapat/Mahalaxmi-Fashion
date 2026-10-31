@@ -61,7 +61,8 @@ public class DelhiveryTrackingSyncService : BackgroundService
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var delhivery = scope.ServiceProvider.GetRequiredService<DelhiveryService>();
         var notify = scope.ServiceProvider.GetService<AdminNotifier>();
-        await SyncOnceAsync(db, delhivery, _log, ct, notify);
+        var msg = scope.ServiceProvider.GetService<OrderMessenger>();
+        await SyncOnceAsync(db, delhivery, _log, ct, notify, msg);
     }
 
     /// <summary>
@@ -79,7 +80,7 @@ public class DelhiveryTrackingSyncService : BackgroundService
     /// </summary>
     public static async Task<(int Checked, int Updated)> SyncOnceAsync(
         AppDbContext db, DelhiveryService delhivery, ILogger? log = null, CancellationToken ct = default,
-        AdminNotifier? notify = null)
+        AdminNotifier? notify = null, OrderMessenger? msg = null)
     {
         var active = await db.SiteOrders
             .Where(o => o.Awb != null && o.Awb != "" && ActiveStatuses.Contains(o.Status))
@@ -96,6 +97,12 @@ public class DelhiveryTrackingSyncService : BackgroundService
         // saving halfway through a chunk would write some status changes and
         // not others if the next call threw.
         var backAgain = new List<Models.SiteOrder>();
+        // Messages are sent after the statuses are saved, for the same reason
+        // the refunds are: a customer told their parcel is out for delivery,
+        // on a row that then failed to save, has been told something the shop
+        // does not know.
+        var tellOutForDelivery = new List<Models.SiteOrder>();
+        var tellDelivered = new List<Models.SiteOrder>();
 
         foreach (var chunk in active.Chunk(40))
         {
@@ -131,6 +138,18 @@ public class DelhiveryTrackingSyncService : BackgroundService
                     order.CourierStatus = courierStatus;
                     order.CourierNote = note.Length > 0 ? note : null;
                     updated++;
+                }
+
+                // Out for delivery is read from what the courier says, not
+                // from our own status, because there is no status of ours
+                // that means it. The message itself can only go once -
+                // OrderMessenger keeps the record - which is what makes it
+                // safe to ask this on every three-hourly pass.
+                if (msg is not null)
+                {
+                    var both = $"{courierStatus} {note}".ToLowerInvariant();
+                    if (both.Contains("out for delivery") || both.Contains("out-for-delivery"))
+                        tellOutForDelivery.Add(order);
                 }
                 // Touched every pass, so the screen can say how fresh this is
                 // rather than leaving the owner to guess.
@@ -182,6 +201,7 @@ public class DelhiveryTrackingSyncService : BackgroundService
                     order.DeliveredAt ??= DateTimeOffset.UtcNow;
                     order.UpdatedAt = DateTimeOffset.UtcNow;
                     updated++;
+                    if (msg is not null) tellDelivered.Add(order);
                 }
                 else if ((s.Contains("picked") || s.Contains("transit") || s.Contains("dispatched") || s.Contains("reached"))
                          && order.Status != "Transit")
@@ -200,7 +220,12 @@ public class DelhiveryTrackingSyncService : BackgroundService
         // an order still recorded as in transit.
         foreach (var order in backAgain)
         {
-            try { await RefundOpener.OpenAsync(db, order, log, notify, ct); }
+            decimal owed = 0m;
+            try
+            {
+                owed = RefundOpener.OnlinePaidAmount(order);
+                await RefundOpener.OpenAsync(db, order, log, notify, ct);
+            }
             catch (Exception ex)
             {
                 // A refund that could not be opened must not stop the sweep
@@ -208,6 +233,30 @@ public class DelhiveryTrackingSyncService : BackgroundService
                 // is money owed to somebody.
                 log?.LogError(ex, "Order {Order} came back but its refund could not be opened.", order.OrderId);
             }
+
+            // Only when money is actually coming back. A COD parcel with no
+            // advance owes nothing, and the template promises a refund in
+            // three to seven days - a promise the shop would then have to
+            // explain its way out of.
+            if (msg is not null && owed > 0m)
+            {
+                try { await msg.RefundAsync(order, owed, ct); }
+                catch (Exception ex) { log?.LogError(ex, "Refund message failed for {Order}.", order.OrderId); }
+            }
+        }
+
+        // One message at a time, each recording itself. A failure here is
+        // logged and left: the sweep's job is the statuses, and it has already
+        // done it by this point.
+        foreach (var order in tellOutForDelivery)
+        {
+            try { await msg!.OutForDeliveryAsync(order, ct); }
+            catch (Exception ex) { log?.LogError(ex, "Out-for-delivery message failed for {Order}.", order.OrderId); }
+        }
+        foreach (var order in tellDelivered)
+        {
+            try { await msg!.DeliveredAsync(order, ct); }
+            catch (Exception ex) { log?.LogError(ex, "Delivered message failed for {Order}.", order.OrderId); }
         }
 
         // Logged every pass, not only the ones that changed something.

@@ -187,6 +187,24 @@ const SECTIONS = [
     ]
   },
   {
+    title: '\ud83d\udce6 Automatic SMS to the customer about their order',
+    desc: 'Seven DLT templates, each sent on its own trigger: the order is placed, the waybill is made, '
+        + 'the parcel goes out for delivery, it arrives, it comes back instead, the review ask an hour after '
+        + 'delivery (three times, 48 hours apart), and the nudge an hour after someone reaches the payment page '
+        + 'and does not pay. Paste the MSG91 FLOW id for each one \u2014 not the DLT template id. A box left blank '
+        + 'simply means that message is not sent; nothing else breaks.',
+    fields: [
+      { key: 'customerSmsEnabled',   label: 'Master switch \u2014 type off to stop every message below. Leave blank for on.', type: 'text' },
+      { key: 'msg91TplOrderConfirm', label: '\ud83d\uded2 Order placed \u2014 MSG91 flow id for template \"OrderConfirm\" (variables: name, order_id)', type: 'text' },
+      { key: 'msg91TplTracking',     label: '\ud83d\ude9a Shipped \u2014 flow id for template \"TRAKING NO\", sent as soon as the AWB is generated (variables: name, order_id, awb)', type: 'text' },
+      { key: 'msg91TplOutForDelivery', label: '\ud83c\udfcd\ufe0f Out for delivery \u2014 flow id for template \"Out Of Delivery\" (variables: name, order_id)', type: 'text' },
+      { key: 'msg91TplDelivered',    label: '\u2705 Delivered \u2014 flow id for template \"Deliverd\" (variables: name, order_id)', type: 'text' },
+      { key: 'msg91TplRefund',       label: '\u21a9\ufe0f Returned / RTO \u2014 flow id for template \"Refund3\", sent only when money is owed back (variables: name, order_id, amount)', type: 'text' },
+      { key: 'msg91TplReview',       label: '\u2b50 Review ask \u2014 flow id for template \"Review2\". Goes 1 hour after delivery, then twice more every 48 hours, and stops the moment a review arrives (variables: name, order_id, number)', type: 'text' },
+      { key: 'msg91TplUserDropped',  label: '\ud83d\udcb3 Payment not finished \u2014 flow id for template \"USER_DROPPED2\", sent 1 hour later, once per customer per day (variables: order_id, date, amount)', type: 'text' },
+    ]
+  },
+  {
     title: '📊 Google Analytics — Reliable Purchase Tracking',
     desc: 'Makes EVERY order show as a Purchase in GA4 — even when the customer\'s browser blocks analytics, or they pay through the app / a UPI redirect. Paste your API secret here: GA4 → Admin → Data Streams → your web stream → "Measurement Protocol API secrets" → Create → copy the Secret value. Leave the Measurement ID blank to use the site default.',
     fields: [

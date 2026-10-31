@@ -50,6 +50,7 @@ public class OrdersController : ControllerBase
     private readonly Services.DelhiveryService _delhivery;
     private readonly Services.AdminNotifier _notify;
     private readonly Services.SmsService _sms;
+    private readonly Services.OrderMessenger _msg;
     private readonly Services.WalletService _wallet;
     private readonly Services.EmailService _email;
     private readonly ILogger<OrdersController> _log;
@@ -64,13 +65,14 @@ public class OrdersController : ControllerBase
     private const int HighRiskCancelThreshold = 2; // > 2 (i.e. 3+) cancelled orders ⇒ high risk
 
 
-    public OrdersController(AppDbContext db, IWebHostEnvironment env, Services.DelhiveryService delhivery, Services.AdminNotifier notify, Services.SmsService sms, Services.WalletService wallet, Services.EmailService email, ILogger<OrdersController> log, IMemoryCache cache)
+    public OrdersController(AppDbContext db, IWebHostEnvironment env, Services.DelhiveryService delhivery, Services.AdminNotifier notify, Services.SmsService sms, Services.OrderMessenger msg, Services.WalletService wallet, Services.EmailService email, ILogger<OrdersController> log, IMemoryCache cache)
     {
         _db = db;
         _env = env;
         _delhivery = delhivery;
         _notify = notify;
         _sms = sms;
+        _msg = msg;
         _wallet = wallet;
         _email = email;
         _log = log;
@@ -928,6 +930,13 @@ public class OrdersController : ControllerBase
         if (existing is null || isWebhookRecovery)
         {
             await _sms.SendNewOrderSmsAsync(req.CustomerPhone, orderId, serverTotal);
+            // The DLT "OrderConfirm" template, which is the one the shop
+            // actually registered and the one a customer recognises. It has
+            // its own record, so this is sent once even though PlaceOrder can
+            // run twice for one order - the webhook writes some of them, and
+            // the browser then comes back and writes the same one again.
+            var placed = await _db.SiteOrders.FirstOrDefaultAsync(x => x.OrderId == orderId);
+            if (placed is not null) await _msg.OrderConfirmAsync(placed);
             // The buyer's own copy. Same guard as the SMS, so a retried PlaceOrder
             // for one order never sends two receipts.
             SendOrderEmailToCustomer(orderId, serverTotal, method, req);
@@ -1097,8 +1106,20 @@ public class OrdersController : ControllerBase
             await Services.StockHelper.RestoreAsync(_db, order.CartJson);
 
         order.Status = req.Status;
+        // Was this call the one that gave the order its waybill? Only then is
+        // the customer told it has shipped. Checked BEFORE the assignment,
+        // because afterwards there is no way to tell a new waybill from the
+        // one it already had - and a staff member correcting a courier name
+        // would send a second "your order has shipped".
+        var awbWasEmpty = string.IsNullOrWhiteSpace(order.Awb);
         if (req.Awb is not null)
             order.Awb = new string(req.Awb.Where(char.IsLetterOrDigit).ToArray());
+        // NotShipping is the list this file already keeps of the statuses that
+        // are not a parcel going out: the cancellations and the whole return
+        // flow. Reusing it rather than writing a second list is the point -
+        // two lists of statuses in one file is how they drift.
+        var gotItsWaybill = awbWasEmpty && !string.IsNullOrWhiteSpace(order.Awb)
+            && !NotShipping.Contains(req.Status, StringComparer.OrdinalIgnoreCase);
         if (!string.IsNullOrWhiteSpace(req.Courier))
             order.Courier = req.Courier.Trim();
         // BUG-2: Record exact delivery time for accurate return window calculation
@@ -1133,6 +1154,16 @@ public class OrdersController : ControllerBase
         {
             await _db.SaveChangesAsync();
         }
+
+        // The customer's own messages, after the save. Each one records itself,
+        // so a status saved twice does not tell the customer twice.
+        //
+        // Delivered is sent from here AND from the tracking sweep, because an
+        // order can reach Delivered either way: an owner pressing the button,
+        // or Delhivery saying so three hours later. Both call the same method
+        // and the first one to arrive is the one that sends.
+        if (gotItsWaybill) await _msg.TrackingAsync(order);
+        if (justDelivered) await _msg.DeliveredAsync(order);
 
         // LOYALTY: credit the buyer's wallet the first time an order is marked Delivered.
         // Reward is a % of the merchandise paid (total minus shipping & COD fee), so shipping
@@ -2574,6 +2605,13 @@ public class OrdersController : ControllerBase
         order.Courier = "Delhivery";
         order.UpdatedAt = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync();
+
+        // "Your order has been shipped", with the waybill on it. The reverse
+        // pickup further up this file deliberately does NOT do this: a return
+        // being collected is not an order being shipped, and telling a
+        // customer it has shipped while it travels back to the shop is the
+        // kind of message that produces a phone call.
+        await _msg.TrackingAsync(order);
 
         // AUTO PICKUP: din ke pehle AWB ke saath Delhivery pickup bhi khud schedule ho
         // jata hai (ek hi baar per date) — Delhivery One pe "Create New Pickup" click

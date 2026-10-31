@@ -194,6 +194,91 @@ public class SmsService
         }
     }
 
+    /// <summary>
+    /// One DLT-approved template to one number, through the same Flow API the
+    /// OTP and order messages already use.
+    ///
+    /// The values are sent BOTH as var1..varN and under the names given,
+    /// because which of the two a flow expects depends on how it was created
+    /// in MSG91, and the template that works today is not necessarily the one
+    /// that gets edited tomorrow. MSG91 ignores keys a template does not use,
+    /// so sending both costs nothing and removes a whole class of silent
+    /// delivery failure.
+    /// </summary>
+    public async Task<(bool Ok, string Detail)> SendTemplateAsync(
+        string? mobile, string templateId, IReadOnlyList<string> values,
+        IReadOnlyDictionary<string, string>? named = null)
+    {
+        var authKey = await Setting("msg91AuthKey");
+        var sender  = await Setting("msg91SenderId");
+        if (string.IsNullOrWhiteSpace(sender)) sender = "MAHFHB";
+
+        if (string.IsNullOrWhiteSpace(authKey))
+            return (false, "MSG91 auth key is not set in Settings.");
+        if (string.IsNullOrWhiteSpace(templateId))
+            return (false, "No template id configured for this message.");
+        if (string.IsNullOrWhiteSpace(mobile))
+            return (false, "No mobile number on this order.");
+
+        var phone = NormalisePhone(mobile);
+
+        try
+        {
+            using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
+
+            var recipient = new Dictionary<string, string> { ["mobiles"] = phone };
+            for (var i = 0; i < values.Count; i++)
+                recipient[$"var{i + 1}"] = values[i] ?? "";
+            if (named is not null)
+                foreach (var kv in named) recipient[kv.Key] = kv.Value ?? "";
+
+            var payload = new
+            {
+                template_id = templateId,
+                sender,
+                short_url  = "0",
+                recipients = new[] { recipient },
+            };
+
+            var json = System.Text.Json.JsonSerializer.Serialize(payload);
+            using var reqMsg = new HttpRequestMessage(HttpMethod.Post,
+                "https://control.msg91.com/api/v5/flow/")
+            {
+                Content = new StringContent(json, Encoding.UTF8, "application/json"),
+            };
+            reqMsg.Headers.Add("authkey", authKey);
+            reqMsg.Headers.Add("accept", "application/json");
+
+            var res  = await http.SendAsync(reqMsg);
+            var body = await res.Content.ReadAsStringAsync();
+            var ok   = res.IsSuccessStatusCode && body.Contains("success", StringComparison.OrdinalIgnoreCase);
+
+            if (ok)
+                _logger.LogInformation("MSG91 template {Template} accepted for {Phone}.",
+                    templateId, LogSafe.Phone(phone));
+            else
+                _logger.LogWarning("MSG91 template {Template} rejected ({Status}) for {Phone}: {Body}",
+                    templateId, (int)res.StatusCode, LogSafe.Phone(phone), LogSafe.Body(body));
+
+            // The reason is kept short and carries no message body - this
+            // string is written to the database and read in the admin.
+            return (ok, ok ? "accepted" : $"MSG91 {(int)res.StatusCode}: {LogSafe.Body(body)}".Trim());
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "MSG91 template {Template} failed for {Phone}.", templateId, LogSafe.Phone(mobile));
+            return (false, "Could not reach MSG91.");
+        }
+    }
+
+    /// Reads one shop setting. Public so the messenger can look up template
+    /// ids without a second copy of the settings lookup. Nullable, because a
+    /// setting that was never filled in is the normal state until he pastes
+    /// the ids in - and a messenger that treats "not set up yet" as an error
+    /// would fill the log with failures on a shop that is simply not using
+    /// the feature yet.
+    public Task<string?> SettingAsync(string key) => Setting(key);
+
     public record BulkResult(bool Configured, int Sent, int Failed, string? Error);
 
     /// <summary>
