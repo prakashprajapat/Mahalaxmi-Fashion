@@ -76,3 +76,6 @@ frontend/tsconfig.tsbuildinfo
 
 # Claude Code local settings (machine-specific, not shared)
 .claude/settings.local.json
+
+# Scratch files parked here because deleting from the sandbox is not permitted.
+_to_delete/
