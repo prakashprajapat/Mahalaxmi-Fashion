@@ -288,7 +288,14 @@ export default function Navbar() {
           <span className="mg-avatar" aria-hidden="true">
             {isLoggedIn && customerPhoto
               ? <img src={customerPhoto} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
-              : (isLoggedIn && customerName ? customerName.charAt(0).toUpperCase() : '')}
+              : isLoggedIn && customerName
+                ? customerName.charAt(0).toUpperCase()
+                /* Nobody signed in. The circle used to hold a waving-hand
+                   emoji, an emoji sweep emptied it, and an empty circle beside
+                   "Hello" reads as a page that did not finish loading. The
+                   shop's own namaste belongs there better than either. */
+                : <img src="/nav-icons/namaste.webp" alt=""
+                       style={{ width: '82%', height: '82%', objectFit: 'contain' }} />}
           </span>
           <span className="mg-text">
             {isLoggedIn && customerName
