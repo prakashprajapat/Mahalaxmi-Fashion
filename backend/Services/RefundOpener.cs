@@ -21,17 +21,38 @@ namespace MahalaxmiApi.Services;
 /// </summary>
 public static class RefundOpener
 {
-    /// What the customer actually paid us online, and so what can be sent
-    /// back. Not the order total: the wallet part goes back through the wallet
-    /// on its own, and cash a courier collected was never ours to refund
-    /// through a gateway.
+    /// What the customer is out of pocket, and so what is owed back.
     ///
-    ///   prepaid -> everything except the wallet part
-    ///   COD     -> only the advance paid before dispatch
+    ///   prepaid                  everything except the wallet part
+    ///   COD, never delivered     only the advance paid before dispatch
+    ///   COD, delivered and back  the same as prepaid - see below
+    ///
+    /// The wallet part is excluded throughout because it goes back through the
+    /// wallet on its own; refunding it here as well would pay it twice.
+    ///
+    /// THE COD CASE. This returned the advance and nothing else, whatever had
+    /// happened to the parcel. That is right for an RTO - a parcel the courier
+    /// could not deliver collected no cash, so only the advance was ever
+    /// taken. It is wrong the moment the customer HAS the goods: she handed
+    /// the courier the rest of the money at her door, sent the parcel back a
+    /// week later, and the Refunds screen said nothing was owed.
+    ///
+    /// Delivered or not is the whole question, and DeliveredAt is the shop's
+    /// own record of it, written when the courier scanned it home. An RTO
+    /// never gets one.
+    ///
+    /// Total - WalletUsed covers both halves of a COD payment: the advance was
+    /// part of the total, and the cash was the rest of it.
+    ///
+    /// The row this feeds is PENDING, never paid. If a date is wrong the owner
+    /// sees a figure on the Refunds screen and cancels it; nothing has moved.
     public static decimal OnlinePaidAmount(SiteOrder order)
     {
         var isCod = string.Equals(order.Method, "cod", StringComparison.OrdinalIgnoreCase);
-        var paid = isCod ? order.AdvancePaid : order.Total - order.WalletUsed;
+        var reachedTheCustomer = order.DeliveredAt is not null;
+        var paid = isCod && !reachedTheCustomer
+            ? order.AdvancePaid
+            : order.Total - order.WalletUsed;
         return paid > 0m ? Math.Round(paid, 2) : 0m;
     }
 
@@ -69,7 +90,9 @@ public static class RefundOpener
             Gateway         = gateway,
             Status          = "pending",
             Note            = isCod
-                ? "COD advance paid online before dispatch"
+                ? (order.DeliveredAt is not null
+                    ? "Cash on delivery - she paid the courier at the door. Send it to her bank or her wallet."
+                    : "COD advance paid online before dispatch")
                 : "Prepaid order, wallet part returned separately",
             CreatedAt       = DateTimeOffset.UtcNow,
         });

@@ -225,12 +225,32 @@ public class DelhiveryService
     ///
     /// Only then is the stock ours and the money owed. "Out for Return" is
     /// still a parcel in a van somewhere in West Bengal.
+    ///
+    /// This asked for "delivered" or "received" and nothing else, and
+    /// Delhivery's own terminal RTO scan says neither. AWB 55746510000464
+    /// came home to Balotra and was scanned
+    ///
+    ///     Dispatched for RTO   1 Nov, 1:42 pm   Balotra_Ward45_D
+    ///     RETURN Accepted      1 Nov, 3:41 pm   Balotra_Ward45_D
+    ///
+    /// - the shop's own town, two hours apart, the second being the shop
+    /// taking the parcel back. The order sat in Return Transit with the goods
+    /// on the shelf, and no refund was ever owed to anybody.
+    ///
+    /// "accepted" is safe here because IsReturnLeg has already said this is
+    /// the way home on the FORWARD waybill, where the only thing that can be
+    /// accepted is the shop accepting its parcel back. A reverse pickup is a
+    /// waybill of its own and does not come through this door.
     /// </summary>
     public static bool IsBackWithUs(string? status, string? statusType)
     {
         if (!IsReturnLeg(status, statusType)) return false;
         var s = (status ?? "").ToLowerInvariant();
-        return s.Contains("delivered") || s.Contains("received");
+        return s.Contains("delivered")
+            || s.Contains("received")
+            || s.Contains("accepted")
+            // "Returned to Origin", written out rather than as RTO.
+            || s.Contains("to origin");
     }
 
     /// <summary>

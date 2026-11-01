@@ -175,7 +175,11 @@ public class RefundsController : ControllerBase
             return BadRequest(new
             {
                 success = false,
-                message = $"Rs.{amount:0.00} is more than the Rs.{refund.SuggestedAmount:0.00} this customer paid online. Refund that much or less."
+                // "paid online" was true while only a prepaid order or a COD
+                // advance could open one of these. A COD order the customer
+                // received and sent back owes the cash she handed the
+                // courier, which she did not pay online at all.
+                message = $"Rs.{amount:0.00} is more than the Rs.{refund.SuggestedAmount:0.00} this customer paid for this order. Refund that much or less."
             });
 
         var method = (req.Method ?? "").Trim().ToLowerInvariant();

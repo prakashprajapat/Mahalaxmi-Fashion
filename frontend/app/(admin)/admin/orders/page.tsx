@@ -1380,6 +1380,17 @@ export default function AdminOrdersPage() {
               <button onClick={closeReturnModal} style={{ background: 'none', border: 'none', fontSize: '1.4rem', lineHeight: 1, cursor: 'pointer', color: '#999' }}>×</button>
             </div>
 
+            {/* Nobody asked for this one. Said plainly, because the rest
+                of this modal is built around a request - Issue, Description,
+                the opening video - and all of it reads as missing rather than
+                as never having existed. */}
+            {!o.returnDecision && o.status === 'Return Transit' && (
+              <div style={{ background: '#fff4e5', color: '#8a5a00', borderRadius: 8, padding: '.5rem .75rem', fontSize: '.8rem', margin: '.6rem 0' }}>
+                The courier is bringing this parcel back - the customer did not ask for a
+                return, so there is nothing here to approve. Mark it as Returned once it
+                is in your hands; anything she paid then shows up under Refunds.
+              </div>
+            )}
             {o.returnDecision === 'approved' && (
               <div style={{ background: '#e8f5e9', color: '#2e7d32', borderRadius: 8, padding: '.5rem .75rem', fontSize: '.8rem', margin: '.6rem 0' }}>
                 ✓ Approved{o.returnDecisionAt ? ` on ${new Date(o.returnDecisionAt).toLocaleString('en-IN')}` : ''} — media deleted.
@@ -1450,7 +1461,13 @@ export default function AdminOrdersPage() {
               )}
             </div>
 
-            {!o.returnDecision ? (
+            {/* Approve and Reject answer a request SHE made. A parcel the
+                courier brought back has no request behind it: it arrives in
+                Return Transit with no decision, and asking the shop to approve
+                or reject it is asking about something that never happened -
+                worse, Approve deletes return media that was never uploaded.
+                So the question is only put where there is a question. */}
+            {!o.returnDecision && o.status === 'Return Requested' ? (
               showReject ? (
                 <div style={{ marginTop: '1rem' }}>
                   <label style={{ fontSize: '.8rem', fontWeight: 600, color: '#555' }}>Reason for rejection (shown to customer) *</label>
@@ -1511,7 +1528,14 @@ export default function AdminOrdersPage() {
                 )}
                 <div style={{ display: 'flex', gap: '.75rem', marginTop: '1rem' }}>
                   <button onClick={closeReturnModal} style={grey}>Close</button>
-                  {o.returnDecision === 'approved' && RETURN_STATUSES.includes(o.status) && o.status !== 'Return' && (
+                  {/* Return Transit is "the goods are on their way back",
+                      however that started - she asked and the shop agreed, or
+                      the courier could not deliver it. Either way this is the
+                      button for the moment the parcel is in his hands. It was
+                      gated on returnDecision === 'approved', which no RTO ever
+                      has, so the orders that most needed closing out were the
+                      ones that could not be. */}
+                  {o.status === 'Return Transit' && (
                     <button onClick={() => markReturned(o)} disabled={decisionBusy} style={{ ...btn, background: '#2e7d32' }}>
                       {decisionBusy ? 'Saving…' : '✓ Mark as Returned'}
                     </button>
