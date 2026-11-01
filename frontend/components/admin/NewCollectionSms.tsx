@@ -11,12 +11,20 @@ import { shortDate, type Audience, type SendRecord } from '@/lib/outreach';
  * The row button texts one person because somebody looked at that row and
  * decided. It asks no questions.
  *
- * The other one texts everybody who has never bought, which on this shop is
- * two hundred-odd people and two hundred-odd messages the shop pays for. So it
- * will not send on a single press: the first press asks the server who would
- * get it and shows the count, and only the second press sends. A number is
- * never in that list twice, anyone who has ever ordered is left out, and
- * anyone texted in the last thirty days is left out.
+ * The other one texts a few hundred people and costs the shop a few hundred
+ * messages, so it will not send on a single press: the first press asks the
+ * server who would get it and shows the count, and only the second press
+ * sends. A number is never in that list twice.
+ *
+ * Who waits, and how long:
+ *
+ *   ordered, not cancelled      30 days from the order
+ *   the order was cancelled     48 hours - a sale that nearly happened is the
+ *                               warmest lead there is
+ *   already texted              48 hours, unless Resend is pressed
+ *
+ * Resend sets aside the text rule and only that one. Somebody who spent money
+ * yesterday is not sent an advert however many times the button is pressed.
  */
 
 interface Preview {
@@ -25,10 +33,12 @@ interface Preview {
   willSend: number;
   thisPress: number;
   leftAfter: number;
+  resend: boolean;
   skipped: {
     noNumber: number;
-    alreadyBought: number;
-    textedInTheLast30Days: number;
+    orderedInTheLast30Days: number;
+    cancelledInTheLast48Hours: number;
+    textedInTheLast48Hours: number;
     notOptedIn: number;
     sameNumberTwice: number;
   };
@@ -53,6 +63,7 @@ export function SmsSendButton({ audience, personId, phone, sent, onSent }: {
   if (!phone) return <span title="No mobile number on this row" style={{ color: '#c4bab5' }}>SMS</span>;
 
   const go = async () => {
+    // No waiting period on this one: the shop is looking at the name.
     if (sent && !confirm(`This number was already texted on ${shortDate(sent.sentAt)}. Send it again?`)) return;
     setBusy(true);
     const b = await post('/api/outreach/sms/one', { audience, personId });
@@ -72,15 +83,17 @@ export function SmsSendButton({ audience, personId, phone, sent, onSent }: {
 export function TextEveryoneButton({ audience, onDone }: { audience: Audience; onDone: () => void }) {
   const [preview, setPreview] = useState<Preview | null>(null);
   const [optedInOnly, setOptedInOnly] = useState(false);
+  const [resend, setResend] = useState(false);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<string>('');
 
-  const look = async (opted = optedInOnly) => {
+  const look = async (opted = optedInOnly, again = resend) => {
     setBusy(true); setResult('');
+    setOptedInOnly(opted); setResend(again);
     try {
-      const res = await fetch(`/api/outreach/sms/preview?audience=${audience}&optedInOnly=${opted}`, {
-        headers: { Authorization: `Bearer ${getAdminToken()}` },
-      });
+      const res = await fetch(
+        `/api/outreach/sms/preview?audience=${audience}&optedInOnly=${opted}&resend=${again}`,
+        { headers: { Authorization: `Bearer ${getAdminToken()}` } });
       setPreview(await res.json());
     } catch {
       setResult('Could not ask the server who would get this.');
@@ -89,7 +102,7 @@ export function TextEveryoneButton({ audience, onDone }: { audience: Audience; o
 
   const send = async () => {
     setBusy(true); setResult('');
-    const b = await post('/api/outreach/sms/everyone', { audience, optedInOnly });
+    const b = await post('/api/outreach/sms/everyone', { audience, optedInOnly, resend });
     setBusy(false);
     setResult(b?.message || 'Done.');
     setPreview(null);
@@ -100,9 +113,18 @@ export function TextEveryoneButton({ audience, onDone }: { audience: Audience; o
 
   return (
     <div>
-      <button className="adm-btn" onClick={() => look()} disabled={busy}>
-        {busy && !preview ? 'Checking…' : 'Text everyone who never bought'}
-      </button>
+      <div style={{ display: 'flex', gap: '.5rem', flexWrap: 'wrap' }}>
+        <button className="adm-btn" onClick={() => look(optedInOnly, false)} disabled={busy}>
+          {busy && !preview ? 'Checking…' : 'Text everyone who is due'}
+        </button>
+        {/* The same send with the 48-hour text rule set aside, and nothing
+            else. A separate button rather than a tick box, because it costs
+            money and should take a decision rather than a glance. */}
+        <button className="adm-btn" onClick={() => look(optedInOnly, true)} disabled={busy}
+                title="Send again to people already texted in the last 48 hours">
+          Resend
+        </button>
+      </div>
 
       {preview && (
         <div style={{
@@ -116,18 +138,23 @@ export function TextEveryoneButton({ audience, onDone }: { audience: Audience; o
             </p>
           ) : preview.willSend === 0 ? (
             <p style={{ margin: 0, color: '#8c5a1a' }}>
-              Nobody to text right now. {s?.alreadyBought ?? 0} have bought before and{' '}
-              {s?.textedInTheLast30Days ?? 0} were texted in the last 30 days.
+              Nobody is due right now. {s?.orderedInTheLast30Days ?? 0} ordered in the last 30 days,{' '}
+              {s?.cancelledInTheLast48Hours ?? 0} cancelled in the last 48 hours and{' '}
+              {s?.textedInTheLast48Hours ?? 0} were texted in the last 48 hours.
             </p>
           ) : (
             <>
               <p style={{ margin: '0 0 .4rem', fontWeight: 700, color: '#6b4e13' }}>
-                This sends {preview.thisPress} text{preview.thisPress === 1 ? '' : 's'}
+                {preview.resend ? 'Resend: this sends ' : 'This sends '}
+                {preview.thisPress} text{preview.thisPress === 1 ? '' : 's'}
                 {preview.leftAfter > 0 ? `, with ${preview.leftAfter} left for the next press` : ''}.
               </p>
               <p style={{ margin: '0 0 .5rem', fontSize: '.84rem', color: '#6b4e13', lineHeight: 1.6 }}>
-                Left out: {s?.alreadyBought ?? 0} who have ordered before,{' '}
-                {s?.textedInTheLast30Days ?? 0} texted in the last 30 days,{' '}
+                Left out: {s?.orderedInTheLast30Days ?? 0} who ordered in the last 30 days,{' '}
+                {s?.cancelledInTheLast48Hours ?? 0} whose order was cancelled in the last 48 hours,{' '}
+                {preview.resend
+                  ? 'nobody for having been texted - this is a resend'
+                  : `${s?.textedInTheLast48Hours ?? 0} texted in the last 48 hours`},{' '}
                 {s?.noNumber ?? 0} with no mobile number
                 {(s?.sameNumberTwice ?? 0) > 0 ? `, ${s?.sameNumberTwice} whose number is already in this list` : ''}
                 {(s?.notOptedIn ?? 0) > 0 ? `, ${s?.notOptedIn} who have not agreed to offers` : ''}.
@@ -135,13 +162,13 @@ export function TextEveryoneButton({ audience, onDone }: { audience: Audience; o
               {audience === 'customer' && (
                 <label style={{ display: 'block', fontSize: '.84rem', color: '#6b4e13', marginBottom: '.6rem' }}>
                   <input type="checkbox" checked={optedInOnly}
-                    onChange={e => { setOptedInOnly(e.target.checked); look(e.target.checked); }} />
+                    onChange={e => look(e.target.checked, resend)} />
                   {' '}Only the ones who ticked &ldquo;send me offers&rdquo;
                 </label>
               )}
               <div style={{ display: 'flex', gap: '.5rem' }}>
                 <button className="adm-btn adm-btn-primary" onClick={send} disabled={busy}>
-                  {busy ? 'Sending…' : `Yes, send ${preview.thisPress}`}
+                  {busy ? 'Sending…' : `Yes, ${preview.resend ? 'resend' : 'send'} ${preview.thisPress}`}
                 </button>
                 <button className="adm-btn" onClick={() => setPreview(null)} disabled={busy}>Not now</button>
               </div>

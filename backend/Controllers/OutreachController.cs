@@ -64,9 +64,26 @@ public class OutreachController : ControllerBase
     /// message this screen sends.
     public const string TemplateSettingKey = "msg91TplNewCollection";
 
-    /// A number texted this recently is left alone by the "everyone" button.
-    /// The per-row button has no such rule - that one is a person deciding.
-    private static readonly TimeSpan QuietFor = TimeSpan.FromDays(30);
+    // How long somebody is left alone, by what last happened to them.
+    //
+    // These three are the shop's call, not a guess: a buyer is not a lost
+    // cause, just somebody who does not need chasing this week; a cancelled
+    // order is a sale that nearly happened, which is the warmest lead there
+    // is; and a text two days old is recent enough that a second one reads as
+    // pestering.
+    //
+    // The per-row button obeys none of them - that one is a person reading a
+    // name and deciding.
+
+    /// Ordered, and it was not cancelled: thirty days from the order.
+    private static readonly TimeSpan AfterAnOrder = TimeSpan.FromDays(30);
+
+    /// The order was cancelled: forty-eight hours, and then they are worth
+    /// writing to again.
+    private static readonly TimeSpan AfterACancellation = TimeSpan.FromHours(48);
+
+    /// Already texted: forty-eight hours, unless the shop presses Resend.
+    private static readonly TimeSpan AfterAText = TimeSpan.FromHours(48);
 
     /// How many go in one press. MSG91 takes a hundred to a request; more than
     /// three of those in one click is a bill nobody meant to run up, and the
@@ -257,91 +274,133 @@ public class OutreachController : ControllerBase
             : await _db.PopupLeads
                 .Select(l => new Person(l.Id, l.Name, l.Phone, true)).ToListAsync();
 
-    /// Every number that has ever placed an order, by its last ten digits.
+    /// <summary>
+    /// For each number that has ordered, the moment it may be written to again.
     ///
-    /// Any order counts, including a cancelled one. Somebody who ordered and
-    /// changed their mind last week does not want "come and buy from us" - and
-    /// of the two ways to be wrong, texting a real customer an advert is the
-    /// one that costs the shop something.
-    private async Task<HashSet<string>> BuyersAsync()
+    /// Taken over ALL of a person's orders rather than their latest one, and
+    /// the latest answer wins. Somebody who bought on Monday and cancelled a
+    /// second order on Wednesday is still a customer who bought on Monday: the
+    /// cancellation is the more recent event but the shorter wait, and reading
+    /// only the last row would have texted them an advert two days after they
+    /// spent money.
+    /// </summary>
+    private async Task<Dictionary<string, DateTimeOffset>> QuietUntilOrdersAsync()
     {
         var rows = await _db.SiteOrders
-            .Select(o => new { o.CustomerJson, o.ShippingJson })
+            .Select(o => new { o.CustomerJson, o.ShippingJson, o.Status, o.PlacedAt, o.CreatedAt, o.UpdatedAt })
             .ToListAsync();
 
-        var set = new HashSet<string>();
+        var until = new Dictionary<string, DateTimeOffset>();
         foreach (var o in rows)
         {
             var raw = OrderMessenger.Field(o.CustomerJson, "phone")
                    ?? OrderMessenger.Field(o.ShippingJson, "phone");
             var ten = OutreachContact.Phone10(raw);
-            if (ten is not null) set.Add(ten);
+            if (ten is null) continue;
+
+            var cancelled = (o.Status ?? "").StartsWith("Cancel", StringComparison.OrdinalIgnoreCase);
+            // A cancellation is dated by when it happened, which is the last
+            // time the row was touched; an order by when it was placed.
+            var at = cancelled ? o.UpdatedAt : (o.PlacedAt ?? o.CreatedAt);
+            var free = at + (cancelled ? AfterACancellation : AfterAnOrder);
+
+            if (!until.TryGetValue(ten, out var seen) || free > seen) until[ten] = free;
         }
-        return set;
+        return until;
     }
 
-    private async Task<HashSet<string>> TextedRecentlyAsync()
+    /// For each number, when the last text to it stops counting as recent.
+    private async Task<Dictionary<string, DateTimeOffset>> QuietUntilTextsAsync()
     {
-        var since = DateTimeOffset.UtcNow - QuietFor;
+        var since = DateTimeOffset.UtcNow - AfterAText;
         var rows = await _db.InviteSends
             .Where(i => i.Channel == "sms" && i.SentAt >= since && i.Phone != null)
-            .Select(i => i.Phone!)
+            .Select(i => new { Phone = i.Phone!, i.SentAt })
             .ToListAsync();
-        return rows.ToHashSet();
+
+        var until = new Dictionary<string, DateTimeOffset>();
+        foreach (var r in rows)
+        {
+            var free = r.SentAt + AfterAText;
+            if (!until.TryGetValue(r.Phone, out var seen) || free > seen) until[r.Phone] = free;
+        }
+        return until;
     }
 
     /// Who the "everyone" button would text, and who it would leave out.
-    private async Task<(List<Person> Send, int NoNumber, int Bought, int Recent, int NoConsent, int Duplicate)>
-        AudienceAsync(string audience, bool optedInOnly)
+    private sealed record Audience(
+        List<Person> Send, int NoNumber, int OrderedRecently, int CancelledRecently,
+        int TextedRecently, int NoConsent, int Duplicate);
+
+    private async Task<Audience> AudienceAsync(string audience, bool optedInOnly, bool resend)
     {
         var people = await PeopleAsync(audience);
-        var buyers = await BuyersAsync();
-        var recent = await TextedRecentlyAsync();
+        var afterOrders = await QuietUntilOrdersAsync();
+        var afterTexts = await QuietUntilTextsAsync();
+        var now = DateTimeOffset.UtcNow;
+
+        // Which of the two order rules kept somebody out, reported apart,
+        // because "47 left out" tells the shop nothing it can act on while
+        // "12 ordered this month, 2 cancelled yesterday" does.
+        var cancelledSoon = new HashSet<string>();
+        foreach (var kv in afterOrders)
+            if (kv.Value > now && kv.Value - now <= AfterACancellation) cancelledSoon.Add(kv.Key);
 
         var send = new List<Person>();
         var seen = new HashSet<string>();
-        int noNumber = 0, bought = 0, tooSoon = 0, noConsent = 0, duplicate = 0;
+        int noNumber = 0, ordered = 0, cancelled = 0, texted = 0, noConsent = 0, duplicate = 0;
 
         foreach (var p in people)
         {
             var ten = OutreachContact.Phone10(p.Phone);
             if (ten is null) { noNumber++; continue; }
-            if (buyers.Contains(ten)) { bought++; continue; }
-            if (recent.Contains(ten)) { tooSoon++; continue; }
+
+            if (afterOrders.TryGetValue(ten, out var freeAt) && freeAt > now)
+            {
+                if (cancelledSoon.Contains(ten)) cancelled++; else ordered++;
+                continue;
+            }
+            // Resend is the shop saying it meant to, so this one rule steps
+            // aside. The order rules do not: texting an advert to somebody who
+            // spent money yesterday is wrong however many times it is asked for.
+            if (!resend && afterTexts.TryGetValue(ten, out var quiet) && quiet > now) { texted++; continue; }
             if (optedInOnly && !p.Consent) { noConsent++; continue; }
             if (!seen.Add(ten)) { duplicate++; continue; }
             send.Add(p with { Phone = ten });
         }
 
-        return (send, noNumber, bought, tooSoon, noConsent, duplicate);
+        return new Audience(send, noNumber, ordered, cancelled, texted, noConsent, duplicate);
     }
 
     // GET /api/outreach/sms/preview?audience=lead&optedInOnly=false
     [HttpGet("sms/preview")]
     [RequirePerm("customers", "popup-leads", "campaigns")]
-    public async Task<IActionResult> SmsPreview([FromQuery] string? audience, [FromQuery] bool optedInOnly = false)
+    public async Task<IActionResult> SmsPreview(
+        [FromQuery] string? audience, [FromQuery] bool optedInOnly = false, [FromQuery] bool resend = false)
     {
         var who = Allowed(audience, Audiences);
         if (who is null)
             return BadRequest(new { success = false, message = "audience must be customer or lead." });
 
-        var (send, noNumber, bought, recent, noConsent, duplicate) = await AudienceAsync(who, optedInOnly);
+        var a = await AudienceAsync(who, optedInOnly, resend);
         var templateId = await _sms.SettingAsync(TemplateSettingKey);
 
         return Ok(new
         {
             success = true,
             configured = !string.IsNullOrWhiteSpace(templateId),
-            willSend = send.Count,
-            thisPress = Math.Min(send.Count, MaxPerPress),
-            leftAfter = Math.Max(0, send.Count - MaxPerPress),
+            resend,
+            willSend = a.Send.Count,
+            thisPress = Math.Min(a.Send.Count, MaxPerPress),
+            leftAfter = Math.Max(0, a.Send.Count - MaxPerPress),
             skipped = new
             {
-                noNumber,
-                alreadyBought = bought,
-                textedInTheLast30Days = recent,
-                notOptedIn = noConsent,
-                sameNumberTwice = duplicate,
+                noNumber = a.NoNumber,
+                orderedInTheLast30Days = a.OrderedRecently,
+                cancelledInTheLast48Hours = a.CancelledRecently,
+                textedInTheLast48Hours = a.TextedRecently,
+                notOptedIn = a.NoConsent,
+                sameNumberTwice = a.Duplicate,
             },
         });
     }
@@ -382,7 +441,7 @@ public class OutreachController : ControllerBase
         return Ok(new { success = true, message = $"Text sent to {person.Name ?? "this person"}." });
     }
 
-    public record SmsBulkRequest(string? Audience, bool OptedInOnly);
+    public record SmsBulkRequest(string? Audience, bool OptedInOnly, bool Resend);
 
     // POST /api/outreach/sms/everyone   { audience, optedInOnly }
     [HttpPost("sms/everyone")]
@@ -397,15 +456,17 @@ public class OutreachController : ControllerBase
         if (string.IsNullOrWhiteSpace(templateId))
             return Ok(new { success = false, message = "No MSG91 flow id for this message in Settings yet." });
 
-        var (all, _, bought, recent, _, _) = await AudienceAsync(who, req!.OptedInOnly);
-        if (all.Count == 0)
+        var a = await AudienceAsync(who, req!.OptedInOnly, req.Resend);
+        if (a.Send.Count == 0)
             return Ok(new
             {
                 success = true, sent = 0, failed = 0, left = 0,
-                message = $"Nobody to text. {bought} have bought before and {recent} were texted in the last 30 days.",
+                message = $"Nobody to text. {a.OrderedRecently} ordered in the last 30 days, "
+                        + $"{a.CancelledRecently} cancelled in the last 48 hours, "
+                        + $"{a.TextedRecently} were texted in the last 48 hours.",
             });
 
-        var batchList = all.Take(MaxPerPress).ToList();
+        var batchList = a.Send.Take(MaxPerPress).ToList();
         int sent = 0, failed = 0;
 
         // A hundred to a request, and each hundred written down the moment
@@ -427,7 +488,7 @@ public class OutreachController : ControllerBase
             sent += batch.Length;
         }
 
-        var left = Math.Max(0, all.Count - batchList.Count);
+        var left = Math.Max(0, a.Send.Count - batchList.Count);
         return Ok(new
         {
             success = failed == 0,
