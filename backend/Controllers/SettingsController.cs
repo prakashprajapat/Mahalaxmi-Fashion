@@ -330,11 +330,32 @@ public class SettingsController : ControllerBase
 
         var parts = v.Split(new[] { ',', ';', ' ', '\n', '\r', '\t' },
                             StringSplitOptions.RemoveEmptyEntries);
+        var addresses = parts.Where(x => x.Contains('@')).ToList();
+
+        // Counted by the @ rather than by the separators, so a stray space or a
+        // trailing comma is not mistaken for a second person.
+        if (addresses.Count > 1)
+            // The addresses are named. A refusal that does not say what it
+            // found sends somebody hunting through fifteen sections for a box
+            // that looks perfectly fine to them - which is exactly what
+            // happened: the screen was open from before the value changed, so
+            // it was holding the old pair and nobody could see why.
+            return $"Nothing was saved. The admin email is the address you sign in with, so it holds "
+                 + $"one address only - this had {addresses.Count}: {string.Join(" and ", addresses)}. "
+                 + "Reload this page if it was open before the address was changed, and put the list "
+                 + "in \"Alert emails\" just below instead.";
+
+        if (addresses.Count == 0)
+            return "Nothing was saved. The admin email is the address you sign in with, and "
+                 + $"\"{v}\" is not an email address.";
+
+        // One address with something else alongside it - a stray word, a
+        // half-typed second entry. The login compares the WHOLE string, so it
+        // would stop matching and lock the owner out all over again.
         if (parts.Length > 1)
-            return "The admin email is the address you sign in with, so it holds one address only. "
-                 + "For order and payment alerts to several people, use \"Alert emails\" instead.";
-        if (!v.Contains('@'))
-            return "That is not an email address, and it is the one you sign in with.";
+            return "Nothing was saved. The admin email must be the address on its own - the login "
+                 + "compares the whole box, so anything else beside it stops the sign-in matching.";
+
         return null;
     }
 
