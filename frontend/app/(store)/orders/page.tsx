@@ -727,7 +727,12 @@ export default function OrdersPage() {
                   <div key={i} style={{ display: 'flex', gap: '.75rem', alignItems: 'center', borderBottom: '1px solid #f5f5f5', paddingBottom: '.75rem' }}>
                     {thumb
                       ? <img src={thumb} alt="" style={{ width: 56, height: 56, borderRadius: 8, objectFit: 'cover', border: '1px solid #eee', flexShrink: 0 }} />
-                      : <div style={{ width: 56, height: 56, borderRadius: 8, background: '#f5f5f5', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.4rem', flexShrink: 0 }}></div>}
+                      /* The sixth blank the emoji sweep left: a picture emoji
+                         came out of here and the grey square stayed, with a
+                         1.4rem font size and nothing to show at it. The
+                         wishlist page got "No photo" for exactly this; so does
+                         the customer's own order history. */
+                      : <div style={{ width: 56, height: 56, borderRadius: 8, background: '#f5f5f5', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#bbb', fontSize: '.68rem', textAlign: 'center', lineHeight: 1.2, flexShrink: 0 }}>No photo</div>}
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontWeight: 600, fontSize: '.9rem', color: '#333' }}>{item.name}</div>
                       <div style={{ fontSize: '.75rem', color: '#888', fontFamily: 'monospace' }}>SKU: {item.sku || '—'}{item.colorColumn ? ` · Col ${item.colorColumn}` : ''}</div>

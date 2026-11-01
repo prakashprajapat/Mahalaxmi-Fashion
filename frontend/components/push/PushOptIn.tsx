@@ -136,11 +136,12 @@ export default function PushOptIn() {
         padding: '.9rem 1rem', display: 'flex', alignItems: 'center', gap: '.85rem',
       }}
     >
-      <div style={{
-        flexShrink: 0, width: 42, height: 42, borderRadius: '50%',
-        background: 'linear-gradient(180deg,#722f37,#5c1420)', color: '#fff',
-        display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.25rem',
-      }}></div>
+      {/* A 42px maroon disc used to sit here with a bell emoji in it. The
+          emoji sweep took the bell out and left the disc - an empty coloured
+          circle beside the words, which is what he asked to have removed.
+          It goes rather than getting a new icon: the panel says what it is in
+          two lines of plain words, and a picture of a bell adds nothing they
+          do not already say. */}
       <div style={{ flex: 1, minWidth: 0 }}>
         <p style={{ margin: 0, fontWeight: 700, fontSize: '.92rem', color: '#3a1219' }}>
           Get offers &amp; order updates
