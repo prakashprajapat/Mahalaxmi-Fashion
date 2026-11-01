@@ -308,6 +308,36 @@ public class SettingsController : ControllerBase
     }
 
     // PUT /api/settings/{key}  (Admin only)
+    /// <summary>
+    /// Why a value cannot be saved, or null when it can.
+    ///
+    /// admin_email is the owner's login identity: AuthController compares the
+    /// typed address to it whole. It was ALSO the alert recipient list, which
+    /// AdminNotifier splits on commas, and this screen asked for the list in
+    /// its own words. Somebody put two addresses in, and the owner could
+    /// neither sign in nor recover the password - both doors answer to this
+    /// one string.
+    ///
+    /// The list has its own field now. This refuses the second address at the
+    /// door rather than leaving a comment for somebody to read later.
+    /// </summary>
+    private static string? WhyRefused(string key, string? value)
+    {
+        if (!key.Equals("admin_email", StringComparison.OrdinalIgnoreCase)) return null;
+
+        var v = (value ?? "").Trim();
+        if (v.Length == 0) return null;             // blank falls back to the server's own
+
+        var parts = v.Split(new[] { ',', ';', ' ', '\n', '\r', '\t' },
+                            StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length > 1)
+            return "The admin email is the address you sign in with, so it holds one address only. "
+                 + "For order and payment alerts to several people, use \"Alert emails\" instead.";
+        if (!v.Contains('@'))
+            return "That is not an email address, and it is the one you sign in with.";
+        return null;
+    }
+
     [HttpPut("{key}")]
     [Authorize]
     [RequirePerm("settings")]
@@ -315,6 +345,9 @@ public class SettingsController : ControllerBase
     {
         if (IsOwnerOnly(key) && !User.IsOwner())
             return Forbid();
+
+        if (WhyRefused(key, req.Value) is { } no)
+            return BadRequest(new { success = false, message = no });
 
         var s = await _db.SiteSettings.FirstOrDefaultAsync(x => x.Key == key);
         if (s is null)
@@ -352,6 +385,13 @@ public class SettingsController : ControllerBase
                 })
                 { StatusCode = StatusCodes.Status403Forbidden };
         }
+
+        // The same guard as the single-key path. The Settings screen saves
+        // every box at once, so without this the one that matters slips
+        // through the door the screen actually uses.
+        foreach (var kv in settings)
+            if (WhyRefused(kv.Key, kv.Value) is { } no)
+                return BadRequest(new { success = false, message = no });
 
         // PERF-3: Fetch all relevant settings in one query instead of N queries
         var keys = settings.Keys.ToList();

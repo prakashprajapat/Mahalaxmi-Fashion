@@ -14,7 +14,8 @@ const SECTIONS = [
       { key: 'address', label: 'Store Address', type: 'textarea' },
       { key: 'phone', label: 'Phone Number', type: 'text' },
       { key: 'whatsapp', label: 'WhatsApp Number (with country code)', type: 'text' },
-      { key: 'admin_email', label: 'Alert email — where a new order, a new customer and a new lead are reported. Put more than one address here, separated by commas, and every one of them gets the alert. Leave it blank and the alerts go to the shop mailbox set on the server, which is easy to never open.', type: 'text' },
+      { key: 'admin_email', label: 'Admin email — the address you sign in with, and the one password recovery answers to. ONE address only. For alerts to more than one person, use the box below.', type: 'text' },
+      { key: 'notifyEmails', label: 'Alert emails — where a new order, a new payment, a new customer and a new lead are reported. More than one address, separated by commas, and every one of them gets the alert. Leave it blank and the alerts go to the admin email above.', type: 'text' },
     ]
   },
   {

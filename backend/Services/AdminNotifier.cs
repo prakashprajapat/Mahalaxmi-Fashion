@@ -5,7 +5,13 @@ namespace MahalaxmiApi.Services;
 
 /// <summary>
 /// Sends admin alert emails (new order, new customer, new lead, repeat-return, etc.).
-/// The admin recipients come from Settings ('admin_email') or config ('Admin:Email').
+/// The admin recipients come from Settings ('notifyEmails'), falling back to
+/// 'admin_email' and then config ('Admin:Email').
+///
+/// notifyEmails exists because admin_email is the owner's LOGIN IDENTITY as
+/// well, and this class splits it on commas while AuthController compares it
+/// whole. One field, two jobs, opposite rules - and a shop that put two
+/// addresses in it, as the Settings screen invited, locked its owner out.
 /// More than one address may be listed, separated by a comma, semicolon or space:
 /// an order alert sitting unread in a mailbox nobody opens is the same as no alert
 /// at all, so the shop email and a phone's own inbox can both be on the list.
@@ -28,6 +34,14 @@ public class AdminNotifier
 
     private async Task<string> AdminEmailAsync()
     {
+        // The list first. Only if nobody has set one do we fall back to the
+        // login identity, so an existing shop keeps getting its alerts.
+        var list = await _db.SiteSettings
+            .Where(s => s.Key == "notifyEmails")
+            .Select(s => s.Value)
+            .FirstOrDefaultAsync();
+        if (!string.IsNullOrWhiteSpace(list)) return list.Trim();
+
         var fromSettings = await _db.SiteSettings
             .Where(s => s.Key == "admin_email")
             .Select(s => s.Value)

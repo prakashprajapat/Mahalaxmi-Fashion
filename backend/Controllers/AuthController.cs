@@ -80,10 +80,10 @@ public class AuthController : ControllerBase
         if (await TooManyAsync(limitKey, AttemptLimiter.AdminLogin,
             "Too many sign-in attempts for this account.") is { } tooMany) return tooMany;
 
-        var adminEmail = await _db.SiteSettings
+        var adminEmail = OwnerAddress(await _db.SiteSettings
             .Where(s => s.Key == "admin_email")
             .Select(s => s.Value)
-            .FirstOrDefaultAsync() ?? _config["Admin:Email"] ?? "";
+            .FirstOrDefaultAsync() ?? _config["Admin:Email"] ?? "");
         var adminPassHash = await _db.SiteSettings
             .Where(s => s.Key == "admin_password_hash")
             .Select(s => s.Value)
@@ -264,6 +264,30 @@ public class AuthController : ControllerBase
         return Ok(new { success = true, sessionsEnded = ended });
     }
 
+    /// <summary>
+    /// The one address the owner signs in with, out of whatever admin_email
+    /// happens to hold.
+    ///
+    /// That setting is the owner's login identity AND, historically, the alert
+    /// recipient list - and the Settings screen asked for the list in its own
+    /// words: "Put more than one address here, separated by commas". Somebody
+    /// did, and the comparison below stopped matching anything, so the owner
+    /// could neither sign in nor recover the password. Both doors, one field.
+    ///
+    /// The list now belongs in notifyEmails and Settings refuses a second
+    /// address here. This stays because a shop that already stored one must be
+    /// able to get back in without editing the database - and reading the
+    /// first address is what the owner meant by typing it first.
+    /// </summary>
+    private static string OwnerAddress(string raw)
+    {
+        var first = (raw ?? "")
+            .Split(new[] { ',', ';', '\n', '\r', '\t' }, StringSplitOptions.RemoveEmptyEntries)
+            .Select(x => x.Trim())
+            .FirstOrDefault(x => x.Contains('@'));
+        return (first ?? (raw ?? "").Trim());
+    }
+
     // POST /api/auth/admin-recover/send-otp
     [HttpPost("admin-recover/send-otp")]
     [EnableRateLimiting("auth")]  // SEC-8: brute-force protection
@@ -272,10 +296,10 @@ public class AuthController : ControllerBase
         if (string.IsNullOrWhiteSpace(req.Email) || !req.Email.Contains('@'))
             return BadRequest(new { success = false, message = "Valid email required." });
 
-        var adminEmail = await _db.SiteSettings
+        var adminEmail = OwnerAddress(await _db.SiteSettings
             .Where(s => s.Key == "admin_email")
             .Select(s => s.Value)
-            .FirstOrDefaultAsync() ?? _config["Admin:Email"] ?? "";
+            .FirstOrDefaultAsync() ?? _config["Admin:Email"] ?? "");
 
         if (!string.Equals(req.Email.Trim(), adminEmail, StringComparison.OrdinalIgnoreCase))
             return BadRequest(new { success = false, message = "Email not recognised." });
