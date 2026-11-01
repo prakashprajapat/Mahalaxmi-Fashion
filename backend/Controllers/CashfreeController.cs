@@ -263,7 +263,39 @@ public class CashfreeController : ControllerBase
             Currency         = req.Currency ?? "INR",
             Status           = "created",
             CartJson         = JsonSerializer.Serialize(req.Cart),
-            CustomerJson     = JsonSerializer.Serialize(req.Customer),
+            // What this row knows about the person, written down plainly.
+            //
+            // This was JsonSerializer.Serialize(req.Customer), and req.Customer
+            // is the SIGNED-IN customer object - null for a guest. So every
+            // guest row stored the text "null", and the payments screen showed
+            // a dash in the Customer column for all but the handful of
+            // shoppers who happened to be logged in, while Cashfree's own
+            // export had a phone number against every single transaction.
+            //
+            // The phone is validated at the top of this method: a request
+            // without ten digits never gets here. It is the one thing the row
+            // is guaranteed to have, and it was the thing being dropped.
+            //
+            // `phone` is the normalised ten digits, which is how the number is
+            // stored everywhere else in the shop.
+            CustomerJson     = JsonSerializer.Serialize(new
+            {
+                name = (req.CustomerName ?? "").Trim(),
+                phone,
+                email = (req.CustomerEmail ?? "").Trim().ToLowerInvariant(),
+                // "id", not "customerId", and that name is load-bearing:
+                // the webhook recovery below reads a top-level "id" out of
+                // this column to decide WHOSE WALLET to deduct from. Moving
+                // the signed-in object under "account" would have taken that
+                // id with it, and the redeem would have quietly gone to the
+                // guest row - or nowhere. The old column held the customer
+                // object with its own numeric id; this holds the same number
+                // as text, which that reader already copes with.
+                id = (req.CustomerId ?? "").Trim(),
+                // The signed-in account kept whole underneath, so nothing that
+                // used to live in this column is lost.
+                account = req.Customer,
+            }),
             ShippingJson     = JsonSerializer.Serialize(req.Shipping),
             RawOrderJson     = rawJson,
         });
@@ -756,7 +788,7 @@ public class CashfreeController : ControllerBase
             {
                 c.LocalOrderId, c.CfPaymentId, c.AmountPaise, c.WalletUsed, c.FullTotal,
                 c.Status, c.CfStatus, c.PaymentMethod, c.CreatedAt, c.PaidAt, c.SyncedAt,
-                c.CustomerJson, c.CartJson,
+                c.CustomerJson, c.ShippingJson, c.CartJson,
             })
             .ToListAsync();
 
@@ -836,6 +868,20 @@ public class CashfreeController : ControllerBase
             return items;
         }
 
+        // The first of these that says something.
+        //
+        // Rows written before the fix above hold only the signed-in customer
+        // object, which is null for a guest - so for most of the history the
+        // phone sits in shipping_json instead, one column away. Reading both
+        // brings those rows back with no migration and nothing to run on the
+        // server.
+        static string Pick(params string?[] values)
+        {
+            foreach (var v in values)
+                if (!string.IsNullOrWhiteSpace(v)) return v.Trim();
+            return "";
+        }
+
         var shaped = window.Select(c => new
         {
             orderId = c.LocalOrderId,
@@ -849,9 +895,13 @@ public class CashfreeController : ControllerBase
             status = c.CfStatus ?? (c.Status == "paid" ? "SUCCESS" : "UNKNOWN"),
             asked = c.SyncedAt != null,
             method = c.PaymentMethod ?? "",
-            name = Field(c.CustomerJson, "name") ?? "",
-            phone = Field(c.CustomerJson, "phone") ?? "",
-            email = Field(c.CustomerJson, "email") ?? "",
+            name = Pick(Field(c.CustomerJson, "name"),
+                        Field(c.ShippingJson, "name"),
+                        // A signed-in customer object spells the name in two
+                        // halves and has no "name" of its own.
+                        (Field(c.CustomerJson, "firstName") + " " + Field(c.CustomerJson, "lastName")).Trim()),
+            phone = Pick(Field(c.CustomerJson, "phone"), Field(c.ShippingJson, "phone")),
+            email = Pick(Field(c.CustomerJson, "email"), Field(c.ShippingJson, "email")),
             createdAt = c.CreatedAt,
             paidAt = c.PaidAt,
             items = Items(c.CartJson),
