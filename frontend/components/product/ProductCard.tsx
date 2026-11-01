@@ -1,6 +1,7 @@
 'use client';
 import Link from 'next/link';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import type { Product } from '@/types';
 import { finalUnitPrice } from '@/lib/cart';
@@ -24,6 +25,7 @@ export default function ProductCard({ product, priority = false }: { product: Pr
   const [blurFill, setBlurFill] = useState(false);
   // Clicking a card goes straight to the full product page (no quick-view popup).
   const href = `/products/${productSlug(product.name, product.dbId)}`;
+  const router = useRouter();
 
   // Keep the heart in sync: reflect saved state on load (SSR renders it false) and whenever
   // the wishlist changes anywhere on the page.
@@ -51,6 +53,18 @@ export default function ProductCard({ product, priority = false }: { product: Pr
     setBlurFill(el.naturalWidth / el.naturalHeight > 0.8);
   };
 
+  // Start fetching the page this card points at the moment the finger lands.
+  //
+  // Guarded by a ref rather than left to the router: prefetch is cheap but not
+  // free, and a shopper scrolling with her thumb down the grid would otherwise
+  // ask for the same page on every touchstart.
+  const warmed = useRef(false);
+  const warm = () => {
+    if (warmed.current) return;
+    warmed.current = true;
+    try { router.prefetch(href); } catch { /* a prefetch that fails is not an error the shopper should ever meet */ }
+  };
+
   const handleWishlist = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -65,19 +79,26 @@ export default function ProductCard({ product, priority = false }: { product: Pr
 
   return (
     <>
-      {/* prefetch={false} is the difference between a grid that feels instant and
-          one that stutters. By default Next downloads the whole page behind EVERY
-          card the moment it scrolls into view: on /women that is 119 product pages
-          fetched speculatively, on a phone, competing for bandwidth with the
-          photos the shopper is actually looking at - and the tap they finally make
-          queues up behind all of it. That is the "click karte hi turant move nahi
-          karta" delay.
+      {/* prefetch={false} is the difference between a grid that feels instant
+          and one that stutters. By default Next downloads the page behind EVERY
+          card the moment it scrolls into view: on /women that is 119 product
+          pages fetched speculatively, on a phone, competing for bandwidth with
+          the photos the shopper is actually looking at - and the tap she
+          finally makes queues up behind all of it.
 
-          It does not turn prefetching off. Next still prefetches on hover, and on
-          a touch screen that fires as the finger lands, so the page is still being
-          fetched a moment before the tap completes - for ONE card instead of a
-          hundred. */}
+          What the note here used to say next was wrong, and it cost the other
+          half of the speed: "Next still prefetches on hover, and on a touch
+          screen that fires as the finger lands." A touch screen has no hover.
+          onMouseEnter does not fire before a tap on a phone, so on the device
+          that matters most this was not one prefetch instead of a hundred - it
+          was none at all, and every product tap paid a full round trip.
+
+          So the prefetch is asked for explicitly, on the two events that really
+          do come before a navigation: the finger landing, and the pointer
+          arriving on a desktop. One card - the one being touched - and
+          router.prefetch is idempotent, so a second touch costs nothing. */}
       <Link href={href} prefetch={false} className="product-card" aria-label={product.name}
+        onTouchStart={warm} onMouseEnter={warm} onFocus={warm}
         style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', height: '100%',
                  textDecoration: 'none', color: 'inherit' }}>
         {/* Image */}

@@ -937,6 +937,28 @@ button { cursor: pointer; font-family: inherit; }
 .product-wishlist-btn.active:hover { color: var(--brand); }
 .product-wishlist-btn.active svg { animation: wish-pop .22s ease-out; }
 @keyframes wish-pop { 0% { transform: scale(.6); } 60% { transform: scale(1.2); } 100% { transform: scale(1); } }
+
+/* ─── Loading skeletons ───
+   The grey shapes a route segment shows while the server renders the page
+   behind it. Before these there was no loading.tsx in the app at all, so a
+   tap left the shopper on the page she was already on - same header, same
+   footer, nothing moving - for as long as the render took. Two or three
+   seconds of that reads as a tap that did not register.
+
+   A pulse rather than a sweeping shimmer: one opacity animation, no gradient
+   repainting across a grid of eight cards on a phone that is already busy
+   fetching the page. Respects prefers-reduced-motion, where it simply holds
+   still at a readable grey. */
+.sk { background: #efe9ea; animation: sk-pulse 1.25s ease-in-out infinite; }
+.sk-line { border-radius: 5px; }
+@keyframes sk-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .55; } }
+@media (prefers-reduced-motion: reduce) { .sk { animation: none; opacity: .85; } }
+
+/* The product page's two columns, matching the real page's own breakpoint so
+   the skeleton does not stack at a different width than the thing replacing
+   it - a layout that jumps on arrival is worse than no skeleton. */
+.pdp-skeleton { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 2rem; align-items: start; }
+@media (max-width: 900px) { .pdp-skeleton { grid-template-columns: minmax(0, 1fr); gap: 1.25rem; } }
 .product-card-body { padding: .85rem; display: flex; flex-direction: column; gap: .35rem; flex: 1; }
 .product-card-cat { font-size: .7rem; color: #767676; text-transform: uppercase; letter-spacing: .06em; margin: 0; }
 .product-stock-badge { display: inline-block; font-size: .72rem; font-weight: 700; padding: .18rem .55rem; border-radius: 20px; width: fit-content; }
