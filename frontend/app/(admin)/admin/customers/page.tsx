@@ -399,6 +399,9 @@ export default function AdminCustomersPage() {
           </span>
         )}
       >
+        <div style={{ marginBottom: '.9rem' }}>
+          <TextEveryoneButton audience="customer" onDone={reloadSends} />
+        </div>
         <p style={{ fontSize: '.75rem', color: '#8a7f76', margin: '0 0 .7rem' }}>
           WhatsApp opens with the message already written — just press Send. A tick means this
           person has been written to before; pressing again sends it a second time.

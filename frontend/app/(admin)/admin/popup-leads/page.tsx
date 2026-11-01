@@ -227,10 +227,10 @@ export default function PopupLeadsPage() {
       </Card>
 
       <Card title={`${filtered.length} ${filtered.length === 1 ? 'lead' : 'leads'}${describeDateWindow(dates) ? ' \u00b7 ' + describeDateWindow(dates) : ''}`}>
+        <div style={{ marginBottom: '.9rem' }}>
+          <TextEveryoneButton audience="lead" onDone={reloadSends} />
+        </div>
         <p style={{ fontSize: '.75rem', color: '#8a7f76', margin: '0 0 .7rem' }}>
-          <div style={{ marginBottom: '.9rem' }}>
-            <TextEveryoneButton audience="lead" onDone={reloadSends} />
-          </div>
           WhatsApp opens with the message already written — just press Send. A tick means this
           person has been written to before; pressing again sends it a second time.
         </p>
