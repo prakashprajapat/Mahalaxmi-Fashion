@@ -1037,6 +1037,26 @@ export default function CheckoutPage() {
              rows they would take the grid's 2rem, so the phone grid is told
              the smaller figure and nothing moves apart. */
           .checkout-outer-grid { gap: 1.25rem !important; }
+
+          /* The seam between the total and how to pay it.
+             Every card sits 20px from the next, and at this one seam that
+             came out as 66px of blank between "Total Rs 618" and "Payment
+             Method" - the summary's own bottom padding, then the gap, then
+             the payment card's top padding, three spaces stacked. Measured,
+             not guessed.
+             Nowhere else does it matter: the other cards end in a form field
+             or a sentence. This one ends in the figure she is about to pay,
+             and the next thing she needs is how to pay it. They are one
+             decision and should sit together. 66px down to 41px: the two
+             paddings trimmed where they meet, and the gap itself pulled in a
+             little.
+             !important on both because the cards carry an inline "padding"
+             shorthand, which a plain stylesheet rule cannot reach past.
+             (Written with backticks the first time, inside a template
+             literal, which closed the string and broke the build - the
+             comment itself was the syntax error.) */
+          .checkout-summary { padding-bottom: .7rem !important; }
+          .checkout-payment { padding-top: .9rem !important; margin-top: -.4rem; }
         }
       ` }} />
       <h1 style={{ fontSize: '1.75rem', fontWeight: 700, marginBottom: '1.5rem', color: '#722f37' }}>Checkout</h1>
