@@ -188,7 +188,7 @@ const SECTIONS = [
     ]
   },
   {
-    title: '\ud83d\udce6 Automatic SMS to the customer about their order',
+    title: 'Automatic SMS to the customer about their order',
     desc: 'Seven DLT templates, each sent on its own trigger: the order is placed, the waybill is made, '
         + 'the parcel goes out for delivery, it arrives, it comes back instead, the review ask an hour after '
         + 'delivery (three times, 48 hours apart), and the nudge an hour after someone reaches the payment page '
@@ -196,15 +196,15 @@ const SECTIONS = [
         + 'simply means that message is not sent; nothing else breaks.',
     fields: [
       { key: 'customerSmsEnabled',   label: 'Master switch \u2014 type off to stop every message below. Leave blank for on.', type: 'text' },
-      { key: 'msg91TplOrderConfirm', label: '\ud83d\uded2 Order placed \u2014 MSG91 flow id for template \"OrderConfirm\" (variables: name, order_id)', type: 'text' },
-      { key: 'msg91TplTracking',     label: '\ud83d\ude9a Shipped \u2014 flow id for template \"TRAKING NO\", sent as soon as the AWB is generated (variables: name, order_id, awb)', type: 'text' },
-      { key: 'msg91TplOutForDelivery', label: '\ud83c\udfcd\ufe0f Out for delivery \u2014 flow id for template \"Out Of Delivery\" (variables: name, order_id)', type: 'text' },
-      { key: 'msg91TplDelivered',    label: '\u2705 Delivered \u2014 flow id for template \"Deliverd\" (variables: name, order_id)', type: 'text' },
-      { key: 'msg91TplRefund',       label: '\u21a9\ufe0f Returned / RTO \u2014 flow id for template \"Refund3\", sent only when money is owed back (variables: name, order_id, amount)', type: 'text' },
-      { key: 'msg91TplReview',       label: '\u2b50 Review ask \u2014 flow id for template \"Review2\". Goes 1 hour after delivery, then twice more every 48 hours, and stops the moment a review arrives (variables: name, order_id, number)', type: 'text' },
+      { key: 'msg91TplOrderConfirm', label: 'Order placed \u2014 MSG91 flow id for template \"OrderConfirm\" (variables: name, order_id)', type: 'text' },
+      { key: 'msg91TplTracking',     label: 'Shipped \u2014 flow id for template \"TRAKING NO\", sent as soon as the AWB is generated (variables: name, order_id, awb)', type: 'text' },
+      { key: 'msg91TplOutForDelivery', label: 'Out for delivery \u2014 flow id for template \"Out Of Delivery\" (variables: name, order_id)', type: 'text' },
+      { key: 'msg91TplDelivered',    label: 'Delivered \u2014 flow id for template \"Deliverd\" (variables: name, order_id)', type: 'text' },
+      { key: 'msg91TplRefund',       label: 'Returned / RTO \u2014 flow id for template \"Refund3\", sent only when money is owed back (variables: name, order_id, amount)', type: 'text' },
+      { key: 'msg91TplReview',       label: 'Review ask \u2014 flow id for template \"Review2\". Goes 1 hour after delivery, then twice more every 48 hours, and stops the moment a review arrives (variables: name, order_id, number)', type: 'text' },
       { key: 'smsSiteLink', label: 'Website link used in the offer SMS \u2014 it must match EXACTLY what is whitelisted on the DLT portal, or the operator removes the link and the message arrives ending \"Visit:\" with nothing after it. Leave blank for https://www.mahalaxmifashionhub.com.', type: 'text' },
       { key: 'msg91TplNewCollection', label: 'New collection offer \u2014 flow id for the promotional template (MFHBULK). This is the one the Popup Leads and Customers screens send to people who have never bought. One variable: the website address.', type: 'text' },
-      { key: 'msg91TplUserDropped',  label: '\ud83d\udcb3 Payment not finished \u2014 flow id for template \"USER_DROPPED2\", sent 1 hour later, once per customer per day (variables: order_id, date, amount)', type: 'text' },
+      { key: 'msg91TplUserDropped',  label: 'Payment not finished \u2014 flow id for template \"USER_DROPPED2\", sent 1 hour later, once per customer per day (variables: order_id, date, amount)', type: 'text' },
     ]
   },
   {

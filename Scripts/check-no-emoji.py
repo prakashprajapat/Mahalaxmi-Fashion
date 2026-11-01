@@ -8,6 +8,17 @@ the judgement a first-time visitor makes before they have read a single line.
 Taking 592 of them out by hand was a day's work. Putting one back is one
 keystroke, so this runs with the rest of the checkers.
 
+ESCAPES COUNT. The first version of this checker read the file as bytes and
+looked for emoji characters, which meant a label written
+
+    label: '\\ud83d\\udce6 Automatic SMS to the customer about their order'
+
+sailed straight past it: there is no emoji in those bytes, only backslashes and
+hex. The browser renders it as a package emoji all the same, and a whole
+section of the Settings screen kept its pictures while this checker reported
+the shop clean. So every \\uXXXX and \\u{XXXXX} is decoded before the scan,
+surrogate pairs joined back together, and the result is what gets checked.
+
 Kept on purpose, because they are typography rather than pictures:
 
     U+2713 U+2714   the check marks a list is ticked with
@@ -23,12 +34,38 @@ Run: python3 -I Scripts/check-no-emoji.py
 """
 import io
 import os
+import re
 import sys
 
 KEEP = {0x2713, 0x2714, 0x2715, 0x2716, 0x2717, 0x2718, 0x2605, 0x2606, 0x275A}
 
 SCOPE = ('.tsx', '.ts', '.cs', '.xml')
 SKIP_DIRS = {'.git', 'node_modules', '.next', 'bin', 'obj', '_to_delete'}
+
+ESCAPE = re.compile(r'\\u\{([0-9a-fA-F]{1,6})\}|\\u([0-9a-fA-F]{4})')
+
+
+def decode_escapes(line):
+    """Turn \\uXXXX and \\u{XXXXX} into the characters a browser would show.
+
+    Returned alongside the result is a flag saying whether anything was
+    decoded, so the report can say WHERE the emoji is hiding - a line that
+    looks innocent in the editor needs that said out loud.
+    """
+    if '\\u' not in line:
+        return line, False
+
+    def sub(m):
+        return chr(int(m.group(1) or m.group(2), 16))
+
+    decoded = ESCAPE.sub(sub, line)
+    # A surrogate pair written as two escapes is two lone surrogates until they
+    # are joined; most emoji above U+FFFF arrive exactly that way.
+    try:
+        decoded = decoded.encode('utf-16', 'surrogatepass').decode('utf-16')
+    except UnicodeError:
+        pass
+    return decoded, decoded != line
 
 
 def is_emoji(ch):
@@ -60,10 +97,12 @@ def main():
                 continue
             checked += 1
             for i, line in enumerate(src.split('\n'), 1):
-                hits = sorted({c for c in line if is_emoji(c)})
+                decoded, was_escaped = decode_escapes(line)
+                hits = sorted({c for c in decoded if is_emoji(c)})
                 if hits:
                     shown = ' '.join('U+%04X' % ord(c) for c in hits)
-                    bad.append((p, i, shown, line.strip()[:100]))
+                    where = ' (written as an escape)' if was_escaped else ''
+                    bad.append((p, i, shown + where, line.strip()[:100]))
 
     if bad:
         print('check-no-emoji: %d line(s) have emoji in them' % len(bad))

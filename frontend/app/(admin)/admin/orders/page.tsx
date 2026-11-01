@@ -1309,10 +1309,10 @@ export default function AdminOrdersPage() {
                       cursor: genAll ? 'wait' : blank === 0 ? 'default' : 'pointer',
                     }}>
                     {genAll
-                      ? `\u26a1 Generating\u2026 ${awbOrders.length - blank} of ${awbOrders.length} done`
+                      ? `Generating\u2026 ${awbOrders.length - blank} of ${awbOrders.length} done`
                       : blank === 0
                         ? '\u2713 All AWBs filled'
-                        : `\u26a1 Generate ${blank} AWB${blank === 1 ? '' : 's'} (Delhivery)`}
+                        : `Generate ${blank} AWB${blank === 1 ? '' : 's'} (Delhivery)`}
                   </button>
                   <p style={{ margin: '.35rem 0 0', fontSize: '.74rem', color: '#999', lineHeight: 1.5 }}>
                     Boxes you have already filled in are left alone.
