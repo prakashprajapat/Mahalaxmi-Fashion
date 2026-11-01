@@ -164,7 +164,13 @@ public class DelhiveryTrackingSyncService : BackgroundService
                     // delivered and transit tests, both of which would
                     // otherwise match a returning parcel and say the opposite
                     // of what is happening.
-                    if (DelhiveryService.IsBackWithUs(line.Status, line.StatusType))
+                    // `note` is Status.Instructions, which is where the
+                    // courier writes "RETURN Accepted" while the status itself
+                    // still says only "RTO". It is already in hand - it is
+                    // written into CourierNote twenty lines up - and without it
+                    // this test cannot tell a parcel on the way home from one
+                    // that has arrived.
+                    if (DelhiveryService.IsBackWithUs(line.Status, line.StatusType, note))
                     {
                         if (order.Status != "Return")
                         {

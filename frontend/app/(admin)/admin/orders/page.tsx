@@ -227,6 +227,10 @@ export default function AdminOrdersPage() {
 
   // Return-details modal (view media + approve/reject)
   const [returnModalId, setReturnModalId] = useState<string | null>(null);
+  // What became of the money, kept on screen after Mark as Returned.
+  // Declared here with the rest of the state, not beside markReturned:
+  // closeReturnModal is written above that and uses the setter.
+  const [returnedMsg, setReturnedMsg] = useState<string | null>(null);
   const [showReject, setShowReject] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
   const [decisionBusy, setDecisionBusy] = useState(false);
@@ -234,7 +238,7 @@ export default function AdminOrdersPage() {
   const [retAwb, setRetAwb] = useState('');
   const [retCourier, setRetCourier] = useState('Delhivery');
 
-  const closeReturnModal = () => { setReturnModalId(null); setShowReject(false); setRejectReason(''); setRetAwb(''); };
+  const closeReturnModal = () => { setReturnModalId(null); setShowReject(false); setRejectReason(''); setRetAwb(''); setReturnedMsg(null); };
 
   // Generate AWBs for every selected order from one button.
   //
@@ -321,7 +325,12 @@ export default function AdminOrdersPage() {
     }
   };
 
-  // Approved return whose item has now been received → close it out as "Returned".
+  // The parcel is back on the shelf → close it out as "Returned".
+  //
+  // The modal is NOT closed on success any more. What happens to the money is
+  // the half of this he cannot see from here, and "nothing was owed" looks
+  // exactly like "the refund did not work" on an empty Refunds screen. So the
+  // answer stays on screen until he closes it himself.
   const markReturned = async (order: Order) => {
     if (!confirm('Mark this return as Returned (item received back)?')) return;
     setDecisionBusy(true);
@@ -329,7 +338,7 @@ export default function AdminOrdersPage() {
       const token = getAdminToken() ?? '';
       const r = await ordersApi.updateStatus({ orderId: order.id, status: 'Return' }, token);
       setOrders(prev => prev.map(o => (o.id === order.id ? r.order : o)));
-      closeReturnModal();
+      setReturnedMsg(r.refund?.message ?? 'Marked as Returned.');
     } catch (e) {
       alert((e as Error).message || 'Failed to update.');
     } finally {
@@ -1528,6 +1537,12 @@ export default function AdminOrdersPage() {
                 )}
                 <div style={{ display: 'flex', gap: '.75rem', marginTop: '1rem' }}>
                   <button onClick={closeReturnModal} style={grey}>Close</button>
+                  {returnedMsg && (
+                    <div style={{ flex: 1, background: '#e8f5e9', color: '#2e7d32', borderRadius: 8,
+                                  padding: '.55rem .75rem', fontSize: '.82rem', lineHeight: 1.5 }}>
+                      {returnedMsg}
+                    </div>
+                  )}
                   {/* Return Transit is "the goods are on their way back",
                       however that started - she asked and the shop agreed, or
                       the courier could not deliver it. Either way this is the
@@ -1535,7 +1550,7 @@ export default function AdminOrdersPage() {
                       gated on returnDecision === 'approved', which no RTO ever
                       has, so the orders that most needed closing out were the
                       ones that could not be. */}
-                  {o.status === 'Return Transit' && (
+                  {!returnedMsg && o.status === 'Return Transit' && (
                     <button onClick={() => markReturned(o)} disabled={decisionBusy} style={{ ...btn, background: '#2e7d32' }}>
                       {decisionBusy ? 'Saving…' : '✓ Mark as Returned'}
                     </button>

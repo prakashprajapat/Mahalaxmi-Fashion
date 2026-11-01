@@ -1228,10 +1228,17 @@ public class OrdersController : ControllerBase
 
         // WALLET: when an order is Cancelled/Returned for the first time, put any wallet amount
         // the customer spent on it back into their wallet.
+        object? refundOutcome = null;
         if (!wasReturnedOrCancelled && nowReturnedOrCancelled)
         {
             try { await RefundWalletForOrderAsync(order); } catch { /* best-effort */ }
-            try { await OpenRefundForOrderAsync(order); } catch (Exception ex)
+            try
+            {
+                var owed = Services.RefundOpener.OnlinePaidAmount(order);
+                var opened = await Services.RefundOpener.OpenAsync(_db, order, _log, _notify);
+                refundOutcome = new { opened, owed, message = RefundOutcomeMessage(order, owed, opened) };
+            }
+            catch (Exception ex)
             {
                 // Money owed is not a best-effort detail. If the row could not
                 // be written the owner would never see the refund at all, so
@@ -1240,7 +1247,7 @@ public class OrdersController : ControllerBase
             }
         }
 
-        return Ok(new { success = true, order = MapOrder(order) });
+        return Ok(new { success = true, order = MapOrder(order), refund = refundOutcome });
     }
 
     // PATCH /api/orders/{orderId}/bag-barcode  (Admin only)
@@ -1403,6 +1410,35 @@ public class OrdersController : ControllerBase
     // Refunds screen, because once money leaves it does not come back.
     private Task OpenRefundForOrderAsync(SiteOrder order)
         => Services.RefundOpener.OpenAsync(_db, order, _log, _notify);
+
+    /// <summary>
+    /// One sentence about what became of the money, for the screen that just
+    /// marked this order Returned or Cancelled.
+    ///
+    /// Written because "nothing owed" and "the refund did not work" look
+    /// exactly alike from the Refunds screen. A Cash on Delivery parcel the
+    /// courier brought back collected nothing, so an empty Refunds screen is
+    /// the right answer - and silence is how that gets reported as a bug.
+    /// </summary>
+    private static string RefundOutcomeMessage(SiteOrder order, decimal owed, bool opened)
+    {
+        if (opened)
+            return $"Rs.{owed:0.00} is now waiting under Refunds - send it to her bank or her wallet from there.";
+
+        if (owed > 0m)
+            return $"A refund of Rs.{owed:0.00} for this order was already open under Refunds.";
+
+        var isCod = string.Equals(order.Method, "cod", StringComparison.OrdinalIgnoreCase);
+        if (isCod && order.DeliveredAt is null)
+            return "Nothing to refund: this was Cash on Delivery and the parcel never reached her, "
+                 + "so she never paid anything.";
+
+        if (order.WalletUsed > 0m && order.Total - order.WalletUsed <= 0m)
+            return "Nothing to send: the whole order was paid from her wallet, and that has gone "
+                 + "back into her wallet.";
+
+        return "Nothing to refund - no money was taken for this order.";
+    }
 
     // GET /api/orders/{orderId}/invoice — customer-downloadable HTML bill/invoice.
     // Valid for 12 months from the order date; after that an "expired" page is returned.

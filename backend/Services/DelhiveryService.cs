@@ -241,16 +241,48 @@ public class DelhiveryService
     /// the way home on the FORWARD waybill, where the only thing that can be
     /// accepted is the shop accepting its parcel back. A reverse pickup is a
     /// waybill of its own and does not come through this door.
+    ///
+    /// THE INSTRUCTION, not only the status. Delhivery's panel shows this
+    /// waybill as
+    ///
+    ///     STATUS       RTO - Returned
+    ///     LAST UPDATE  RETURN Accepted at Balotra_Ward45_D (Rajasthan)
+    ///
+    /// and the tracking API splits those across two fields: Status.Status is
+    /// the LEG, which reads "RTO" from the moment the parcel turns round until
+    /// it is on the shelf, and Status.Instructions is the sentence underneath,
+    /// which is where "RETURN Accepted" actually lives. Asking only the status
+    /// could never tell the two halves of the way home apart.
+    ///
+    /// The instruction is only ever CONFIRMATION: IsReturnLeg must already
+    /// have said this parcel is coming home, so a sentence can say "it has
+    /// arrived" and can never on its own turn a parcel round. That matters -
+    /// an out-for-delivery parcel whose note reads "consignee refused, will be
+    /// returned" is not a return yet.
     /// </summary>
-    public static bool IsBackWithUs(string? status, string? statusType)
+    public static bool IsBackWithUs(string? status, string? statusType, string? instruction = null)
     {
         if (!IsReturnLeg(status, statusType)) return false;
+
+        // The status is a LABEL - a word or two the courier files the shipment
+        // under - so loose matching is safe on it. "RTO - Returned" and a bare
+        // "Returned" both say it, and nothing on the way home carries the word:
+        // "Out for Return" and "Return Initiated" have no "returned" in them.
         var s = (status ?? "").ToLowerInvariant();
-        return s.Contains("delivered")
-            || s.Contains("received")
-            || s.Contains("accepted")
-            // "Returned to Origin", written out rather than as RTO.
-            || s.Contains("to origin");
+        if (s.Contains("delivered") || s.Contains("received") || s.Contains("accepted")
+            || s.Contains("returned") || s.Contains("to origin"))
+            return true;
+
+        // The instruction is a SENTENCE, and the same loose matching there is
+        // how "Consignee refused, will be returned" - a parcel that has not
+        // even turned round yet - would read as one sitting on the shelf. Only
+        // the courier's own terminal phrases count here.
+        var n = (instruction ?? "").ToLowerInvariant();
+        return n.Contains("return accepted")
+            || n.Contains("rto delivered")
+            || n.Contains("return delivered")
+            || n.Contains("returned to origin")
+            || n.Contains("received at origin");
     }
 
     /// <summary>

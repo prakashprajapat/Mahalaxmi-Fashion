@@ -288,7 +288,13 @@ export const ordersApi = {
       '/orders/sync-tracking', { method: 'POST' }, token
     ),
   updateStatus: (data: { orderId: string; status: string; awb?: string; courier?: string }, token: string) =>
-    request<{ success: boolean; order: import('@/types').Order }>(
+    /** `refund` is present only when this call moved the order to Returned or
+        Cancelled, and says in one sentence what became of the money - including
+        when the honest answer is that nothing was owed. */
+    request<{
+      success: boolean; order: import('@/types').Order;
+      refund?: { opened: boolean; owed: number; message: string } | null;
+    }>(
       '/orders/status', { method: 'PATCH', body: JSON.stringify(data) }, token
     ),
   // Record the code printed on the thaili this parcel is going into.

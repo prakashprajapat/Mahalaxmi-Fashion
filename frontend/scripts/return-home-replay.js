@@ -37,11 +37,35 @@ function isReturnLeg(status, statusType) {
 }
 
 // ── DelhiveryService.IsBackWithUs ────────────────────────────────────────
-function isBackWithUs(status, statusType) {
+//
+// Two fields, matched two different ways. Delhivery's panel shows the stuck
+// waybill as
+//
+//     STATUS       RTO - Returned
+//     LAST UPDATE  RETURN Accepted at Balotra_Ward45_D (Rajasthan)
+//
+// and the tracking API splits those: Status.Status is the LEG - "RTO" from
+// the moment the parcel turns round until it is on the shelf - and
+// Status.Instructions is the sentence underneath, which is where "RETURN
+// Accepted" lives. Asking only the status can never tell the two halves of
+// the way home apart.
+//
+// The status is a label, so loose matching is safe on it. The instruction is
+// a sentence, where loose matching is how "Consignee refused, will be
+// returned" would read as a parcel already home.
+function isBackWithUs(status, statusType, instruction) {
   if (!isReturnLeg(status, statusType)) return false;
+
   const s = String(status ?? '').toLowerCase();
-  return s.includes('delivered') || s.includes('received')
-      || s.includes('accepted') || s.includes('to origin');
+  if (s.includes('delivered') || s.includes('received') || s.includes('accepted')
+      || s.includes('returned') || s.includes('to origin')) return true;
+
+  const n = String(instruction ?? '').toLowerCase();
+  return n.includes('return accepted')
+      || n.includes('rto delivered')
+      || n.includes('return delivered')
+      || n.includes('returned to origin')
+      || n.includes('received at origin');
 }
 
 // What it used to be, kept so the cases can say what changed.
@@ -284,6 +308,89 @@ const modalOld = o => ({
     if (isBackWithUs(s, ty) && status !== 'Return') refunds.push({ owed: 649, status: 'pending' });
   }
   t('10c and the next sweep opens nothing', refunds.length, 1);
+}
+
+// ═══ 11. The status says only "RTO" and the sentence says it is home ════
+//
+// What his waybill actually looks like on the API: the leg in one field, the
+// arrival in the other. Reading only the first is how the sweep followed this
+// parcel all the way home and then could not tell it had got there.
+{
+  t('11a RTO alone is not an answer', isBackWithUs('RTO', 'RT', ''), false);
+  t('11b RTO plus the sentence is', isBackWithUs('RTO', 'RT', 'RETURN Accepted at Balotra_Ward45_D (Rajasthan)'), true);
+  t('11c and the panel\'s own words', isBackWithUs('RTO - Returned', 'RT', ''), true);
+  t('11d a bare Returned', isBackWithUs('Returned', 'RT', ''), true);
+
+  const stillGoing = [
+    'RTO In Transit',
+    'Dispatched for RTO at Balotra_Ward45_D',
+    'Added to Bag',
+    'Bag Added To Trip',
+    'Shipment Picked Up at Origin Center',
+  ];
+  for (const n of stillGoing) {
+    t(`11 "RTO" with "${n}" is still travelling`, isBackWithUs('RTO', 'RT', n), false);
+  }
+}
+
+// ═══ 12. A sentence is not a label ═══════════════════════════════════════
+//
+// The case the split exists for. A parcel on its way back whose note happens
+// to contain the word "returned" has not arrived; only the courier's own
+// terminal phrases say it has.
+{
+  t('12a a note about being returned is not an arrival',
+    isBackWithUs('Out for Return', 'RT', 'Consignee refused, will be returned'), false);
+  t('12b nor one about a return being raised',
+    isBackWithUs('RTO', 'RT', 'Return raised by seller'), false);
+  t('12c the terminal phrase is',
+    isBackWithUs('RTO', 'RT', 'RTO Delivered'), true);
+  t('12d and so is this one',
+    isBackWithUs('RTO', 'RT', 'Shipment received at origin'), true);
+  t('12e a forward parcel is untouched by any of it',
+    isBackWithUs('Out for delivery', 'UD', 'RETURN Accepted'), false);
+}
+
+// ═══ 13. What the screen tells him about the money ══════════════════════
+//
+// Both his stuck orders are Cash on Delivery and neither reached the
+// customer, so nothing is owed and Refunds stays empty - which is correct and
+// looks exactly like the bug he reported. The sentence is the fix.
+function refundMessage(o, owed, opened) {
+  if (opened) return `Rs.${owed.toFixed(2)} is now waiting under Refunds - send it to her bank or her wallet from there.`;
+  if (owed > 0) return `A refund of Rs.${owed.toFixed(2)} for this order was already open under Refunds.`;
+  const isCod = String(o.method ?? '').toLowerCase() === 'cod';
+  if (isCod && (o.deliveredAt === null || o.deliveredAt === undefined))
+    return 'Nothing to refund: this was Cash on Delivery and the parcel never reached her, so she never paid anything.';
+  if (o.walletUsed > 0 && o.total - o.walletUsed <= 0)
+    return 'Nothing to send: the whole order was paid from her wallet, and that has gone back into her wallet.';
+  return 'Nothing to refund - no money was taken for this order.';
+}
+
+{
+  // MFH17919491518985415 - COD, Rs 319, never delivered.
+  const his = order({ method: 'cod', total: 319, advancePaid: 0, deliveredAt: null });
+  t('13a nothing is owed', onlinePaidAmount(his), 0);
+  t('13b and the screen says why, instead of saying nothing',
+    refundMessage(his, 0, false).includes('never reached her'), true);
+
+  const prepaid = order({ total: 649 });
+  t('13c a prepaid one names the amount',
+    refundMessage(prepaid, onlinePaidAmount(prepaid), true),
+    'Rs.649.00 is now waiting under Refunds - send it to her bank or her wallet from there.');
+
+  const allWallet = order({ total: 528, walletUsed: 528 });
+  t('13d a wallet-paid one says where it went',
+    refundMessage(allWallet, 0, false).includes('back into her wallet'), true);
+
+  const twice = order({ total: 649 });
+  t('13e pressing again does not promise a second payout',
+    refundMessage(twice, 649, false).includes('already open'), true);
+
+  const codDelivered = order({ method: 'cod', total: 560, deliveredAt: '2026-10-24T10:08:00Z' });
+  t('13f cash she handed over is named',
+    refundMessage(codDelivered, onlinePaidAmount(codDelivered), true),
+    'Rs.560.00 is now waiting under Refunds - send it to her bank or her wallet from there.');
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);
