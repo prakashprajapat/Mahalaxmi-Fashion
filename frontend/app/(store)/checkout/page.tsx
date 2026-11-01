@@ -428,10 +428,27 @@ export default function CheckoutPage() {
   // the moment to ask again. Without this she reaches the payment page with a
   // discount she is not entitled to, and the only places left to refuse it are
   // after she has pressed pay.
+  //
+  // AND when the cart changes. The key below used to be code|phone|email, and
+  // the subtotal was in the dependency list without being in the key - so the
+  // effect re-ran on every quantity change and then turned straight round
+  // again, because the question looked like one already asked.
+  //
+  // What that does: add a second Kurti, the discount is recalculated on Rs 998
+  // and comes back Rs 100; take it away again, and the effect refuses to ask,
+  // so Rs 100 off stays on a Rs 499 cart. The discount gets STUCK at whatever
+  // the biggest cart it ever saw was worth.
+  //
+  // And not only on screen. PlaceOrder recomputes the discount from the
+  // catalogue, so the order is billed Rs 449 while the checkout said Rs 399 -
+  // or, on a prepaid order, the amount is below the server's floor and the
+  // payment is refused outright with nothing on screen explaining why.
+  //
+  // The key is the whole question: who is asking, and about what cart.
   const reValidated = useRef('');
   useEffect(() => {
     if (!couponApplied?.code) return;
-    const who = `${couponApplied.code}|${shipping.phone}|${shipping.email}`;
+    const who = `${couponApplied.code}|${shipping.phone}|${shipping.email}|${subtotal}`;
     if (reValidated.current === who) return;
     if (!shipping.phone && !shipping.email) return;    // still nobody to check
     reValidated.current = who;

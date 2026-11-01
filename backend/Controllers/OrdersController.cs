@@ -1237,6 +1237,27 @@ public class OrdersController : ControllerBase
                 var owed = await Services.RefundOpener.OwedAsync(_db, order);
                 var opened = await Services.RefundOpener.OpenAsync(_db, order, _log, _notify);
                 refundOutcome = new { opened, owed, message = RefundOutcomeMessage(order, owed, opened) };
+
+                // Tell her. The Refund3 text - "your order came back, Rs X is
+                // on its way" - was being sent from the tracking sweep and
+                // from nowhere else, so an order the SHOP marked Returned by
+                // hand opened a refund in silence. That is the same shape of
+                // gap as the Mark as Returned button itself had: the sweep
+                // path complete, the human path missing the last step.
+                //
+                // SendOnceAsync writes its row before it sends, so the sweep
+                // arriving at this order afterwards cannot send a second one.
+                //
+                // Only when money is actually owed: a text promising a refund
+                // on an order nobody paid for is worse than no text.
+                if (owed > 0m)
+                {
+                    try { await _msg.RefundAsync(order, owed); }
+                    catch (Exception ex)
+                    {
+                        _log.LogWarning(ex, "Refund text for {Order} did not go.", order.OrderId);
+                    }
+                }
             }
             catch (Exception ex)
             {

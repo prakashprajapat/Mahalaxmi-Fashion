@@ -72,6 +72,9 @@ class MainActivity : AppCompatActivity() {
     private var pendingCameraRequest: PermissionRequest? = null
     private var lastBackPress = 0L
     private var loadFailed = false
+
+    /** When the app last went behind something. 0 means it has not yet. */
+    private var leftAt = 0L
     private var askedForNotifications = false
     private var documentStartScriptInstalled = false
 
@@ -185,11 +188,71 @@ class MainActivity : AppCompatActivity() {
         super.onPause()
         web.onPause()
         CookieManager.getInstance().flush()
+        leftAt = System.currentTimeMillis()
     }
 
     override fun onResume() {
         super.onResume()
         web.onResume()
+        refreshIfStale()
+    }
+
+    /**
+     * Back after a while: fetch the page again rather than showing the one
+     * she left behind.
+     *
+     * A WebView holds a page for days. Open the app, look at a kurti, lock the
+     * phone, open it on Thursday - and that is still Monday's page, with
+     * Monday's price and a size that sold out on Tuesday.
+     *
+     * Measured from onPause to onResume, which is "the app was not in front of
+     * her". The other reading of three minutes idle - no taps while she IS
+     * looking at it - would reload the page she is reading and empty the form
+     * she is halfway through.
+     */
+    private fun refreshIfStale() {
+        val away = if (leftAt == 0L) 0L else System.currentTimeMillis() - leftAt
+        leftAt = 0L
+        if (away < STALE_AFTER_MS) return
+
+        val url = web.url ?: return
+        if (loadFailed) return          // the offline screen has its own Retry
+        if (!shouldRefresh(url)) return
+
+        // A hard refresh of the DOCUMENT, not a clearing of the whole cache.
+        // Next.js names its JS and CSS by content hash, so a fresh document
+        // points at whatever the current bundles are by itself: unchanged ones
+        // still come from cache, changed ones are different URLs. Clearing
+        // everything would re-download the app over her mobile data every time
+        // she came back from a phone call.
+        web.loadUrl(url, mapOf("Cache-Control" to "no-cache", "Pragma" to "no-cache"))
+    }
+
+    /**
+     * Some pages must never be pulled out from under her.
+     *
+     * A payment above all. She taps UPI, her bank app opens, she authorises,
+     * she comes back four minutes later - longer than this timer - and
+     * Cashfree's page is waiting to be told she is back. Reloading there loses
+     * an order that has already been paid for.
+     *
+     * And the checkout, where a reload throws away a typed address.
+     */
+    private fun shouldRefresh(url: String): Boolean {
+        val parsed = (try { Uri.parse(url) } catch (e: Exception) { null }) ?: return false
+        val scheme = (parsed.scheme ?: "").lowercase()
+        if (scheme != "https" && scheme != "http") return false
+
+        // Anything that is not our own site is somebody else's payment, bank
+        // or UPI page, whatever it is called. Those are never reloaded.
+        val host = (parsed.host ?: "").lowercase()
+        if (host != SITE_DOMAIN && !host.endsWith(".$SITE_DOMAIN")) return false
+
+        // Matched on the PATH, from its start. A plain contains() over the
+        // whole URL would have caught a product called Dupion on "upi" and
+        // quietly stopped refreshing that page for ever.
+        val path = (parsed.path ?: "/").lowercase()
+        return NEVER_REFRESH.none { path == it || path.startsWith("$it/") }
     }
 
     override fun onDestroy() {
@@ -775,6 +838,28 @@ class MainActivity : AppCompatActivity() {
     companion object {
         /** Longest the opening logo screen may stay up. */
         private const val SPLASH_MAX_MS = 3500L
+
+        /** Away for longer than this and the page she comes back to is fetched again. */
+        private const val STALE_AFTER_MS = 3 * 60 * 1000L
+
+        /**
+         * Pages of OUR OWN that a reload would damage, matched on the path
+         * from its start.
+         *
+         * Checkout holds a typed address. The order pages are where the
+         * customer lands coming back from her bank or UPI app, with the page
+         * waiting to be told she has returned - reloading there loses an order
+         * that has already been paid for.
+         *
+         * The gateways' own pages need no entry: they are other hosts, and
+         * shouldRefresh reloads nothing that is not this site.
+         */
+        private val NEVER_REFRESH = listOf(
+            "/checkout",
+            "/order-success",
+            "/order-confirmation",
+            "/payment",
+        )
 
         private const val SITE_DOMAIN = "mahalaxmifashionhub.com"
         private const val START_URL = "https://www.mahalaxmifashionhub.com/"
