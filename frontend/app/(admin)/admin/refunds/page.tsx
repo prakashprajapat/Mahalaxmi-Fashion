@@ -223,7 +223,30 @@ export default function RefundsPage() {
                   // in the one screen where money leaves the business.)
                   setPaying({ r, amount: String(r.suggestedAmount), method: 'gateway', note: '' }); }}
                 style={{ padding: '.4rem .9rem', fontSize: '.84rem', fontWeight: 700, background: '#a7354d', color: '#fff', borderColor: '#a7354d' }}>
-                Refund this
+                {r.gateway === 'cashfree' ? 'Refund to Cashfree'
+                  : r.gateway === 'razorpay' ? 'Refund to Razorpay'
+                  : 'Refund this'}
+              </button>
+              {/* The wallet, on the card.
+                  It was always available - a radio inside the panel that
+                  "Refund this" opens - but "Refund this" is the name of the
+                  OTHER answer, so a card showing "Refund this" and "Nothing
+                  owed" reads as a screen with no wallet on it.
+                  Same panel either way: the amount, the note and the warnings
+                  are where the care is, and two copies of that is two places
+                  to get money wrong. */}
+              <button
+                className="adm-btn"
+                disabled={!r.hasWallet}
+                title={r.hasWallet
+                  ? 'Add it to her store credit instead of sending it back'
+                  : 'This order was placed without an account, so there is no wallet to credit.'}
+                onClick={() => { setError(''); setNotice(''); setCancelling(null);
+                  setPaying({ r, amount: String(r.suggestedAmount), method: 'wallet', note: '' }); }}
+                style={{ padding: '.4rem .9rem', fontSize: '.84rem', fontWeight: 700,
+                         opacity: r.hasWallet ? 1 : .5,
+                         cursor: r.hasWallet ? 'pointer' : 'not-allowed' }}>
+                Add to wallet
               </button>
               <button
                 className="adm-btn"
