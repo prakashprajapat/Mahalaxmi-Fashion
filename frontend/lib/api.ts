@@ -845,6 +845,17 @@ export interface CfPaymentRow {
   email: string;
   createdAt: string;
   paidAt: string | null;
+  /** What was in the cart when this checkout opened. Empty for a row stored before carts were carried here, or one that arrived by a route that never kept one. */
+  items: CfCartLine[];
+}
+
+/** One line of a stored cart. Size and colour arrive joined, as the checkout stores them. */
+export interface CfCartLine {
+  name: string;
+  sku: string;
+  size: string;
+  quantity: number;
+  image: string;
 }
 
 export const cashfreeApi = {

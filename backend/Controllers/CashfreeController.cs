@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using MahalaxmiApi.Data;
 using MahalaxmiApi.Models;
 using MahalaxmiApi.Services;
@@ -755,7 +756,7 @@ public class CashfreeController : ControllerBase
             {
                 c.LocalOrderId, c.CfPaymentId, c.AmountPaise, c.WalletUsed, c.FullTotal,
                 c.Status, c.CfStatus, c.PaymentMethod, c.CreatedAt, c.PaidAt, c.SyncedAt,
-                c.CustomerJson,
+                c.CustomerJson, c.CartJson,
             })
             .ToListAsync();
 
@@ -769,6 +770,70 @@ public class CashfreeController : ControllerBase
                 return v.ValueKind == JsonValueKind.String ? v.GetString() : v.ToString();
             }
             catch { return null; }
+        }
+
+        // What was in the cart when this checkout opened.
+        //
+        // Read from the row itself rather than looked up in the orders table,
+        // and that is the whole point: the rows worth looking at here are the
+        // ones that never became an order. A join would answer for the paid
+        // rows - which the shop can already see - and go blank on every
+        // walked-away row, which is the only reason this screen exists.
+        //
+        // Deliberately forgiving. A cart that cannot be read gives an empty
+        // list, never an error: a payment row with an odd cart in it is still
+        // a payment row, and the amount and the status are what the page is
+        // for. CartPricing refuses an unreadable cart because money depends
+        // on it; nothing here does.
+        static List<PaymentCartLine> Items(string? json)
+        {
+            var items = new List<PaymentCartLine>();
+            if (string.IsNullOrWhiteSpace(json)) return items;
+            try
+            {
+                var root = JsonSerializer.Deserialize<JsonElement>(json);
+                if (root.ValueKind != JsonValueKind.Array) return items;
+
+                foreach (var line in root.EnumerateArray())
+                {
+                    if (line.ValueKind != JsonValueKind.Object) continue;
+
+                    string Text(string key) =>
+                        line.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.String
+                            ? (v.GetString() ?? "").Trim() : "";
+
+                    // A quantity arrives as a number from the checkout and as
+                    // text from anything that has been through a spreadsheet.
+                    var qty = 1;
+                    if (line.TryGetProperty("quantity", out var q))
+                    {
+                        if (q.ValueKind == JsonValueKind.Number && q.TryGetInt32(out var n)) qty = Math.Max(1, n);
+                        else if (q.ValueKind == JsonValueKind.String && int.TryParse(q.GetString(), out var m)) qty = Math.Max(1, m);
+                    }
+
+                    var name = Text("name");
+                    var sku = Text("sku");
+                    // Nothing to show and nothing to search by.
+                    if (name.Length == 0 && sku.Length == 0) continue;
+
+                    items.Add(new PaymentCartLine(
+                        // A line with no name shows its SKU, which is what the
+                        // shop looks a product up by anyway.
+                        name.Length > 0 ? name : sku,
+                        sku,
+                        // The checkout puts size and colour in one field,
+                        // joined by a slash, because that is how they are read.
+                        Text("size"),
+                        qty,
+                        Text("image")));
+                }
+            }
+            catch
+            {
+                // An unreadable cart is one missing column on one row, not a
+                // failed screen.
+            }
+            return items;
         }
 
         var shaped = window.Select(c => new
@@ -789,6 +854,7 @@ public class CashfreeController : ControllerBase
             email = Field(c.CustomerJson, "email") ?? "",
             createdAt = c.CreatedAt,
             paidAt = c.PaidAt,
+            items = Items(c.CartJson),
         }).ToList();
 
         var needle = (q ?? "").Trim();
@@ -822,6 +888,8 @@ public class CashfreeController : ControllerBase
                 || r.transactionId.Contains(needle, StringComparison.OrdinalIgnoreCase)
                 || r.name.Contains(needle, StringComparison.OrdinalIgnoreCase)
                 || r.email.Contains(needle, StringComparison.OrdinalIgnoreCase)
+                || r.items.Any(i => i.Name.Contains(needle, StringComparison.OrdinalIgnoreCase)
+                                 || i.Sku.Contains(needle, StringComparison.OrdinalIgnoreCase))
                 || PhoneHit(r.phone))
                 .ToList();
         }
@@ -865,6 +933,21 @@ public class CashfreeController : ControllerBase
     }
 
 }
+
+/// <summary>
+/// One line of a stored cart, as the payments screen shows it.
+///
+/// The JSON names are written on it rather than left to the serializer's
+/// naming policy: every other object this controller returns is already spelt
+/// in lower case, so a policy that was not camelCase would first show itself
+/// here, as a screen full of blank product names.
+/// </summary>
+public record PaymentCartLine(
+    [property: JsonPropertyName("name")] string Name,
+    [property: JsonPropertyName("sku")] string Sku,
+    [property: JsonPropertyName("size")] string Size,
+    [property: JsonPropertyName("quantity")] int Quantity,
+    [property: JsonPropertyName("image")] string Image);
 
 public record CreateCfOrderRequest(
     decimal Amount,

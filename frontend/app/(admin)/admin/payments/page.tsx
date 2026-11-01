@@ -1,6 +1,6 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
-import { cashfreeApi } from '@/lib/api';
+import { cashfreeApi, type CfCartLine } from '@/lib/api';
 import { getAdminToken } from '@/lib/auth';
 import * as XLSX from 'xlsx';
 import { PageHeader, Card, Stat, StatGrid, Empty, Pill, Chips } from '@/components/admin/Ui';
@@ -13,21 +13,22 @@ import { PageHeader, Card, Stat, StatGrid, Empty, Pill, Chips } from '@/componen
 // are precisely the ones an orders list has never heard of. Three dropped
 // payments on one of his days came to over a thousand rupees.
 
-type Row = {
-  orderId: string;
-  transactionId: string;
-  amount: number;
-  walletUsed: number;
-  fullTotal: number;
-  status: string;
-  asked: boolean;
-  method: string;
-  name: string;
-  phone: string;
-  email: string;
-  createdAt: string;
-  paidAt: string | null;
-};
+// Three lines and a count. A cart of eleven would otherwise make one row as
+// tall as the rest of the page, and the shop is reading this to see WHAT, not
+// to check the whole basket - the order screen is for that.
+const SHOW_LINES = 3;
+
+// The cart, or an empty one.
+//
+// A deploy swaps the frontend and the backend seconds apart, and for
+// those seconds a new page can be asking an old API that sends no items
+// field at all. r.items.length on undefined would take the whole screen
+// down - a new column is not worth an outage.
+const cartOf = (r: { items?: CfCartLine[] }): CfCartLine[] => r.items ?? [];
+
+// "Red Anarkali (M / Maroon) x2"
+const lineText = (l: CfCartLine) =>
+  `${l.name}${l.size ? ` (${l.size})` : ''}${l.quantity > 1 ? ` x${l.quantity}` : ''}`;
 
 // Cashfree's own words, in the shop's.
 const STATUS_LABEL: Record<string, string> = {
@@ -168,6 +169,11 @@ export default function AdminPaymentsPage() {
         Name: r.name || '',
         Phone: r.phone || '',
         Email: r.email || '',
+        // Every line, not the three the screen shows: a spreadsheet has
+        // room and is where somebody adds up how often one product is in a
+        // cart that was never paid for.
+        Items: cartOf(r).map(lineText).join('; '),
+        'Item count': cartOf(r).reduce((n, l) => n + (l.quantity || 1), 0) || '',
         'Order ID': r.orderId,
         'Paid at': r.paidAt ? new Date(r.paidAt).toLocaleString('en-IN') : '',
       }));
@@ -250,7 +256,7 @@ export default function AdminPaymentsPage() {
           <label style={{ display: 'block', flex: 1, minWidth: 220 }}>
             <span className="adm-stat-l">Search</span>
             <input className="adm-input" style={{ display: 'block', marginTop: '.2rem', width: '100%' }}
-                   placeholder="Phone, order ID, transaction ID, name or email"
+                   placeholder="Phone, order ID, transaction ID, name, email, or a product"
                    value={q}
                    onChange={e => setQ(e.target.value)}
                    onKeyDown={e => { if (e.key === 'Enter') search(1); }} />
@@ -306,7 +312,8 @@ export default function AdminPaymentsPage() {
               <table className="adm-table">
                 <thead><tr>
                   <th>When</th><th>Transaction</th><th className="num">Amount</th>
-                  <th>How</th><th>What happened</th><th>Customer</th><th>Order</th>
+                  <th>How</th><th>What happened</th><th>What they were buying</th>
+                  <th>Customer</th><th>Order</th>
                 </tr></thead>
                 <tbody>
                   {rows.map((r, i) => (
@@ -326,6 +333,33 @@ export default function AdminPaymentsPage() {
                         <Pill tone={STATUS_TONE[r.status] ?? 'grey'}>
                           {STATUS_LABEL[r.status] ?? r.status}
                         </Pill>
+                      </td>
+                      <td data-label="What they were buying">
+                        {cartOf(r).length === 0 ? (
+                          // A row with no cart on it is old, or came in by a
+                          // route that never stored one. Saying so beats an
+                          // empty cell that reads as an empty basket.
+                          <span style={{ color: '#aaa' }}>not recorded</span>
+                        ) : (
+                          <>
+                            {cartOf(r).slice(0, SHOW_LINES).map((l, n) => (
+                              <span key={n} style={{ display: 'block', fontSize: '.8rem', lineHeight: 1.45 }}>
+                                {l.name}
+                                {l.size && (
+                                  <span style={{ color: '#8a7f76' }}> ({l.size})</span>
+                                )}
+                                {l.quantity > 1 && (
+                                  <span style={{ color: '#8a7f76', fontWeight: 700 }}> x{l.quantity}</span>
+                                )}
+                              </span>
+                            ))}
+                            {cartOf(r).length > SHOW_LINES && (
+                              <span style={{ display: 'block', fontSize: '.74rem', color: '#8a7f76' }}>
+                                and {cartOf(r).length - SHOW_LINES} more
+                              </span>
+                            )}
+                          </>
+                        )}
                       </td>
                       <td data-label="Customer">
                         {r.name || '—'}
