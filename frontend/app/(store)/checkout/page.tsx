@@ -1000,6 +1000,19 @@ export default function CheckoutPage() {
           .checkout-shipping-grid { grid-template-columns: minmax(0, 1fr) !important; }
           .checkout-pan-grid { grid-template-columns: minmax(0, 1fr) !important; }
           .checkout-summary { position: static !important; }
+          /* Order Summary first on a phone.
+             Stacked, the two columns came out as address, then Payment Method,
+             then the Pay button - and only THEN what she was buying and what
+             it came to. She was being asked to pay before the page had shown
+             her the total.
+             order:-1 lifts the summary to the top of the single column without
+             moving a line of markup, so the desktop two-column layout is
+             untouched: there the summary is the right-hand column and already
+             beside her all the way down.
+             The reading order becomes what she is buying, where it is going,
+             how she is paying - with the Pay button last, right where her
+             thumb finishes. */
+          .checkout-summary { order: -1; }
         }
       ` }} />
       <h1 style={{ fontSize: '1.75rem', fontWeight: 700, marginBottom: '1.5rem', color: '#722f37' }}>Checkout</h1>
