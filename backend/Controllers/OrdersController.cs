@@ -1234,7 +1234,7 @@ public class OrdersController : ControllerBase
             try { await RefundWalletForOrderAsync(order); } catch { /* best-effort */ }
             try
             {
-                var owed = Services.RefundOpener.OnlinePaidAmount(order);
+                var owed = await Services.RefundOpener.OwedAsync(_db, order);
                 var opened = await Services.RefundOpener.OpenAsync(_db, order, _log, _notify);
                 refundOutcome = new { opened, owed, message = RefundOutcomeMessage(order, owed, opened) };
             }
@@ -1430,8 +1430,12 @@ public class OrdersController : ControllerBase
 
         var isCod = string.Equals(order.Method, "cod", StringComparison.OrdinalIgnoreCase);
         if (isCod && order.DeliveredAt is null)
-            return "Nothing to refund: this was Cash on Delivery and the parcel never reached her, "
-                 + "so she never paid anything.";
+            // Named precisely, because the advance is the one thing that COULD
+            // have been taken on an order the customer never received - and if
+            // one was taken, this sentence is the thing he can correct.
+            return "Nothing to refund: this was Cash on Delivery, the parcel never reached her, "
+                 + "and no advance was taken on this order. If an advance WAS paid, the payment "
+                 + "for it is missing - check Payments for this order id.";
 
         if (order.WalletUsed > 0m && order.Total - order.WalletUsed <= 0m)
             return "Nothing to send: the whole order was paid from her wallet, and that has gone "

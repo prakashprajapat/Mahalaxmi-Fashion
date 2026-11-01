@@ -229,7 +229,7 @@ public class DelhiveryTrackingSyncService : BackgroundService
             decimal owed = 0m;
             try
             {
-                owed = RefundOpener.OnlinePaidAmount(order);
+                owed = await RefundOpener.OwedAsync(db, order, ct);
                 await RefundOpener.OpenAsync(db, order, log, notify, ct);
             }
             catch (Exception ex)

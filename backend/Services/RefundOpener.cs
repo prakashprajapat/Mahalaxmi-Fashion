@@ -56,6 +56,45 @@ public static class RefundOpener
         return paid > 0m ? Math.Round(paid, 2) : 0m;
     }
 
+    /// <summary>
+    /// What is owed, asking the PAYMENT ROWS when the order says nothing.
+    ///
+    /// The order is not the only record of what was taken. A COD advance is
+    /// collected through the gateway before the order is accepted, and there
+    /// is a paid row for it whether or not AdvancePaid ever made it onto the
+    /// order - which it does not when the order was placed before the advance
+    /// setting was turned on, or completed down the webhook-recovery path, or
+    /// any of the ways a field gets missed that a payment row does not.
+    ///
+    /// Only consulted when the order says zero, so it costs one indexed query
+    /// on the rare path and nothing at all on the normal one. An order that
+    /// names its own figure is believed: the gateway row for a prepaid order
+    /// is the same money, and asking twice would not change the answer.
+    /// </summary>
+    public static async Task<decimal> OwedAsync(AppDbContext db, SiteOrder order, CancellationToken ct = default)
+    {
+        var owed = OnlinePaidAmount(order);
+        if (owed > 0m) return owed;
+
+        var cfPaise = await db.CashfreeOrders
+            .Where(c => c.LocalOrderId == order.OrderId && c.Status == "paid")
+            .Select(c => (int?)c.AmountPaise)
+            .FirstOrDefaultAsync(ct) ?? 0;
+
+        var rpPaise = cfPaise > 0 ? 0 : await db.RazorpayOrders
+            .Where(r => r.LocalOrderId == order.OrderId && r.Status == "paid")
+            .Select(r => (int?)r.AmountPaise)
+            .FirstOrDefaultAsync(ct) ?? 0;
+
+        var fromGateway = (cfPaise > 0 ? cfPaise : rpPaise) / 100m;
+        if (fromGateway <= 0m) return 0m;
+
+        // Never more than the order was worth, and never the wallet part -
+        // that goes back through the wallet on its own.
+        var ceiling = Math.Max(0m, order.Total - order.WalletUsed);
+        return Math.Round(Math.Min(fromGateway, ceiling), 2);
+    }
+
     /// <returns>true when a row was written.</returns>
     public static async Task<bool> OpenAsync(
         AppDbContext db,
@@ -64,7 +103,7 @@ public static class RefundOpener
         AdminNotifier? notify = null,
         CancellationToken ct = default)
     {
-        var owed = OnlinePaidAmount(order);
+        var owed = await OwedAsync(db, order, ct);
         if (owed <= 0m) return false;
 
         // Already handled, or already being handled. A second save, two admins
@@ -92,7 +131,7 @@ public static class RefundOpener
             Note            = isCod
                 ? (order.DeliveredAt is not null
                     ? "Cash on delivery - she paid the courier at the door. Send it to her bank or her wallet."
-                    : "COD advance paid online before dispatch")
+                    : "The advance she paid online before dispatch. The parcel never reached her, so this is all the money that moved.")
                 : "Prepaid order, wallet part returned separately",
             CreatedAt       = DateTimeOffset.UtcNow,
         });

@@ -86,8 +86,35 @@ function onlinePaidAmount(order) {
   return paid > 0 ? round2(paid) : 0;
 }
 
+// ── RefundOpener.OwedAsync ───────────────────────────────────────────────
+//
+// "COD + grahak tak nahi pahuncha + RTO par bhi refund banega kyuki kuch amt
+// ham advance lete hai."
+//
+// Right, and the rule already said so - an advance of Rs 50 opens a refund of
+// Rs 50. What was missing is what happens when the ORDER says the advance was
+// zero. The order is not the only record of what was taken: the advance is
+// collected through the gateway before the order is accepted, and the paid
+// row for it survives whether or not AdvancePaid ever made it onto the order.
+//
+// Asked only when the order says nothing, so the normal path costs nothing.
+function owed(order, payments = []) {
+  const fromOrder = onlinePaidAmount(order);
+  if (fromOrder > 0) return fromOrder;
+
+  const paid = payments.find(p => p.orderId === order.orderId && p.status === 'paid');
+  if (!paid) return 0;
+
+  const ceiling = Math.max(0, order.total - order.walletUsed);
+  return round2(Math.min(paid.amountPaise / 100, ceiling));
+}
+
 const order = (over = {}) => ({
+  orderId: 'MFH17919491518985415',
   method: 'cashfree', total: 528, walletUsed: 0, advancePaid: 0, deliveredAt: null, ...over,
+});
+const payment = (over = {}) => ({
+  orderId: 'MFH17919491518985415', status: 'paid', amountPaise: 5000, ...over,
 });
 
 // ── the return modal's gates ─────────────────────────────────────────────
@@ -391,6 +418,51 @@ function refundMessage(o, owed, opened) {
   t('13f cash she handed over is named',
     refundMessage(codDelivered, onlinePaidAmount(codDelivered), true),
     'Rs.560.00 is now waiting under Refunds - send it to her bank or her wallet from there.');
+}
+
+// ═══ 14. The advance on a parcel that never arrived ═════════════════════
+//
+// His rule: a COD order that comes back still owes the advance he took before
+// dispatch. The order carrying its own figure is the normal case.
+{
+  const withAdvance = order({ method: 'cod', total: 319, advancePaid: 50 });
+  t('14a the order says 50, and 50 is owed', owed(withAdvance, []), 50);
+  t('14b no payment row is consulted when the order knows',
+    owed(withAdvance, [payment({ amountPaise: 99900 })]), 50);
+}
+
+// ═══ 15. The order says nothing and the gateway says otherwise ══════════
+//
+// An order that carries AdvancePaid = 0 and has a paid gateway row behind it:
+// placed before the advance setting was turned on, or completed down the
+// webhook-recovery path. Before this, the shop was told nothing was taken.
+{
+  const blank = order({ method: 'cod', total: 319, advancePaid: 0 });
+  t('15a the order alone says nothing', onlinePaidAmount(blank), 0);
+  t('15b the payment row says fifty', owed(blank, [payment()]), 50);
+
+  t('15c an unpaid attempt is not money',
+    owed(blank, [payment({ status: 'created' })]), 0);
+  t('15d nor is one against another order',
+    owed(blank, [payment({ orderId: 'MFH99999999999999999' })]), 0);
+  t('15e and with no rows at all, still nothing',
+    owed(blank, []), 0);
+
+  // Never more than the order was worth, whatever a stray row says.
+  t('15f capped at the order value',
+    owed(order({ method: 'cod', total: 319, advancePaid: 0 }), [payment({ amountPaise: 500000 })]), 319);
+  t('15g and the wallet part stays out of it',
+    owed(order({ method: 'cod', total: 319, walletUsed: 300, advancePaid: 0 }), [payment({ amountPaise: 500000 })]), 19);
+}
+
+// ═══ 16. A prepaid order is believed without asking ═════════════════════
+{
+  const prepaid = order({ total: 649 });
+  t('16a its own figure stands', owed(prepaid, [payment({ amountPaise: 100 })]), 649);
+  // The one that must still come out at zero: paid entirely from the wallet,
+  // with no gateway row, because there was no gateway payment.
+  t('16b a wallet-only order owes nothing',
+    owed(order({ total: 528, walletUsed: 528 }), []), 0);
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);
