@@ -1000,26 +1000,52 @@ export default function CheckoutPage() {
           .checkout-shipping-grid { grid-template-columns: minmax(0, 1fr) !important; }
           .checkout-pan-grid { grid-template-columns: minmax(0, 1fr) !important; }
           .checkout-summary { position: static !important; }
-          /* Order Summary first on a phone.
-             Stacked, the two columns came out as address, then Payment Method,
-             then the Pay button - and only THEN what she was buying and what
-             it came to. She was being asked to pay before the page had shown
-             her the total.
-             order:-1 lifts the summary to the top of the single column without
-             moving a line of markup, so the desktop two-column layout is
-             untouched: there the summary is the right-hand column and already
-             beside her all the way down.
-             The reading order becomes what she is buying, where it is going,
-             how she is paying - with the Pay button last, right where her
-             thumb finishes. */
-          .checkout-summary { order: -1; }
+
+          /* The order she reads it in:
+               Login, so the address fills itself
+               Shipping Details
+               Check delivery time for your pincode
+               Order Summary
+               Payment Method
+
+             Stacked, the two columns used to come out as the address, then
+             Payment Method, then the Pay button - and only THEN what she was
+             buying and what it came to. She was asked to pay before the page
+             had shown her the total.
+
+             order alone cannot fix that. The summary is a sibling of the
+             WHOLE left column, not of its parts, so it can sit above all of
+             it or below all of it and nowhere in between. display:contents
+             takes the column apart for the width of a phone: its cards become
+             grid items in their own right and can be ordered one by one
+             against the summary. No markup moves, so the desktop two-column
+             layout is exactly as it was.
+
+             Everything unnamed keeps order 0 and so keeps its place in the
+             source: the login box, the shipping card, the pincode check, the
+             PAN section. Only the last two are lifted out of that run. */
+          /* !important because the column carries an inline
+             display:flex, and an inline style beats a stylesheet rule.
+             Without it the rule is simply ignored: the measurement said
+             one column and order:4 on the summary, and the summary still
+             came out last - the cards were never grid items at all. */
+          .checkout-left { display: contents !important; }
+          .checkout-summary { order: 4; }
+          .checkout-payment { order: 5; }
+
+          /* Those cards were spaced by the left column's own 1.25rem. As grid
+             rows they would take the grid's 2rem, so the phone grid is told
+             the smaller figure and nothing moves apart. */
+          .checkout-outer-grid { gap: 1.25rem !important; }
         }
       ` }} />
       <h1 style={{ fontSize: '1.75rem', fontWeight: 700, marginBottom: '1.5rem', color: '#722f37' }}>Checkout</h1>
 
       <div className="checkout-outer-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 320px', gap: '2rem', alignItems: 'start' }}>
-        {/* Left: Shipping + Payment */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+        {/* Left: Shipping + Payment.
+            The class is what lets the phone take this box apart - see the
+            media query above. On a desktop it is an ordinary flex column. */}
+        <div className="checkout-left" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
           {!customer && (
             <div className="card" style={{ padding: '1rem 1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap', border: '1.5px solid #f3d5dc', background: '#fff8f9' }}>
               <div>
@@ -1152,7 +1178,7 @@ export default function CheckoutPage() {
           )}
 
           {/* Payment */}
-          <div className="card" style={{ padding: '1.5rem' }}>
+          <div className="card checkout-payment" style={{ padding: '1.5rem' }}>
             <h2 style={{ fontWeight: 700, fontSize: '1.1rem', marginBottom: '1rem' }}>Payment Method</h2>
 
             {/* Choose Pay Online vs Cash on Delivery */}
