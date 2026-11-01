@@ -399,12 +399,28 @@ export default function AdminOrdersPage() {
 
   const currentStatusTabs = mainTab === 'returns' ? RETURN_STATUS_TABS : ORDER_STATUS_TABS;
 
-  const mainFiltered = orders.filter(o =>
-    mainTab === 'returns' ? RETURN_STATUSES.includes(o.status) : !RETURN_STATUSES.includes(o.status)
-  );
+  // A courier filter searches EVERYTHING - both tabs, every status.
+  //
+  // The dashboard counts these boxes over every order the shop has. This
+  // screen was then splitting those same orders into Orders and Returns and
+  // showing one half, so "Failed delivery 1" led to "No orders in this
+  // queue": the parcel was in Return Transit, which lives under Returns, and
+  // a box that counts one thing must not land on a page that counts another.
+  //
+  // It is also the right answer on its own terms. "Delivery did not happen"
+  // is a question about what the courier last said, not about which of our
+  // queues the order is sitting in - and a parcel already on its way back is
+  // exactly the one worth seeing.
+  const mainFiltered = courierFilter
+    ? orders
+    : orders.filter(o =>
+        mainTab === 'returns' ? RETURN_STATUSES.includes(o.status) : !RETURN_STATUSES.includes(o.status)
+      );
 
   const tabFiltered = mainFiltered
-    .filter(o => tabAccepts(activeTab, o.status))
+    // The status tabs narrow within one queue, so they step aside for the
+    // same reason the queue does.
+    .filter(o => !!courierFilter || tabAccepts(activeTab, o.status))
     .filter(o => !courierFilter || followUpOf(o) === courierFilter);
 
   const filtered = tabFiltered.filter(o => {
@@ -662,6 +678,13 @@ export default function AdminOrdersPage() {
                         borderRadius: 10, padding: '.6rem .85rem', margin: '0 0 .8rem' }}>
             <span style={{ fontWeight: 800, color: g.colour, fontSize: '.88rem' }}>{g.label}</span>
             <span style={{ fontSize: '.8rem', color: '#8a7f76' }}>{g.why}</span>
+            {/* The count, said here, because this list ignores the tabs above
+                and their numbers no longer describe what is on screen. */}
+            <span style={{ fontSize: '.8rem', color: '#8a7f76' }}>
+              {tabFiltered.length === 0
+                ? 'Nothing matches right now.'
+                : `${tabFiltered.length} parcel${tabFiltered.length === 1 ? '' : 's'}, from orders and returns together.`}
+            </span>
             <button className="adm-btn" style={{ marginLeft: 'auto', padding: '.3rem .8rem', fontSize: '.8rem' }}
                     onClick={() => setCourierFilter('')}>
               Show every order

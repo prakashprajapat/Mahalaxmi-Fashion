@@ -432,7 +432,8 @@ public class OutreachController : ControllerBase
         if (string.IsNullOrWhiteSpace(templateId))
             return Ok(new { success = false, message = "No MSG91 flow id for this message in Settings yet." });
 
-        var (ok, detail) = await _sms.SendTemplateAsync(ten, templateId!, new[] { SiteAddress }, Vars());
+        var link = await SiteLinkAsync();
+        var (ok, detail) = await _sms.SendTemplateAsync(ten, templateId!, new[] { link }, Vars(link));
         if (!ok)
             return Ok(new { success = false, message = detail });
 
@@ -456,6 +457,7 @@ public class OutreachController : ControllerBase
         if (string.IsNullOrWhiteSpace(templateId))
             return Ok(new { success = false, message = "No MSG91 flow id for this message in Settings yet." });
 
+        var link = await SiteLinkAsync();
         var a = await AudienceAsync(who, req!.OptedInOnly, req.Resend);
         if (a.Send.Count == 0)
             return Ok(new
@@ -476,7 +478,7 @@ public class OutreachController : ControllerBase
         foreach (var batch in batchList.Chunk(100))
         {
             var numbers = batch.Select(p => p.Phone!).ToList();
-            var (ok, detail) = await _sms.SendCampaignBatchAsync(numbers, templateId!, Vars());
+            var (ok, detail) = await _sms.SendCampaignBatchAsync(numbers, templateId!, Vars(link));
             if (!ok)
             {
                 failed += batch.Length;
@@ -503,16 +505,36 @@ public class OutreachController : ControllerBase
         });
     }
 
-    /// The address the template's one variable fills in. Not a setting: the
-    /// shop has one website, and a wrong address in a promotional SMS is a
-    /// message that cost money and sends nobody anywhere.
-    private const string SiteAddress = "mahalaxmifashionhub.com";
+    /// <summary>
+    /// What the template's one variable is filled with.
+    ///
+    /// A setting rather than a constant, and for one reason: in India a URL in
+    /// an SMS has to be whitelisted on the DLT portal, and the operator
+    /// silently REMOVES one that does not match what is registered. The
+    /// message still arrives - it just ends "Visit:" and nothing, which is
+    /// exactly what the first send looked like. Whether the registered entry
+    /// is the bare domain or the full https://www. form is a question only the
+    /// DLT portal can answer, so the shop sets it here and can try the other
+    /// form in ten seconds instead of waiting for a deploy.
+    /// </summary>
+    public const string LinkSettingKey = "smsSiteLink";
+    private const string DefaultSiteLink = "https://www.mahalaxmifashionhub.com";
 
-    private static Dictionary<string, string> Vars() => new()
+    private async Task<string> SiteLinkAsync()
     {
-        ["var1"] = SiteAddress,
-        ["url"] = SiteAddress,
-        ["link"] = SiteAddress,
+        var set = (await _sms.SettingAsync(LinkSettingKey) ?? "").Trim();
+        return set.Length > 0 ? set : DefaultSiteLink;
+    }
+
+    /// Sent under every name the flow might be holding it under, for the same
+    /// reason the order templates are - a key that does not match is not an
+    /// error at MSG91's end, it is a blank space on somebody's phone.
+    private static Dictionary<string, string> Vars(string link) => new()
+    {
+        ["var1"] = link,
+        ["url"] = link,
+        ["link"] = link,
+        ["website"] = link,
     };
 
     private async Task RecordSmsAsync(string audience, int personId, string phone)
