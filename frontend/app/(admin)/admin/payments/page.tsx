@@ -172,6 +172,10 @@ export default function AdminPaymentsPage() {
         // Every line, not the three the screen shows: a spreadsheet has
         // room and is where somebody adds up how often one product is in a
         // cart that was never paid for.
+        // The SKUs on their own as well as inside the item text: a
+        // spreadsheet is where somebody sorts by product, and sorting on
+        // "ComfyMoments Women's 100 % Pure Cotton..." sorts on the brand.
+        SKUs: cartOf(r).map(l => l.sku).filter(Boolean).join('; '),
         Items: cartOf(r).map(lineText).join('; '),
         'Item count': cartOf(r).reduce((n, l) => n + (l.quantity || 1), 0) || '',
         'Order ID': r.orderId,
@@ -311,7 +315,7 @@ export default function AdminPaymentsPage() {
             <div className="adm-table-wrap">
               <table className="adm-table">
                 <thead><tr>
-                  <th>When</th><th>Transaction</th><th className="num">Amount</th>
+                  <th>When</th><th>SKU</th><th className="num">Amount</th>
                   <th>How</th><th>What happened</th><th>What they were buying</th>
                   <th>Customer</th><th>Order</th>
                 </tr></thead>
@@ -319,7 +323,20 @@ export default function AdminPaymentsPage() {
                   {rows.map((r, i) => (
                     <tr key={`${r.orderId}-${i}`}>
                       <td data-label="When">{when(r.createdAt)}</td>
-                      <td data-label="Transaction" className="mono">{r.transactionId || '—'}</td>
+                      <td data-label="SKU" className="mono">
+                        {/* One SKU per line, in the same order as the names
+                            beside them. A long product name wraps and its SKU
+                            does not, so on a cart of several the two columns
+                            can fall out of step - they stay in ORDER, which is
+                            how an invoice reads, and all but a handful of rows
+                            hold one item anyway. */}
+                        {cartOf(r).length === 0 ? '—' : cartOf(r).slice(0, SHOW_LINES).map((l, n) => (
+                          <span key={n} style={{ display: 'block', fontSize: '.78rem',
+                                                 lineHeight: 1.45, whiteSpace: 'nowrap' }}>
+                            {l.sku || '—'}
+                          </span>
+                        ))}
+                      </td>
                       <td data-label="Amount" className="num">
                         {money(r.amount)}
                         {r.walletUsed > 0 && (
