@@ -17,12 +17,14 @@ public class PopupLeadsController : ControllerBase
     private readonly AdminNotifier _notify;
     private readonly EmailService _email;
     private readonly ILogger<PopupLeadsController> _log;
-    public PopupLeadsController(AppDbContext db, AdminNotifier notify, EmailService email, ILogger<PopupLeadsController> log)
+    private readonly WelcomeOutreach _welcome;
+    public PopupLeadsController(AppDbContext db, AdminNotifier notify, EmailService email, ILogger<PopupLeadsController> log, WelcomeOutreach welcome)
     {
         _db = db;
         _notify = notify;
         _email = email;
         _log = log;
+        _welcome = welcome;
     }
 
 
@@ -90,13 +92,18 @@ public class PopupLeadsController : ControllerBase
         }
 
         {
-            _db.PopupLeads.Add(new PopupLead
+            // Held in a variable rather than added anonymously, because the
+            // welcome message below needs the row's id - and looking it back up
+            // by email-and-phone would be a second query answering a question
+            // SaveChanges has just answered.
+            var lead = new PopupLead
             {
                 Name   = req.Name?.Trim(),
                 Email  = email,
                 Phone  = phone,
                 Source = req.Source ?? "welcome_popup",
-            });
+            };
+            _db.PopupLeads.Add(lead);
             try
             {
                 await _db.SaveChangesAsync();
@@ -117,6 +124,18 @@ public class PopupLeadsController : ControllerBase
                     <p><strong>Email:</strong> {System.Net.WebUtility.HtmlEncode(req.Email ?? "")}</p>
                     <p><strong>Mobile:</strong> {System.Net.WebUtility.HtmlEncode(req.Phone ?? "")}</p>
                     <p><strong>Source:</strong> {System.Net.WebUtility.HtmlEncode(req.Source ?? "welcome_popup")}</p>"));
+
+            // And the lead's own welcome - the text, and the "come and have a
+            // look" email. Up to now this list got an admin notification and
+            // the person who filled the form got nothing at all until somebody
+            // opened the Popup Leads screen and pressed a button, which on a
+            // busy week is never. The moment a stranger hands over their number
+            // is the moment they are most interested, and it is the one moment
+            // nobody is at the admin panel.
+            //
+            // Queue() returns at once: the shopper's popup closes on its own
+            // answer, not on MSG91's.
+            _welcome.Queue("lead", lead.Id, lead.Name, lead.Email, lead.Phone);
         }
 
         return Ok(new { success = true });

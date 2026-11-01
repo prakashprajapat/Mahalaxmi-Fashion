@@ -204,6 +204,7 @@ const SECTIONS = [
       { key: 'msg91TplReview',       label: 'Review ask \u2014 flow id for template \"Review2\". Goes 1 hour after delivery, then twice more every 48 hours, and stops the moment a review arrives (variables: name, order_id, number)', type: 'text' },
       { key: 'smsSiteLink', label: 'Website link used in the offer SMS \u2014 it must match EXACTLY what is whitelisted on the DLT portal, or the operator removes the link and the message arrives ending \"Visit:\" with nothing after it. Leave blank for https://www.mahalaxmifashionhub.com.', type: 'text' },
       { key: 'msg91TplNewCollection', label: 'New collection offer \u2014 flow id for the promotional template (MFHBULK). This is the one the Popup Leads and Customers screens send to people who have never bought. One variable: the website address.', type: 'text' },
+      { key: 'welcomeOutreachEnabled', label: 'Automatic welcome \u2014 the offer SMS above, and the "come and have a look" email, sent by themselves the moment somebody fills the popup or makes an account. Once per number, ever. Nobody who ordered in the last 30 days or cancelled in the last 48 hours gets one. Type off to stop it; leave blank for on.', type: 'text' },
       { key: 'msg91TplUserDropped',  label: 'Payment not finished \u2014 flow id for template \"USER_DROPPED2\", sent 1 hour later, once per customer per day (variables: order_id, date, amount)', type: 'text' },
     ]
   },

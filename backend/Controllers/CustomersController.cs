@@ -27,8 +27,9 @@ public class CustomersController : ControllerBase
     private readonly AttemptLimiter _limit;
     private readonly TokenService _tokens;
     private readonly FeatureFlags _flags;
+    private readonly WelcomeOutreach _welcome;
 
-    public CustomersController(AppDbContext db, AuthService auth, IWebHostEnvironment env, EmailService email, SmsService sms, AdminNotifier notify, ILogger<CustomersController> log, WalletService wallet, AttemptLimiter limit, TokenService tokens, FeatureFlags flags)
+    public CustomersController(AppDbContext db, AuthService auth, IWebHostEnvironment env, EmailService email, SmsService sms, AdminNotifier notify, ILogger<CustomersController> log, WalletService wallet, AttemptLimiter limit, TokenService tokens, FeatureFlags flags, WelcomeOutreach welcome)
     {
         _db = db;
         _auth = auth;
@@ -41,6 +42,7 @@ public class CustomersController : ControllerBase
         _limit = limit;
         _tokens = tokens;
         _flags = flags;
+        _welcome = welcome;
     }
 
     // A signed-in shopper: a short-lived access token plus a refresh token that
@@ -857,8 +859,24 @@ public class CustomersController : ControllerBase
         // show it the second the profile exists, and in an email, so it is still
         // there tomorrow when they come back to spend it.
         var welcome = await WelcomeCouponAsync();
-        if (welcome is not null && !isAdminCreate)
-            SendWelcomeEmail(customer, welcome);
+        // The same three conditions SendWelcomeEmail itself applies, because
+        // "the coupon email went" is what decides whether a second email would
+        // be two in one minute - and that question has to be answered by what
+        // actually happened, not by what was intended.
+        var welcomeMailed = welcome is not null && !isAdminCreate
+                            && !string.IsNullOrWhiteSpace(customer.Email);
+        if (welcomeMailed)
+            SendWelcomeEmail(customer, welcome!);
+
+        // The automatic text, and the invite email if the coupon one did not
+        // go. Not for an account the shop typed in itself: that is the same
+        // line the welcome email draws, and the row button is there for when
+        // the shop does want to write to somebody it has just added.
+        if (!isAdminCreate)
+            _welcome.Queue("customer", customer.Id,
+                           $"{customer.FirstName} {customer.LastName}".Trim(),
+                           customer.Email, customer.Phone,
+                           emailAlreadySent: welcomeMailed);
 
         var signIn = await SignInAsync(customer);
         return Ok(new
@@ -1161,8 +1179,14 @@ public class CustomersController : ControllerBase
             welcome = await WelcomeCouponAsync();
             // The email only goes where there is an email. A mobile signup has
             // none yet; they see the code on screen instead.
-            if (welcome is not null && !string.IsNullOrWhiteSpace(customer.Email))
-                SendWelcomeEmail(customer, welcome);
+            var mailed = welcome is not null && !string.IsNullOrWhiteSpace(customer.Email);
+            if (mailed)
+                SendWelcomeEmail(customer, welcome!);
+
+            _welcome.Queue("customer", customer.Id,
+                           $"{customer.FirstName} {customer.LastName}".Trim(),
+                           customer.Email, customer.Phone,
+                           emailAlreadySent: mailed);
         }
 
         var signIn = await SignInAsync(customer);
@@ -1686,6 +1710,10 @@ public class CustomersController : ControllerBase
             };
             _db.Customers.Add(existing);
             await _db.SaveChangesAsync();
+
+            _welcome.Queue("customer", existing.Id,
+                           $"{existing.FirstName} {existing.LastName}".Trim(),
+                           existing.Email, existing.Phone);
         }
         else if (existing.AccountStatus != "active")
         {

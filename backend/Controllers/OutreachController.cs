@@ -433,7 +433,7 @@ public class OutreachController : ControllerBase
             return Ok(new { success = false, message = "No MSG91 flow id for this message in Settings yet." });
 
         var link = await SiteLinkAsync();
-        var (ok, detail) = await _sms.SendTemplateAsync(ten, templateId!, new[] { link }, Vars(link));
+        var (ok, detail) = await _sms.SendTemplateAsync(ten, templateId!, new[] { link }, LinkVars(link));
         if (!ok)
             return Ok(new { success = false, message = detail });
 
@@ -478,7 +478,7 @@ public class OutreachController : ControllerBase
         foreach (var batch in batchList.Chunk(100))
         {
             var numbers = batch.Select(p => p.Phone!).ToList();
-            var (ok, detail) = await _sms.SendCampaignBatchAsync(numbers, templateId!, Vars(link));
+            var (ok, detail) = await _sms.SendCampaignBatchAsync(numbers, templateId!, LinkVars(link));
             if (!ok)
             {
                 failed += batch.Length;
@@ -518,7 +518,7 @@ public class OutreachController : ControllerBase
     /// form in ten seconds instead of waiting for a deploy.
     /// </summary>
     public const string LinkSettingKey = "smsSiteLink";
-    private const string DefaultSiteLink = "https://www.mahalaxmifashionhub.com";
+    public const string DefaultSiteLink = "https://www.mahalaxmifashionhub.com";
 
     private async Task<string> SiteLinkAsync()
     {
@@ -529,7 +529,7 @@ public class OutreachController : ControllerBase
     /// Sent under every name the flow might be holding it under, for the same
     /// reason the order templates are - a key that does not match is not an
     /// error at MSG91's end, it is a blank space on somebody's phone.
-    private static Dictionary<string, string> Vars(string link) => new()
+    public static Dictionary<string, string> LinkVars(string link) => new()
     {
         ["var1"] = link,
         ["url"] = link,

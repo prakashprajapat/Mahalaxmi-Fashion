@@ -173,6 +173,9 @@ builder.Services.AddHostedService(sp => sp.GetRequiredService<InstagramSyncServi
 // "Run backup now" button can call exactly the same code path.
 builder.Services.AddSingleton<BackupService>();
 builder.Services.AddSingleton<AttemptLimiter>();
+// Singleton on purpose: it holds nothing but the scope factory, and the
+// work it does happens after the request that asked for it is gone.
+builder.Services.AddSingleton<WelcomeOutreach>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<BackupService>());
 
 // Return-media uploads: allow videos up to ~80 MB per file (Kestrel + multipart limits)
