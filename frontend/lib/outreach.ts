@@ -7,7 +7,7 @@
 // and writes it.
 
 export type Audience = 'customer' | 'lead';
-export type Channel = 'email' | 'whatsapp';
+export type Channel = 'email' | 'whatsapp' | 'sms';
 
 export interface SendRecord {
   sentAt: string;

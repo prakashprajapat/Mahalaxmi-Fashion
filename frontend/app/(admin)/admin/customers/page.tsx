@@ -7,6 +7,7 @@ import type { Customer } from '@/types';
 import { PageHeader, Card, Stat, StatGrid, Pill, Empty } from '@/components/admin/Ui';
 import DateFilter, { ANY_DATES, inDateWindow, describeDateWindow, type DateWindow } from '@/components/admin/DateFilter';
 import { WhatsAppSendButton } from '@/components/admin/WhatsAppSend';
+import { SmsSendButton, TextEveryoneButton } from '@/components/admin/NewCollectionSms';
 import { fetchSends, recordSend, sendKey, shortDate, type SendMap } from '@/lib/outreach';
 
 // The server hands out fifty at a time; the paging maths has to agree with it.
@@ -475,6 +476,8 @@ export default function AdminCustomersPage() {
                         <div className="adm-actions" style={{ flexWrap: 'wrap', margin: 0 }}>
                           <WhatsAppSendButton phone={c.phone} firstName={c.firstName}
                                               sentAt={whatsApped?.sentAt} onOpened={() => noteWhatsApp(c.id)} />
+                          <SmsSendButton audience="customer" personId={c.id} phone={c.phone}
+                                         sent={sends[sendKey(c.id, 'sms')]} onSent={reloadSends} />
                           {c.email
                             ? <button onClick={() => sendInvite(c)} disabled={inviting === c.id} style={{ color: '#a7354d' }}
                                       title={mailed ? `Mailed on ${shortDate(mailed.sentAt)} - click to send again` : 'Send the invite by email'}>

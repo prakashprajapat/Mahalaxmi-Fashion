@@ -201,6 +201,7 @@ const SECTIONS = [
       { key: 'msg91TplDelivered',    label: '\u2705 Delivered \u2014 flow id for template \"Deliverd\" (variables: name, order_id)', type: 'text' },
       { key: 'msg91TplRefund',       label: '\u21a9\ufe0f Returned / RTO \u2014 flow id for template \"Refund3\", sent only when money is owed back (variables: name, order_id, amount)', type: 'text' },
       { key: 'msg91TplReview',       label: '\u2b50 Review ask \u2014 flow id for template \"Review2\". Goes 1 hour after delivery, then twice more every 48 hours, and stops the moment a review arrives (variables: name, order_id, number)', type: 'text' },
+      { key: 'msg91TplNewCollection', label: 'New collection offer \u2014 flow id for the promotional template (MFHBULK). This is the one the Popup Leads and Customers screens send to people who have never bought. One variable: the website address.', type: 'text' },
       { key: 'msg91TplUserDropped',  label: '\ud83d\udcb3 Payment not finished \u2014 flow id for template \"USER_DROPPED2\", sent 1 hour later, once per customer per day (variables: order_id, date, amount)', type: 'text' },
     ]
   },

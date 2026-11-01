@@ -5,6 +5,7 @@ import { fetchAllPages, downloadCsv } from '@/lib/adminPaged';
 import { PageHeader, Card, Stat, StatGrid, Chips, Pill, Empty } from '@/components/admin/Ui';
 import DateFilter, { ANY_DATES, inDateWindow, describeDateWindow, type DateWindow } from '@/components/admin/DateFilter';
 import { WhatsAppSendButton } from '@/components/admin/WhatsAppSend';
+import { SmsSendButton, TextEveryoneButton } from '@/components/admin/NewCollectionSms';
 import { fetchSends, recordSend, sendKey, shortDate, type SendMap } from '@/lib/outreach';
 
 interface Lead {
@@ -227,6 +228,9 @@ export default function PopupLeadsPage() {
 
       <Card title={`${filtered.length} ${filtered.length === 1 ? 'lead' : 'leads'}${describeDateWindow(dates) ? ' \u00b7 ' + describeDateWindow(dates) : ''}`}>
         <p style={{ fontSize: '.75rem', color: '#8a7f76', margin: '0 0 .7rem' }}>
+          <div style={{ marginBottom: '.9rem' }}>
+            <TextEveryoneButton audience="lead" onDone={reloadSends} />
+          </div>
           WhatsApp opens with the message already written — just press Send. A tick means this
           person has been written to before; pressing again sends it a second time.
         </p>
@@ -290,6 +294,8 @@ export default function PopupLeadsPage() {
                         <div className="adm-actions" style={{ flexWrap: 'wrap', margin: 0 }}>
                           <WhatsAppSendButton phone={l.phone ?? undefined} firstName={(l.name ?? '').split(' ')[0] || undefined}
                                               sentAt={whatsApped?.sentAt} onOpened={() => noteWhatsApp(l.id)} />
+                          <SmsSendButton audience="lead" personId={l.id} phone={l.phone}
+                                         sent={sends[sendKey(l.id, 'sms')]} onSent={reloadSends} />
                           {l.email
                             ? <button onClick={() => sendInvite(l)} disabled={inviting === l.id} style={{ color: '#a7354d' }}
                                       title={mailed ? `Mailed on ${shortDate(mailed.sentAt)} - click to send again` : 'Send the invite by email'}>

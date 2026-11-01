@@ -313,6 +313,69 @@ public class SmsService
     public record BulkResult(bool Configured, int Sent, int Failed, string? Error);
 
     /// <summary>
+    /// One batch of up to 100 numbers, with a plain yes or no for that batch.
+    ///
+    /// SendBulkCampaignAsync below sends every batch and reports two totals,
+    /// which is all a campaign screen needs. It is not enough here: this send
+    /// writes down who was reached, so that nobody is texted twice and the tick
+    /// beside their name means something. Totals cannot say which hundred went
+    /// and which did not.
+    /// </summary>
+    public async Task<(bool Ok, string Detail)> SendCampaignBatchAsync(
+        IReadOnlyList<string> mobiles, string templateId, IReadOnlyDictionary<string, string>? vars)
+    {
+        var authKey = await Setting("msg91AuthKey");
+        var sender = await Setting("msg91SenderId");
+        if (string.IsNullOrWhiteSpace(sender)) sender = "MAHFHB";
+
+        if (string.IsNullOrWhiteSpace(authKey)) return (false, "MSG91 auth key is not set in Settings.");
+        if (string.IsNullOrWhiteSpace(templateId)) return (false, "No template id configured for this message.");
+
+        var list = mobiles.Select(NormalisePhone).Where(p => p.Length >= 12).Distinct().ToList();
+        if (list.Count == 0) return (false, "No valid recipients in this batch.");
+        if (list.Count > 100) return (false, "A batch is at most 100 numbers.");
+
+        try
+        {
+            using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+            var recipients = list.Select(phone =>
+            {
+                var d = new Dictionary<string, string> { ["mobiles"] = phone };
+                if (vars is not null)
+                    foreach (var kv in vars)
+                    {
+                        if (kv.Key.Equals("mobiles", StringComparison.OrdinalIgnoreCase)) continue;
+                        d[kv.Key] = kv.Value ?? "";
+                        d[kv.Key.ToUpperInvariant()] = kv.Value ?? "";
+                    }
+                return d;
+            }).ToArray();
+
+            var payload = new { template_id = templateId, sender, short_url = "0", recipients };
+            using var reqMsg = new HttpRequestMessage(HttpMethod.Post, "https://control.msg91.com/api/v5/flow/")
+            {
+                Content = new StringContent(System.Text.Json.JsonSerializer.Serialize(payload),
+                                            Encoding.UTF8, "application/json"),
+            };
+            reqMsg.Headers.Add("authkey", authKey);
+            reqMsg.Headers.Add("accept", "application/json");
+
+            var res = await http.SendAsync(reqMsg);
+            var body = await res.Content.ReadAsStringAsync();
+            var ok = res.IsSuccessStatusCode && body.Contains("success", StringComparison.OrdinalIgnoreCase);
+            if (!ok)
+                _logger.LogError("Campaign batch of {Count} refused ({Status}): {Body}",
+                    list.Count, (int)res.StatusCode, LogSafe.Body(body));
+            return (ok, ok ? "accepted" : $"MSG91 {(int)res.StatusCode}: {LogSafe.Body(body)}".Trim());
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Campaign batch of {Count} failed.", list.Count);
+            return (false, "Could not reach MSG91.");
+        }
+    }
+
+    /// <summary>
     /// Sends a bulk promotional SMS campaign via the MSG91 Flow API — entirely
     /// server-side, no MSG91 website needed. Recipients are sent in batches of 100.
     /// Uses a DLT-approved promotional template (templateId) and passes the given
