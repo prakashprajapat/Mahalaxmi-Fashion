@@ -267,6 +267,9 @@ public class OrdersController : ControllerBase
         [FromQuery] int pageSize = 50)
     {
         bool isAdmin = User.HasSectionAccess("orders", "reports", "reconcile");
+        // page=0 or a negative size would reach Skip() as a negative number and 500.
+        page = Math.Max(1, page);
+        pageSize = Math.Clamp(pageSize, 1, 500);
 
         // MISS-4 + PERF-1: Admin gets paginated results directly from DB
         if (isAdmin)

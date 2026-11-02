@@ -160,15 +160,30 @@ export const productsApi = {
 
 // ── Orders ───────────────────────────────────────────────────────────────────
 export const ordersApi = {
-  getAll: (params?: { customerId?: string; email?: string; phone?: string }, token?: string) => {
-    const qs = new URLSearchParams(
-      Object.entries(params ?? {}).filter(([, v]) => v).map(([k, v]) => [k, v!])
-    ).toString();
-    return request<{ success: boolean; orders: import('@/types').Order[] }>(
-      `/orders${qs ? '?' + qs : ''}`,
-      undefined,
-      token
-    );
+  // Every order, not the first page of them. The admin list is paged on the
+  // server (50 by default), and this used to ask for page 1 only: the Orders
+  // screen, the Dashboard and Reports would have quietly dropped every order
+  // after the 50th - and counted their totals without them - the day the shop
+  // passed 50 orders. So pages are fetched until `total` is reached. A customer's
+  // own list comes back whole, with no `total`, and stops after one call.
+  getAll: async (params?: { customerId?: string; email?: string; phone?: string }, token?: string) => {
+    type Page = { success: boolean; orders: import('@/types').Order[]; total?: number };
+    const base = Object.entries(params ?? {}).filter(([, v]) => v).map(([k, v]) => [k, v!] as [string, string]);
+    const pageSize = 200;
+    const fetchPage = (page: number) => {
+      const qs = new URLSearchParams([...base, ['page', String(page)], ['pageSize', String(pageSize)]]).toString();
+      return request<Page>(`/orders?${qs}`, undefined, token);
+    };
+    const first = await fetchPage(1);
+    const total = typeof first.total === 'number' ? first.total : first.orders.length;
+    const all = [...first.orders];
+    // Hard stop at 100 pages (20,000 orders) so a bad total can never loop forever.
+    for (let page = 2; all.length < total && page <= 100; page++) {
+      const next = await fetchPage(page);
+      if (!next.orders.length) break;
+      all.push(...next.orders);
+    }
+    return { success: first.success, orders: all };
   },
   getById: (id: string, token?: string) =>
     request<{ success: boolean; order: import('@/types').Order }>(`/orders/${id}`, undefined, token),
