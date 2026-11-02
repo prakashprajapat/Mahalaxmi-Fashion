@@ -1344,6 +1344,17 @@ public class OrdersController : ControllerBase
         // packing mistake, and the cheap place to catch it is here - the dear
         // place is a customer opening somebody else's parcel. The database has
         // a unique index on this too, so a race loses rather than slips through.
+        // A label is not a bag. Scanning the shipping label twice - once for the
+        // label, once where the bag should go - recorded the AWB as the bag
+        // (MFH17936284996362537: bag 55746510000825 = AWB 55746510000825), and
+        // the bag that parcel actually went into was never written down.
+        // Refuse any code that is an AWB or an order number, this one or another.
+        if (string.Equals(code, order.Awb, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(code, order.OrderId, StringComparison.OrdinalIgnoreCase)
+            || await _db.SiteOrders.AnyAsync(o => o.Awb == code || o.OrderId == code))
+            return BadRequest(new { success = false, message =
+                "That is a shipping label (AWB / order number), not a bag. Scan the code printed on the bag." });
+
         var clash = await _db.SiteOrders
             .FirstOrDefaultAsync(o => o.BagBarcode == code && o.OrderId != order.OrderId);
         if (clash is not null)

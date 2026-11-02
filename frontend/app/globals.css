@@ -740,6 +740,12 @@ button { cursor: pointer; font-family: inherit; }
 }
 .adm-grid { display: grid; gap: .75rem; grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .adm-grid-3 { display: grid; gap: .75rem; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+/* Cards in a grid line up. ".adm-card + .adm-card" spaces cards that stack one
+   under another; inside a grid it pushed every box after the first down by
+   .85rem, so the first box of every stat row stood taller than the rest
+   (Orders, Products, Stock, Categories, Reports, Dashboard). The grid's own gap
+   is the spacing here, and every box fills its row's height. */
+[class*="adm-grid"] > .adm-card { margin-top: 0; height: 100%; }
 @media (max-width: 1100px) { .adm-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .adm-grid-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 560px)  { .adm-grid, .adm-grid-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 

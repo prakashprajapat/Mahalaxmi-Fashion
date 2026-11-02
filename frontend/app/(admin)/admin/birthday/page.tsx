@@ -233,7 +233,7 @@ export default function BirthdayPage() {
     <div className="admin-page">
       <PageHeader
         title="Birthday &amp; anniversary offers"
-        sub="One offer per slab, as the date gets closer: 30 days, 15, 7, then the day itself. Each one sends a real SMS and an email, both carrying the same coupon code \u2014 and a customer with no number on file can still be sent the email on its own."
+        sub="One offer per slab, as the date gets closer: 30 days, 15, 7, then the day itself. Each one sends a real SMS and an email, both carrying the same coupon code — and a customer with no number on file can still be sent the email on its own."
         right={<button className="adm-btn" onClick={load}>Refresh</button>}
       />
 

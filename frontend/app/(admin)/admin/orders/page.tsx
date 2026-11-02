@@ -193,7 +193,10 @@ export default function AdminOrdersPage() {
   const [search, setSearch] = useState('');
   const [filterSize, setFilterSize] = useState('');
   const [filterColour, setFilterColour] = useState('');
-  const [dateFilter, setDateFilter] = useState('');
+  // A date RANGE, From and To, both optional: From alone is "since", To alone
+  // is "up to", both together is the range. It used to be one single day.
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   // Set only by the dashboard's courier boxes, and shown as a banner so a
   // short list always says why it is short.
   const [courierFilter, setCourierFilter] = useState<FollowUpKey | ''>('');
@@ -502,10 +505,12 @@ export default function AdminOrdersPage() {
     const matchPay = !filterPay || (o.method ?? '') === filterPay;
     // Compare against the order's LOCAL date (same as what the table shows), not the raw
     // UTC string — otherwise an order placed near midnight lands in the wrong day.
-    const matchDate = !dateFilter || (() => {
+    const matchDate = (!dateFrom && !dateTo) || (() => {
       const d = new Date(o.placedAt ?? o.createdAt);
       const local = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-      return local === dateFilter;
+      // Picked the wrong way round? Read it the way it was meant.
+      const [lo, hi] = dateFrom && dateTo && dateFrom > dateTo ? [dateTo, dateFrom] : [dateFrom, dateTo];
+      return (!lo || local >= lo) && (!hi || local <= hi);
     })();
     const matchSize = !filterSize ||
       (o.cart ?? []).some(c => (c.size ?? '').toLowerCase().includes(filterSize.toLowerCase()));
@@ -667,8 +672,8 @@ export default function AdminOrdersPage() {
   };
   const downloadShippingLabel = (order: Order) => downloadLabels([order]);
 
-  const anyFilter = Boolean(dateFilter || filterSize || filterColour || search || filterPay);
-  const clearFilters = () => { setDateFilter(''); setFilterSize(''); setFilterColour(''); setSearch(''); setFilterPay(''); };
+  const anyFilter = Boolean(dateFrom || dateTo || filterSize || filterColour || search || filterPay);
+  const clearFilters = () => { setDateFrom(''); setDateTo(''); setFilterSize(''); setFilterColour(''); setSearch(''); setFilterPay(''); };
   const allShownSelected = filtered.length > 0 && selectedIds.size === filtered.length;
 
   // Khaane ke naam par click karke tartib badalna. Sirf do khaane me iska matlab
@@ -818,7 +823,16 @@ export default function AdminOrdersPage() {
                  value={filterSize} onChange={e => setFilterSize(e.target.value)} />
           <input className="adm-input" style={{ width: '116px' }} placeholder="Colour"
                  value={filterColour} onChange={e => setFilterColour(e.target.value)} />
-          <input className="adm-input" type="date" value={dateFilter} onChange={e => setDateFilter(e.target.value)} />
+          <label style={{ display: 'inline-flex', alignItems: 'center', gap: '.35rem', fontSize: '.78rem', color: '#7d736d', fontWeight: 600 }}>
+            From
+            <input className="adm-input" type="date" value={dateFrom} max={dateTo || undefined}
+                   onChange={e => setDateFrom(e.target.value)} />
+          </label>
+          <label style={{ display: 'inline-flex', alignItems: 'center', gap: '.35rem', fontSize: '.78rem', color: '#7d736d', fontWeight: 600 }}>
+            To
+            <input className="adm-input" type="date" value={dateTo} min={dateFrom || undefined}
+                   onChange={e => setDateTo(e.target.value)} />
+          </label>
           {anyFilter && <button className="adm-btn" onClick={clearFilters}>Clear</button>}
           {activeTab === 'Ready for Shipping' && filtered.length > 0 && (
             <button className="adm-btn" onClick={() => openPicklist(filtered)}>Picklist ({filtered.length})</button>

@@ -262,7 +262,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     textTransform: 'uppercase', letterSpacing: '.5px', textAlign: 'left',
   });
 
-  const currentLabel = ALL_NAV.find(n => isActive(n))?.label?.replace(/^[^\s]+\s/, '') || 'Admin Panel';
+  // Drop a leading icon ("⇄ Exchanges") but never a word. The old pattern took
+  // whatever came before the first space, which was the emoji once; with plain
+  // labels it ate the first word - "Pack & Scan" showed as "& Scan", "Stock
+  // Manager" as "Manager", "Reports & GSTR-1" as "& GSTR-1".
+  const currentLabel = ALL_NAV.find(n => isActive(n))?.label?.replace(/^[^\p{L}\p{N}]+\s+/u, '') || 'Admin Panel';
 
   return (
     <div style={{ minHeight: '100vh', background: '#f5f5f5' }}>

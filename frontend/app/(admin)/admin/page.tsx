@@ -78,6 +78,25 @@ export default function AdminDashboard() {
   // covered in a warning about numbers that are all fine.
   const [celebrations, setCelebrations] = useState<Celebration[]>([]);
 
+  // Refresh tracking, here as on the Orders page: the parcels a courier picked up
+  // since the last 3-hourly sweep move to Transit (and the counts below with
+  // them) without opening Orders first.
+  const [syncing, setSyncing] = useState(false);
+  const reloadOrders = () =>
+    ordersApi.getAll(undefined, getAdminToken() ?? '')
+      .then(r => setOrders(r.orders))
+      .catch(() => { /* the counts already on screen stay */ });
+  const syncTracking = async () => {
+    setSyncing(true);
+    try {
+      const r = await ordersApi.syncTracking(getAdminToken() ?? '');
+      alert(r.message);
+      if (r.updated > 0) await reloadOrders();
+    } catch (e) {
+      alert('Could not reach Delhivery: ' + ((e as Error).message || 'unknown error'));
+    } finally { setSyncing(false); }
+  };
+
   useEffect(() => {
     const token = getAdminToken() ?? '';
     // allSettled: a staff account may lack permission for one of these, and one
@@ -150,11 +169,16 @@ export default function AdminDashboard() {
 
   return (
     <div className="admin-page">
-      <div className="admin-page-header">
-        <h1>Dashboard</h1>
-        <p className="admin-page-sub">
-          {new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}
-        </p>
+      <div className="admin-page-header" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
+        <div>
+          <h1>Dashboard</h1>
+          <p className="admin-page-sub">
+            {new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}
+          </p>
+        </div>
+        <button className="adm-btn" onClick={syncTracking} disabled={syncing}>
+          {syncing ? 'Asking Delhivery…' : 'Refresh tracking'}
+        </button>
       </div>
 
       {failed && (

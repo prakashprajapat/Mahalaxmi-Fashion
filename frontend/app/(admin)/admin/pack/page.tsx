@@ -99,9 +99,29 @@ export default function PackAndScanPage() {
     setBusy(true); setNote(null);
     try {
       const token = getAdminToken() ?? '';
-      const r = await ordersApi.getById(scanned, token);
+      // A bag code scanned here (bag first, or the wrong code) is not an order.
+      // Say so plainly instead of "No order matches", which reads like a
+      // broken label.
+      const notALabel = async () => {
+        try {
+          const h = await packApi.history(token, scanned, 5);
+          const isBag = (h.events ?? []).some(ev => (ev.bagBarcode ?? '').toLowerCase() === scanned.toLowerCase());
+          if (isBag) {
+            setNote({ kind: 'err', text: `${scanned} is a BAG code. Scan the shipping label (AWB) first, then the bag.` });
+            return true;
+          }
+        } catch { /* fall through to the plain message */ }
+        return false;
+      };
+      let r;
+      try { r = await ordersApi.getById(scanned, token); }
+      catch (e) { if (await notALabel()) return; throw e; }
       const o = r.order;
-      if (!o) { setNote({ kind: 'err', text: `No order matches ${scanned}.` }); return; }
+      if (!o) {
+        if (await notALabel()) return;
+        setNote({ kind: 'err', text: `No order matches ${scanned}.` });
+        return;
+      }
 
       if (o.bagBarcode) {
         setOrder(o);
@@ -118,6 +138,13 @@ export default function PackAndScanPage() {
   // ── Step 2: the bag ───────────────────────────────────────────────────────
   const saveBag = async (scanned: string) => {
     if (!order) return;
+    // The label scanned twice. The server refuses this too; saying it here is
+    // instant and keeps the parcel on screen so the bag can be scanned next.
+    const same = (x?: string | null) => !!x && x.trim().toLowerCase() === scanned.trim().toLowerCase();
+    if (same(order.awb) || same(order.id)) {
+      setNote({ kind: 'err', text: 'That is the shipping label again. Now scan the code printed on the BAG.' });
+      return;
+    }
     setBusy(true); setNote(null);
     const token = getAdminToken() ?? '';
     try {
@@ -385,7 +412,7 @@ export default function PackAndScanPage() {
             marginBottom: '.9rem', padding: '.7rem .8rem', borderRadius: 8,
             background: '#fff8e8', border: '1px solid #f0dcb0', fontSize: '.84rem', color: '#6b4e13',
           }}>
-            <strong>Undone \u2014 but these still stand:</strong>
+            <strong>Undone — but these still stand:</strong>
             <ul style={{ margin: '.4rem 0 0', paddingLeft: '1.1rem', lineHeight: 1.6 }}>
               {afterUndo.map((l, i) => <li key={i}>{l}</li>)}
             </ul>
@@ -411,18 +438,18 @@ export default function PackAndScanPage() {
                 </div>
 
                 <div style={{ fontSize: '.8rem', color: '#555', marginTop: '.25rem', lineHeight: 1.6 }}>
-                  {ev.bagBarcode && <>Bag <code>{ev.bagBarcode}</code>{ev.previousBag ? <> (was <code>{ev.previousBag}</code>)</> : null} \u00b7 </>}
-                  {ev.previousBag && !ev.bagBarcode && <>Bag <code>{ev.previousBag}</code> freed \u00b7 </>}
-                  {ev.awb && <>AWB {ev.awb} \u00b7 </>}
+                  {ev.bagBarcode && <>Bag <code>{ev.bagBarcode}</code>{ev.previousBag ? <> (was <code>{ev.previousBag}</code>)</> : null} · </>}
+                  {ev.previousBag && !ev.bagBarcode && <>Bag <code>{ev.previousBag}</code> freed · </>}
+                  {ev.awb && <>AWB {ev.awb} · </>}
                   {ev.who && <>by {ev.who}</>}
-                  {ev.note && <> \u00b7 {ev.note}</>}
+                  {ev.note && <> · {ev.note}</>}
                 </div>
 
                 <div style={{ fontSize: '.78rem', color: '#777', marginTop: '.2rem' }}>
                   {ev.previousStatus && ev.previousStatus !== ev.currentStatus
                     ? <>was &ldquo;{ev.previousStatus}&rdquo;, now &ldquo;{ev.currentStatus}&rdquo;</>
                     : <>now &ldquo;{ev.currentStatus}&rdquo;</>}
-                  {ev.hasInvoice && <> \u00b7 invoice issued</>}
+                  {ev.hasInvoice && <> · invoice issued</>}
                 </div>
 
                 {undoId === ev.id ? (
