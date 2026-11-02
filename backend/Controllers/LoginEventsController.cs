@@ -56,8 +56,8 @@ public class LoginEventsController : ControllerBase
 
         // Dates are India days: from 00:00 IST to the end of 'to' IST.
         var ist = TimeSpan.FromHours(5.5);
-        if (from is { } f) { var start = new DateTimeOffset(f.Date, ist).ToUniversalTime(); query = query.Where(e => e.CreatedAt >= start); }
-        if (to is { } t)   { var end = new DateTimeOffset(t.Date.AddDays(1), ist).ToUniversalTime(); query = query.Where(e => e.CreatedAt < end); }
+        if (from is { } f) { var start = new DateTimeOffset(DateTime.SpecifyKind(f.Date, DateTimeKind.Unspecified), ist).ToUniversalTime(); query = query.Where(e => e.CreatedAt >= start); }
+        if (to is { } t)   { var end = new DateTimeOffset(DateTime.SpecifyKind(t.Date.AddDays(1), DateTimeKind.Unspecified), ist).ToUniversalTime(); query = query.Where(e => e.CreatedAt < end); }
 
         if (!string.IsNullOrWhiteSpace(q))
         {
@@ -103,7 +103,7 @@ public class LoginEventsController : ControllerBase
         }
 
         // Quick counts over the same filter (without paging).
-        var todayStart = new DateTimeOffset(DateTime.UtcNow.Add(ist).Date, ist).ToUniversalTime();
+        var todayStart = new DateTimeOffset(DateTime.SpecifyKind(DateTime.UtcNow.Add(ist).Date, DateTimeKind.Unspecified), ist).ToUniversalTime();
         var summary = new
         {
             today  = await query.CountAsync(e => e.CreatedAt >= todayStart && e.Success),
