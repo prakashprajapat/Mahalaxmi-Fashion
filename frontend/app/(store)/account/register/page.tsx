@@ -270,7 +270,7 @@ export default function RegisterPage() {
                       placeholder="10-digit mobile" value={quickPhone} disabled={quickSent}
                       onChange={e => { setQuickPhone(e.target.value.replace(/\D/g, '').slice(0, 10)); setQuickMsg(null); }}
                       onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); if (!quickSent) quickSendOtp(); } }}
-                      style={{ flex: 1, height: 48, border: '1.5px solid #e4dcd8', borderRadius: 9,
+                      style={{ flex: 1, minWidth: 0, height: 48, border: '1.5px solid #e4dcd8', borderRadius: 9,
                                padding: '0 .9rem', fontSize: '.95rem', background: quickSent ? '#f6f3f2' : '#fff',
                                boxSizing: 'border-box', outline: 'none' }} />
                   </div>

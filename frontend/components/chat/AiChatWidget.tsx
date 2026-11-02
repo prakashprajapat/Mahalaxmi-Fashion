@@ -267,7 +267,7 @@ export default function AiChatWidget() {
               onKeyDown={e => { if (e.key === 'Enter') send(); }}
               placeholder="Type your question..."
               aria-label="Type your message"
-              style={{ flex: 1, border: '1.5px solid #e0d5d5', borderRadius: 20, padding: '.55rem .9rem', fontSize: '.86rem', outline: 'none' }}
+              style={{ flex: 1, minWidth: 0, border: '1.5px solid #e0d5d5', borderRadius: 20, padding: '.55rem .9rem', fontSize: '.86rem', outline: 'none' }}
             />
             <button onClick={() => send()} disabled={busy || !input.trim()} aria-label="Send"
               style={{ background: input.trim() && !busy ? BRAND : '#ccc', color: '#fff', border: 'none', borderRadius: '50%', width: 40, height: 40, cursor: input.trim() && !busy ? 'pointer' : 'default', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

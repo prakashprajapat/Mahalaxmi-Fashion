@@ -74,14 +74,14 @@ function FilterContent({
               style={{ position: 'absolute', width: '100%', zIndex: 4 }} />
           </div>
           <div style={{ display: 'flex', gap: '.5rem', alignItems: 'center' }}>
-            <div style={{ flex: 1, border: '1.5px solid #ddd', borderRadius: 7, padding: '.32rem .5rem', display: 'flex', alignItems: 'center', gap: '.2rem' }}>
+            <div style={{ flex: 1, minWidth: 0, border: '1.5px solid #ddd', borderRadius: 7, padding: '.32rem .5rem', display: 'flex', alignItems: 'center', gap: '.2rem' }}>
               <span style={{ color: '#999', fontSize: '.78rem' }}>₹</span>
               <input type="number" value={priceMin}
                 onChange={e => setPriceMin(Math.max(globalMin, Math.min(+e.target.value, priceMax - 1)))}
                 style={{ border: 'none', outline: 'none', width: '100%', fontSize: '.82rem', color: '#333' }} />
             </div>
             <span style={{ color: '#ccc', fontSize: '.75rem' }}>–</span>
-            <div style={{ flex: 1, border: '1.5px solid #ddd', borderRadius: 7, padding: '.32rem .5rem', display: 'flex', alignItems: 'center', gap: '.2rem' }}>
+            <div style={{ flex: 1, minWidth: 0, border: '1.5px solid #ddd', borderRadius: 7, padding: '.32rem .5rem', display: 'flex', alignItems: 'center', gap: '.2rem' }}>
               <span style={{ color: '#999', fontSize: '.78rem' }}>₹</span>
               <input type="number" value={priceMax}
                 onChange={e => setPriceMax(Math.min(globalMax, Math.max(+e.target.value, priceMin + 1)))}

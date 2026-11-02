@@ -39,9 +39,9 @@ export default function PincodeChecker() {
           onChange={e => { setPin(e.target.value.replace(/\D/g, '').slice(0, 6)); setResult(null); }}
           onKeyDown={e => { if (e.key === 'Enter') check(); }}
           placeholder="6-digit pincode"
-          style={{ flex: 1, border: '1.5px solid #e6dcdc', borderRadius: 8, padding: '.6rem .8rem', fontSize: '.9rem', outline: 'none' }} />
+          style={{ flex: 1, minWidth: 0, width: '100%', border: '1.5px solid #e6dcdc', borderRadius: 8, padding: '.6rem .8rem', fontSize: '.9rem', outline: 'none' }} />
         <button type="button" onClick={check} disabled={checking}
-          style={{ background: '#722f37', color: '#fff', border: '1px solid rgba(201,162,75,.5)', borderRadius: 8, padding: '0 1.2rem', fontWeight: 700, fontSize: '.85rem', cursor: 'pointer', opacity: checking ? .6 : 1 }}>
+          style={{ flexShrink: 0, whiteSpace: 'nowrap', background: '#722f37', color: '#fff', border: '1px solid rgba(201,162,75,.5)', borderRadius: 8, padding: '0 1.2rem', fontWeight: 700, fontSize: '.85rem', cursor: 'pointer', opacity: checking ? .6 : 1 }}>
           {checking ? '…' : 'Check'}
         </button>
       </div>
