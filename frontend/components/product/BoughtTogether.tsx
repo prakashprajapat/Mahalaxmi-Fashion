@@ -9,6 +9,14 @@ import type { Product } from '@/types';
 const money = (n: number) => '₹' + Math.round(n).toLocaleString('en-IN');
 const priceOf = (p: Product) => (p.discountPrice && p.discountPrice > 0 ? p.discountPrice : p.price);
 
+// The sizes a product is sold in, read the same way the product page reads them.
+const sizesOf = (p: Product): string[] => {
+  let ex: { sizes?: string[]; variantMatrix?: Record<string, unknown> } = {};
+  try { ex = JSON.parse(p.extraJson ?? '{}'); } catch { ex = {}; }
+  const list = ex.sizes ?? (ex.variantMatrix ? Object.keys(ex.variantMatrix).map(k => k.split('|')[0]) : []);
+  return [...new Set(list.filter(Boolean))];
+};
+
 // "Add these together" — this product plus two that go with it.
 //
 // Not the same thing as the row of suggestions further down the page. That one
@@ -23,7 +31,15 @@ const priceOf = (p: Product) => (p.discountPrice && p.discountPrice > 0 ? p.disc
 // silently vanish from the bill. The shop's own "add-ons" field — a typed name
 // and price, with no product behind it — cannot go in a cart for exactly that
 // reason, and pretending otherwise would undercharge every order that used it.
-export default function BoughtTogether({ product }: { product: Product }) {
+// A companion goes in the basket from a checkbox, with no size picker, so only
+// products that come in one size (or none) are offered. A kurti sold XS-3XL
+// used to be added with no size at all, and the order reached the packer
+// saying nothing about what to send.
+//
+// The product on this page goes in with the size and colour already chosen
+// above - not bare, which is how it used to arrive.
+export default function BoughtTogether({ product, selectedSize, selectedColor }:
+  { product: Product; selectedSize?: string; selectedColor?: string }) {
   const [mates, setMates] = useState<Product[]>([]);
   const [picked, setPicked] = useState<Set<number>>(new Set());
   const [added, setAdded] = useState(false);
@@ -36,12 +52,13 @@ export default function BoughtTogether({ product }: { product: Product }) {
       : productsApi.getAll({ category: product.category, pageSize: 12 });
 
     ask.then(async r => {
-      let pool = (r.products ?? []).filter(p => p.dbId !== product.dbId && p.stock !== 'Out of Stock');
+      const fits = (p: Product) => p.dbId !== product.dbId && p.stock !== 'Out of Stock' && sizesOf(p).length <= 1;
+      let pool = (r.products ?? []).filter(fits);
       // A subcategory with nothing else in it falls back to the category, so a
       // lone product in its own niche still gets a pair rather than an empty box.
       if (pool.length < 2 && sub) {
         const wider = await productsApi.getAll({ category: product.category, pageSize: 12 }).catch(() => null);
-        pool = (wider?.products ?? []).filter(p => p.dbId !== product.dbId && p.stock !== 'Out of Stock');
+        pool = (wider?.products ?? []).filter(fits);
       }
       if (alive) setMates(pool.slice(0, 2));
     }).catch(() => {});
@@ -65,8 +82,8 @@ export default function BoughtTogether({ product }: { product: Product }) {
     // This product is always part of the set — the button says "add these
     // together", and leaving the one they came for out of the basket is the
     // surprise nobody wants at checkout.
-    addToCart(product, 1);
-    chosen.forEach(m => addToCart(m, 1));
+    addToCart(product, 1, selectedSize || undefined, selectedColor || undefined);
+    chosen.forEach(m => addToCart(m, 1, sizesOf(m)[0]));
     setAdded(true);
     setTimeout(() => setAdded(false), 2500);
   };

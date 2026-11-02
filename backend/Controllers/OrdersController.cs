@@ -348,7 +348,7 @@ public class OrdersController : ControllerBase
                 || (!string.IsNullOrEmpty(acctPhone) && orderPhone == acctPhone);
         }).ToList();
 
-        return Ok(new { success = true, orders = mine.Select(o => MapOrder(o)) });
+        return Ok(new { success = true, orders = mine.Select(o => MapOrder(o) with { ReturnOtp = null, ReturnOtpAt = null }) });
     }
 
     // Reduce any phone string to its last 10 digits so "+91 94294 29880",
@@ -389,6 +389,10 @@ public class OrdersController : ControllerBase
         }
 
         var dto = MapOrder(order);
+        // The return OTP is the shop's, for handing over to the courier - not
+        // the customer's, even on their own order.
+        if (!User.HasSectionAccess("orders"))
+            dto = dto with { ReturnOtp = null, ReturnOtpAt = null };
         if (!full)
         {
             // Strip everything except what the public tracking view needs.
@@ -1865,7 +1869,7 @@ public class OrdersController : ControllerBase
         }
 
         if (order.Status == "Cancel Requested")
-            return Ok(new { success = true, order = MapOrder(order), message = "Cancel request already submitted." });
+            return Ok(new { success = true, order = MapOrder(order) with { ReturnOtp = null, ReturnOtpAt = null }, message = "Cancel request already submitted." });
 
         if (!new[] { "Order Received", "Pending", "Pending confirmation" }.Contains(order.Status))
             return BadRequest(new { success = false, message = "This order can no longer be cancelled online." });
@@ -1883,7 +1887,7 @@ public class OrdersController : ControllerBase
         order.UpdatedAt = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync();
 
-        return Ok(new { success = true, order = MapOrder(order) });
+        return Ok(new { success = true, order = MapOrder(order) with { ReturnOtp = null, ReturnOtpAt = null } });
     }
 
     // POST /api/orders/{orderId}/return  (Customer return request, allowed within 7 days of delivery)
@@ -1921,7 +1925,7 @@ public class OrdersController : ControllerBase
         }
 
         if (order.Status == "Return Requested")
-            return Ok(new { success = true, order = MapOrder(order), message = "Return request already submitted." });
+            return Ok(new { success = true, order = MapOrder(order) with { ReturnOtp = null, ReturnOtpAt = null }, message = "Return request already submitted." });
 
         if (order.Status != "Delivered")
             return BadRequest(new { success = false, message = "Only delivered orders can be returned." });
@@ -1981,7 +1985,7 @@ public class OrdersController : ControllerBase
         }
         catch { /* alert is best-effort */ }
 
-        return Ok(new { success = true, order = MapOrder(order) });
+        return Ok(new { success = true, order = MapOrder(order) with { ReturnOtp = null, ReturnOtpAt = null } });
     }
 
     // A return media URL is only ever one this server handed out.
@@ -2736,6 +2740,37 @@ public class OrdersController : ControllerBase
         return Ok(new { success = true, awb = result.Awb, order = MapOrder(order), pickupMessage });
     }
 
+    // PATCH /api/orders/{orderId}/return-otp  (Admin)
+    //
+    // Delhivery hands the returning parcel back only against an OTP, and its
+    // API does not give that OTP out - it is on Delhivery One and in the SMS.
+    // Staff type it in here so whoever is at the counter can read it off the
+    // Returns tab. A new OTP simply replaces the old one; an empty value clears it.
+    [HttpPatch("{orderId}/return-otp")]
+    [Authorize]
+    [RequirePerm("orders")]
+    public async Task<IActionResult> SetReturnOtp(string orderId, [FromBody] ReturnOtpRequest req)
+    {
+        var order = await _db.SiteOrders.FirstOrDefaultAsync(o => o.OrderId == orderId);
+        if (order is null)
+            return NotFound(new { success = false, message = "Order not found." });
+        if (!order.Status.StartsWith("Return", StringComparison.OrdinalIgnoreCase))
+            return BadRequest(new { success = false, message = "A return OTP can only be saved on a returning order." });
+
+        var otp = new string((req.Otp ?? "").Where(char.IsDigit).ToArray());
+        if (otp.Length != 0 && (otp.Length < 4 || otp.Length > 8))
+            return BadRequest(new { success = false, message = "The OTP should be 4 to 8 digits." });
+
+        order.ReturnOtp = otp.Length == 0 ? null : otp;
+        order.ReturnOtpAt = otp.Length == 0 ? null : DateTimeOffset.UtcNow;
+        order.UpdatedAt = DateTimeOffset.UtcNow;
+        await _db.SaveChangesAsync();
+        _log.LogInformation("Return OTP on order {OrderId} {Action} by {Who}.",
+            order.OrderId, otp.Length == 0 ? "cleared" : "updated", Actor());
+
+        return Ok(new { success = true, order = MapOrder(order) });
+    }
+
     // Statuses in which a forward waybill may still be cancelled. Once the
     // parcel is picked up Delhivery refuses anyway, but asking only here keeps
     // a return or a delivered order from ever showing the button.
@@ -2991,7 +3026,9 @@ public class OrdersController : ControllerBase
             BagBarcode: o.BagBarcode,
             CourierStatus: o.CourierStatus,
             CourierNote: o.CourierNote,
-            CourierSeenAt: o.CourierSeenAt
+            CourierSeenAt: o.CourierSeenAt,
+            ReturnOtp: o.ReturnOtp,
+            ReturnOtpAt: o.ReturnOtpAt
         );
     }
 }

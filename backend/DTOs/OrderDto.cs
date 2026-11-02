@@ -77,7 +77,9 @@ public record OrderDto(
     string? BagBarcode = null,
     string? CourierStatus = null,
     string? CourierNote = null,
-    DateTimeOffset? CourierSeenAt = null
+    DateTimeOffset? CourierSeenAt = null,
+    string? ReturnOtp = null,
+    DateTimeOffset? ReturnOtpAt = null
 );
 
 public record PlaceOrderRequest(
@@ -123,3 +125,4 @@ public record AdminUpdateOrderRequest(
 // What the packing bench scans off the thaili. One field, because that is all
 // a scanner gun sends.
 public record BagBarcodeRequest(string? Barcode);
+public record ReturnOtpRequest(string? Otp);

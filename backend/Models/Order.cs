@@ -98,6 +98,15 @@ public class SiteOrder
     [Column("bag_barcode")]
     public string? BagBarcode { get; set; }
 
+    /// The OTP Delhivery's rider asks for when a returning parcel is handed back
+    /// to the shop. Typed in by staff from Delhivery One / SMS - the courier's
+    /// API does not give it out. Staff-only: never sent to a customer.
+    [Column("return_otp")]
+    public string? ReturnOtp { get; set; }
+
+    [Column("return_otp_at")]
+    public DateTimeOffset? ReturnOtpAt { get; set; }
+
     /// <summary>
     /// What the courier last said about this parcel, kept verbatim.
     ///

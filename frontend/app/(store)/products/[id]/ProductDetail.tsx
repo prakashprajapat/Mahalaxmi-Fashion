@@ -1200,7 +1200,7 @@ export default function ProductDetail({ params, initialProduct = null }: { param
 
       {/* You may also like — same-category cross-sell + internal linking */}
       <div style={{ maxWidth: '1080px', margin: '0 auto', padding: '0 1.5rem' }}>
-        <BoughtTogether product={product} />
+        <BoughtTogether product={product} selectedSize={size} selectedColor={color} />
       </div>
 
       <RelatedProducts category={product.category} currentId={product.dbId} />

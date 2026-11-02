@@ -129,6 +129,9 @@ export interface Order {
   courierStatus?: string | null;
   courierNote?: string | null;
   courierSeenAt?: string | null;
+  // Delhivery's OTP for handing a returning parcel back to the shop (staff only).
+  returnOtp?: string | null;
+  returnOtpAt?: string | null;
   // When the invoice number was issued, and so the invoice's own date. Falls
   // back to placedAt for orders invoiced before this was recorded.
   invoicedAt?: string | null;

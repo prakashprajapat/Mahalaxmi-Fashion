@@ -270,6 +270,11 @@ export const ordersApi = {
     request<{ success: boolean; awb?: string; order?: import('@/types').Order; message?: string }>(
       `/orders/${orderId}/generate-awb`, { method: 'POST' }, token
     ),
+  // Save (or clear, with '') the OTP Delhivery asks for when a return is handed back.
+  setReturnOtp: (orderId: string, otp: string, token: string) =>
+    request<{ success: boolean; order: import('@/types').Order }>(
+      `/orders/${orderId}/return-otp`, { method: 'PATCH', body: JSON.stringify({ otp }) }, token
+    ),
   // Cancel the order's forward AWB at Delhivery (step 1 of replacing it).
   cancelAwb: (orderId: string, token: string) =>
     request<{ success: boolean; message?: string; order: import('@/types').Order }>(

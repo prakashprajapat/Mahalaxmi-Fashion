@@ -1098,6 +1098,13 @@ using (var scope = app.Services.CreateScope())
         ALTER TABLE site_orders ADD COLUMN IF NOT EXISTS invoiced_at TIMESTAMPTZ;
         ALTER TABLE site_orders ADD COLUMN IF NOT EXISTS bag_barcode VARCHAR(64);
 
+        -- The OTP Delhivery asks for when a returning parcel is handed back to
+        -- the shop. Delhivery's API does not expose it (only Delhivery One and
+        -- the SMS do), so staff type it in on the Returns tab. Nullable, so the
+        -- version still running during a deploy is unaffected.
+        ALTER TABLE site_orders ADD COLUMN IF NOT EXISTS return_otp VARCHAR(12);
+        ALTER TABLE site_orders ADD COLUMN IF NOT EXISTS return_otp_at TIMESTAMPTZ;
+
         -- What the courier last said, kept beside what WE say. Our status
         -- answers where an order is in the shop process; these answer which
         -- parcels are on a van today and which customers the courier has

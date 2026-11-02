@@ -270,9 +270,20 @@ public class ProductsController : ControllerBase
         if (_cache.TryGetValue(cacheKey, out object? cached) && cached is not null)
             return Ok(cached);
 
-        var items = await _db.Products
-            .Where(p => p.StockStatus != "Inactive" && p.StockStatus != "Draft")
-            .ToListAsync();
+        // The whole live catalogue is scored on every search, so it is loaded once
+        // a minute and shared, not fetched per query. Search-as-you-type sends a
+        // new query on every letter, and each one used to pull every product -
+        // descriptions, extraJson and all - out of the database again: about
+        // 1.5 s per keystroke. Read-only (AsNoTracking): nothing here is saved.
+        // The key carries _cacheVer, so BustCache() after a product edit starts
+        // a fresh list at once.
+        var items = await _cache.GetOrCreateAsync($"search_pool_v{_cacheVer}", async entry =>
+        {
+            entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(60);
+            return await _db.Products.AsNoTracking()
+                .Where(p => p.StockStatus != "Inactive" && p.StockStatus != "Draft")
+                .ToListAsync();
+        }) ?? new List<Product>();
 
         // A product code is either right or it is not.
         //

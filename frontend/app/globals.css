@@ -2597,3 +2597,17 @@ body.has-pdp-bar { padding-bottom: 92px; }
 }
 .shop-tag-in::placeholder { color: #b5aba6; font-style: italic; }
 .shop-tag-note { font-size: .72rem; color: #9a908a; line-height: 1.5; flex: 1 1 260px; min-width: 0; }
+
+/* iPhone Safari zooms the whole page in when a text box under 16px gets focus,
+   and does not zoom back out - the shopper has to pinch to see the page again.
+   The header search (14.7px), the pincode box (14.4px) and the welcome popup's
+   fields (15.2px) all did it, each sized inline in its own component, so one
+   rule here covers them and any box added later. Touch devices only, so the
+   desktop layout is untouched. */
+@media (max-width: 768px) and (pointer: coarse) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}

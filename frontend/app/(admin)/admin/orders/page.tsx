@@ -394,6 +394,23 @@ export default function AdminOrdersPage() {
     setNewCount(r.count);
   }, { everyMs: 30_000 });
 
+  // ── Return OTP ──
+  // Delhivery gives the return-handover OTP only on Delhivery One and by SMS,
+  // so staff type it in here; a new OTP replaces the old one.
+  const editReturnOtp = async (o: Order) => {
+    const entered = prompt(
+      `Return OTP for ${o.id}${o.awb ? ` (AWB ${o.awb})` : ''}\n\nType the OTP from Delhivery One / SMS. Leave empty to clear it.`,
+      o.returnOtp ?? '',
+    );
+    if (entered === null) return;
+    try {
+      const r = await ordersApi.setReturnOtp(o.id, entered.trim(), getAdminToken() ?? '');
+      if (r.order) setOrders(prev => prev.map(x => (x.id === o.id ? r.order : x)));
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Could not save the OTP.');
+    }
+  };
+
   // ── AWB Cancel -> Delete ──
   // Cancel asks Delhivery to cancel the waybill. Once Delhivery shows it as
   // cancelled the same spot offers Delete, which asks Delhivery again before
@@ -1043,6 +1060,17 @@ export default function AdminOrdersPage() {
                                   <a href={waCustomerLink(o.customerPhone, o.customerName, o.id, o.total, o.awb, 'chat')} target="_blank" rel="noopener noreferrer" style={waItemStyle}>Open chat</a>
                                 </div>
                               </details>
+                            )}
+                            {(o.status === 'Return Requested' || o.status === 'Return Transit') && (
+                              <button onClick={() => editReturnOtp(o)}
+                                      title={o.returnOtpAt
+                                        ? `Updated ${new Date(o.returnOtpAt).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}`
+                                        : 'Add the OTP from Delhivery One / SMS'}
+                                      style={{ color: '#1565c0', fontWeight: 700 }}>
+                                {o.returnOtp
+                                  ? `OTP ${o.returnOtp}${o.returnOtpAt ? ` \u00b7 ${new Date(o.returnOtpAt).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}` : ''}`
+                                  : '+ Return OTP'}
+                              </button>
                             )}
                             {RETURN_STATUSES.includes(o.status) && (
                               <button onClick={() => { setShowReject(false); setRejectReason(''); setReturnModalId(o.id); }}
