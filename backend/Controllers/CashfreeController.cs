@@ -470,6 +470,34 @@ public class CashfreeController : ControllerBase
                     // the wallet part is recorded so the amount collected reconciles.
                     var fullTotal = order.FullTotal > 0 ? order.FullTotal : order.AmountPaise / 100m;
 
+                    // Was this the WHOLE order, or a Cash on Delivery advance?
+                    //
+                    // This block used to write every recovered order as
+                    // Method "cashfree", Status "Paid", Total the full
+                    // catalogue value - and never touched AdvancePaid. So a
+                    // COD order whose Rs 100 advance went through, and whose
+                    // browser did not get back to PlaceOrder, was written down
+                    // as a prepaid order for Rs 599. The courier would be
+                    // handed a parcel marked paid and told to collect nothing.
+                    // MFH17935926277716384 is exactly that order.
+                    //
+                    // The amounts already answer it, and create-order enforces
+                    // that they do: an advance is refused there unless it
+                    // matches the shop's own codAdvanceAmount, and a prepaid
+                    // order is refused unless it covers the catalogue floor.
+                    //
+                    //   advance   AmountPaise is the advance, FullTotal the order
+                    //   prepaid   AmountPaise is FullTotal less the wallet part
+                    //
+                    // One rupee of slack, so rounding is never read as a gap.
+                    // The test can only move an order the SAFE way - a wrongly
+                    // prepaid order becomes COD, never the reverse - because
+                    // reading a genuine prepaid order as an advance would tell
+                    // the courier to collect money already paid.
+                    var paidNow = order.AmountPaise / 100m;
+                    var wasDue = fullTotal - order.WalletUsed;
+                    var isCodAdvance = paidNow + 1m < wasDue;
+
                     // Price it from OUR catalogue, and spend the coupon.
                     //
                     // This row used to be written with the browser's own
@@ -567,8 +595,11 @@ public class CashfreeController : ControllerBase
                     _db.SiteOrders.Add(new SiteOrder
                     {
                         OrderId      = localId,
-                        Method       = "cashfree",
-                        Status       = "Paid",
+                        // A COD order that paid its advance is still a COD
+                        // order: "Pending" is the status PlaceOrder gives it,
+                        // and the courier has the rest to collect.
+                        Method       = isCodAdvance ? "cod" : "cashfree",
+                        Status       = isCodAdvance ? "Pending" : "Paid",
                         PaymentId    = cfPaymentId,
                         Subtotal     = goods,
                         ShippingCost = 0m,
@@ -577,6 +608,11 @@ public class CashfreeController : ControllerBase
                         DiscountAmount = discount,
                         Total        = recoveredTotal,
                         WalletUsed   = order.WalletUsed,
+                        // What actually moved online. OrdersController works
+                        // out what the courier collects as
+                        // Total - WalletUsed - AdvancePaid, so leaving this at
+                        // zero on a COD order is the Rs 499 going missing.
+                        AdvancePaid  = isCodAdvance ? paidNow : 0m,
                         CartJson     = order.CartJson,
                         CustomerJson = recoveredCustomerJson,
                         ShippingJson = order.ShippingJson,
