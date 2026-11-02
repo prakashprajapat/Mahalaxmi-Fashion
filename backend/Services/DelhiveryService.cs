@@ -114,6 +114,72 @@ public class DelhiveryService
         }
     }
 
+    public record CancelResult(bool Success, string? Message);
+
+    /// <summary>
+    /// Cancels a FORWARD shipment at Delhivery (the same thing as "Cancel" on
+    /// Delhivery One). Only works before pickup; after that Delhivery refuses and
+    /// the message it gives is passed back unchanged so the shop can read why.
+    /// </summary>
+    public async Task<CancelResult> CancelShipmentAsync(string awb)
+    {
+        var cfg = await SettingsAsync();
+        var token = cfg.TryGetValue("delhivery_token", out var t) ? (t ?? "").Trim() : "";
+        if (string.IsNullOrEmpty(token))
+            return new(false, "Delhivery not configured. Add 'delhivery_token' in Settings, or cancel on Delhivery One.");
+
+        try
+        {
+            var client = _http.CreateClient("delhivery");
+            using var reqMsg = new HttpRequestMessage(HttpMethod.Post, "https://track.delhivery.com/api/p/edit");
+            reqMsg.Headers.TryAddWithoutValidation("Authorization", $"Token {token}");
+            reqMsg.Headers.TryAddWithoutValidation("Accept", "application/json");
+            reqMsg.Content = new StringContent(
+                JsonSerializer.Serialize(new { waybill = awb, cancellation = "true" }),
+                Encoding.UTF8, "application/json");
+
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+            var resp = await client.SendAsync(reqMsg, cts.Token);
+            var text = await resp.Content.ReadAsStringAsync(cts.Token);
+
+            string? remark = null;
+            var ok = false;
+            try
+            {
+                using var doc = JsonDocument.Parse(text);
+                var root = doc.RootElement;
+                if (root.TryGetProperty("status", out var st))
+                    ok = st.ValueKind == JsonValueKind.True
+                      || (st.ValueKind == JsonValueKind.String
+                          && string.Equals(st.GetString(), "true", StringComparison.OrdinalIgnoreCase));
+                remark = root.TryGetProperty("remark", out var rm) ? rm.ToString()
+                       : root.TryGetProperty("error", out var er) ? er.ToString()
+                       : null;
+            }
+            catch { remark = text; }
+
+            if (resp.IsSuccessStatusCode && ok)
+                return new(true, string.IsNullOrWhiteSpace(remark) ? "Shipment cancelled at Delhivery." : Trim(remark, 300));
+            return new(false, $"Delhivery did not cancel it: {Trim(remark ?? text, 300)}");
+        }
+        catch (Exception ex)
+        {
+            return new(false, $"Could not reach Delhivery ({ex.Message}). Try again, or cancel on Delhivery One.");
+        }
+    }
+
+    /// <summary>
+    /// Whether Delhivery's own tracking says this waybill is cancelled. This is
+    /// what the shop's Delete button trusts, never our own record, so a waybill
+    /// still live at Delhivery can never be wiped from an order by mistake.
+    /// </summary>
+    public static bool IsCancelledAtCourier(string? status, string? statusType, string? instruction = null)
+    {
+        if ((statusType ?? "").Trim().Equals("CN", StringComparison.OrdinalIgnoreCase)) return true;
+        var s = $"{status} {instruction}".ToLowerInvariant();
+        return s.Contains("cancel");
+    }
+
     public record PickupResult(bool Success, string? Message);
 
     /// <summary>

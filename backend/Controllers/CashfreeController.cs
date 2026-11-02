@@ -525,6 +525,21 @@ public class CashfreeController : ControllerBase
                     // not a design.
                     var localDelivery = CartPricing.IsLocalDelivery(sCity, sPin);
                     var goods = await CartPricing.ItemValueAsync(_db, order.CartJson, withShipping: !localDelivery) ?? fullTotal;
+                    // COD handling fee. PlaceOrder adds the shop's codFeeAmount to every COD
+                    // order; this recovery path used to write CodFee = 0 and leave it out of
+                    // Total, so the courier was told to collect Rs 100 too little
+                    // (MFH17935926277716384). Read from the same setting, same fallback.
+                    decimal recoveredCodFee = 0m;
+                    if (isCodAdvance)
+                    {
+                        var rawFee = await _db.SiteSettings
+                            .Where(s => s.Key == "codFeeAmount")
+                            .Select(s => s.Value).FirstOrDefaultAsync();
+                        recoveredCodFee = decimal.TryParse(rawFee?.Trim(), NumberStyles.Any,
+                                CultureInfo.InvariantCulture, out var feeSetting) && feeSetting >= 0m
+                            ? feeSetting : 50m;
+                    }
+
                     decimal discount = 0m;
                     string? usedCode = null;
 
@@ -549,26 +564,12 @@ public class CashfreeController : ControllerBase
                     {
                         var consumed = await CouponConsumer.ConsumeAsync(
                             _db, null, _logger,
-                            localId, usedCode, "cashfree",
-                            goods, 0m, 0m, discount, Math.Max(0m, goods - discount),
+                            localId, usedCode, isCodAdvance ? "cod" : "cashfree",
+                            goods, 0m, recoveredCodFee, discount,
+                            Math.Max(0m, goods + recoveredCodFee - discount),
                             sPhone, sEmail, custId > 0 ? custId.ToString() : null);
                         discount = consumed.Discount;
                         usedCode = consumed.Code;
-                    }
-
-                    // COD handling fee. PlaceOrder adds the shop's codFeeAmount to every COD
-                    // order; this recovery path used to write CodFee = 0 and leave it out of
-                    // Total, so the courier was told to collect Rs 100 too little
-                    // (MFH17935926277716384). Read from the same setting, same fallback.
-                    decimal recoveredCodFee = 0m;
-                    if (isCodAdvance)
-                    {
-                        var rawFee = await _db.SiteSettings
-                            .Where(s => s.Key == "codFeeAmount")
-                            .Select(s => s.Value).FirstOrDefaultAsync();
-                        recoveredCodFee = decimal.TryParse(rawFee?.Trim(), NumberStyles.Any,
-                                CultureInfo.InvariantCulture, out var feeSetting) && feeSetting >= 0m
-                            ? feeSetting : 50m;
                     }
 
                     var recoveredTotal = Math.Max(0m, goods + recoveredCodFee - discount);

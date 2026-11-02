@@ -2728,6 +2728,115 @@ public class OrdersController : ControllerBase
         return Ok(new { success = true, awb = result.Awb, order = MapOrder(order), pickupMessage });
     }
 
+    // Statuses in which a forward waybill may still be cancelled. Once the
+    // parcel is picked up Delhivery refuses anyway, but asking only here keeps
+    // a return or a delivered order from ever showing the button.
+    private static readonly string[] AwbCancellable =
+        ["Pending", "On Hold", "Order Packed", "Ready for Shipping", "Shipped"];
+
+    // POST /api/orders/{orderId}/cancel-awb  (Admin)
+    //
+    // Step one of replacing a waybill: cancel it AT DELHIVERY. The AWB stays on
+    // the order, marked cancelled, so the screen can offer Delete next. Nothing
+    // is wiped here - if Delhivery says no, the order is exactly as it was.
+    [HttpPost("{orderId}/cancel-awb")]
+    [Authorize]
+    [RequirePerm("orders")]
+    public async Task<IActionResult> CancelAwb(string orderId)
+    {
+        var order = await _db.SiteOrders.FirstOrDefaultAsync(o => o.OrderId == orderId);
+        if (order is null)
+            return NotFound(new { success = false, message = "Order not found." });
+        if (string.IsNullOrWhiteSpace(order.Awb))
+            return BadRequest(new { success = false, message = "This order has no AWB to cancel." });
+        if (!AwbCancellable.Contains(order.Status, StringComparer.OrdinalIgnoreCase))
+            return BadRequest(new { success = false, message =
+                $"Order {order.OrderId} is \"{order.Status}\"; its AWB can only be cancelled before the parcel is picked up." });
+
+        // Already cancelled at Delhivery (on Delhivery One, say)? Then there is
+        // nothing to send - just write down what the courier says.
+        var live = await _delhivery.TrackAsync(new[] { order.Awb! });
+        var already = live.TryGetValue(order.Awb!, out var line)
+            && Services.DelhiveryService.IsCancelledAtCourier(line.Status, line.StatusType, line.Instruction);
+
+        string message;
+        if (already)
+        {
+            message = "This AWB is already cancelled at Delhivery.";
+        }
+        else
+        {
+            var res = await _delhivery.CancelShipmentAsync(order.Awb!);
+            if (!res.Success)
+                return BadRequest(new { success = false, message = res.Message });
+            message = res.Message ?? "Shipment cancelled at Delhivery.";
+        }
+
+        order.CourierStatus = "Cancelled";
+        order.CourierNote = Trunc(message, 250);
+        order.CourierSeenAt = DateTimeOffset.UtcNow;
+        order.UpdatedAt = DateTimeOffset.UtcNow;
+        await _db.SaveChangesAsync();
+        _log.LogInformation("AWB {Awb} on order {OrderId} cancelled at Delhivery.", order.Awb, order.OrderId);
+
+        return Ok(new { success = true, message, order = MapOrder(order) });
+    }
+
+    // POST /api/orders/{orderId}/delete-awb  (Admin)
+    //
+    // Step two: take the cancelled waybill off the order so a new one can be
+    // generated. Asks DELHIVERY first, every time - our own "Cancelled" note is
+    // not enough, because wiping a waybill that is still live there leaves a
+    // pickup booked and a freight charge with no order pointing at it.
+    [HttpPost("{orderId}/delete-awb")]
+    [Authorize]
+    [RequirePerm("orders")]
+    public async Task<IActionResult> DeleteAwb(string orderId)
+    {
+        var order = await _db.SiteOrders.FirstOrDefaultAsync(o => o.OrderId == orderId);
+        if (order is null)
+            return NotFound(new { success = false, message = "Order not found." });
+        if (string.IsNullOrWhiteSpace(order.Awb))
+            return Ok(new { success = true, message = "This order has no AWB.", order = MapOrder(order) });
+
+        var oldAwb = order.Awb!;
+        var live = await _delhivery.TrackAsync(new[] { oldAwb });
+        if (!live.TryGetValue(oldAwb, out var line))
+            return BadRequest(new { success = false, message =
+                $"Could not confirm with Delhivery that AWB {oldAwb} is cancelled. Try again in a minute." });
+        if (!Services.DelhiveryService.IsCancelledAtCourier(line.Status, line.StatusType, line.Instruction))
+        {
+            // Keep our record in step with what the courier says, so the
+            // screen goes back to offering Cancel instead of a Delete that
+            // cannot work.
+            order.CourierStatus = Trunc(line.Status, 120);
+            order.CourierSeenAt = DateTimeOffset.UtcNow;
+            await _db.SaveChangesAsync();
+            return BadRequest(new { success = false, message =
+                $"Delhivery still shows AWB {oldAwb} as \"{line.Status}\", not cancelled. Cancel it first.",
+                order = MapOrder(order) });
+        }
+
+        order.Awb = null;
+        order.Courier = null;
+        order.CourierStatus = null;
+        order.CourierNote = null;
+        order.CourierSeenAt = null;
+        order.ExpectedDelivery = null;
+        // A parcel that was only ever "Shipped" on paper goes back to the
+        // queue it came from, ready for its new waybill.
+        if (string.Equals(order.Status, "Shipped", StringComparison.OrdinalIgnoreCase))
+            order.Status = "Ready for Shipping";
+        order.UpdatedAt = DateTimeOffset.UtcNow;
+        await _db.SaveChangesAsync();
+        _log.LogInformation("Cancelled AWB {Awb} removed from order {OrderId}.", oldAwb, order.OrderId);
+
+        return Ok(new { success = true, message = $"AWB {oldAwb} removed. Generate a new one.", order = MapOrder(order) });
+    }
+
+    private static string? Trunc(string? s, int n) =>
+        s is null ? null : (s.Length <= n ? s : s.Substring(0, n));
+
     // Best-effort delete of an order's stored return media directory (instance helper).
     private void DeleteReturnMediaDir(string orderId) => PurgeReturnMediaDir(ReturnsRoot(), orderId);
 

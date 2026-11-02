@@ -63,7 +63,7 @@ export const LABEL_CSS = `
       .tax{display:flex;gap:8px}.tax .left{flex:1.3}.tax .right{flex:1}
       .taxrow{display:flex;justify-content:space-between;font-size:8px;padding:0}
       .taxrow.total{font-weight:800;border-top:1px solid #999;margin-top:2px;padding-top:2px}
-      .foot{font-size:9.5px;font-weight:700;margin-top:5px;text-align:center}
+      .foot{font-size:9.5px;font-weight:700;margin-top:1px;text-align:center}
       /* margin-top:auto eats whatever space is left, so the app line and the
          note below it are pinned to the bottom of the sticker on every
          label, whether the order had one item or four. */
@@ -99,7 +99,6 @@ export const buildLabelBody = (order: Order): string => {
     // the local heads on every parcel, which is wrong on every interstate
     // sale - and almost every sale is interstate.
     const heads = taxHeads(totalTax, order.shippingState);
-    const totalQty = order.cart.reduce((s, i) => s + i.quantity, 0);
     const isCod = (order.method || '').toLowerCase() === 'cod';
     // Money already settled before delivery: paid online as a COD advance, or from
     // the wallet. The delivery agent must collect only what is left.
@@ -124,6 +123,15 @@ export const buildLabelBody = (order: Order): string => {
         <td>${esc(it.size || '-')}</td>
         <td style="text-align:right">${money(it.lineTotal)}</td>
       </tr>`).join('');
+    // The COD handling fee is part of the invoice total, so it is shown as its
+    // own line under the products - otherwise the lines do not add up.
+    const codFee = Number(order.codFee) || 0;
+    const codFeeRow = codFee > 0 ? `
+      <tr>
+        <td style="padding:4px 0;font-weight:700">COD Charges</td>
+        <td>-</td><td></td><td></td>
+        <td style="text-align:right;font-weight:700">${money(codFee)}</td>
+      </tr>` : '';
     return `
     <div class="label">
       <div class="top">
@@ -154,15 +162,14 @@ export const buildLabelBody = (order: Order): string => {
         <div class="txt">${shipTo}</div>
       </div>
       <div class="box grow">
-        <div class="lbl" style="margin-bottom:3px">PRODUCT DETAILS (TOTAL QTY: ${totalQty})</div>
         <table>
           <tr><th>Product</th><th>SKU</th><th style="text-align:center">Qty</th><th>Size</th><th style="text-align:right">Amount</th></tr>
           ${productRows}
+          ${codFeeRow}
         </table>
       </div>
       <div class="box tax">
         <div class="left">
-          <div class="lbl">TAX INVOICE</div>
           <div style="font-weight:800;font-size:9px;margin:1px 0">Invoice Type: Tax Invoice</div>
           <div class="txt">Invoice No: ${esc(order.invoiceNumber || 'Pending (mark Ready to Ship)')}</div>
           <div class="txt">Invoice Date: ${placed}</div>

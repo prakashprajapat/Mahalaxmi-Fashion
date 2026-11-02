@@ -255,6 +255,16 @@ export const ordersApi = {
     request<{ success: boolean; awb?: string; order?: import('@/types').Order; message?: string }>(
       `/orders/${orderId}/generate-awb`, { method: 'POST' }, token
     ),
+  // Cancel the order's forward AWB at Delhivery (step 1 of replacing it).
+  cancelAwb: (orderId: string, token: string) =>
+    request<{ success: boolean; message?: string; order: import('@/types').Order }>(
+      `/orders/${orderId}/cancel-awb`, { method: 'POST' }, token
+    ),
+  // Remove a waybill Delhivery confirms is cancelled, so a new one can be made.
+  deleteAwb: (orderId: string, token: string) =>
+    request<{ success: boolean; message?: string; order: import('@/types').Order }>(
+      `/orders/${orderId}/delete-awb`, { method: 'POST' }, token
+    ),
   requestReturn: (orderId: string, details: { issue?: string; invoiceNumber?: string; awb?: string; paymentMethod?: string; description?: string; callback?: string; openingVideo?: string; closingVideo?: string; openingPhotos?: string[]; closingPhotos?: string[] } | string, token: string) =>
     request<{ success: boolean; order: import('@/types').Order }>(
       `/orders/${orderId}/return`,

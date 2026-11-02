@@ -388,6 +388,35 @@ export default function AdminOrdersPage() {
     setNewCount(r.count);
   }, { everyMs: 30_000 });
 
+  // ── AWB Cancel -> Delete ──
+  // Cancel asks Delhivery to cancel the waybill. Once Delhivery shows it as
+  // cancelled the same spot offers Delete, which asks Delhivery again before
+  // taking the AWB off the order. After that the button is gone and a new AWB
+  // can be generated.
+  const [awbBusyId, setAwbBusyId] = useState<string | null>(null);
+  const AWB_CANCELLABLE = ['Pending', 'On Hold', 'Order Packed', 'Ready for Shipping', 'Shipped'];
+  const awbIsCancelled = (o: Order) => /cancel/i.test(o.courierStatus ?? '');
+  const awbAction = async (o: Order, kind: 'cancel' | 'delete') => {
+    if (!o.awb) return;
+    const ask = kind === 'cancel'
+      ? `Cancel AWB ${o.awb} at Delhivery for order ${o.id}?\n\nThis cannot be undone.`
+      : `Delete cancelled AWB ${o.awb} from order ${o.id}?\n\nDelhivery will be checked first. After this you can generate a new AWB.`;
+    if (!confirm(ask)) return;
+    setAwbBusyId(o.id);
+    try {
+      const token = getAdminToken() ?? '';
+      const r = kind === 'cancel'
+        ? await ordersApi.cancelAwb(o.id, token)
+        : await ordersApi.deleteAwb(o.id, token);
+      if (r.order) setOrders(prev => prev.map(x => (x.id === o.id ? r.order : x)));
+      if (r.message) alert(r.message);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Something went wrong.');
+    } finally {
+      setAwbBusyId(null);
+    }
+  };
+
   // ── Live Delhivery tracking modal (AWB number pe click karte hi) ──
   const [liveModal, setLiveModal] = useState<null | {
     awb: string; loading: boolean;
@@ -955,6 +984,26 @@ export default function AdminOrdersPage() {
                                       style={{ background: 'none', border: 0, padding: 0, cursor: 'pointer', fontFamily: 'monospace',
                                                fontSize: '.74rem', color: '#1565c0', textDecoration: 'underline' }}>{o.awb}</button>
                             : <span style={{ color: '#c4bab5' }}>&mdash;</span>}
+                          {o.awb && (awbIsCancelled(o) || AWB_CANCELLABLE.includes(o.status)) && (
+                            <div style={{ marginTop: '.25rem' }}>
+                              {awbIsCancelled(o) && (
+                                <span style={{ fontSize: '.68rem', color: '#c0392b', fontWeight: 700, marginRight: '.4rem' }}>Cancelled</span>
+                              )}
+                              <button
+                                onClick={() => awbAction(o, awbIsCancelled(o) ? 'delete' : 'cancel')}
+                                disabled={awbBusyId === o.id}
+                                title={awbIsCancelled(o)
+                                  ? 'Remove this cancelled AWB so a new one can be generated'
+                                  : 'Cancel this AWB at Delhivery'}
+                                style={{
+                                  background: 'none', border: '1px solid #c0392b', borderRadius: 4,
+                                  padding: '.05rem .45rem', cursor: awbBusyId === o.id ? 'wait' : 'pointer',
+                                  fontSize: '.68rem', fontWeight: 700, color: '#c0392b',
+                                }}>
+                                {awbBusyId === o.id ? '...' : awbIsCancelled(o) ? 'Delete' : 'Cancel'}
+                              </button>
+                            </div>
+                          )}
                         </td>
                         <td data-label="Date" style={{ whiteSpace: 'nowrap' }}>
                           {placed.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
