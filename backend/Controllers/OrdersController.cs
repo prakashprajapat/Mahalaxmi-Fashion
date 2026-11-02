@@ -470,6 +470,36 @@ public class OrdersController : ControllerBase
         if (!string.IsNullOrEmpty(jwtCustomerId) && jwtCustomerId != "0")
             req = req with { CustomerId = jwtCustomerId };
 
+        // A signed-in shopper whose profile has no email, typing one at checkout,
+        // was asked for it again on every order: it went onto the order and never
+        // onto the account (Ramesh Prajapati, customer 16, is one). Save it to the
+        // profile when the profile has none and no other account already uses it.
+        // Only for the SIGNED-IN customer, whose identity the token proves - a
+        // guest could type anyone's phone number, and attaching an email to that
+        // account would hand a stranger a way into it.
+        if (!string.IsNullOrEmpty(jwtCustomerId) && int.TryParse(jwtCustomerId, out var meId) && meId > 0)
+        {
+            var typed = (req.CustomerEmail ?? "").Trim().ToLowerInvariant();
+            if (typed.Length is > 5 and <= 254 && typed.Contains('@') && typed.Contains('.'))
+            {
+                try
+                {
+                    var me = await _db.Customers.FirstOrDefaultAsync(c => c.Id == meId);
+                    if (me is not null && string.IsNullOrWhiteSpace(me.Email)
+                        && !await _db.Customers.AnyAsync(c => c.Email == typed && c.Id != meId))
+                    {
+                        me.Email = typed;
+                        await _db.SaveChangesAsync();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // Never let a profile tidy-up cost the customer their order.
+                    _log.LogWarning(ex, "Could not save checkout email to customer {Id}", meId);
+                }
+            }
+        }
+
         // GUEST ORDER: if the buyer isn't logged in, link this order to an EXISTING account whose
         // email or mobile matches the checkout details — so the order appears in that customer's
         // profile and we don't create a duplicate identity.
