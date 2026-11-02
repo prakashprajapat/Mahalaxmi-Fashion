@@ -556,7 +556,22 @@ public class CashfreeController : ControllerBase
                         usedCode = consumed.Code;
                     }
 
-                    var recoveredTotal = Math.Max(0m, goods - discount);
+                    // COD handling fee. PlaceOrder adds the shop's codFeeAmount to every COD
+                    // order; this recovery path used to write CodFee = 0 and leave it out of
+                    // Total, so the courier was told to collect Rs 100 too little
+                    // (MFH17935926277716384). Read from the same setting, same fallback.
+                    decimal recoveredCodFee = 0m;
+                    if (isCodAdvance)
+                    {
+                        var rawFee = await _db.SiteSettings
+                            .Where(s => s.Key == "codFeeAmount")
+                            .Select(s => s.Value).FirstOrDefaultAsync();
+                        recoveredCodFee = decimal.TryParse(rawFee?.Trim(), NumberStyles.Any,
+                                CultureInfo.InvariantCulture, out var feeSetting) && feeSetting >= 0m
+                            ? feeSetting : 50m;
+                    }
+
+                    var recoveredTotal = Math.Max(0m, goods + recoveredCodFee - discount);
 
                     // The same availability question create-order now asks -
                     // but here it must NOT refuse. She has paid. An order the
@@ -603,7 +618,7 @@ public class CashfreeController : ControllerBase
                         PaymentId    = cfPaymentId,
                         Subtotal     = goods,
                         ShippingCost = 0m,
-                        CodFee       = 0m,
+                        CodFee       = recoveredCodFee,
                         CouponCode   = usedCode,
                         DiscountAmount = discount,
                         Total        = recoveredTotal,
