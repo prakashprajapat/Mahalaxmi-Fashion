@@ -653,7 +653,7 @@ export default function AdminOrdersPage() {
     try {
       const r = await ordersApi.syncTracking(getAdminToken() ?? '');
       alert(r.message);
-      if (r.updated > 0) fetchOrders();
+      fetchOrders();
     } catch (e) {
       alert('Could not reach Delhivery: ' + ((e as Error).message || 'unknown error'));
     } finally { setSyncing(false); }
@@ -696,7 +696,10 @@ export default function AdminOrdersPage() {
         sub="Everything bought, and everything coming back. A change here is live on the website at once."
         right={
           <>
-            <button className="adm-btn" onClick={fetchOrders}>Refresh</button>
+            <button className="adm-btn" onClick={syncTracking} disabled={syncing}
+                    title="Asks Delhivery about every parcel still on its way, then reloads the list. Runs on its own every three hours; this is for when you do not want to wait.">
+              {syncing ? 'Asking Delhivery…' : 'Refresh tracking'}
+            </button>
             <button className="adm-btn" onClick={() => exportCSV(filtered)}>CSV ({filtered.length})</button>
             <button className="adm-btn adm-btn-primary" onClick={() => exportOrders(filtered, new Date().toISOString().slice(0,10))}>
               Excel ({filtered.length})
@@ -837,10 +840,6 @@ export default function AdminOrdersPage() {
           {activeTab === 'Ready for Shipping' && filtered.length > 0 && (
             <button className="adm-btn" onClick={() => openPicklist(filtered)}>Picklist ({filtered.length})</button>
           )}
-          <button className="adm-btn" onClick={syncTracking} disabled={syncing}
-                  title="Asks Delhivery about every parcel still on its way and fills in the Expected delivery date. Runs on its own every three hours; this is for when you do not want to wait.">
-            {syncing ? 'Asking Delhivery…' : 'Refresh tracking'}
-          </button>
         </div>
       </Card>
 
