@@ -1306,11 +1306,11 @@ export default function CheckoutPage() {
                 <input
                   value={couponCode} onChange={e => { setCouponCode(e.target.value.toUpperCase()); setCouponError(''); }}
                   placeholder="Coupon code"
-                  style={{ flex: 1, border: '1.5px solid #ddd', borderRadius: '8px', padding: '.5rem .75rem', fontSize: '.88rem', outline: 'none' }}
+                  style={{ flex: 1, minWidth: 0, width: '100%', border: '1.5px solid #ddd', borderRadius: '8px', padding: '.5rem .75rem', fontSize: '.88rem', outline: 'none' }}
                   onKeyDown={e => e.key === 'Enter' && handleApplyCoupon()}
                 />
                 <button onClick={handleApplyCoupon} disabled={couponLoading || !couponCode.trim()}
-                  style={{ background: '#722f37', color: '#fff', border: 'none', borderRadius: '8px', padding: '0 1rem', fontWeight: 700, fontSize: '.88rem', cursor: 'pointer', whiteSpace: 'nowrap', opacity: couponLoading ? .7 : 1 }}>
+                  style={{ flexShrink: 0, background: '#722f37', color: '#fff', border: 'none', borderRadius: '8px', padding: '0 1rem', fontWeight: 700, fontSize: '.88rem', cursor: 'pointer', whiteSpace: 'nowrap', opacity: couponLoading ? .7 : 1 }}>
                   {couponLoading ? '...' : 'Apply'}
                 </button>
               </div>

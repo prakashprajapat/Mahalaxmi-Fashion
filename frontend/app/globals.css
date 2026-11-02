@@ -2490,14 +2490,14 @@ body.has-pdp-bar { padding-bottom: 92px; }
 }
 .ck-line-qty button:disabled { color: #bbb; cursor: not-allowed; }
 .ck-line-qty span { flex: 1 1 auto; text-align: center; font-size: .85rem; font-weight: 700; }
-.ck-line-body { min-width: 0; display: flex; flex-direction: column; gap: .12rem; }
+.ck-line-body { min-width: 0; display: flex; flex-direction: column; gap: .05rem; }
 .ck-line-name {
   margin: 0; font-size: .88rem; font-weight: 600; color: var(--text); line-height: 1.35;
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
 }
-.ck-line-variant { margin: 0; font-size: .78rem; color: var(--muted); }
-.ck-line-price { margin: .15rem 0 0; font-size: .95rem; font-weight: 800; color: var(--text); }
-.ck-line-cap { margin: .1rem 0 0; font-size: .74rem; color: #c0392b; font-weight: 600; }
+.ck-line-variant { margin: 0; font-size: .78rem; color: var(--muted); line-height: 1.3; }
+.ck-line-price { margin: .1rem 0 0; font-size: .95rem; font-weight: 800; color: var(--text); line-height: 1.25; }
+.ck-line-cap { margin: .1rem 0 0; font-size: .74rem; color: #c0392b; font-weight: 600; line-height: 1.3; }
 
 
 /* ─── Product page: the optional detail rows under the photo ─── */
