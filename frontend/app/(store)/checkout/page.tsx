@@ -507,7 +507,11 @@ export default function CheckoutPage() {
   // and at loyaltyRedeemMaxPercent of the order (same cap the server enforces). The remaining
   // amount (amountToPay) is what the gateway charges / COD collects.
   const walletShown = walletEnabled && !!customer && walletBalance > 0;
-  const walletCap = Math.floor(Math.min(walletBalance, total * walletRedeemPct / 100, total) * 100) / 100;
+  // Paying online, at least Rs 1 has to reach the gateway: Cashfree and Razorpay
+  // both refuse a zero-amount order, so a wallet that covered the whole bill left
+  // the shopper on "Payment init failed". COD has no gateway and may use it all.
+  const walletCeiling = payMethod === 'online' ? Math.max(0, total - 1) : total;
+  const walletCap = Math.floor(Math.min(walletBalance, total * walletRedeemPct / 100, walletCeiling) * 100) / 100;
   const walletApplied = walletShown && useWallet ? walletCap : 0;
   const amountToPay = Math.max(0, +(total - walletApplied).toFixed(2));
   // Cash on Delivery advance: paid online now, the courier collects the rest.
