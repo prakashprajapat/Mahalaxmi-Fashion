@@ -135,6 +135,10 @@ public class AuthController : ControllerBase
             });
         }
 
+        await HttpContext.RequestServices.GetRequiredService<LoginLogService>().RecordAsync(
+            staff is not null ? TokenService.Staff : TokenService.Owner, staff?.Id.ToString(), loginId,
+            success: false, method: "admin",
+            reason: staff is null ? "Wrong email / password" : (!staff.IsActive ? "Staff account switched off" : "Wrong password"));
         return Unauthorized(new { success = false, message = "Invalid credentials." });
     }
 
@@ -148,7 +152,10 @@ public class AuthController : ControllerBase
     // anyway, so deleting it would not have ended the session either. The panel
     // JWT simply stayed valid for seven days whatever anybody pressed.
     private async Task<TokenService.Pair> IssueAdminSessionAsync(TokenService.Principal principal)
-        => await _tokens.IssuePairAsync(principal, Request.Headers.UserAgent.ToString());
+    {
+        LoginLogService.SetMethod(HttpContext, "admin");
+        return await _tokens.IssuePairAsync(principal, Request.Headers.UserAgent.ToString());
+    }
 
     // POST /api/auth/admin-change-password
     [HttpPost("admin-change-password")]

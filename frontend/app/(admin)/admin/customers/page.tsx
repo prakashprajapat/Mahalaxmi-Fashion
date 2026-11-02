@@ -295,6 +295,7 @@ export default function AdminCustomersPage() {
         sub={`${total.toLocaleString('en-IN')} accounts. Search covers name, email, phone and customer code.`}
         right={
           <>
+            <a className="adm-btn" href="/admin/customers/logins">Login History</a>
             <button className="adm-btn" onClick={() => setAddOpen(v => !v)}>{addOpen ? 'Close' : 'Add Customer'}</button>
             <button className="adm-btn adm-btn-primary" disabled={exporting} onClick={handleExport}>
               {exporting ? 'Exporting…' : `Excel (${total})`}
@@ -489,6 +490,7 @@ export default function AdminCustomersPage() {
                             : <span title="No email address on this account" style={{ color: '#c4bab5' }}>Mail</span>}
                           <button onClick={() => openEdit(c)}>Edit</button>
                           <button onClick={() => openWallet(c)} style={{ color: '#b26b00' }}>Wallet</button>
+                          <button onClick={() => { window.location.href = `/admin/customers/logins?customerId=${c.id}&name=${encodeURIComponent(`${c.firstName} ${c.lastName}`.trim())}`; }} style={{ color: '#2563eb' }}>Logins</button>
                           <button onClick={() => handleDelete(c)} style={{ color: '#c0392b' }}>Delete</button>
                         </div>
                       </td>

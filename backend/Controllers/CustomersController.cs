@@ -878,6 +878,7 @@ public class CustomersController : ControllerBase
                            customer.Email, customer.Phone,
                            emailAlreadySent: welcomeMailed);
 
+        LoginLogService.SetMethod(HttpContext, "register");
         var signIn = await SignInAsync(customer);
         return Ok(new
         {
@@ -1013,7 +1014,12 @@ public class CustomersController : ControllerBase
             .FirstOrDefaultAsync(c => c.Email == req.Email.ToLower().Trim());
 
         if (customer is null || !_auth.VerifyPassword(req.Password, customer.PasswordHash, customer.PasswordSalt))
+        {
+            await HttpContext.RequestServices.GetRequiredService<LoginLogService>().RecordAsync(
+                TokenService.Customer, customer?.Id.ToString(), req.Email, success: false,
+                method: "password", reason: customer is null ? "No such account" : "Wrong password");
             return Unauthorized(new { success = false, message = "Invalid email or password." });
+        }
 
         if (customer.AccountStatus != "active")
             return Unauthorized(new { success = false, message = "Account is deactivated." });
@@ -1023,6 +1029,7 @@ public class CustomersController : ControllerBase
         // guesses short of a lockout.
         _limit.Forget(limitKey);
 
+        LoginLogService.SetMethod(HttpContext, "password");
         var signIn = await SignInAsync(customer);
         return Ok(new
         {
@@ -1189,6 +1196,7 @@ public class CustomersController : ControllerBase
                            emailAlreadySent: mailed);
         }
 
+        LoginLogService.SetMethod(HttpContext, "otp");
         var signIn = await SignInAsync(customer);
         return Ok(new
         {
@@ -1753,6 +1761,7 @@ public class CustomersController : ControllerBase
             existing.EmailVerified = true;
         }
 
+        LoginLogService.SetMethod(HttpContext, (req.Provider ?? "social").Trim().ToLowerInvariant());
         var social = await SignInAsync(existing);
         return Ok(new
         {

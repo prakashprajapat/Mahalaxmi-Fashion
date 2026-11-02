@@ -45,6 +45,7 @@ public class AppDbContext : DbContext
     public DbSet<AbandonedCart> AbandonedCarts { get; set; }
     public DbSet<OrderRefund> OrderRefunds { get; set; }
     public DbSet<RefreshToken> RefreshTokens { get; set; }
+    public DbSet<LoginEvent> LoginEvents { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

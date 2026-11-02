@@ -3,6 +3,7 @@ import { Suspense } from 'react';
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { setToken, setCustomer } from '@/lib/auth';
+import { isInApp } from '@/lib/inApp';
 
 function SocialCallbackInner() {
   const router = useRouter();
@@ -31,7 +32,7 @@ function SocialCallbackInner() {
 
     fetch('/api/customers/social-login', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(isInApp() ? { 'X-Client': 'app' } : {}) },
       body: JSON.stringify({ provider: state, code, redirectUri }),
     })
       .then(async res => {

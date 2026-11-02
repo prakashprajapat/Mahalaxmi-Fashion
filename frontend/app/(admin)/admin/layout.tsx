@@ -28,6 +28,7 @@ const ALL_NAV: { href?: string; label?: string; exact?: boolean; heading?: strin
 
   { heading: 'Customers' },
   { href: '/admin/customers',   label: 'Customers' },
+  { href: '/admin/customers/logins', label: 'Login History (Web / App)' },
   { href: '/admin/reviews',     label: 'Reviews' },
   { href: '/admin/suppliers',   label: 'Seller Applications' },
 

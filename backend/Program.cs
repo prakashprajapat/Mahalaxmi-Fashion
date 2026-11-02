@@ -108,6 +108,8 @@ builder.Services.AddScoped<AdminNotifier>();
 builder.Services.AddScoped<OrderMessenger>();
 builder.Services.AddScoped<WalletService>();
 builder.Services.AddScoped<TokenService>();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<LoginLogService>();
 builder.Services.AddScoped<FeatureFlags>();
 // Every one of these had the framework default, which is ONE HUNDRED SECONDS.
 //
@@ -535,6 +537,25 @@ using (var scope = app.Services.CreateScope())
         CREATE INDEX IF NOT EXISTS idx_refresh_subject ON refresh_tokens (subject_type, subject_id);
         CREATE INDEX IF NOT EXISTS idx_refresh_family  ON refresh_tokens (family);
         CREATE INDEX IF NOT EXISTS idx_refresh_expiry  ON refresh_tokens (expires_at);
+    ");
+    // Har login ka record (Customers -> Login History). Sirf naya table, kuch badla nahi.
+    db.Database.ExecuteSqlRaw(@"
+        CREATE TABLE IF NOT EXISTS login_events (
+            id           BIGSERIAL PRIMARY KEY,
+            subject_type VARCHAR(20)  NOT NULL DEFAULT 'customer',
+            subject_id   VARCHAR(64),
+            login_id     VARCHAR(255),
+            method       VARCHAR(30)  NOT NULL DEFAULT 'login',
+            platform     VARCHAR(10)  NOT NULL DEFAULT 'web',
+            device       VARCHAR(200),
+            ip           VARCHAR(64),
+            user_agent   VARCHAR(400),
+            success      BOOLEAN      NOT NULL DEFAULT TRUE,
+            reason       VARCHAR(200),
+            created_at   TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS idx_login_events_subject ON login_events (subject_type, subject_id, created_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_login_events_created ON login_events (created_at DESC);
     ");
     // Create otp_tokens table if it doesn't exist (no EF migrations used)
     db.Database.ExecuteSqlRaw(@"

@@ -74,13 +74,16 @@ public sealed class TokenService
     private readonly AuthService _auth;
     private readonly ILogger<TokenService> _log;
     private readonly FeatureFlags _flags;
+    private readonly LoginLogService _loginLog;
 
-    public TokenService(AppDbContext db, AuthService auth, ILogger<TokenService> log, FeatureFlags flags)
+    public TokenService(AppDbContext db, AuthService auth, ILogger<TokenService> log, FeatureFlags flags,
+                        LoginLogService loginLog)
     {
         _db = db;
         _auth = auth;
         _log = log;
         _flags = flags;
+        _loginLog = loginLog;
     }
 
     public const string Customer = "customer";
@@ -140,6 +143,10 @@ public sealed class TokenService
     /// </summary>
     public async Task<Pair> IssuePairAsync(Principal p, string? userAgent, string? family = null)
     {
+        // Har naya sign-in Login History me. Refresh (RotateAsync) yahan se
+        // nahi guzarta, isliye har 15 minute wali renew yahan nahi dikhegi.
+        await _loginLog.RecordAsync(p.SubjectType, p.SubjectId, p.Email, success: true);
+
         // Switched off, this hands back exactly what the shop issued before:
         // one long-lived access token and NO refresh token. The browser stores
         // a refresh token only when it is given one, and renewAccess already

@@ -1,5 +1,6 @@
 import { compressImage, uploadRefusal } from '@/lib/imageCompress';
 import { renewAccess } from '@/lib/session';
+import { isInApp } from '@/lib/inApp';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL
   ?? (typeof window === 'undefined' ? 'http://localhost:5000/api' : '/api');
@@ -14,6 +15,8 @@ async function request<T>(
     ...(options?.headers as Record<string, string>),
   };
   if (token) headers['Authorization'] = `Bearer ${token}`;
+  // Login History me Web / App alag dikhe: app ke andar se aaye request par ek nishaan.
+  if (typeof window !== 'undefined' && isInApp()) headers['X-Client'] = 'app';
 
   // Server-side GET requests: use Next.js Data Cache (revalidate every 60s so newly-added
   // products/settings show up quickly on cached pages like the homepage).
