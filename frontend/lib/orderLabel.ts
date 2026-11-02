@@ -233,6 +233,13 @@ function printWhenReady(){
 }
 `;
 
+// The same CODE128 table, for code that draws barcodes in the admin page itself
+// (the PDF download) rather than in the print window. Read out of the string so
+// there is one table, not two that can drift apart.
+export const C128_TABLE: string[] = JSON.parse(
+  (BARCODE_JS.match(/var C128=(\[[^\]]*\])/) ?? ['', '[]'])[1],
+);
+
 /**
  * What the saved PDF is called.
  *

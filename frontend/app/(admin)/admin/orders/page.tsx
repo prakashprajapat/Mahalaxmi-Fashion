@@ -8,6 +8,7 @@ import { productImageSrc } from '@/lib/productImages';
 import { FOLLOW_UP_GROUPS, followUpOf, type FollowUpKey } from '@/lib/courierFollowUp';
 import type { Order } from '@/types';
 import { openOrderLabels, openPicklist } from '@/lib/orderLabel';
+import { downloadLabelsPdf } from '@/lib/labelPdf';
 import { inr } from '@/lib/price';
 import { PageHeader, Card, Stat, StatGrid, Chips, Empty } from '@/components/admin/Ui';
 import { bucketAccepts, claimedBy } from '@/lib/orderStatus';
@@ -653,7 +654,18 @@ export default function AdminOrdersPage() {
     } finally { setSyncing(false); }
   };
 
-  const downloadShippingLabel = (order: Order) => openOrderLabels([order]);
+  // Label = a PDF file, downloaded on one click. If the browser cannot draw it
+  // for any reason, the old print window opens instead, so a parcel never waits.
+  const downloadLabels = async (list: Order[]) => {
+    if (!list.length) return;
+    try {
+      await downloadLabelsPdf(list);
+    } catch (e) {
+      console.error(e);
+      openOrderLabels(list);
+    }
+  };
+  const downloadShippingLabel = (order: Order) => downloadLabels([order]);
 
   const anyFilter = Boolean(dateFilter || filterSize || filterColour || search || filterPay);
   const clearFilters = () => { setDateFilter(''); setFilterSize(''); setFilterColour(''); setSearch(''); setFilterPay(''); };
@@ -840,7 +852,7 @@ export default function AdminOrdersPage() {
             </>
           )}
           <button className="adm-btn"
-                  onClick={() => openOrderLabels(filtered.filter(o => selectedIds.has(o.id)))}>
+                  onClick={() => downloadLabels(filtered.filter(o => selectedIds.has(o.id)))}>
             Labels PDF ({selectedIds.size})
           </button>
           <button className="adm-btn" onClick={bulkDelete} style={{ color: '#a3122b', borderColor: '#eccdd3' }}
