@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Cryptography;
 using System.Text;
@@ -31,6 +32,7 @@ public class PaymentsController : ControllerBase
 
     // POST /api/payments/create-order
     [HttpPost("create-order")]
+    [EnableRateLimiting("checkout")]
     public async Task<IActionResult> CreateOrder([FromBody] CreateOrderRequest req)
     {
         var keyId     = _config["Razorpay:KeyId"] ?? "";
@@ -94,6 +96,7 @@ public class PaymentsController : ControllerBase
 
     // POST /api/payments/verify
     [HttpPost("verify")]
+    [EnableRateLimiting("checkout")]
     public async Task<IActionResult> VerifyPayment([FromBody] VerifyPaymentRequest req)
     {
         var keySecret = _config["Razorpay:KeySecret"] ?? "";

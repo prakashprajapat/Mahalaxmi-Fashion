@@ -317,6 +317,21 @@ builder.Services.AddRateLimiter(opts =>
     // seema me aadhe event chup-chaap gir jate. Yahan jhooth ka koi fayda bhi
     // nahi hai - event bhejne se kisi ko kuch milta nahi - isliye seema sirf
     // badtameezi rokne ke liye hai, pehchan ke liye nahi.
+    // Placing an order, starting a payment, checking a coupon. A real shopper
+    // does each of these a handful of times per purchase; 30 a minute per IP
+    // leaves room for a family on one mobile IP and still stops a script from
+    // flooding the orders table or guessing coupon codes.
+    opts.AddPolicy("checkout", http => RateLimitPartition.GetSlidingWindowLimiter(
+        CallerIp(http),
+        _ => new SlidingWindowRateLimiterOptions
+        {
+            PermitLimit = 30,
+            Window = TimeSpan.FromMinutes(1),
+            SegmentsPerWindow = 3,
+            QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+            QueueLimit = 0,
+        }));
+
     opts.AddPolicy("events", http => RateLimitPartition.GetSlidingWindowLimiter(
         CallerIp(http),
         _ => new SlidingWindowRateLimiterOptions

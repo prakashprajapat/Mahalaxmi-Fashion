@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using MahalaxmiApi.Data;
 using MahalaxmiApi.Models;
@@ -35,6 +36,7 @@ public class CouponsController : ControllerBase
 
     // ── POST /api/coupons/validate  (public) ─────────────────────────────────
     [HttpPost("validate")]
+    [EnableRateLimiting("checkout")]
     public async Task<IActionResult> Validate([FromBody] ValidateCouponRequest req)
     {
         if (string.IsNullOrWhiteSpace(req.Code))

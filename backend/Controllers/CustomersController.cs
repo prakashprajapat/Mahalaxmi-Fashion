@@ -1646,6 +1646,11 @@ public class CustomersController : ControllerBase
 
             var info = System.Text.Json.JsonDocument.Parse(await infoRes.Content.ReadAsStringAsync());
             email = info.RootElement.TryGetProperty("email", out var em) ? em.GetString() : null;
+            // An address Google has not verified proves nothing about who owns
+            // it, and signing in by email would hand over that customer's account.
+            if (info.RootElement.TryGetProperty("email_verified", out var ev)
+                && ev.ValueKind == System.Text.Json.JsonValueKind.False)
+                return BadRequest(new { success = false, message = "Your Google email is not verified. Please verify it with Google and try again." });
             firstName = info.RootElement.TryGetProperty("given_name", out var fn) ? fn.GetString() : "Google";
             lastName  = info.RootElement.TryGetProperty("family_name", out var ln) ? ln.GetString() : "User";
         }
@@ -1659,7 +1664,7 @@ public class CustomersController : ControllerBase
 
             // Exchange code for token
             var tokenRes = await http.GetAsync(
-                $"https://graph.facebook.com/v25.0/oauth/access_token?client_id={appId}&redirect_uri={Uri.EscapeDataString(req.RedirectUri)}&client_secret={appSecret}&code={req.Code}");
+                $"https://graph.facebook.com/v25.0/oauth/access_token?client_id={appId}&redirect_uri={Uri.EscapeDataString(req.RedirectUri)}&client_secret={appSecret}&code={Uri.EscapeDataString(req.Code ?? "")}");
             if (!tokenRes.IsSuccessStatusCode)
                 return BadRequest(new { success = false, message = "Facebook token exchange failed. Please try again." });
 

@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using System.Globalization;
 using System.Security.Cryptography;
@@ -64,6 +65,7 @@ public class CashfreeController : ControllerBase
     // POST /api/cashfree/create-order
     // Creates a Cashfree PG order and returns the payment_session_id for the JS SDK modal.
     [HttpPost("create-order")]
+    [EnableRateLimiting("checkout")]
     public async Task<IActionResult> CreateOrder([FromBody] CreateCfOrderRequest req)
     {
         var (appId, secret, mode, baseUrl) = Creds();
@@ -307,6 +309,7 @@ public class CashfreeController : ControllerBase
     // POST /api/cashfree/verify  { localOrderId }
     // Server-to-server status check (never trust the browser callback alone).
     [HttpPost("verify")]
+    [EnableRateLimiting("checkout")]
     public async Task<IActionResult> Verify([FromBody] VerifyCfRequest req)
     {
         var (appId, secret, _, baseUrl) = Creds();

@@ -417,6 +417,7 @@ public class OrdersController : ControllerBase
     }
 
     [HttpPost]
+    [EnableRateLimiting("checkout")]
     public async Task<IActionResult> PlaceOrder([FromBody] PlaceOrderRequest req)
     {
         var orderId = CleanOrderId(req.Id);

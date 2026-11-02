@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
@@ -51,6 +52,7 @@ public class AppReviewsController : ControllerBase
     // the open door costs moderation, not trust.
     [HttpPost]
     [AllowAnonymous]
+    [EnableRateLimiting("auth")]
     public async Task<IActionResult> Submit([FromBody] AppReviewRequest? req)
     {
         if (req is null)

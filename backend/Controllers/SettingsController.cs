@@ -45,6 +45,20 @@ public class SettingsController : ControllerBase
     private static readonly HashSet<string> NeverPublic = new(StringComparer.OrdinalIgnoreCase)
     {
         "admin_email",
+
+        // Read only by the admin panel (through /settings/admin). The owner's
+        // notification inboxes, the ad account ids, and the shop's own job
+        // timestamps are nobody else's business and nothing on the storefront
+        // reads them.
+        "notifyEmails",
+        "metaAdsAccountId",
+        "metaAdsAccountId2",
+        "googleAdsCustomerId",
+        "googleLeadsLastSync",
+        "backupLastRunUtc",
+        "backupPhotoWatermarkUtc",
+        "delhivery_pickup_name",
+        "delhivery_last_pickup_date",
         "adminRecoveryPhone",   // the owner's private mobile
 
         // What Meta last said about our Conversions API call. Operational notes
