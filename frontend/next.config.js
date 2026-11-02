@@ -133,7 +133,7 @@ const nextConfig = {
               // conversion the shop paid for was blocked at the browser before
               // it could be counted — the console said so on every page load,
               // under four React errors that turned out to be harmless.
-              "script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://www.google-analytics.com https://www.googleadservices.com https://googleads.g.doubleclick.net https://checkout.razorpay.com https://cdn.razorpay.com https://connect.facebook.net https://static.cloudflareinsights.com https://sdk.cashfree.com",
+              "script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://www.google-analytics.com https://www.googleadservices.com https://googleads.g.doubleclick.net https://checkout.razorpay.com https://cdn.razorpay.com https://connect.facebook.net https://static.cloudflareinsights.com https://sdk.cashfree.com https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js",
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "font-src 'self' data: https://fonts.gstatic.com",
               // img-src was "https:", which allowed an image from ANY https host.

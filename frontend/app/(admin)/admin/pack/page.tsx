@@ -18,9 +18,10 @@
  * bag. The packer never clicks between fields, which is the whole point of
  * having a gun.
  *
- * The camera is there for when the gun is not. It uses the browser's own
- * BarcodeDetector where that exists and says so plainly where it does not,
- * rather than shipping a megabyte of scanner library for a fallback.
+ * The camera is there for when the gun is not. On a phone it opens by
+ * itself, full screen (components/admin/PackScanner): label, then bag, then a
+ * Save / Relink check. It reads with the browser's own BarcodeDetector where
+ * that exists (Chrome) and with ZXing everywhere else (Safari on iPhone).
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -28,18 +29,11 @@ import Link from 'next/link';
 import { ordersApi, packApi, type PackEvent } from '@/lib/api';
 import { getAdminToken } from '@/lib/auth';
 import { PageHeader, Card } from '@/components/admin/Ui';
+import PackScanner, { type LookupResult, type SaveResult } from '@/components/admin/PackScanner';
+import { isTouchPhone } from '@/lib/barcodeScan';
 import type { Order } from '@/types';
 
 type Note = { kind: 'ok' | 'warn' | 'err'; text: string } | null;
-
-// Chrome ships this; Safari and Firefox do not. Declared here rather than
-// pulled from lib.dom, which does not have it yet.
-interface DetectedBarcode { rawValue: string }
-interface BarcodeDetectorLike { detect(source: CanvasImageSource): Promise<DetectedBarcode[]> }
-interface BarcodeDetectorCtor {
-  new (opts?: { formats?: string[] }): BarcodeDetectorLike;
-  getSupportedFormats?(): Promise<string[]>;
-}
 
 export default function PackAndScanPage() {
   const [order, setOrder] = useState<Order | null>(null);
@@ -88,104 +82,103 @@ export default function PackAndScanPage() {
     } finally { setUndoBusy(false); }
   };
 
-  const [camErr, setCamErr] = useState('');
-  const videoRef = useRef<HTMLVideoElement>(null);
   const boxRef = useRef<HTMLInputElement>(null);
   const focusBox = useCallback(() => { boxRef.current?.focus(); }, []);
-  useEffect(focusBox, [focusBox, order, busy]);
 
   // ── Step 1: the label ─────────────────────────────────────────────────────
+  // Pure: finds the order for a scanned label and says what it found. Used by
+  // the scanner-gun box below and by the phone camera screen alike.
+  const lookupLabel = useCallback(async (scanned: string): Promise<LookupResult> => {
+    const token = getAdminToken() ?? '';
+    // A bag code scanned here (bag first, or the wrong code) is not an order.
+    // Say so plainly instead of "No order matches", which reads like a
+    // broken label.
+    const bagError = async () => {
+      try {
+        const h = await packApi.history(token, scanned, 5);
+        const isBag = (h.events ?? []).some(ev => (ev.bagBarcode ?? '').toLowerCase() === scanned.toLowerCase());
+        if (isBag) return `${scanned} is a BAG code. Scan the shipping label (AWB) first, then the bag.`;
+      } catch { /* fall through to the plain message */ }
+      return null;
+    };
+    try {
+      let r;
+      try { r = await ordersApi.getById(scanned, token); }
+      catch (e) { return { error: (await bagError()) ?? ((e as Error).message || `No order matches ${scanned}.`) }; }
+      const o = r.order;
+      if (!o) return { error: (await bagError()) ?? `No order matches ${scanned}.` };
+      if (o.bagBarcode) return { order: o, warn: `This parcel already has bag ${o.bagBarcode}. Scanning another bag will replace it.` };
+      return { order: o };
+    } catch (e) {
+      return { error: (e as Error).message || 'Could not look that order up.' };
+    }
+  }, []);
+
   const loadOrder = async (scanned: string) => {
     setBusy(true); setNote(null);
     try {
-      const token = getAdminToken() ?? '';
-      // A bag code scanned here (bag first, or the wrong code) is not an order.
-      // Say so plainly instead of "No order matches", which reads like a
-      // broken label.
-      const notALabel = async () => {
-        try {
-          const h = await packApi.history(token, scanned, 5);
-          const isBag = (h.events ?? []).some(ev => (ev.bagBarcode ?? '').toLowerCase() === scanned.toLowerCase());
-          if (isBag) {
-            setNote({ kind: 'err', text: `${scanned} is a BAG code. Scan the shipping label (AWB) first, then the bag.` });
-            return true;
-          }
-        } catch { /* fall through to the plain message */ }
-        return false;
-      };
-      let r;
-      try { r = await ordersApi.getById(scanned, token); }
-      catch (e) { if (await notALabel()) return; throw e; }
-      const o = r.order;
-      if (!o) {
-        if (await notALabel()) return;
-        setNote({ kind: 'err', text: `No order matches ${scanned}.` });
-        return;
-      }
-
-      if (o.bagBarcode) {
-        setOrder(o);
-        setNote({ kind: 'warn', text: `This parcel already has bag ${o.bagBarcode}. Scanning another bag will replace it.` });
-        return;
-      }
-      setOrder(o);
-      setNote({ kind: 'ok', text: 'Label read. Now scan the bag.' });
-    } catch (e) {
-      setNote({ kind: 'err', text: (e as Error).message || 'Could not look that order up.' });
+      const r = await lookupLabel(scanned);
+      if (!r.order) { setNote({ kind: 'err', text: r.error || `No order matches ${scanned}.` }); return; }
+      setOrder(r.order);
+      setNote(r.warn ? { kind: 'warn', text: r.warn } : { kind: 'ok', text: 'Label read. Now scan the bag.' });
     } finally { setBusy(false); }
   };
 
   // ── Step 2: the bag ───────────────────────────────────────────────────────
-  const saveBag = async (scanned: string) => {
-    if (!order) return;
+  // Pure as well: records the bag, moves the order on, and says what happened.
+  const saveBagFor = useCallback(async (o: Order, scanned: string): Promise<SaveResult> => {
     // The label scanned twice. The server refuses this too; saying it here is
     // instant and keeps the parcel on screen so the bag can be scanned next.
     const same = (x?: string | null) => !!x && x.trim().toLowerCase() === scanned.trim().toLowerCase();
-    if (same(order.awb) || same(order.id)) {
-      setNote({ kind: 'err', text: 'That is the shipping label again. Now scan the code printed on the BAG.' });
-      return;
+    if (same(o.awb) || same(o.id)) {
+      return { kind: 'err', text: 'That is the shipping label again. Now scan the code printed on the BAG.' };
     }
-    setBusy(true); setNote(null);
     const token = getAdminToken() ?? '';
+    let r;
     try {
-      const r = await ordersApi.setBagBarcode(order.id, scanned, token);
-
-      if (!r.readyToShip) {
-        // Saved, but the order cannot advance - no AWB yet, or it is already
-        // past this point. Say which; do not pretend the parcel is away.
-        //
-        // The order is let go all the same. Holding on to it looked tidier and
-        // was a trap: the packer reads the warning, moves to the next parcel
-        // and scans ITS label - and the screen, still holding the old order,
-        // takes that AWB for a bag code and writes it over the bag that was
-        // just recorded. There is nothing more this screen can do for this
-        // parcel, so the next scan belongs to the next one.
-        setNote({ kind: 'warn', text: r.note || `Bag recorded against ${r.orderId}.` });
-        setOrder(null);
-        return;
-      }
-
-      // The one door every status change goes through, so the invoice number,
-      // the Delhivery push and the customer's SMS all still happen.
-      try {
-        await ordersApi.updateStatus({ orderId: r.orderId, status: 'Ready for Shipping' }, token);
-        setDone(d => [r.orderId, ...d].slice(0, 25));
-        loadHistory(histQ);
-        setNote({ kind: 'ok', text: `${r.orderId} → Ready to Ship. Bag ${r.bagBarcode}. Next parcel.` });
-        setOrder(null);
-      } catch (e) {
-        // The bag IS saved. Only the status move failed, and saying so is the
-        // difference between a packer re-scanning the bag (which would work)
-        // and a packer thinking the whole thing failed.
-        setNote({
-          kind: 'err',
-          text: `Bag ${r.bagBarcode} is saved, but the order could not be moved to Ready to Ship: `
-            + `${(e as Error).message}. Scan the label again to retry.`,
-        });
-        setOrder(null);
-      }
+      r = await ordersApi.setBagBarcode(o.id, scanned, token);
     } catch (e) {
-      setNote({ kind: 'err', text: (e as Error).message || 'Could not record that bag.' });
+      return { kind: 'err', text: (e as Error).message || 'Could not record that bag.' };
+    }
+
+    if (!r.readyToShip) {
+      // Saved, but the order cannot advance - no AWB yet, or it is already
+      // past this point. Say which; do not pretend the parcel is away.
+      loadHistory(histQ);
+      return { kind: 'warn', text: r.note || `Bag recorded against ${r.orderId}.` };
+    }
+
+    // The one door every status change goes through, so the invoice number,
+    // the Delhivery push and the customer's SMS all still happen.
+    try {
+      await ordersApi.updateStatus({ orderId: r.orderId, status: 'Ready for Shipping' }, token);
+      setDone(d => [r.orderId, ...d].slice(0, 25));
+      loadHistory(histQ);
+      return { kind: 'ok', text: `${r.orderId} → Ready to Ship. Bag ${r.bagBarcode}. Next parcel.` };
+    } catch (e) {
+      // The bag IS saved. Only the status move failed, and saying so is the
+      // difference between a packer re-scanning the bag (which would work)
+      // and a packer thinking the whole thing failed.
+      return {
+        kind: 'err',
+        text: `Bag ${r.bagBarcode} is saved, but the order could not be moved to Ready to Ship: `
+          + `${(e as Error).message}. Scan the label again to retry.`,
+      };
+    }
+  }, [loadHistory, histQ]);
+
+  const saveBag = async (scanned: string) => {
+    if (!order) return;
+    setBusy(true); setNote(null);
+    try {
+      const r = await saveBagFor(order, scanned);
+      setNote(r);
+      // The label-again mistake keeps the parcel on screen; anything else lets
+      // it go. Holding on to it after a save was a trap: the packer moves on,
+      // scans the NEXT label, and the screen takes that AWB for a bag code.
+      const labelAgain = r.kind === 'err' && r.text.startsWith('That is the shipping label again');
+      const failedToRecord = r.kind === 'err' && !r.text.startsWith('Bag ');
+      if (!labelAgain && !failedToRecord) setOrder(null);
     } finally { setBusy(false); }
   };
 
@@ -198,96 +191,12 @@ export default function PackAndScanPage() {
   };
 
   // ── The camera, when there is no gun ────────────────────────────────────
-  //
-  // The stream lives in STATE, and an effect hangs it on the <video>. The
-  // first version opened the camera and then reached for the element inside a
-  // setTimeout(0), which is a race with React's render: when the ref was not
-  // attached yet the code hit `if (!v) return` and gave up without a word.
-  // The camera light came on, the box stayed black, and the reading loop
-  // never started. An effect cannot lose that race - it runs after the DOM is
-  // committed, so the element is there by definition.
-  const [stream, setStream] = useState<MediaStream | null>(null);
-  const camOpen = stream !== null;
-
-  // `handle` is rebuilt on every render and the loop below must always call
-  // the current one, without the effect tearing down and restarting each time.
-  const handleRef = useRef(handle);
-  handleRef.current = handle;
-
-  // Just drops the stream. The effect below owns stopping the tracks, so
-  // there is one place that does it - a state updater is meant to be a pure
-  // function of what came before, and React is allowed to run it twice.
-  const stopCam = useCallback(() => setStream(null), []);
-
-  const startCam = async () => {
-    setCamErr('');
-    if (!(window as unknown as { BarcodeDetector?: BarcodeDetectorCtor }).BarcodeDetector) {
-      setCamErr('This browser cannot read barcodes from the camera. Use Chrome, or a scanner gun.');
-      return;
-    }
-    try {
-      setStream(await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } }));
-    } catch (e) {
-      // The browser says exactly what went wrong and the packer can act on
-      // most of them. One message for all four had him allowing a permission
-      // that was never the problem.
-      const name = (e as { name?: string })?.name ?? '';
-      setCamErr(
-        name === 'NotAllowedError'  ? 'Camera access was refused. Allow it for this site in the browser, then press Camera again.'
-        : name === 'NotFoundError'  ? 'No camera was found on this device. Use a scanner gun.'
-        : name === 'NotReadableError' ? 'The camera is being used by another app. Close it and press Camera again.'
-        : name === 'SecurityError'  ? 'The camera needs a secure (https) connection.'
-        : 'The camera could not be opened. Use a scanner gun.'
-      );
-    }
-  };
-
-  // Show the picture and read it. One effect, so the two can never disagree
-  // about whether the camera is running.
-  useEffect(() => {
-    if (!stream) return;
-    const v = videoRef.current;
-    if (!v) return;
-
-    v.srcObject = stream;
-    // autoPlay is on the element as well; this covers the browsers that want
-    // to be asked, and says so when the ask is refused rather than leaving a
-    // black rectangle to be puzzled over.
-    v.play().catch(() => setCamErr('The camera opened but the picture will not play. Use a scanner gun.'));
-
-    const Ctor = (window as unknown as { BarcodeDetector?: BarcodeDetectorCtor }).BarcodeDetector;
-    if (!Ctor) return;
-    const detector = new Ctor();
-
-    let stopped = false;
-    let timer: ReturnType<typeof setTimeout>;
-    const tick = async () => {
-      if (stopped) return;
-      try {
-        // Before the first frame arrives the video has no size and detect()
-        // throws. That is ordinary for the first moment, not an error.
-        if (v.readyState >= 2) {
-          const hit = (await detector.detect(v)).find(f => f.rawValue?.trim());
-          if (hit) {
-            stopCam();
-            await handleRef.current(hit.rawValue);
-            return;
-          }
-        }
-      } catch { /* a frame that will not decode is normal; try the next */ }
-      if (!stopped) timer = setTimeout(tick, 250);
-    };
-    tick();
-
-    return () => {
-      stopped = true;
-      clearTimeout(timer);
-    };
-  }, [stream, stopCam]);
-
-  // A camera left running is a light on the phone and a flat battery by
-  // evening, so every track is stopped when the page goes.
-  useEffect(() => () => { stream?.getTracks().forEach(t => t.stop()); }, [stream]);
+  // Full screen. On a phone it opens by itself when the page opens.
+  const [camOpen, setCamOpen] = useState(false);
+  useEffect(() => { if (isTouchPhone()) setCamOpen(true); }, []);
+  // Keep the cursor in the box for the scanner gun - but not on a phone, where
+  // focusing it pops the keyboard up over the camera.
+  useEffect(() => { if (!camOpen && !isTouchPhone()) focusBox(); }, [focusBox, order, busy, camOpen]);
 
   const step = order ? 2 : 1;
   const noteColour = note?.kind === 'ok' ? '#1a7f4b' : note?.kind === 'warn' ? '#8a6100' : '#a3122b';
@@ -295,6 +204,13 @@ export default function PackAndScanPage() {
 
   return (
     <div className="admin-page">
+      {camOpen && (
+        <PackScanner
+          lookup={lookupLabel}
+          save={saveBagFor}
+          onClose={() => { setCamOpen(false); loadHistory(histQ); }}
+        />
+      )}
       <PageHeader
         title="Pack & Scan"
         sub="Scan the label, then the bag. The order moves to Ready to Ship on its own."
@@ -319,7 +235,6 @@ export default function PackAndScanPage() {
               value={code}
               onChange={e => setCode(e.target.value)}
               disabled={busy}
-              autoFocus
               placeholder={step === 1 ? 'AWB or order number' : 'The code printed on the bag'}
               style={{
                 flex: '1 1 260px', minWidth: 0, padding: '.7rem .8rem', fontSize: '1.05rem',
@@ -329,37 +244,14 @@ export default function PackAndScanPage() {
             <button type="submit" className="adm-btn adm-btn-primary" disabled={busy || !code.trim()}>
               {busy ? 'Working…' : 'Enter'}
             </button>
-            <button type="button" className="adm-btn" onClick={camOpen ? stopCam : startCam} disabled={busy}>
-              {camOpen ? 'Close camera' : 'Camera'}
+            <button type="button" className="adm-btn" onClick={() => { setOrder(null); setNote(null); setCamOpen(true); }} disabled={busy}>
+              Camera
             </button>
           </div>
           <div style={{ fontSize: '.73rem', color: '#888', marginTop: '.35rem' }}>
             A scanner gun types here on its own — leave the cursor in the box and keep scanning.
           </div>
         </form>
-
-        {camErr && <p style={{ color: '#a3122b', fontSize: '.8rem', marginTop: '.6rem' }}>{camErr}</p>}
-        {camOpen && (
-          <video
-            ref={videoRef}
-            autoPlay
-            muted
-            playsInline
-            // Small on purpose. It is an aiming window, not something to
-            // watch: at 420px wide it pushed the scan box and the message off
-            // a phone screen, and the packer needs those in sight while
-            // pointing the camera.
-            //
-            // objectFit 'contain', not 'cover'. Cropping would hide part of
-            // the frame he is aiming with, while the reader still works on
-            // the whole frame - so he would be lining up a barcode against a
-            // picture that is not the one being read.
-            style={{
-              width: '100%', maxWidth: 240, maxHeight: 190, objectFit: 'contain',
-              marginTop: '.8rem', borderRadius: 8, background: '#000', display: 'block',
-            }}
-          />
-        )}
 
         {note && (
           <p style={{
