@@ -194,7 +194,19 @@ public class DelhiveryService
     /// </summary>
     /// <summary>What the bulk tracking call says about one parcel.</summary>
     public readonly record struct TrackLine(
-        string Status, DateTimeOffset? Expected, string StatusType = "", string Instruction = "");
+        string Status, DateTimeOffset? Expected, string StatusType = "", string Instruction = "",
+        // LastScan: the newest SCAN on the waybill - the event, as against
+        // Instruction which is the rollup over the leg.
+        //
+        // "Out for delivery" is a scan at 8:55 this morning. The rollup for the
+        // same parcel still reads "In Transit", because that is what a rollup
+        // describes. Every dashboard box is counted from the stored columns, so
+        // without this the box was counting the leg while the shopkeeper read
+        // the event - on the same screen, disagreeing.
+        //
+        // A plain comment rather than an XML one: /// does not belong inside a
+        // parameter list, and there is no C# compiler here to say so.
+        string LastScan = "");
 
     /// <summary>
     /// Is this parcel on its way BACK to us rather than on to the customer?
@@ -345,8 +357,44 @@ public class DelhiveryService
                     ?? (ship.TryGetProperty("PromisedDeliveryDate", out var e2) && e2.ValueKind == JsonValueKind.String
                         ? e2.GetString() : null);
 
+                // The newest scan, which this response has been carrying all
+                // along and this method was throwing away. TrackDetailAsync -
+                // the modal - reads the same array out of the same payload.
+                //
+                // Newest by TIME, not by position: Delhivery has sent this
+                // array oldest-first and newest-first at different times, which
+                // is why SplitLegs below sorts by CourierDate rather than
+                // trusting the order. Taking the first or the last element
+                // would be right about half the time.
+                var lastScan = "";
+                if (ship.TryGetProperty("Scans", out var scansEl) && scansEl.ValueKind == JsonValueKind.Array)
+                {
+                    DateTimeOffset newest = DateTimeOffset.MinValue;
+                    foreach (var scanItem in scansEl.EnumerateArray())
+                    {
+                        var d = scanItem.TryGetProperty("ScanDetail", out var sd) ? sd : scanItem;
+
+                        string? Text(string key) =>
+                            d.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.String
+                                ? v.GetString() : null;
+
+                        var remark = Text("Instructions") ?? Text("Scan") ?? "";
+                        if (remark.Trim().Length == 0) continue;
+
+                        var at = CourierDate(Text("ScanDateTime") ?? Text("StatusDateTime"));
+                        // A scan with no readable time still beats nothing at
+                        // all, but never beats one that is dated.
+                        var when = at ?? DateTimeOffset.MinValue;
+                        if (lastScan.Length == 0 || when > newest)
+                        {
+                            newest = when;
+                            lastScan = remark.Trim();
+                        }
+                    }
+                }
+
                 if (!string.IsNullOrWhiteSpace(awb) && !string.IsNullOrWhiteSpace(status))
-                    result[awb!] = new TrackLine(status!, CourierDate(expectedRaw), statusType, instruction);
+                    result[awb!] = new TrackLine(status!, CourierDate(expectedRaw), statusType, instruction, lastScan);
             }
         }
         catch { /* tracking is best-effort — sync service will retry next cycle */ }

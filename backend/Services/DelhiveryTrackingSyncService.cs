@@ -128,7 +128,15 @@ public class DelhiveryTrackingSyncService : BackgroundService
                 // and a status that is three hours old is fine; one that was
                 // only recorded when the ORDER status happened to change would
                 // be weeks old on a parcel that sat in transit.
-                var note = (line.Instruction ?? "").Trim();
+                // The newest scan when there is one, and the rollup only as
+                // a fallback. The scan is the EVENT - "Out for delivery",
+                // "RETURN Accepted" - and the rollup is the leg it happened on,
+                // which on a travelling parcel just says it is travelling.
+                // CourierNote is what every dashboard box is counted from, so
+                // this is the line that decides whether those boxes describe
+                // today or last week.
+                var note = (line.LastScan ?? "").Trim();
+                if (note.Length == 0) note = (line.Instruction ?? "").Trim();
                 if (note.Length > 250) note = note.Substring(0, 250);
                 var courierStatus = (line.Status ?? "").Trim();
                 if (courierStatus.Length > 120) courierStatus = courierStatus.Substring(0, 120);
@@ -170,7 +178,12 @@ public class DelhiveryTrackingSyncService : BackgroundService
                     // written into CourierNote twenty lines up - and without it
                     // this test cannot tell a parcel on the way home from one
                     // that has arrived.
-                    if (DelhiveryService.IsBackWithUs(line.Status, line.StatusType, note))
+                    // Both sentences, because either one may carry the
+                    // arrival: the scan says "RETURN Accepted" and the rollup
+                    // sometimes says "RTO - Returned", and which of them does
+                    // is not consistent.
+                    if (DelhiveryService.IsBackWithUs(
+                            line.Status, line.StatusType, $"{line.Instruction} {note}"))
                     {
                         if (order.Status != "Return")
                         {
