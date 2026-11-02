@@ -2600,7 +2600,7 @@ public class OrdersController : ControllerBase
                 changed = true;
             }
         }
-        else if ((s.Contains("picked") || s.Contains("transit") || s.Contains("dispatched") || s.Contains("reached") || s.Contains("out for delivery"))
+        else if (((s.Contains("picked") && !s.Contains("not picked")) || s.Contains("transit") || s.Contains("dispatched") || s.Contains("reached") || s.Contains("out for delivery"))
                  && order.Status is "Order Packed" or "Ready for Shipping" or "Shipped")
         {
             order.Status = "Transit";
@@ -2767,9 +2767,19 @@ public class OrdersController : ControllerBase
         else
         {
             var res = await _delhivery.CancelShipmentAsync(order.Awb!);
-            if (!res.Success)
+            // Cancelled already on Delhivery One: the API then refuses with a
+            // remark that says so. The parcel must still be at the shop for
+            // that to be taken as a cancellation rather than an error.
+            var alreadyByRemark = !res.Success
+                && (res.Message ?? "").Contains("cancel", StringComparison.OrdinalIgnoreCase)
+                && (res.Message ?? "").Contains("already", StringComparison.OrdinalIgnoreCase)
+                && line.Status is not null
+                && Services.DelhiveryService.IsBeforePickup(line.Status, line.StatusType);
+            if (!res.Success && !alreadyByRemark)
                 return BadRequest(new { success = false, message = res.Message });
-            message = res.Message ?? "Shipment cancelled at Delhivery.";
+            message = alreadyByRemark
+                ? "This AWB was already cancelled at Delhivery."
+                : res.Message ?? "Shipment cancelled at Delhivery.";
         }
 
         order.CourierStatus = "Cancelled";
@@ -2804,7 +2814,17 @@ public class OrdersController : ControllerBase
         if (!live.TryGetValue(oldAwb, out var line))
             return BadRequest(new { success = false, message =
                 $"Could not confirm with Delhivery that AWB {oldAwb} is cancelled. Try again in a minute." });
-        if (!Services.DelhiveryService.IsCancelledAtCourier(line.Status, line.StatusType, line.Instruction))
+        // Delhivery's tracking never says "cancelled" for a forward waybill
+        // cancelled before pickup - it stays Manifested / Not Picked (UD). So
+        // the proof is: we recorded Delhivery accepting the cancel, AND the
+        // courier still shows the parcel as never picked up.
+        var weCancelled = string.Equals(order.CourierStatus, "Cancelled", StringComparison.OrdinalIgnoreCase);
+        var confirmed = Services.DelhiveryService.IsCancelledAtCourier(line.Status, line.StatusType, line.Instruction)
+            || (weCancelled && Services.DelhiveryService.IsBeforePickup(line.Status, line.StatusType));
+        if (weCancelled && !confirmed)
+            return BadRequest(new { success = false, message =
+                $"Delhivery shows AWB {oldAwb} as \"{line.Status}\" - it looks picked up, so it was not removed. Check it on Delhivery One." });
+        if (!confirmed)
         {
             // Keep our record in step with what the courier says, so the
             // screen goes back to offering Cancel instead of a Delete that

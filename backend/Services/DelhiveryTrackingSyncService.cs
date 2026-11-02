@@ -84,6 +84,10 @@ public class DelhiveryTrackingSyncService : BackgroundService
     {
         var active = await db.SiteOrders
             .Where(o => o.Awb != null && o.Awb != "" && ActiveStatuses.Contains(o.Status))
+            // A waybill the shop cancelled (Orders -> Cancel) is waiting to be
+            // deleted and replaced. Tracking it would overwrite the "Cancelled"
+            // marker the Delete button relies on with Delhivery's "Not Picked".
+            .Where(o => o.CourierStatus == null || o.CourierStatus != "Cancelled")
             .ToListAsync(ct);
         if (active.Count == 0)
         {
@@ -222,7 +226,8 @@ public class DelhiveryTrackingSyncService : BackgroundService
                     updated++;
                     if (msg is not null) tellDelivered.Add(order);
                 }
-                else if ((s.Contains("picked") || s.Contains("transit") || s.Contains("dispatched") || s.Contains("reached"))
+                // "Not Picked" contains "picked" but means the opposite.
+                else if (((s.Contains("picked") && !s.Contains("not picked")) || s.Contains("transit") || s.Contains("dispatched") || s.Contains("reached"))
                          && order.Status != "Transit")
                 {
                     order.Status = "Transit";

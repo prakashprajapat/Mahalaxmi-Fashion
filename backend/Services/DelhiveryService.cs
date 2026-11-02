@@ -169,15 +169,30 @@ public class DelhiveryService
     }
 
     /// <summary>
-    /// Whether Delhivery's own tracking says this waybill is cancelled. This is
-    /// what the shop's Delete button trusts, never our own record, so a waybill
-    /// still live at Delhivery can never be wiped from an order by mistake.
+    /// Whether Delhivery's tracking itself says "cancelled". That is only ever
+    /// true for a reverse pickup (status type CN). A FORWARD shipment cancelled
+    /// before pickup keeps status type UD and reads "Manifested" or "Not Picked"
+    /// (seen on 55746510000781, cancelled on Delhivery One) - see IsBeforePickup.
     /// </summary>
     public static bool IsCancelledAtCourier(string? status, string? statusType, string? instruction = null)
     {
         if ((statusType ?? "").Trim().Equals("CN", StringComparison.OrdinalIgnoreCase)) return true;
         var s = $"{status} {instruction}".ToLowerInvariant();
         return s.Contains("cancel");
+    }
+
+    /// <summary>
+    /// The parcel has not left the shop: a forward waybill still in Delhivery's
+    /// pre-pickup states. This is what a cancelled-before-pickup waybill looks
+    /// like in tracking, and it is the proof the Delete button asks for.
+    /// Anything that has moved (In Transit, Pending, Dispatched, RT, DL) is not.
+    /// </summary>
+    public static bool IsBeforePickup(string? status, string? statusType)
+    {
+        var t = (statusType ?? "").Trim().ToUpperInvariant();
+        if (t.Length > 0 && t != "UD") return false;
+        var s = (status ?? "").Trim().ToLowerInvariant();
+        return s == "manifested" || s == "not picked" || s == "open" || s == "scheduled";
     }
 
     public record PickupResult(bool Success, string? Message);
