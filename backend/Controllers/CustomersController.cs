@@ -1360,7 +1360,18 @@ public class CustomersController : ControllerBase
         if (req.Gender       != null) c.Gender       = req.Gender;
         if (req.Phone        != null) c.Phone        = req.Phone.Trim();
         // Email is editable by an admin (used to fix/merge duplicate accounts).
-        if (isAdmin && !string.IsNullOrWhiteSpace(newEmail)) c.Email = newEmail;
+        // The shopper may set or change their own email too. It used to be
+        // admin-only, and a customer's Save silently dropped it - the page then
+        // showed the old (often empty) email again, every time. A self-entered
+        // address is marked unverified; SocialLogin below will not open an
+        // OTP-verified account on the strength of an unverified email.
+        if (!string.IsNullOrWhiteSpace(newEmail) && newEmail != c.Email)
+        {
+            if (!isAdmin && (newEmail.Length > 254 || !System.Text.RegularExpressions.Regex.IsMatch(newEmail, @"^[^\s@]+@[^\s@]+\.[^\s@]+$")))
+                return BadRequest(new { success = false, message = "Please enter a valid email address." });
+            c.Email = newEmail;
+            if (!isAdmin) c.EmailVerified = false;
+        }
         // Birthday & anniversary stay editable until the customer redeems the matching
         // date-based coupon; once that offer is used the date locks (stops repeat claims).
         //
@@ -1723,6 +1734,23 @@ public class CustomersController : ControllerBase
         else if (existing.AccountStatus != "active")
         {
             return Unauthorized(new { success = false, message = "Account is deactivated." });
+        }
+        else if (!existing.EmailVerified && existing.PhoneVerified)
+        {
+            // This email was typed into an account that signs in with its
+            // mobile number, and nobody has ever proved they own the address.
+            // Opening that account for whoever holds the Google login would let
+            // anyone who typed someone else's email into their own profile be
+            // joined by that person - and see their orders. The owner of the
+            // account signs in with mobile OTP instead.
+            return Conflict(new { success = false, message =
+                "This email is saved on an account that signs in with a mobile number. Please log in with mobile OTP." });
+        }
+        else if (!existing.EmailVerified)
+        {
+            // A guest profile created at checkout: Google has just proved the
+            // address belongs to this person, so it is verified from now on.
+            existing.EmailVerified = true;
         }
 
         var social = await SignInAsync(existing);

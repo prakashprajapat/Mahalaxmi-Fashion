@@ -489,6 +489,7 @@ public class OrdersController : ControllerBase
                         && !await _db.Customers.AnyAsync(c => c.Email == typed && c.Id != meId))
                     {
                         me.Email = typed;
+                        me.EmailVerified = false;   // typed, not proven - see SocialLogin
                         await _db.SaveChangesAsync();
                     }
                 }
