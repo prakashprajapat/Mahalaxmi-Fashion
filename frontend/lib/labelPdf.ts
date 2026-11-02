@@ -80,7 +80,7 @@ async function labelToJpeg(order: Order): Promise<{ bytes: Uint8Array; px: numbe
   }
 
   const css = LABEL_CSS.replace(/@page\{[^}]*\}/g, '').replace(/@media screen\{[^}]*\}\}/g, '');
-  const pageStyle = `width:${W}px;box-sizing:border-box;padding:5mm;background:#fff;font-family:Arial,Helvetica,sans-serif;color:#111`;
+  const pageStyle = `width:${W}px;box-sizing:border-box;padding:5mm;background:#fff;font-family:Arial,Helvetica,sans-serif;color:#111;line-height:normal;font-size:16px;letter-spacing:normal;font-weight:normal;text-align:left`;
 
   // How tall the label really is. A long order (four or five lines) runs past
   // 6 inches, and the print window spilled it onto a second sheet; a picture
@@ -88,7 +88,13 @@ async function labelToJpeg(order: Order): Promise<{ bytes: Uint8Array; px: numbe
   // Laid out once in a shadow root (so the label's CSS cannot touch the admin
   // page), measured, and the whole label is then scaled to fit one page.
   const probe = document.createElement('div');
-  probe.style.cssText = 'position:fixed;left:-10000px;top:0;visibility:hidden';
+  // all:initial matters. A shadow root keeps the admin page's CSS out, but NOT
+  // what is inherited through the host - and the admin body's line-height
+  // made every line of the label taller here than in the real picture. A
+  // four-item order then measured past 6 inches, got shrunk to fit, and came
+  // out small with a white band at the bottom. Reset, the measurement and
+  // the picture are laid out the same way.
+  probe.style.cssText = 'all:initial;position:fixed;left:-10000px;top:0;visibility:hidden';
   document.body.appendChild(probe);
   let contentH = H;
   try {
