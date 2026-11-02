@@ -53,6 +53,12 @@ const tabAccepts = (tabKey: string, status: string) =>
     : tabKey === 'other' ? !CLAIMED_STATUSES.has(status)
       : bucketAccepts(tabKey, status);
 
+// AWB Cancel/Delete: which orders can still have their waybill cancelled, and
+// only Delhivery waybills (a blank courier means the Delhivery button made it).
+const AWB_CANCELLABLE = ['Pending', 'On Hold', 'Order Packed', 'Ready for Shipping', 'Shipped'];
+const awbIsCancelled = (o: Order) => /cancel/i.test(o.courierStatus ?? '');
+const awbIsDelhivery = (o: Order) => !o.courier || /delhivery/i.test(o.courier);
+
 const RETURN_STATUS_TABS: { key: string; label: string; hidden?: boolean }[] = [
   { key: 'all',              label: 'All Returns' },
   { key: 'Return Requested', label: 'Return Requested' },
@@ -394,8 +400,6 @@ export default function AdminOrdersPage() {
   // taking the AWB off the order. After that the button is gone and a new AWB
   // can be generated.
   const [awbBusyId, setAwbBusyId] = useState<string | null>(null);
-  const AWB_CANCELLABLE = ['Pending', 'On Hold', 'Order Packed', 'Ready for Shipping', 'Shipped'];
-  const awbIsCancelled = (o: Order) => /cancel/i.test(o.courierStatus ?? '');
   const awbAction = async (o: Order, kind: 'cancel' | 'delete') => {
     if (!o.awb) return;
     const ask = kind === 'cancel'
@@ -984,7 +988,7 @@ export default function AdminOrdersPage() {
                                       style={{ background: 'none', border: 0, padding: 0, cursor: 'pointer', fontFamily: 'monospace',
                                                fontSize: '.74rem', color: '#1565c0', textDecoration: 'underline' }}>{o.awb}</button>
                             : <span style={{ color: '#c4bab5' }}>&mdash;</span>}
-                          {o.awb && (awbIsCancelled(o) || AWB_CANCELLABLE.includes(o.status)) && (
+                          {o.awb && awbIsDelhivery(o) && (awbIsCancelled(o) || AWB_CANCELLABLE.includes(o.status)) && (
                             <div style={{ marginTop: '.25rem' }}>
                               {awbIsCancelled(o) && (
                                 <span style={{ fontSize: '.68rem', color: '#c0392b', fontWeight: 700, marginRight: '.4rem' }}>Cancelled</span>

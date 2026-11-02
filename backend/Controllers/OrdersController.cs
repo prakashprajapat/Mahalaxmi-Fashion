@@ -2672,6 +2672,10 @@ public class OrdersController : ControllerBase
         var order = await _db.SiteOrders.FirstOrDefaultAsync(o => o.OrderId == orderId);
         if (order is null)
             return NotFound(new { success = false, message = "Order not found." });
+        if (!string.IsNullOrWhiteSpace(order.Awb)
+            && string.Equals(order.CourierStatus, "Cancelled", StringComparison.OrdinalIgnoreCase))
+            return BadRequest(new { success = false, message =
+                $"AWB {order.Awb} is cancelled. Press Delete next to it first, then generate a new one." });
         if (!string.IsNullOrWhiteSpace(order.Awb))
             return Ok(new { success = true, awb = order.Awb, order = MapOrder(order), message = "This order already has an AWB." });
 
@@ -2752,34 +2756,31 @@ public class OrdersController : ControllerBase
         if (!AwbCancellable.Contains(order.Status, StringComparer.OrdinalIgnoreCase))
             return BadRequest(new { success = false, message =
                 $"Order {order.OrderId} is \"{order.Status}\"; its AWB can only be cancelled before the parcel is picked up." });
+        if (!IsDelhivery(order.Courier))
+            return BadRequest(new { success = false, message =
+                $"AWB {order.Awb} is a {order.Courier} waybill. Cancel it with {order.Courier}; only Delhivery waybills are cancelled from here." });
 
-        // Already cancelled at Delhivery (on Delhivery One, say)? Then there is
-        // nothing to send - just write down what the courier says.
-        var live = await _delhivery.TrackAsync(new[] { order.Awb! });
-        var already = live.TryGetValue(order.Awb!, out var line)
-            && Services.DelhiveryService.IsCancelledAtCourier(line.Status, line.StatusType, line.Instruction);
-
+        // Cancel first - one call in the normal case. Tracking is asked only
+        // when Delhivery refuses, to tell "already cancelled on Delhivery One"
+        // (fine) from "already picked up" (not fine).
         string message;
-        if (already)
+        var res = await _delhivery.CancelShipmentAsync(order.Awb!);
+        if (res.Success)
         {
-            message = "This AWB is already cancelled at Delhivery.";
+            message = res.Message ?? "Shipment cancelled at Delhivery.";
         }
         else
         {
-            var res = await _delhivery.CancelShipmentAsync(order.Awb!);
-            // Cancelled already on Delhivery One: the API then refuses with a
-            // remark that says so. The parcel must still be at the shop for
-            // that to be taken as a cancellation rather than an error.
-            var alreadyByRemark = !res.Success
-                && (res.Message ?? "").Contains("cancel", StringComparison.OrdinalIgnoreCase)
-                && (res.Message ?? "").Contains("already", StringComparison.OrdinalIgnoreCase)
-                && line.Status is not null
-                && Services.DelhiveryService.IsBeforePickup(line.Status, line.StatusType);
-            if (!res.Success && !alreadyByRemark)
+            var live = await _delhivery.TrackAsync(new[] { order.Awb! });
+            var known = live.TryGetValue(order.Awb!, out var line);
+            var alreadyCancelled = known && (
+                Services.DelhiveryService.IsCancelledAtCourier(line.Status, line.StatusType, line.Instruction)
+                || ((res.Message ?? "").Contains("cancel", StringComparison.OrdinalIgnoreCase)
+                    && (res.Message ?? "").Contains("already", StringComparison.OrdinalIgnoreCase)
+                    && Services.DelhiveryService.IsBeforePickup(line.Status, line.StatusType)));
+            if (!alreadyCancelled)
                 return BadRequest(new { success = false, message = res.Message });
-            message = alreadyByRemark
-                ? "This AWB was already cancelled at Delhivery."
-                : res.Message ?? "Shipment cancelled at Delhivery.";
+            message = "This AWB was already cancelled at Delhivery.";
         }
 
         order.CourierStatus = "Cancelled";
@@ -2787,7 +2788,7 @@ public class OrdersController : ControllerBase
         order.CourierSeenAt = DateTimeOffset.UtcNow;
         order.UpdatedAt = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync();
-        _log.LogInformation("AWB {Awb} on order {OrderId} cancelled at Delhivery.", order.Awb, order.OrderId);
+        _log.LogInformation("AWB {Awb} on order {OrderId} cancelled at Delhivery by {Who}.", order.Awb, order.OrderId, Actor());
 
         return Ok(new { success = true, message, order = MapOrder(order) });
     }
@@ -2810,6 +2811,9 @@ public class OrdersController : ControllerBase
             return Ok(new { success = true, message = "This order has no AWB.", order = MapOrder(order) });
 
         var oldAwb = order.Awb!;
+        if (!IsDelhivery(order.Courier))
+            return BadRequest(new { success = false, message =
+                $"AWB {oldAwb} is a {order.Courier} waybill; it cannot be checked with Delhivery." });
         var live = await _delhivery.TrackAsync(new[] { oldAwb });
         if (!live.TryGetValue(oldAwb, out var line))
             return BadRequest(new { success = false, message =
@@ -2849,10 +2853,18 @@ public class OrdersController : ControllerBase
             order.Status = "Ready for Shipping";
         order.UpdatedAt = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync();
-        _log.LogInformation("Cancelled AWB {Awb} removed from order {OrderId}.", oldAwb, order.OrderId);
+        _log.LogInformation("Cancelled AWB {Awb} removed from order {OrderId} by {Who}.", oldAwb, order.OrderId, Actor());
 
         return Ok(new { success = true, message = $"AWB {oldAwb} removed. Generate a new one.", order = MapOrder(order) });
     }
+
+    // A waybill with no courier written on it came from the Delhivery button.
+    private static bool IsDelhivery(string? courier) =>
+        string.IsNullOrWhiteSpace(courier) || courier.Contains("delhivery", StringComparison.OrdinalIgnoreCase);
+
+    // Who pressed the button, for the log line.
+    private string Actor() =>
+        User.FindFirstValue("email") ?? User.FindFirstValue("sub") ?? "unknown";
 
     private static string? Trunc(string? s, int n) =>
         s is null ? null : (s.Length <= n ? s : s.Substring(0, n));
