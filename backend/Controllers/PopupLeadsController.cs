@@ -141,6 +141,105 @@ public class PopupLeadsController : ControllerBase
         return Ok(new { success = true });
     }
 
+    // POST /api/popup-leads/import
+    //
+    // Bulk add from an Excel/CSV sheet (read in the browser, sent as rows).
+    // Same rules as the popup: the email lower-cased, the phone on its last ten
+    // digits, and a row that matches someone already on the list is skipped,
+    // never doubled. Nobody is messaged unless the admin ticks the box - a
+    // bought or borrowed list texted without asking is how a sender ID gets
+    // blocked.
+    [HttpPost("import")]
+    [Authorize]
+    [RequirePerm("popup-leads")]
+    public async Task<IActionResult> Import([FromBody] PopupLeadImportRequest req)
+    {
+        var rows = req.Rows ?? new List<PopupLeadRequest>();
+        if (rows.Count == 0) return BadRequest(new { success = false, message = "The sheet has no rows." });
+        if (rows.Count > 5000) return BadRequest(new { success = false, message = "At most 5,000 rows at a time. Split the sheet and import it in parts." });
+
+        var source = string.IsNullOrWhiteSpace(req.Source) ? "excel_import" : req.Source.Trim();
+        if (source.Length > 50) source = source[..50];
+
+        // Clean every row first.
+        var clean = new List<(string? Name, string? Email, string? Phone)>();
+        int invalid = 0;
+        foreach (var r in rows)
+        {
+            var email = CustomerKeys.Email(r.Email);
+            var phone = CustomerKeys.Phone(r.Phone);
+            if (email is null && phone is null) { invalid++; continue; }
+            var name = string.IsNullOrWhiteSpace(r.Name) ? null : r.Name.Trim();
+            if (name is { Length: > 255 }) name = name[..255];
+            clean.Add((name, email, phone));
+        }
+
+        // Everyone already on the list who could match any of these.
+        var emails = clean.Where(c => c.Email != null).Select(c => c.Email!).Distinct().ToList();
+        var phones = clean.Where(c => c.Phone != null).Select(c => c.Phone!).Distinct().ToList();
+        var existingRows = await _db.PopupLeads.AsNoTracking()
+            .Where(l => (l.Email != null && emails.Contains(l.Email)) || (l.Phone != null && phones.Contains(l.Phone)))
+            .Select(l => new { l.Email, l.Phone })
+            .ToListAsync();
+
+        // A repeat is the same number AND the same address (see Submit): when a
+        // row gives only one of the two, that one alone decides.
+        bool Matches(string? le, string? lp, string? e, string? p) =>
+            (e == null || le == e) && (p == null || lp == p);
+
+        var seen = existingRows.Select(x => (x.Email, x.Phone)).ToList();
+        var toAdd = new List<PopupLead>();
+        int duplicates = 0;
+        foreach (var c in clean)
+        {
+            if (seen.Any(x => Matches(x.Email, x.Phone, c.Email, c.Phone))) { duplicates++; continue; }
+            seen.Add((c.Email, c.Phone));
+            toAdd.Add(new PopupLead { Name = c.Name, Email = c.Email, Phone = c.Phone, Source = source });
+        }
+
+        int added = 0;
+        if (toAdd.Count > 0)
+        {
+            _db.PopupLeads.AddRange(toAdd);
+            try
+            {
+                await _db.SaveChangesAsync();
+                added = toAdd.Count;
+            }
+            catch (DbUpdateException)
+            {
+                // Someone arrived through the popup in the same instant, or a
+                // case the check above missed. Fall back to one at a time so
+                // one clash does not throw the whole sheet away.
+                foreach (var e in _db.ChangeTracker.Entries<PopupLead>().ToList()) e.State = EntityState.Detached;
+                var ok = new List<PopupLead>();
+                foreach (var lead in toAdd)
+                {
+                    var fresh = new PopupLead { Name = lead.Name, Email = lead.Email, Phone = lead.Phone, Source = lead.Source };
+                    _db.PopupLeads.Add(fresh);
+                    try { await _db.SaveChangesAsync(); added++; ok.Add(fresh); }
+                    catch (DbUpdateException) { _db.Entry(fresh).State = EntityState.Detached; duplicates++; }
+                }
+                toAdd = ok;
+            }
+        }
+
+        int welcomed = 0;
+        if (req.SendWelcome)
+        {
+            foreach (var lead in toAdd)
+            {
+                _welcome.Queue("lead", lead.Id, lead.Name, lead.Email, lead.Phone);
+                welcomed++;
+            }
+        }
+
+        _log.LogInformation("Popup leads import by {Who}: {Added} added, {Dup} already on the list, {Bad} without a usable phone/email",
+            User.Identity?.Name ?? "admin", added, duplicates, invalid);
+
+        return Ok(new { success = true, total = rows.Count, added, duplicates, invalid, welcomed });
+    }
+
     // Admin only — view all leads
     [HttpGet]
     [Authorize]
@@ -248,3 +347,4 @@ public class PopupLeadsController : ControllerBase
 }
 
 public record PopupLeadRequest(string? Name, string? Email, string? Phone, string? Source);
+public record PopupLeadImportRequest(List<PopupLeadRequest>? Rows, string? Source, bool SendWelcome);

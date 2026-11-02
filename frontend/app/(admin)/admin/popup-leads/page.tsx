@@ -7,6 +7,7 @@ import DateFilter, { ANY_DATES, inDateWindow, describeDateWindow, type DateWindo
 import { WhatsAppSendButton } from '@/components/admin/WhatsAppSend';
 import { SmsSendButton, TextEveryoneButton } from '@/components/admin/NewCollectionSms';
 import { fetchSends, recordSend, sendKey, shortDate, type SendMap } from '@/lib/outreach';
+import LeadImport from '@/components/admin/LeadImport';
 
 interface Lead {
   id: number;
@@ -168,6 +169,7 @@ export default function PopupLeadsPage() {
         right={
           <>
             <button className="adm-btn" onClick={load}>Refresh</button>
+            <LeadImport onDone={load} />
             <button className="adm-btn adm-btn-primary" onClick={exportCsv} disabled={!filtered.length}>
               Export CSV ({filtered.length})
             </button>
