@@ -2552,6 +2552,46 @@ public class OrdersController : ControllerBase
 
     public record CodBlockRequest(string Pincode, bool Blocked);
 
+    // POST /api/orders/risk/cod-block-bulk  (Admin) - COD off (or back on) for a
+    // whole list of pincodes at once, e.g. read from an Excel sheet of
+    // RTO-heavy areas. Same setting the one-at-a-time button writes.
+    [HttpPost("risk/cod-block-bulk")]
+    [Authorize]
+    public async Task<IActionResult> SetCodBlockBulk([FromBody] CodBlockBulkRequest req)
+    {
+        if (!User.HasSectionAccess("orders", "reports"))
+            return Forbid();
+
+        var pins = (req.Pincodes ?? new List<string>())
+            .Select(p => new string((p ?? "").Where(char.IsDigit).ToArray()))
+            .Where(p => p.Length == 6 && p[0] != '0')
+            .Distinct()
+            .ToList();
+        if (pins.Count == 0)
+            return BadRequest(new { success = false, message = "No valid 6-digit pincodes in the list." });
+        if (pins.Count > 20000)
+            return BadRequest(new { success = false, message = "At most 20,000 pincodes at a time." });
+
+        var set = await GetCodBlockedPincodesAsync();
+        int changed = 0;
+        foreach (var pin in pins)
+            if (req.Blocked ? set.Add(pin) : set.Remove(pin)) changed++;
+        var value = string.Join(",", set.OrderBy(x => x));
+
+        var s = await _db.SiteSettings.FirstOrDefaultAsync(x => x.Key == CodBlockedKey);
+        if (s is null) _db.SiteSettings.Add(new SiteSetting { Key = CodBlockedKey, Value = value });
+        else { s.Value = value; s.UpdatedAt = DateTimeOffset.UtcNow; }
+        await _db.SaveChangesAsync();
+        _cache.Remove(PublicSettingsCacheKey);
+
+        _log.LogInformation("COD bulk {Action} by {Who}: {Count} pincodes in the list, {Changed} changed, {Total} now blocked",
+            req.Blocked ? "block" : "unblock", User.Identity?.Name ?? "admin", pins.Count, changed, set.Count);
+
+        return Ok(new { success = true, valid = pins.Count, changed, unchanged = pins.Count - changed, totalBlocked = set.Count, codBlocked = set.OrderBy(x => x).ToList() });
+    }
+
+    public record CodBlockBulkRequest(List<string>? Pincodes, bool Blocked);
+
     // GET /api/orders/live-track/{awb}  (Public)
     // Live Delhivery tracking timeline for the customer tracking page — shipment-safe
     // fields only (status, expected date, scans), no customer PII. Also forward-syncs

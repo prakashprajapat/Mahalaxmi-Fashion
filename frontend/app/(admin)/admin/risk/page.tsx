@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { getAdminToken } from '@/lib/auth';
 import { ordersApi } from '@/lib/api';
 import { PageHeader, Card, Stat, StatGrid, Pill, Empty } from '@/components/admin/Ui';
+import PincodeImport from '@/components/admin/PincodeImport';
 
 type Pin = {
   pincode: string; city?: string | null; state?: string | null;
@@ -28,6 +29,11 @@ export default function RiskPage() {
   const [busyPin, setBusyPin] = useState<string | null>(null);
   const [onlyRisky, setOnlyRisky] = useState(false);
   const [search, setSearch] = useState('');
+  // Every pincode with COD off, including ones never shipped to (an imported
+  // list) - those are not in the table below, so they are listed on their own.
+  const [allBlocked, setAllBlocked] = useState<string[]>([]);
+  const [showOther, setShowOther] = useState(false);
+  const [otherQ, setOtherQ] = useState('');
 
   const load = async () => {
     setLoading(true);
@@ -37,6 +43,7 @@ export default function RiskPage() {
       setThreshold(r.highRiskThreshold);
       setPins(r.pincodes || []);
       setCustomers(r.riskyCustomers || []);
+      setAllBlocked(r.codBlocked || []);
     } catch {
       setPins([]); setCustomers([]);
     } finally { setLoading(false); }
@@ -51,6 +58,7 @@ export default function RiskPage() {
     try {
       await ordersApi.setCodBlock(pin.pincode, next, getAdminToken() || '');
       setPins(list => list.map(p => p.pincode === pin.pincode ? { ...p, codBlocked: next } : p));
+      setAllBlocked(list => next ? Array.from(new Set([...list, pin.pincode])).sort() : list.filter(x => x !== pin.pincode));
     } catch (e) {
       alert('Could not update: ' + (e as Error).message);
     } finally { setBusyPin(null); }
@@ -65,7 +73,20 @@ export default function RiskPage() {
       || (p.state || '').toLowerCase().includes(q);
   });
 
-  const blockedCount = pins.filter(p => p.codBlocked).length;
+  const blockedCount = allBlocked.length;
+  const shippedPins = new Set(pins.map(p => p.pincode));
+  const otherBlocked = allBlocked.filter(p => !shippedPins.has(p));
+  const otherShown = otherBlocked.filter(p => !otherQ || p.includes(otherQ.trim()));
+
+  const unblockOther = async (pin: string) => {
+    setBusyPin(pin);
+    try {
+      await ordersApi.setCodBlock(pin, false, getAdminToken() || '');
+      setAllBlocked(list => list.filter(x => x !== pin));
+    } catch (e) {
+      alert('Could not update: ' + (e as Error).message);
+    } finally { setBusyPin(null); }
+  };
   const riskyCount = pins.filter(p => p.risky).length;
 
   return (
@@ -73,7 +94,10 @@ export default function RiskPage() {
       <PageHeader
         title="Fraud &amp; risk"
         sub="Where fake and return-heavy orders come from, and where to switch Cash on Delivery off. Paying online is never blocked."
-        right={<button className="adm-btn" onClick={load}>Refresh</button>}
+        right={<>
+          <button className="adm-btn" onClick={load}>Refresh</button>
+          <PincodeImport onDone={load} />
+        </>}
       />
 
       <StatGrid>
@@ -176,6 +200,35 @@ export default function RiskPage() {
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+        {otherBlocked.length > 0 && (
+          <div style={{ marginTop: '1rem', borderTop: '1px solid #eee', paddingTop: '.8rem' }}>
+            <button className="adm-btn" onClick={() => setShowOther(v => !v)}>
+              {showOther ? 'Hide' : 'Show'} {otherBlocked.length.toLocaleString('en-IN')} other pincodes with COD off (never shipped to, e.g. imported)
+            </button>
+            {showOther && (
+              <div style={{ marginTop: '.7rem' }}>
+                <input className="adm-input" style={{ width: 200, marginBottom: '.6rem' }} placeholder="Find a pincode"
+                       value={otherQ} onChange={e => setOtherQ(e.target.value.replace(/\D/g, ''))} />
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '.4rem' }}>
+                  {otherShown.slice(0, 300).map(p => (
+                    <span key={p} style={{ display: 'inline-flex', alignItems: 'center', gap: '.35rem', border: '1px solid #eee', borderRadius: 999, padding: '.2rem .3rem .2rem .65rem', fontFamily: 'monospace', fontSize: '.8rem' }}>
+                      {p}
+                      <button className="adm-btn" style={{ padding: '.1rem .5rem', fontSize: '.7rem', color: '#2e7d32' }}
+                              disabled={busyPin === p} onClick={() => unblockOther(p)} title="Turn COD back on">
+                        {busyPin === p ? '…' : 'COD on'}
+                      </button>
+                    </span>
+                  ))}
+                </div>
+                {otherShown.length > 300 && (
+                  <p style={{ fontSize: '.78rem', color: '#888', marginTop: '.5rem' }}>
+                    Showing 300 of {otherShown.length.toLocaleString('en-IN')}. Type a pincode to find one.
+                  </p>
+                )}
+              </div>
+            )}
           </div>
         )}
         <p style={{ fontSize: '.78rem', color: '#9a908a', margin: '.75rem 0 0', lineHeight: 1.6 }}>

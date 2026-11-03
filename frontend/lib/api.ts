@@ -240,6 +240,13 @@ export const ordersApi = {
     }>('/orders/risk/summary', undefined, token),
 
   // Admin-only: turn Cash-on-Delivery on/off for a single pincode.
+  setCodBlockBulk: (pincodes: string[], blocked: boolean, token: string) =>
+    request<{ success: boolean; valid: number; changed: number; unchanged: number; totalBlocked: number; codBlocked: string[] }>(
+      '/orders/risk/cod-block-bulk',
+      { method: 'POST', body: JSON.stringify({ pincodes, blocked }) },
+      token
+    ),
+
   setCodBlock: (pincode: string, blocked: boolean, token: string) =>
     request<{ success: boolean; codBlocked: string[] }>(
       '/orders/risk/cod-block',
