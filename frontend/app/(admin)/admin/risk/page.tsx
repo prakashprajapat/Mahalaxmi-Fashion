@@ -168,7 +168,7 @@ export default function RiskPage() {
           <div className="adm-table-wrap">
             <table className="adm-table">
               <thead><tr>
-                <th>Pincode</th><th>Area</th><th className="num">Orders</th><th className="num">COD</th>
+                <th>Pincode</th><th>Area</th><th>State</th><th className="num">Orders</th><th className="num">COD</th>
                 <th className="num">Cancelled</th><th className="num">Returned</th><th className="num">Delivered</th>
                 <th>Risk</th><th>Cash on Delivery</th>
               </tr></thead>
@@ -176,7 +176,8 @@ export default function RiskPage() {
                 {filtered.map(p => (
                   <tr key={p.pincode}>
                     <td data-label="Pincode" className="mono" style={{ fontWeight: 800 }}>{p.pincode}</td>
-                    <td data-label="Area">{[p.city, p.state].filter(Boolean).join(', ') || '—'}</td>
+                    <td data-label="Area">{p.city || '—'}</td>
+                    <td data-label="State">{p.state || '—'}</td>
                     <td data-label="Orders" className="num">{p.total}</td>
                     <td data-label="COD" className="num">{p.cod}</td>
                     <td data-label="Cancelled" className="num" style={{ color: p.cancelled ? '#c0392b' : '#9a908a', fontWeight: p.cancelled ? 800 : 400 }}>
