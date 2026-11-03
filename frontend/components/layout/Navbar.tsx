@@ -827,8 +827,8 @@ export default function Navbar() {
               <Image src="/logo.webp" alt="Mahalaxmi Fashion Hub" width={547} height={300} sizes="200px" />
             </div>
             <form onSubmit={handleLogin} className="mfh-login-form" style={{ display: 'flex', flexDirection: 'column', gap: '.9rem' }}>
-              <h2 style={{ margin: 0, fontSize: '1.6rem', fontWeight: 800, color: '#1a1a1a' }}>Welcome Back</h2>
-              <p style={{ margin: '-.4rem 0 .2rem', fontSize: '.85rem', color: '#888' }}>Login to your account</p>
+              <h2 style={{ margin: 0, fontSize: '1.6rem', fontWeight: 800, color: '#1a1a1a' }}>{loginMode === 'otp' ? 'Login or Sign up' : 'Welcome Back'}</h2>
+              <p style={{ margin: '-.4rem 0 .2rem', fontSize: '.85rem', color: '#888' }}>{loginMode === 'otp' ? 'One step for both - new and old customers' : 'Login to your account'}</p>
               {loginMode === 'password' ? (
                 <>
                   <input type="email" required placeholder="Email" autoComplete="email"
@@ -849,10 +849,10 @@ export default function Navbar() {
                   {loginError && <p style={{ margin: 0, color: '#c0392b', fontSize: '.85rem', fontWeight: 600 }}>{loginError}</p>}
                 {loginError && (
                   <div style={{ margin: 0, padding: '.6rem .75rem', background: '#fdf6ec', border: '1px solid #f1dfc2', borderRadius: 8, fontSize: '.84rem', color: '#6b4e13', lineHeight: 1.5 }}>
-                    Signed up with your mobile number or at checkout? Your account may not have a password.
+                    No account with this email yet, or signed up with your mobile number / at checkout? Then there is no password. Use a login code instead - if you are new, it creates your account.
                     <button type="button" onClick={() => otpInstead(loginForm.email)} disabled={!loginForm.email.includes('@')}
                       style={{ display: 'block', marginTop: '.45rem', width: '100%', height: 44, border: '1.5px solid #a01836', borderRadius: 9, background: '#fff', color: '#a01836', fontWeight: 800, fontSize: '.95rem', cursor: 'pointer' }}>
-                      Get a login code (OTP) on this email
+                      Login / Sign up with OTP on this email
                     </button>
                   </div>
                 )}
@@ -866,7 +866,7 @@ export default function Navbar() {
                 </>
               ) : (
                 <>
-                  <p style={{ margin: '-.2rem 0 0', fontSize: '.9rem', color: '#555' }}>Login with a code sent to your mobile or email.</p>
+                  <p style={{ margin: '-.2rem 0 0', fontSize: '.9rem', color: '#555' }}>Enter your mobile number (or email) and verify the OTP. <strong style={{ color: '#2e7d32' }}>New here? Your account is created automatically</strong> - no form to fill.</p>
                   <div style={{ display: 'flex', alignItems: 'stretch', border: '1.5px solid #ddd', borderRadius: 9, background: otpSent ? '#f7f7f7' : '#fff', overflow: 'hidden' }}>
                     {/^\d/.test(otpContact.trim()) && (
                       <span style={{ display: 'flex', alignItems: 'center', padding: '0 .5rem 0 1rem', fontSize: '1.05rem', fontWeight: 600, color: '#333', background: '#fafafa', borderRight: '1px solid #eee' }}>+91</span>
@@ -908,6 +908,9 @@ export default function Navbar() {
                     ) : <span />}
                     <button type="button" onClick={switchToPassword} style={{ background: 'none', border: 'none', color: '#666', fontWeight: 600, cursor: 'pointer', padding: 0 }}>← Password login</button>
                   </div>
+                <p style={{ margin: '.2rem 0 0', textAlign: 'center', color: '#666', fontSize: '.9rem' }}>
+                  Prefer a password? <Link href="/account/register" onClick={closeLogin} style={{ color: '#a01836', fontWeight: 800, textDecoration: 'none' }}>Create New Account</Link>
+                </p>
                 </>
               )}
 
