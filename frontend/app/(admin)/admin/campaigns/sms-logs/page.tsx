@@ -98,7 +98,8 @@ export default function SmsLogsPage() {
     await load(); loadTpls();
   };
 
-  const textOf = (l: Log) => l.message || '';
+  // The full message when the template text is saved; until then, the values that went (better than nothing).
+  const textOf = (l: Log) => l.message || varsText(l.vars);
   const copy = async (l: Log) => {
     const t = textOf(l);
     if (!t) return;
@@ -232,11 +233,12 @@ export default function SmsLogsPage() {
                           {l.status === 'failed' && l.detail && <div style={{ color: '#c0392b', fontSize: 11, marginTop: 2, maxWidth: 200 }}>{l.detail}</div>}
                         </td>
                         <td style={{ padding: '8px 6px', whiteSpace: 'nowrap' }}>
-                          <button className="adm-btn" style={{ padding: '.25rem .55rem', fontSize: 12 }} disabled={!l.message} onClick={() => copy(l)}>
+                          <button className="adm-btn" style={{ padding: '.25rem .55rem', fontSize: 12 }} disabled={!textOf(l)} onClick={() => copy(l)}>
                             {copied === l.id ? 'Copied' : 'Copy'}
                           </button>{' '}
-                          <a className="adm-btn" style={{ padding: '.25rem .55rem', fontSize: 12, color: '#128C7E', pointerEvents: l.message && l.phone ? undefined : 'none', opacity: l.message && l.phone ? 1 : .5 }}
-                             href={l.message && l.phone ? waHref(l) : undefined} target="_blank" rel="noopener noreferrer">WhatsApp</a>{' '}
+                          <a className="adm-btn" style={{ padding: '.25rem .55rem', fontSize: 12, color: '#128C7E', pointerEvents: l.phone ? undefined : 'none', opacity: l.phone ? 1 : .5 }}
+                             title={l.message ? 'Open WhatsApp with this message' : 'Template text not saved yet: WhatsApp opens with the values only'}
+                             href={l.phone ? waHref(l) : undefined} target="_blank" rel="noopener noreferrer">WhatsApp</a>{' '}
                           <button className="adm-btn" style={{ padding: '.25rem .55rem', fontSize: 12, color: '#c0392b' }}
                                   onClick={() => del({ ids: [l.id] }, 'Delete this log?')}>Delete</button>
                         </td>
