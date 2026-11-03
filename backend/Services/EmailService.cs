@@ -75,6 +75,10 @@ public class EmailService
                 Subject    = subject,
                 Body       = htmlBody,
                 IsBodyHtml = true,
+                // Hindi (Devanagari) text must arrive as itself, not as ????.
+                BodyEncoding    = System.Text.Encoding.UTF8,
+                SubjectEncoding = System.Text.Encoding.UTF8,
+                HeadersEncoding = System.Text.Encoding.UTF8,
             };
             foreach (var addr in to) msg.To.Add(addr);
 

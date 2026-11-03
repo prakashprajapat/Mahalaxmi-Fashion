@@ -88,7 +88,7 @@ public class LoginHelpNudge
         {
             try
             {
-                mailed = await mail.SendAsync(addr, "Login to Mahalaxmi Fashion Hub with OTP - no password needed", Body());
+                mailed = await mail.SendAsync(addr, "Login to Mahalaxmi Fashion Hub with OTP - no password needed / बिना पासवर्ड, OTP से लॉगिन करें", Body());
             }
             catch (Exception ex) { _log.LogWarning(ex, "Login help email to {Email} failed.", addr); }
             if (mailed)
@@ -121,17 +121,24 @@ public class LoginHelpNudge
         return d.Length == 10 ? d : null;
     }
 
+    // English first, then the same in Hindi (Devanagari) - many customers read
+    // Hindi more comfortably, and Hinglish read as careless in an email.
     private static string Body() => $@"
 <div style=""font-family:Arial,Helvetica,sans-serif;max-width:520px;margin:0 auto;border:1px solid #eee;border-radius:12px;overflow:hidden"">
   <div style=""background:#a7354d;padding:16px 24px""><span style=""color:#fff;font-size:17px;font-weight:700"">Mahalaxmi Fashion Hub</span></div>
   <div style=""padding:22px 24px;color:#333;font-size:15px;line-height:1.65"">
-    <p style=""margin:0 0 12px"">Namaste,</p>
-    <p style=""margin:0 0 12px"">Someone (probably you) just tried to log in to Mahalaxmi Fashion Hub with this email and a password. There is no password set for this email - which is normal: most of our customers log in with a one-time code (OTP) instead.</p>
-    <p style=""margin:0 0 18px""><strong>To log in, or to create your account if you are new:</strong> open the login page, enter your mobile number or this email, and type the OTP we send you. That is all - no form, no password.</p>
-    <p style=""margin:0 0 20px;text-align:center"">
+    <p style=""margin:0 0 12px"">Hello,</p>
+    <p style=""margin:0 0 12px"">Someone (probably you) just tried to log in to Mahalaxmi Fashion Hub with this email and a password. There is no password set for this email. That is normal: most of our customers log in with a one-time code (OTP) instead.</p>
+    <p style=""margin:0 0 18px""><strong>To log in, or to create your account if you are new:</strong> open the login page, enter your mobile number or this email, and type the OTP we send you. No form, no password.</p>
+    <p style=""margin:0 0 22px;text-align:center"">
       <a href=""{LoginUrl}"" style=""display:inline-block;background:#a01836;color:#fff;text-decoration:none;font-weight:700;padding:12px 26px;border-radius:8px"">Login / Sign up with OTP</a>
     </p>
-    <p style=""margin:0;color:#888;font-size:13px"">If this was not you, you can ignore this email. Nothing has been changed.</p>
+    <div style=""border-top:1px solid #eee;padding-top:16px;font-family:'Noto Sans Devanagari','Mangal',Arial,sans-serif"">
+      <p style=""margin:0 0 12px"">नमस्ते,</p>
+      <p style=""margin:0 0 12px"">किसी ने (शायद आपने) अभी इस ईमेल और पासवर्ड से महालक्ष्मी फैशन हब में लॉगिन करने की कोशिश की। इस ईमेल पर कोई पासवर्ड सेट नहीं है। यह सामान्य है: हमारे ज़्यादातर ग्राहक पासवर्ड की जगह OTP (एक बार का कोड) से लॉगिन करते हैं।</p>
+      <p style=""margin:0 0 12px""><strong>लॉगिन करने के लिए, या अगर आप नए हैं तो अकाउंट बनाने के लिए:</strong> लॉगिन पेज खोलें, अपना मोबाइल नंबर या यही ईमेल डालें, और हमारा भेजा हुआ OTP डालें। न कोई फ़ॉर्म, न कोई पासवर्ड।</p>
+    </div>
+    <p style=""margin:14px 0 0;color:#888;font-size:13px"">If this was not you, you can ignore this email. Nothing has been changed.<br>अगर यह आपने नहीं किया, तो इस ईमेल को अनदेखा करें। कुछ भी बदला नहीं गया है।</p>
   </div>
 </div>";
 }
