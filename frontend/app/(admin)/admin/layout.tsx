@@ -248,8 +248,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   const navGroups = groupNav(navItems);
 
+  // Only the closest menu item is lit. A plain prefix match lit both
+  // "Customers" and "Login History" on /admin/customers/logins (and
+  // "Products" with every page under it); the longest href that matches wins.
+  const pathHits = (item: { href?: string; exact?: boolean }) =>
+    !!item.href && (item.exact ? pathname === item.href
+      : pathname === item.href || pathname.startsWith(item.href.endsWith('/') ? item.href : item.href + '/'));
+  const bestHref = ALL_NAV.filter(pathHits).reduce<string>((b, n) => (n.href!.length > b.length ? n.href! : b), '');
   const isActive = (item: { href?: string; exact?: boolean }) =>
-    !!item.href && (item.exact ? pathname === item.href : pathname.startsWith(item.href));
+    !!item.href && (bestHref ? item.href === bestHref : pathHits(item));
 
   const toggleGroup = (heading: string) =>
     setOpenGroup(open => (open === heading ? null : heading));
@@ -449,7 +456,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           .filter(t => role !== 'staff' || sectionKey(t.href) === '' || perms.includes(sectionKey(t.href)))
           .map(t => (
             <Link key={t.href} href={t.href}
-              className={`admin-tab${isActive(t) ? ' active' : ''}`}>
+              className={`admin-tab${pathHits(t) ? ' active' : ''}`}>
               <svg viewBox="0 0 24 24" width="21" height="21" aria-hidden="true">
                 <path d={t.icon} fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
