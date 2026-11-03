@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { getAdminToken } from '@/lib/auth';
 import { ordersApi } from '@/lib/api';
 import { PageHeader, Card, Stat, StatGrid, Pill, Empty } from '@/components/admin/Ui';
-import PincodeImport from '@/components/admin/PincodeImport';
+import * as XLSX from 'xlsx';
 import { normalizeState } from '@/lib/indianStates';
 
 type Pin = {
@@ -79,6 +79,40 @@ export default function RiskPage() {
   const otherBlocked = allBlocked.filter(p => !shippedPins.has(p));
   const otherShown = otherBlocked.filter(p => !otherQ || p.includes(otherQ.trim()));
 
+  // The table as it is on screen (search and "only risky" applied), plus the
+  // high-risk customers and the pincodes with COD off on their own sheets.
+  const exportExcel = () => {
+    const wb = XLSX.utils.book_new();
+    const pinRows = filtered.map(p => ({
+      Pincode: p.pincode,
+      Area: p.city || '',
+      State: normalizeState(p.state),
+      Orders: p.total,
+      COD: p.cod,
+      Cancelled: p.cancelled,
+      'Cancelled %': p.cancelRate,
+      Returned: p.returned,
+      'Returned %': p.returnRate,
+      Delivered: p.delivered,
+      Risk: p.risky ? 'Risky' : 'OK',
+      'Cash on Delivery': p.codBlocked ? 'Off' : 'On',
+    }));
+    const ws1 = XLSX.utils.json_to_sheet(pinRows);
+    ws1['!cols'] = [{ wch: 9 }, { wch: 26 }, { wch: 18 }, { wch: 7 }, { wch: 6 }, { wch: 9 }, { wch: 11 }, { wch: 9 }, { wch: 10 }, { wch: 9 }, { wch: 7 }, { wch: 15 }];
+    XLSX.utils.book_append_sheet(wb, ws1, 'Pincodes');
+    if (customers.length) {
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(customers.map(c => ({
+        Customer: c.name || '', Phone: c.phone || '', Orders: c.total, Cancelled: c.cancelled, Returned: c.returned, 'Cash on Delivery': 'Off',
+      }))), 'High-risk customers');
+    }
+    if (allBlocked.length) {
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(allBlocked.map(p => ({
+        Pincode: p, 'Shipped to before': shippedPins.has(p) ? 'Yes' : 'No',
+      }))), 'COD off pincodes');
+    }
+    XLSX.writeFile(wb, `fraud-risk-${new Date().toISOString().slice(0, 10)}.xlsx`);
+  };
+
   const unblockOther = async (pin: string) => {
     setBusyPin(pin);
     try {
@@ -97,7 +131,9 @@ export default function RiskPage() {
         sub="Where fake and return-heavy orders come from, and where to switch Cash on Delivery off. Paying online is never blocked."
         right={<>
           <button className="adm-btn" onClick={load}>Refresh</button>
-          <PincodeImport onDone={load} />
+          <button className="adm-btn adm-btn-primary" onClick={exportExcel} disabled={loading || (pins.length === 0 && customers.length === 0)}>
+            Export Excel ({filtered.length})
+          </button>
         </>}
       />
 
