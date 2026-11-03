@@ -557,6 +557,10 @@ using (var scope = app.Services.CreateScope())
         CREATE INDEX IF NOT EXISTS idx_login_events_subject ON login_events (subject_type, subject_id, created_at DESC);
         CREATE INDEX IF NOT EXISTS idx_login_events_created ON login_events (created_at DESC);
     ");
+    // State names typed as "TN", "BR", "tamilnadu" -> the proper name, once,
+    // for orders, customers and saved addresses. New ones are tidied on save.
+    try { IndianStates.BackfillAsync(db, app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("IndianStates")).GetAwaiter().GetResult(); }
+    catch (Exception ex) { app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("IndianStates").LogWarning(ex, "State name tidy-up skipped"); }
     // Create otp_tokens table if it doesn't exist (no EF migrations used)
     db.Database.ExecuteSqlRaw(@"
         CREATE TABLE IF NOT EXISTS otp_tokens (

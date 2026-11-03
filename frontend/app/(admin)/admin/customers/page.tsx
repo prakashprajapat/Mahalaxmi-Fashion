@@ -4,6 +4,7 @@ import { customersApi, walletApi, ordersApi, type WalletTxn } from '@/lib/api';
 import { getAdminToken } from '@/lib/auth';
 import { exportCustomers } from '@/lib/exportExcel';
 import type { Customer } from '@/types';
+import { STATE_NAMES, normalizeState } from '@/lib/indianStates';
 import { PageHeader, Card, Stat, StatGrid, Pill, Empty } from '@/components/admin/Ui';
 import DateFilter, { ANY_DATES, inDateWindow, describeDateWindow, type DateWindow } from '@/components/admin/DateFilter';
 import { WhatsAppSendButton } from '@/components/admin/WhatsAppSend';
@@ -342,8 +343,11 @@ export default function AdminCustomersPage() {
               <input className="adm-input" type="date" style={{ width: '100%', marginTop: '.2rem' }}
                      value={form.marriageDate} onChange={e => setForm(f => ({ ...f, marriageDate: e.target.value }))} />
             </label>
-            <input className="adm-input" placeholder="State" value={form.state}
-                   onChange={e => setForm(f => ({ ...f, state: e.target.value }))} />
+            <select className="adm-input" value={normalizeState(form.state)}
+                    onChange={e => setForm(f => ({ ...f, state: e.target.value }))}>
+              <option value="">State</option>
+              {STATE_NAMES.map(st => <option key={st} value={st}>{st}</option>)}
+            </select>
             <input className="adm-input" placeholder="District" value={form.district}
                    onChange={e => setForm(f => ({ ...f, district: e.target.value }))} />
             <input className="adm-input" placeholder="Temporary password" value={form.password}

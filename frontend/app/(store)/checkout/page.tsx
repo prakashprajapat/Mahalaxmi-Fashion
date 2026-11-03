@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { getCart, cartTotal, clearCart, cartShipping, finalUnitPrice, unitBase, updateQuantity, removeFromCart, addToCart } from '@/lib/cart';
 import { productImageSrc } from '@/lib/productImages';
 import PincodeChecker from '@/components/checkout/PincodeChecker';
+import { STATE_NAMES, normalizeState } from '@/lib/indianStates';
 import { getCustomer, getToken } from '@/lib/auth';
 import { takeWelcomeCode } from '@/lib/welcomeCode';
 import { storage } from '@/lib/safeStorage';
@@ -62,7 +63,7 @@ function getPincodeState(pincode: string): string {
   if (prefix >= 12 && prefix <= 13) return 'Haryana';
   if (prefix >= 14 && prefix <= 16) return 'Punjab';
   if (prefix === 17) return 'Himachal Pradesh';
-  if (prefix >= 18 && prefix <= 19) return 'Jammu & Kashmir';
+  if (prefix >= 18 && prefix <= 19) return 'Jammu and Kashmir';
   if (prefix >= 20 && prefix <= 28) return 'Uttar Pradesh';
   if (prefix >= 30 && prefix <= 34) return 'Rajasthan';
   if (prefix >= 36 && prefix <= 39) return 'Gujarat';
@@ -155,7 +156,7 @@ export default function CheckoutPage() {
       address: [a.addrLine1, a.addrLine2].filter(Boolean).join(', '),
       pincode: a.pincode || s.pincode,
       city: a.city || s.city,
-      state: a.state || s.state,
+      state: normalizeState(a.state) || s.state,
     }));
   };
 
@@ -196,7 +197,7 @@ export default function CheckoutPage() {
       address: [cust.addrLine1, cust.addrLine2].filter(Boolean).join(', '),
       city: cust.district,
       pincode: cust.pincode,
-      state: cust.state,
+      state: normalizeState(cust.state),
     }));
   };
 
@@ -1168,8 +1169,17 @@ export default function CheckoutPage() {
               {/* State */}
               <div>
                 <label style={{ fontSize: '.85rem', fontWeight: 600, display: 'block', marginBottom: '.3rem' }}>State *</label>
-                <input value={shipping.state} onChange={e => setShipping(s => ({ ...s, state: e.target.value }))}
-                  style={{ width: '100%', border: '1.5px solid #ddd', borderRadius: '8px', padding: '.6rem .75rem', fontSize: '.9rem', boxSizing: 'border-box' }} />
+                {/* A list, not a box: "TN", "BR" and "tamilnadu" were all being typed
+                    here, and the label, the GST split and every report then
+                    saw five different states. */}
+                <select value={normalizeState(shipping.state)} onChange={e => setShipping(s => ({ ...s, state: e.target.value }))}
+                  style={{ width: '100%', border: '1.5px solid #ddd', borderRadius: '8px', padding: '.6rem .75rem', fontSize: '.9rem', boxSizing: 'border-box', background: '#fff' }}>
+                  <option value="">Select state</option>
+                  {STATE_NAMES.map(st => <option key={st} value={st}>{st}</option>)}
+                  {shipping.state && !STATE_NAMES.includes(normalizeState(shipping.state)) && (
+                    <option value={shipping.state}>{shipping.state}</option>
+                  )}
+                </select>
               </div>
             </div>
           </div>

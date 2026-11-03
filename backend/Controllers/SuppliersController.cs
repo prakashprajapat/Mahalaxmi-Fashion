@@ -6,6 +6,8 @@ using MahalaxmiApi.Models;
 
 using MahalaxmiApi.Authorization;
 
+using MahalaxmiApi.Services;
+
 namespace MahalaxmiApi.Controllers;
 
 [ApiController]
@@ -38,7 +40,7 @@ public class SuppliersController : ControllerBase
             Categories      = req.Categories?.Trim(),
             Address         = req.Address?.Trim(),
             City            = req.City?.Trim(),
-            State           = req.State?.Trim(),
+            State           = IndianStates.Normalize(req.State),
             Pincode         = req.Pincode?.Trim(),
             Website         = req.Website?.Trim(),
             YearsInBusiness = req.YearsInBusiness?.Trim(),

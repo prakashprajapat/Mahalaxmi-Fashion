@@ -50,3 +50,6 @@ export function getDistrictsForState(state: string): string[] {
   const matchedState = INDIA_STATES.find(s => s.toLowerCase() === normalized);
   return matchedState ? [...INDIA_DISTRICTS[matchedState]].sort() : [];
 }
+
+
+export { normalizeState } from './indianStates';

@@ -4,6 +4,7 @@ import { getAdminToken } from '@/lib/auth';
 import { ordersApi } from '@/lib/api';
 import { PageHeader, Card, Stat, StatGrid, Pill, Empty } from '@/components/admin/Ui';
 import PincodeImport from '@/components/admin/PincodeImport';
+import { normalizeState } from '@/lib/indianStates';
 
 type Pin = {
   pincode: string; city?: string | null; state?: string | null;
@@ -177,7 +178,7 @@ export default function RiskPage() {
                   <tr key={p.pincode}>
                     <td data-label="Pincode" className="mono" style={{ fontWeight: 800 }}>{p.pincode}</td>
                     <td data-label="Area">{p.city || '—'}</td>
-                    <td data-label="State">{p.state || '—'}</td>
+                    <td data-label="State">{normalizeState(p.state) || '—'}</td>
                     <td data-label="Orders" className="num">{p.total}</td>
                     <td data-label="COD" className="num">{p.cod}</td>
                     <td data-label="Cancelled" className="num" style={{ color: p.cancelled ? '#c0392b' : '#9a908a', fontWeight: p.cancelled ? 800 : 400 }}>

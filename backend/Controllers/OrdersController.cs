@@ -427,6 +427,8 @@ public class OrdersController : ControllerBase
     [EnableRateLimiting("checkout")]
     public async Task<IActionResult> PlaceOrder([FromBody] PlaceOrderRequest req)
     {
+        // "TN", "tamilnadu", "BR" -> the one proper name (Services/IndianStates).
+        req = req with { ShippingState = Services.IndianStates.Normalize(req.ShippingState) };
         var orderId = CleanOrderId(req.Id);
         var method = req.Method.ToLower().Trim();
 

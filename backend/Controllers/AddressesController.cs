@@ -5,6 +5,8 @@ using Microsoft.EntityFrameworkCore;
 using MahalaxmiApi.Data;
 using MahalaxmiApi.Models;
 
+using MahalaxmiApi.Services;
+
 namespace MahalaxmiApi.Controllers;
 
 // Address book for logged-in customers: several saved delivery addresses (Home, Office, ...)
@@ -71,7 +73,7 @@ public class AddressesController : ControllerBase
         a.AddrLine2 = Clean(i.AddrLine2, 400);
         a.Pincode   = DigitsOnly(i.Pincode);
         a.City      = Clean(i.City, 80);
-        a.State     = Clean(i.State, 80);
+        a.State     = Clean(IndianStates.Normalize(i.State), 80);
     }
 
     // Keep exactly one default per customer.

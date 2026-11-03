@@ -817,7 +817,7 @@ public class CustomersController : ControllerBase
             AddrLine2        = req.AddrLine2?.Trim() ?? "",
             Pincode          = req.Pincode?.Trim() ?? "",
             PostOffice       = req.PostOffice?.Trim() ?? "",
-            State            = req.State?.Trim() ?? "",
+            State            = IndianStates.Normalize(req.State) ?? "",
             District         = req.District?.Trim() ?? "",
             MarketingConsent = req.MarketingConsent,
             PasswordHash     = hash,
@@ -1394,7 +1394,7 @@ public class CustomersController : ControllerBase
         if (req.AddrLine2    != null) c.AddrLine2    = req.AddrLine2;
         if (req.Pincode      != null) c.Pincode      = req.Pincode;
         if (req.PostOffice   != null) c.PostOffice   = req.PostOffice;
-        if (req.State        != null) c.State        = req.State;
+        if (req.State        != null) c.State        = IndianStates.Normalize(req.State) ?? "";
         if (req.District     != null) c.District     = req.District;
         if (req.MarketingConsent.HasValue)
             c.MarketingConsent = req.MarketingConsent.Value;
