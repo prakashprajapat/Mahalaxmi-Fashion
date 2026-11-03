@@ -45,6 +45,7 @@ public class SettingsController : ControllerBase
     private static readonly HashSet<string> NeverPublic = new(StringComparer.OrdinalIgnoreCase)
     {
         "admin_email",
+        "smsTemplateTexts",
 
         // Read only by the admin panel (through /settings/admin). The owner's
         // notification inboxes, the ad account ids, and the shop's own job

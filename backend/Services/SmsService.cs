@@ -11,11 +11,57 @@ public class SmsService
 {
     private readonly AppDbContext _db;
     private readonly ILogger<SmsService> _logger;
+    private readonly IServiceScopeFactory _scopes;
 
-    public SmsService(AppDbContext db, ILogger<SmsService> logger)
+    public SmsService(AppDbContext db, ILogger<SmsService> logger, IServiceScopeFactory scopes)
     {
         _db = db;
         _logger = logger;
+        _scopes = scopes;
+    }
+
+    // ── SMS Logs (admin: Campaigns -> SMS Logs) ─────────────────────────────
+    // Written on a context of its own: the caller's context may be holding
+    // changes it has not saved yet, and a log line must never save them early.
+    // A failure to log is only a warning - the message itself has gone.
+    private async Task LogSmsAsync(IEnumerable<string> phones, string? templateId, string kind,
+        IReadOnlyDictionary<string, string>? vars, bool ok, string? detail, string? responseBody)
+    {
+        try
+        {
+            string? requestId = null;
+            if (ok && !string.IsNullOrWhiteSpace(responseBody))
+            {
+                try
+                {
+                    using var doc = System.Text.Json.JsonDocument.Parse(responseBody);
+                    if (doc.RootElement.TryGetProperty("message", out var m) && m.ValueKind == System.Text.Json.JsonValueKind.String)
+                        requestId = m.GetString();
+                }
+                catch { /* not JSON - no id */ }
+            }
+            var varsJson = vars is null || vars.Count == 0 ? null : System.Text.Json.JsonSerializer.Serialize(vars);
+            var d = detail is null ? null : (detail.Length > 300 ? detail[..300] : detail);
+            if (requestId is { Length: > 64 }) requestId = requestId[..64];
+
+            using var scope = _scopes.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            foreach (var raw in phones)
+            {
+                var digits = new string((raw ?? "").Where(char.IsDigit).ToArray());
+                if (digits.Length > 10) digits = digits[^10..];
+                db.SmsLogs.Add(new MahalaxmiApi.Models.SmsLog
+                {
+                    SentAt = DateTimeOffset.UtcNow, Phone = digits, TemplateId = (templateId ?? "").Trim(),
+                    Kind = kind, VarsJson = varsJson, Status = ok ? "sent" : "failed", Detail = d, RequestId = requestId,
+                });
+            }
+            await db.SaveChangesAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Could not write the SMS log.");
+        }
     }
 
     private Task<string?> Setting(string key) =>
@@ -103,11 +149,16 @@ public class SmsService
                 _logger.LogWarning("MSG91 OTP rejected ({Status}) for {Phone}: {Body}",
                     (int)res.StatusCode, LogSafe.Phone(phone), LogSafe.Body(bodyText));
 
+            // The code itself is never kept - a log of live OTPs is a log of keys.
+            await LogSmsAsync(new[] { phone }, templateId, "otp",
+                new Dictionary<string, string> { ["var1"] = new string('*', otp.Length) },
+                ok, ok ? "accepted" : $"MSG91 {(int)res.StatusCode}: {LogSafe.Body(bodyText)}", bodyText);
             return ok;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to send SMS OTP to {Mobile}.", LogSafe.Phone(mobile));
+            await LogSmsAsync(new[] { phone }, templateId, "otp", null, false, "Could not reach MSG91.", null);
             return false;
         }
     }
@@ -185,11 +236,15 @@ public class SmsService
                 _logger.LogWarning("MSG91 order SMS rejected ({Status}) for {OrderId} to {Phone}: {Body}",
                     (int)res.StatusCode, orderId, LogSafe.Phone(phone), LogSafe.Body(bodyText));
 
+            await LogSmsAsync(new[] { phone }, templateId, "order",
+                new Dictionary<string, string> { ["var1"] = orderId, ["var2"] = amountStr, ["order_id"] = orderId, ["amount"] = amountStr },
+                ok, ok ? "accepted" : $"MSG91 {(int)res.StatusCode}: {LogSafe.Body(bodyText)}", bodyText);
             return ok;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to send order SMS for {OrderId} to {Mobile}.", orderId, LogSafe.Phone(mobile));
+            await LogSmsAsync(new[] { phone }, templateId, "order", null, false, "Could not reach MSG91.", null);
             return false;
         }
     }
@@ -293,13 +348,24 @@ public class SmsService
 
             // The reason is kept short and carries no message body - this
             // string is written to the database and read in the admin.
-            return (ok, ok ? "accepted" : $"MSG91 {(int)res.StatusCode}: {LogSafe.Body(body)}".Trim());
+            var why = ok ? "accepted" : $"MSG91 {(int)res.StatusCode}: {LogSafe.Body(body)}".Trim();
+            await LogSmsAsync(new[] { phone }, templateId, "template", LogVars(values, named), ok, why, body);
+            return (ok, why);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "MSG91 template {Template} failed for {Phone}.", templateId, LogSafe.Phone(mobile));
+            await LogSmsAsync(new[] { phone }, templateId, "template", LogVars(values, named), false, "Could not reach MSG91.", null);
             return (false, "Could not reach MSG91.");
         }
+    }
+
+    private static Dictionary<string, string> LogVars(IReadOnlyList<string> values, IReadOnlyDictionary<string, string>? named)
+    {
+        var d = new Dictionary<string, string>();
+        for (var i = 0; i < values.Count; i++) d[$"var{i + 1}"] = values[i] ?? "";
+        if (named is not null) foreach (var kv in named) d.TryAdd(kv.Key, kv.Value ?? "");
+        return d;
     }
 
     /// Reads one shop setting. Public so the messenger can look up template
@@ -366,11 +432,14 @@ public class SmsService
             if (!ok)
                 _logger.LogError("Campaign batch of {Count} refused ({Status}): {Body}",
                     list.Count, (int)res.StatusCode, LogSafe.Body(body));
-            return (ok, ok ? "accepted" : $"MSG91 {(int)res.StatusCode}: {LogSafe.Body(body)}".Trim());
+            var why = ok ? "accepted" : $"MSG91 {(int)res.StatusCode}: {LogSafe.Body(body)}".Trim();
+            await LogSmsAsync(list, templateId, "campaign", vars, ok, why, body);
+            return (ok, why);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Campaign batch of {Count} failed.", list.Count);
+            await LogSmsAsync(list, templateId, "campaign", vars, false, "Could not reach MSG91.", null);
             return (false, "Could not reach MSG91.");
         }
     }
@@ -431,17 +500,20 @@ public class SmsService
                 if (res.IsSuccessStatusCode && body.Contains("success", StringComparison.OrdinalIgnoreCase))
                 {
                     sent += batch.Length;
+                    await LogSmsAsync(batch, templateId, "campaign", vars, true, "accepted", body);
                 }
                 else
                 {
                     failed += batch.Length;
                     _logger.LogError("Bulk campaign batch failed ({Status}): {Body}", (int)res.StatusCode, LogSafe.Body(body));
+                    await LogSmsAsync(batch, templateId, "campaign", vars, false, $"MSG91 {(int)res.StatusCode}: {LogSafe.Body(body)}", body);
                 }
             }
             catch (Exception ex)
             {
                 failed += batch.Length;
                 _logger.LogError(ex, "Bulk campaign batch exception.");
+                await LogSmsAsync(batch, templateId, "campaign", vars, false, "Could not reach MSG91.", null);
             }
         }
 
@@ -538,6 +610,8 @@ public class SmsService
 
             if (ok) _logger.LogInformation("Alert SMS accepted for {Count} number(s).", numbers.Count);
             else    _logger.LogWarning("Alert SMS rejected ({Status}): {Body}", (int)res.StatusCode, bodyText);
+            await LogSmsAsync(numbers, templateId, "alert", new Dictionary<string, string> { ["var1"] = text, ["problem"] = text },
+                ok, ok ? "accepted" : $"MSG91 {(int)res.StatusCode}: {LogSafe.Body(bodyText)}", bodyText);
             return ok;
         }
         catch (Exception ex)

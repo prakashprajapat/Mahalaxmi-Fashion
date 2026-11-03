@@ -558,6 +558,22 @@ using (var scope = app.Services.CreateScope())
         CREATE INDEX IF NOT EXISTS idx_login_events_subject ON login_events (subject_type, subject_id, created_at DESC);
         CREATE INDEX IF NOT EXISTS idx_login_events_created ON login_events (created_at DESC);
     ");
+    // Every SMS sent, for Campaigns -> SMS Logs (copy to WhatsApp, delete).
+    db.Database.ExecuteSqlRaw(@"
+        CREATE TABLE IF NOT EXISTS sms_logs (
+            id          BIGSERIAL PRIMARY KEY,
+            sent_at     TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+            phone       VARCHAR(20)  NOT NULL DEFAULT '',
+            template_id VARCHAR(64)  NOT NULL DEFAULT '',
+            kind        VARCHAR(20)  NOT NULL DEFAULT 'template',
+            vars_json   TEXT,
+            status      VARCHAR(10)  NOT NULL DEFAULT 'sent',
+            detail      VARCHAR(300),
+            request_id  VARCHAR(64)
+        );
+        CREATE INDEX IF NOT EXISTS idx_sms_logs_sent ON sms_logs (sent_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_sms_logs_phone ON sms_logs (phone);
+    ");
     // State names typed as "TN", "BR", "tamilnadu" -> the proper name, once,
     // for orders, customers and saved addresses. New ones are tidied on save.
     try { IndianStates.BackfillAsync(db, app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("IndianStates")).GetAwaiter().GetResult(); }
