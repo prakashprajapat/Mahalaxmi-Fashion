@@ -19,7 +19,7 @@ function AccountContent() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   // Mobile / Email OTP login
-  const [loginMode, setLoginMode] = useState<'password' | 'otp'>('password');
+  const [loginMode, setLoginMode] = useState<'password' | 'otp'>('otp');
   const [otpContact, setOtpContact] = useState('');
   const [otpCode, setOtpCode] = useState('');
   const [otpSent, setOtpSent] = useState(false);
@@ -69,8 +69,16 @@ function AccountContent() {
     window.dispatchEvent(new Event('auth-changed'));
   };
 
-  const handleSendOtp = async () => {
-    const contact = otpContact.trim();
+  const handleSendOtp = () => sendOtpTo(otpContact);
+  // Most accounts here were made with a mobile OTP or at checkout and have no
+  // password at all, so "email + password" fails for them however carefully
+  // they type. One tap sends a code to the same email instead.
+  const otpInstead = (email: string) => {
+    setLoginMode('otp'); setOtpContact(email.trim()); setOtpSent(false); setOtpCode('');
+    sendOtpTo(email);
+  };
+  const sendOtpTo = async (raw: string) => {
+    const contact = raw.trim();
     if (!contact) { setOtpMsg('Enter your mobile number or email.'); return; }
     setOtpLoading(true); setOtpMsg('');
     try {
@@ -280,6 +288,15 @@ function AccountContent() {
                 </div>
 
                 {error && <p style={{ margin:0, color:'#c0392b', fontSize:'.85rem', fontWeight:600 }}>{error}</p>}
+                {error && (
+                  <div style={{ margin: 0, padding: '.6rem .75rem', background: '#fdf6ec', border: '1px solid #f1dfc2', borderRadius: 8, fontSize: '.84rem', color: '#6b4e13', lineHeight: 1.5 }}>
+                    Signed up with your mobile number or at checkout? Your account may not have a password.
+                    <button type="button" onClick={() => otpInstead(form.email)} disabled={!form.email.includes('@')}
+                      style={{ display: 'block', marginTop: '.45rem', width: '100%', height: 44, border: '1.5px solid #a01836', borderRadius: 9, background: '#fff', color: '#a01836', fontWeight: 800, fontSize: '.95rem', cursor: 'pointer' }}>
+                      Get a login code (OTP) on this email
+                    </button>
+                  </div>
+                )}
 
                 <button type="submit" disabled={loading}
                   style={{ height:52, border:'none', borderRadius:9, background:'#a01836', color:'#fff', fontWeight:800, fontSize:'1.05rem', cursor:loading?'not-allowed':'pointer', opacity:loading?.7:1 }}>
