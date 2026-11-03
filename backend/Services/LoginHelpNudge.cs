@@ -15,7 +15,7 @@ namespace MahalaxmiApi.Services;
 /// and an SMS template is set) saying "log in or sign up with OTP - no
 /// password needed".
 ///
-/// At most once per address every 7 days, so typing somebody else's email
+/// At most once per address a day, so typing somebody else's email
 /// into the login box cannot be used to flood their inbox. Nothing about it
 /// changes what the login screen says, so it does not tell a stranger whether
 /// an account exists.
@@ -30,7 +30,9 @@ public class LoginHelpNudge
     // enough to warn the owner, not so often that a guesser floods them.
     private static readonly TimeSpan WrongPwEvery = TimeSpan.FromHours(24);
     private const string ForgotUrl = "https://www.mahalaxmifashionhub.com/forgot-password";
-    private static readonly TimeSpan Every = TimeSpan.FromDays(7);
+    // Once a day, the same as the wrong-password notice. A week was so long
+    // that a second try the same evening looked like the feature was broken.
+    private static readonly TimeSpan Every = TimeSpan.FromHours(24);
     private const string LoginUrl = "https://www.mahalaxmifashionhub.com/account";
 
     private static readonly Regex EmailShape = new(@"^[^\s@]+@[^\s@]+\.[^\s@]{2,}$", RegexOptions.Compiled);
@@ -157,7 +159,15 @@ public class LoginHelpNudge
                    WHERE lower(customer_json->>'email') = {addr} AND coalesce(customer_json->>'phone','') <> ''
                    ORDER BY created_at DESC LIMIT 1").ToListAsync()).FirstOrDefault();
         }
+        // Or a number this address has already been texted on (a wrong-password
+        // notice to an account that was later deleted, for example), or one a
+        // saved address under it carried.
+        if (string.IsNullOrWhiteSpace(phone))
+            phone = await db.InviteSends.Where(i => i.Email == addr && i.Phone != null)
+                .OrderByDescending(i => i.SentAt).Select(i => i.Phone).FirstOrDefaultAsync();
         var ten = OutreachContactPhone(phone);
+        if (ten is null)
+            _log.LogInformation("Login help for {Email}: no mobile number known for this email, so email only.", addr);
 
         bool mailed = false, texted = false;
 
