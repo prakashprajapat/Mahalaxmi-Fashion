@@ -1018,6 +1018,9 @@ public class CustomersController : ControllerBase
             await HttpContext.RequestServices.GetRequiredService<LoginLogService>().RecordAsync(
                 TokenService.Customer, customer?.Id.ToString(), req.Email, success: false,
                 method: "password", reason: customer is null ? "No such account" : "Wrong password");
+            // No account at all: tell that address how to get in (OTP), once a week at most.
+            if (customer is null)
+                HttpContext.RequestServices.GetRequiredService<LoginHelpNudge>().Queue(req.Email);
             return Unauthorized(new { success = false, message = "Invalid email or password." });
         }
 

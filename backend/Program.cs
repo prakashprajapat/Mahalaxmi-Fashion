@@ -178,6 +178,7 @@ builder.Services.AddSingleton<AttemptLimiter>();
 // Singleton on purpose: it holds nothing but the scope factory, and the
 // work it does happens after the request that asked for it is gone.
 builder.Services.AddSingleton<WelcomeOutreach>();
+builder.Services.AddSingleton<LoginHelpNudge>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<BackupService>());
 
 // Return-media uploads: allow videos up to ~80 MB per file (Kestrel + multipart limits)
