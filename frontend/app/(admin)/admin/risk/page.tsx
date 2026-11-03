@@ -16,6 +16,13 @@ type RiskyCustomer = {
   total: number; cancelled: number; returned: number;
 };
 
+// "KOLKATA" and "Kolkata" are the same city; shouting capitals become title case.
+function tidyCity(c?: string | null): string {
+  const t = (c || '').trim();
+  if (!t || t !== t.toUpperCase()) return t;
+  return t.toLowerCase().replace(/\b([a-z])/g, m => m.toUpperCase());
+}
+
 function waHref(phone?: string | null) {
   const d = (phone || '').replace(/\D/g, '');
   const num = d.length > 10 ? d.slice(-10) : d;
@@ -79,13 +86,21 @@ export default function RiskPage() {
   const otherBlocked = allBlocked.filter(p => !shippedPins.has(p));
   const otherShown = otherBlocked.filter(p => !otherQ || p.includes(otherQ.trim()));
 
+  // Totals of whatever the table is showing right now (search / "only risky"
+  // applied), so "west" gives West Bengal's numbers in one line.
+  const sum = (k: 'total' | 'cod' | 'cancelled' | 'returned' | 'delivered') => filtered.reduce((n, p) => n + (p[k] || 0), 0);
+  const tot = { total: sum('total'), cod: sum('cod'), cancelled: sum('cancelled'), returned: sum('returned'), delivered: sum('delivered') };
+  const pct = (n: number) => (tot.total > 0 ? Math.round((1000 * n) / tot.total) / 10 : 0);
+  const totRisky = filtered.filter(p => p.risky).length;
+  const totOff = filtered.filter(p => p.codBlocked).length;
+
   // The table as it is on screen (search and "only risky" applied), plus the
   // high-risk customers and the pincodes with COD off on their own sheets.
   const exportExcel = () => {
     const wb = XLSX.utils.book_new();
     const pinRows = filtered.map(p => ({
       Pincode: p.pincode,
-      Area: p.city || '',
+      Area: tidyCity(p.city),
       State: normalizeState(p.state),
       Orders: p.total,
       COD: p.cod,
@@ -97,6 +112,12 @@ export default function RiskPage() {
       Risk: p.risky ? 'Risky' : 'OK',
       'Cash on Delivery': p.codBlocked ? 'Off' : 'On',
     }));
+    pinRows.push({
+      Pincode: `TOTAL (${filtered.length} pincodes)`, Area: '', State: '',
+      Orders: tot.total, COD: tot.cod, Cancelled: tot.cancelled, 'Cancelled %': pct(tot.cancelled),
+      Returned: tot.returned, 'Returned %': pct(tot.returned), Delivered: tot.delivered,
+      Risk: `${totRisky} risky`, 'Cash on Delivery': `${totOff} off`,
+    });
     const ws1 = XLSX.utils.json_to_sheet(pinRows);
     ws1['!cols'] = [{ wch: 9 }, { wch: 26 }, { wch: 18 }, { wch: 7 }, { wch: 6 }, { wch: 9 }, { wch: 11 }, { wch: 9 }, { wch: 10 }, { wch: 9 }, { wch: 7 }, { wch: 15 }];
     XLSX.utils.book_append_sheet(wb, ws1, 'Pincodes');
@@ -185,7 +206,7 @@ export default function RiskPage() {
       </Card>
 
       <Card
-        title="Every pincode you have shipped to"
+        title={`Every pincode you have shipped to (${filtered.length === pins.length ? pins.length : `${filtered.length} of ${pins.length}`})`}
         right={
           <span style={{ display: 'flex', gap: '.55rem', alignItems: 'center', flexWrap: 'wrap' }}>
             <input className="adm-input" style={{ width: '200px' }} placeholder="Pincode, city or state"
@@ -213,7 +234,7 @@ export default function RiskPage() {
                 {filtered.map(p => (
                   <tr key={p.pincode}>
                     <td data-label="Pincode" className="mono" style={{ fontWeight: 800 }}>{p.pincode}</td>
-                    <td data-label="Area">{p.city || '—'}</td>
+                    <td data-label="Area">{tidyCity(p.city) || '—'}</td>
                     <td data-label="State">{normalizeState(p.state) || '—'}</td>
                     <td data-label="Orders" className="num">{p.total}</td>
                     <td data-label="COD" className="num">{p.cod}</td>
@@ -237,6 +258,24 @@ export default function RiskPage() {
                   </tr>
                 ))}
               </tbody>
+              {filtered.length > 1 && (
+                <tfoot>
+                  <tr style={{ background: '#faf6f2', fontWeight: 800, borderTop: '2px solid #e5dcd6' }}>
+                    <td data-label="Total" colSpan={3}>Total &middot; {filtered.length} pincodes</td>
+                    <td data-label="Orders" className="num">{tot.total}</td>
+                    <td data-label="COD" className="num">{tot.cod}</td>
+                    <td data-label="Cancelled" className="num" style={{ color: tot.cancelled ? '#c0392b' : undefined }}>
+                      {tot.cancelled}{tot.cancelled > 0 ? ` (${pct(tot.cancelled)}%)` : ''}
+                    </td>
+                    <td data-label="Returned" className="num" style={{ color: tot.returned ? '#b26b00' : undefined }}>
+                      {tot.returned}{tot.returned > 0 ? ` (${pct(tot.returned)}%)` : ''}
+                    </td>
+                    <td data-label="Delivered" className="num" style={{ color: '#2e7d32' }}>{tot.delivered}</td>
+                    <td data-label="Risk">{totRisky} risky</td>
+                    <td data-label="Cash on Delivery">{totOff} off</td>
+                  </tr>
+                </tfoot>
+              )}
             </table>
           </div>
         )}
