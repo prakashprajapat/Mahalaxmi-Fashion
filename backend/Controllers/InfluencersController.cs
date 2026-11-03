@@ -26,9 +26,11 @@ public class InfluencersController : ControllerBase
     private readonly AttemptLimiter _limit;
     private readonly ILogger<InfluencersController> _log;
     private readonly FeatureFlags _flags;
+    private readonly AdminNotifier _notify;
 
-    public InfluencersController(AppDbContext db, EmailService email, SmsService sms, IWebHostEnvironment env, AttemptLimiter limit, ILogger<InfluencersController> log, FeatureFlags flags)
+    public InfluencersController(AppDbContext db, EmailService email, SmsService sms, IWebHostEnvironment env, AttemptLimiter limit, ILogger<InfluencersController> log, FeatureFlags flags, AdminNotifier notify)
     {
+        _notify = notify;
         _db = db;
         _email = email;
         _sms = sms;
@@ -99,6 +101,30 @@ public class InfluencersController : ControllerBase
         };
         _db.Influencers.Add(influencer);
         await _db.SaveChangesAsync();
+
+        // Tell the shop. Until now a new creator sat at "pending" until somebody
+        // happened to open Influencer Marketing - and a creator who hears
+        // nothing for a week has moved on to the next brand.
+        try
+        {
+            string H(string? v) => System.Net.WebUtility.HtmlEncode(string.IsNullOrWhiteSpace(v) ? "-" : v.Trim());
+            await _notify.NotifyAsync($"New influencer request: {influencer.Name}",
+                AdminNotifier.Wrap("New Influencer Request", $@"
+                    <p><strong>Name:</strong> {H(influencer.Name)}</p>
+                    <p><strong>Email:</strong> {H(influencer.Email)}</p>
+                    <p><strong>Mobile:</strong> {H(influencer.Phone)}</p>
+                    <p><strong>Platform:</strong> {H(influencer.Platform)} &middot; <strong>Handle:</strong> {H(influencer.SocialHandle)}</p>
+                    <p><strong>Followers:</strong> {H(influencer.FollowersCount)}</p>
+                    <p><strong>Category / Niche:</strong> {H(influencer.Category)} / {H(influencer.Niche)}</p>
+                    <p style=""margin-top:16px"">Review and approve it in the admin panel:
+                       <a href=""https://www.mahalaxmifashionhub.com/admin/influencers"">Influencer Marketing</a></p>"));
+        }
+        catch (Exception ex)
+        {
+            // The application is saved; a mail hiccup must not tell the creator it failed.
+            _log.LogWarning(ex, "Influencer request alert email failed for {Email}", influencer.Email);
+        }
+
         return Ok(new { success = true, message = "Application submitted! We'll review and contact you within 2–3 business days." });
     }
 
@@ -120,6 +146,16 @@ public class InfluencersController : ControllerBase
             {
                 inf.ResetRequestedAt = DateTimeOffset.UtcNow;
                 await _db.SaveChangesAsync();
+
+                // The reset is done by hand, so the shop has to know it was asked for.
+                try
+                {
+                    await _notify.NotifyAsync($"Influencer password reset request: {inf.Name}",
+                        AdminNotifier.Wrap("Influencer Password Reset Request", $@"
+                            <p><strong>{System.Net.WebUtility.HtmlEncode(inf.Name)}</strong> ({System.Net.WebUtility.HtmlEncode(inf.Email)}{(string.IsNullOrWhiteSpace(inf.Phone) ? "" : ", " + System.Net.WebUtility.HtmlEncode(inf.Phone))}) asked for a new password.</p>
+                            <p>Set one in <a href=""https://www.mahalaxmifashionhub.com/admin/influencers"">Influencer Marketing</a> and send it on WhatsApp.</p>"));
+                }
+                catch (Exception ex) { _log.LogWarning(ex, "Influencer reset alert email failed"); }
             }
         }
         // Always generic — don't reveal whether the email is registered.
