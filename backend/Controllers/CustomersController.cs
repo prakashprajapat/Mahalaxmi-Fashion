@@ -1019,8 +1019,10 @@ public class CustomersController : ControllerBase
                 TokenService.Customer, customer?.Id.ToString(), req.Email, success: false,
                 method: "password", reason: customer is null ? "No such account" : "Wrong password");
             // No account at all: tell that address how to get in (OTP), once a week at most.
-            if (customer is null)
-                HttpContext.RequestServices.GetRequiredService<LoginHelpNudge>().Queue(req.Email);
+            // A real account, wrong password: tell its owner, once a day at most.
+            var nudge = HttpContext.RequestServices.GetRequiredService<LoginHelpNudge>();
+            if (customer is null) nudge.Queue(req.Email);
+            else nudge.QueueWrongPassword(customer.Id);
             return Unauthorized(new { success = false, message = "Invalid email or password." });
         }
 
