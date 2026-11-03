@@ -89,6 +89,16 @@ public class WhatsAppWebhookController : ControllerBase
         {
             using var doc = JsonDocument.Parse(raw);
             var (numbers, names, own) = Collect(doc.RootElement);
+            // The shop's own numbers from Settings are never leads either.
+            var shopPhones = await _db.SiteSettings
+                .Where(x => x.Key.ToLower().Contains("phone") || x.Key.ToLower().Contains("whatsapp"))
+                .Select(x => x.Value).ToListAsync();
+            foreach (var v in shopPhones)
+                foreach (System.Text.RegularExpressions.Match m in System.Text.RegularExpressions.Regex.Matches(v ?? "", @"\d[\d\s-]{8,}\d"))
+                {
+                    var d = new string(m.Value.Where(char.IsDigit).ToArray());
+                    if (d.Length >= 10) own.Add("91" + d[^10..]);
+                }
             int added = 0;
             foreach (var wa in numbers)
             {
@@ -130,6 +140,10 @@ public class WhatsAppWebhookController : ControllerBase
             switch (e.ValueKind)
             {
                 case JsonValueKind.Object:
+                    // account_update is about the shop's own account; it carries
+                    // the shop's number, never a customer's.
+                    if (e.TryGetProperty("field", out var fld) && fld.ValueKind == JsonValueKind.String
+                        && fld.GetString() == "account_update") return;
                     if (e.TryGetProperty("display_phone_number", out var dpn))
                     {
                         var d = Digits(dpn.ToString());
@@ -143,12 +157,21 @@ public class WhatsAppWebhookController : ControllerBase
                         var n = (nm.GetString() ?? "").Trim();
                         if (IndianMobile(d) && n.Length > 0) names[d] = n.Length > 120 ? n[..120] : n;
                     }
+                    if (e.TryGetProperty("phone_number", out var pn) && e.TryGetProperty("full_name", out var fnm)
+                        && fnm.ValueKind == JsonValueKind.String)
+                    {
+                        var d = Digits(pn.ToString());
+                        if (d.Length == 10) d = "91" + d;
+                        var n = (fnm.GetString() ?? "").Trim();
+                        if (IndianMobile(d) && n.Length > 0 && !names.ContainsKey(d)) names[d] = n.Length > 120 ? n[..120] : n;
+                    }
                     foreach (var p in e.EnumerateObject())
                     {
                         if (p.Value.ValueKind is JsonValueKind.String or JsonValueKind.Number
-                            && p.Name is "from" or "to" or "wa_id" or "recipient_id")
+                            && p.Name is "from" or "to" or "wa_id" or "recipient_id" or "phone_number")
                         {
                             var d = Digits(p.Value.ToString());
+                            if (d.Length == 10 && p.Name == "phone_number") d = "91" + d;
                             if (IndianMobile(d)) numbers.Add(d);
                         }
                         else Walk(p.Value);

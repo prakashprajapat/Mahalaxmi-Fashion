@@ -76,6 +76,7 @@ const ALL_NAV: { href?: string; label?: string; exact?: boolean; heading?: strin
   { heading: 'Settings' },
   { href: '/admin/staff',       label: 'Staff Management' },
   { href: '/admin/settings',    label: 'Settings' },
+  { href: '/admin/settings/whatsapp', label: 'Connect WhatsApp' },
   // Beside Settings because that is where the seven flow ids are typed, and
   // because a flow id that is saved but wrongly named looks identical there.
   { href: '/admin/message-test', label: 'Check Order Messages' },
