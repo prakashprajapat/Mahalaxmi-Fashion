@@ -7,6 +7,7 @@ interface Log {
   id: number; sentAt: string; phone: string; templateId: string; kind: string;
   status: 'sent' | 'failed'; detail?: string | null; requestId?: string | null;
   templateName?: string | null; vars?: string | null; message?: string | null;
+  itemLinks?: string[] | null; whatsappText?: string | null;
 }
 interface Tpl { id: string; name?: string | null; text?: string | null; sent: number }
 
@@ -99,7 +100,7 @@ export default function SmsLogsPage() {
   };
 
   // The full message when the template text is saved; until then, the values that went (better than nothing).
-  const textOf = (l: Log) => l.message || varsText(l.vars);
+  const textOf = (l: Log) => l.whatsappText || l.message || varsText(l.vars);
   const copy = async (l: Log) => {
     const t = textOf(l);
     if (!t) return;
@@ -232,7 +233,18 @@ export default function SmsLogsPage() {
                                              display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                               {l.message}
                             </button>
-                          ) : (
+                          ) : null}
+                          {l.message && l.itemLinks && l.itemLinks.length > 0 ? (
+                            <div style={{ fontSize: 12, marginTop: 3 }}>
+                              Item:{' '}
+                              {l.itemLinks.map(u => (
+                                <a key={u} href={u} target="_blank" rel="noopener noreferrer" style={{ color: '#2563eb', marginRight: 6, wordBreak: 'break-all' }}>
+                                  {u.replace('https://www.mahalaxmifashionhub.com', '')}
+                                </a>
+                              ))}
+                            </div>
+                          ) : null}
+                          {l.message ? null : (
                             <span style={{ color: '#999' }}>
                               {varsText(l.vars) || '-'}
                               <button onClick={() => setTab('templates')} style={{ display: 'block', background: 'none', border: 0, padding: 0, color: '#2563eb', cursor: 'pointer', fontSize: 11 }}>
@@ -319,7 +331,8 @@ export default function SmsLogsPage() {
               <strong>{open.templateName || open.templateId} · {open.phone} · {when(open.sentAt)}</strong>
               <button onClick={() => setOpen(null)} style={{ background: 'none', border: 0, fontSize: 22, cursor: 'pointer' }} aria-label="Close">×</button>
             </div>
-            <div style={{ background: '#f6f6f7', borderRadius: 8, padding: '12px 14px', whiteSpace: 'pre-wrap', lineHeight: 1.6, fontSize: 14 }}>{open.message}</div>
+            <div style={{ background: '#f6f6f7', borderRadius: 8, padding: '12px 14px', whiteSpace: 'pre-wrap', lineHeight: 1.6, fontSize: 14 }}>{open.whatsappText || open.message}</div>
+            {open.whatsappText && <div style={{ fontSize: 11, color: '#888', marginTop: 4 }}>WhatsApp version: the SMS laid out line by line, with the item link added.</div>}
             {open.requestId && <div style={{ fontSize: 11, color: '#999', marginTop: 6 }}>MSG91 request id: {open.requestId}</div>}
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 12 }}>
               <button className="adm-btn" onClick={() => copy(open)}>{copied === open.id ? 'Copied' : 'Copy'}</button>

@@ -165,6 +165,13 @@ public class SmsLogsController : ControllerBase
             .Where(id => !texts.TryGetValue(id, out var t) || string.IsNullOrWhiteSpace(t.Text)), 6);
         var names = await NamesAsync(texts);
 
+        // "Payment not finished": WhatsApp gets the same message plus a link to
+        // what they were buying, found from the SKUs of that checkout.
+        var droppedTpl = (await _db.SiteSettings.Where(x => x.Key == "msg91TplUserDropped").Select(x => x.Value).FirstOrDefaultAsync() ?? "").Trim();
+        var itemLinks = droppedTpl.Length == 0 ? new Dictionary<string, List<string>>()
+            : await ItemLinksAsync(rows.Where(r => string.Equals(r.TemplateId, droppedTpl, StringComparison.OrdinalIgnoreCase))
+                                       .Select(r => OrderIdOf(r.VarsJson)).Where(x => x != null).Select(x => x!).ToList());
+
         return Ok(new
         {
             success = true, total, sent, failed = total - sent, page,
@@ -174,8 +181,108 @@ public class SmsLogsController : ControllerBase
                 templateName = names.TryGetValue(r.TemplateId, out var nm) ? nm : null,
                 vars = r.VarsJson,
                 message = Render(texts.TryGetValue(r.TemplateId, out var tx) ? tx.Text : null, r.VarsJson),
+                itemLinks = OrderIdOf(r.VarsJson) is { } oid && itemLinks.TryGetValue(oid, out var links)
+                    && string.Equals(r.TemplateId, droppedTpl, StringComparison.OrdinalIgnoreCase) ? links : null,
+                whatsappText = string.Equals(r.TemplateId, droppedTpl, StringComparison.OrdinalIgnoreCase)
+                    ? ForWhatsApp(Render(texts.TryGetValue(r.TemplateId, out var tx2) ? tx2.Text : null, r.VarsJson),
+                                  OrderIdOf(r.VarsJson) is { } o2 && itemLinks.TryGetValue(o2, out var l2) ? l2 : null)
+                    : null,
             }),
         });
+    }
+
+    private static string? OrderIdOf(string? varsJson)
+    {
+        if (string.IsNullOrWhiteSpace(varsJson)) return null;
+        try
+        {
+            var d = JsonSerializer.Deserialize<Dictionary<string, string>>(varsJson) ?? new();
+            if (d.TryGetValue("order_id", out var o) && !string.IsNullOrWhiteSpace(o)) return o.Trim();
+            if (d.TryGetValue("var1", out o) && o.StartsWith("MFH", StringComparison.OrdinalIgnoreCase)) return o.Trim();
+        }
+        catch { }
+        return null;
+    }
+
+    private static string Slug(string name)
+    {
+        var s = Regex.Replace(name.ToLowerInvariant().Normalize(System.Text.NormalizationForm.FormKD), "[^a-z0-9]+", "-").Trim('-');
+        if (s.Length > 60) s = s[..60].TrimEnd('-');
+        return s;
+    }
+
+    /// order id -> product page links, from the SKUs in that checkout's cart
+    /// (the abandoned Cashfree checkout, or the order if one was made).
+    private async Task<Dictionary<string, List<string>>> ItemLinksAsync(List<string> orderIds)
+    {
+        var result = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+        if (orderIds.Count == 0) return result;
+        var carts = await _db.CashfreeOrders.AsNoTracking().Where(c => orderIds.Contains(c.LocalOrderId))
+            .OrderByDescending(c => c.CreatedAt).Select(c => new { c.LocalOrderId, c.CartJson }).ToListAsync();
+        var orderCarts = await _db.SiteOrders.AsNoTracking().Where(o => orderIds.Contains(o.OrderId))
+            .Select(o => new { o.OrderId, o.CartJson }).ToListAsync();
+
+        var skusByOrder = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+        void Read(string id, string? json)
+        {
+            if (skusByOrder.ContainsKey(id) || string.IsNullOrWhiteSpace(json)) return;
+            try
+            {
+                using var doc = JsonDocument.Parse(json);
+                var list = new List<string>();
+                if (doc.RootElement.ValueKind == JsonValueKind.Array)
+                    foreach (var line in doc.RootElement.EnumerateArray())
+                        foreach (var p in line.EnumerateObject())
+                            if (p.Name.Equals("sku", StringComparison.OrdinalIgnoreCase) && p.Value.ValueKind == JsonValueKind.String
+                                && !string.IsNullOrWhiteSpace(p.Value.GetString()))
+                                list.Add(p.Value.GetString()!.Trim());
+                if (list.Count > 0) skusByOrder[id] = list.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+            }
+            catch { }
+        }
+        foreach (var c in carts) Read(c.LocalOrderId, c.CartJson);
+        foreach (var o in orderCarts) Read(o.OrderId, o.CartJson);
+
+        var allSkus = skusByOrder.Values.SelectMany(x => x).Select(x => x.ToLower()).Distinct().ToList();
+        if (allSkus.Count == 0) return result;
+        var products = await _db.Products.AsNoTracking().Where(p => p.Sku != null && allSkus.Contains(p.Sku.ToLower()))
+            .Select(p => new { p.Id, p.Name, p.Sku }).ToListAsync();
+        var bySku = products.GroupBy(p => p.Sku!.ToLowerInvariant()).ToDictionary(g => g.Key, g => g.First());
+
+        foreach (var kv in skusByOrder)
+        {
+            var links = kv.Value.Select(sku => bySku.TryGetValue(sku.ToLowerInvariant(), out var p)
+                    ? $"https://www.mahalaxmifashionhub.com/products/{(Slug(p.Name) is { Length: > 0 } sl ? sl + "-" : "")}{p.Id}"
+                    : null)
+                .Where(x => x != null).Select(x => x!).Distinct().ToList();
+            if (links.Count > 0) result[kv.Key] = links;
+        }
+        return result;
+    }
+
+    /// The SMS laid out for WhatsApp - a line per detail - with "Item Details"
+    /// put in before the amount. Null when the template text is not known yet.
+    private static string? ForWhatsApp(string? sms, List<string>? links)
+    {
+        if (string.IsNullOrWhiteSpace(sms)) return null;
+        var t = Regex.Replace(sms.Trim(), @"\s+", " ");
+        // Blank line after the greeting and before / after the body sentences.
+        t = Regex.Replace(t, @"^(Dear [^,]{1,40},)\s*", "$1\n\n", RegexOptions.IgnoreCase);
+        foreach (var label in new[] { "Order ID:", "Transaction Date:", "Order Amount:" })
+            t = Regex.Replace(t, @"\s*(" + Regex.Escape(label) + ")", "\n$1", RegexOptions.IgnoreCase);
+        t = Regex.Replace(t, @"\s*(You can visit)", "\n\n$1", RegexOptions.IgnoreCase);
+        t = Regex.Replace(t, @"\s*(Website:)", "\n\n$1", RegexOptions.IgnoreCase);
+        t = Regex.Replace(t, @"\s*(Thank you)", "\n\n$1", RegexOptions.IgnoreCase);
+        // The order block starts after a blank line.
+        t = Regex.Replace(t, @"\n(Order ID:)", "\n\n$1", RegexOptions.IgnoreCase);
+
+        if (links is { Count: > 0 })
+        {
+            var item = "Item Details : " + string.Join("\n", links);
+            var at = Regex.Match(t, @"\n(Order Amount:)", RegexOptions.IgnoreCase);
+            t = at.Success ? t.Insert(at.Index, "\n" + item) : t + "\n" + item;
+        }
+        return Regex.Replace(t, @"\n{3,}", "\n\n").Trim();
     }
 
     public record DeleteRequest(List<long>? Ids, DateTime? OlderThan);
