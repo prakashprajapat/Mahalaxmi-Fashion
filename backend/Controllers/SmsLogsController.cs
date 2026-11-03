@@ -41,7 +41,38 @@ public class SmsLogsController : ControllerBase
     };
 
     private readonly AppDbContext _db;
-    public SmsLogsController(AppDbContext db) => _db = db;
+    private readonly Services.SmsService _sms;
+    public SmsLogsController(AppDbContext db, Services.SmsService sms) { _db = db; _sms = sms; }
+
+    private async Task SaveTextsAsync(Dictionary<string, TemplateText> texts)
+    {
+        var json = JsonSerializer.Serialize(texts);
+        var row = await _db.SiteSettings.FirstOrDefaultAsync(s => s.Key == TemplateTextsKey);
+        if (row is null) _db.SiteSettings.Add(new SiteSetting { Key = TemplateTextsKey, Value = json });
+        else { row.Value = json; row.UpdatedAt = DateTimeOffset.UtcNow; }
+        await _db.SaveChangesAsync();
+    }
+
+    /// <summary>
+    /// Reads the wording of every template id given that has none saved yet,
+    /// straight from MSG91, and keeps it. A name the admin typed is kept; only
+    /// the missing text is filled. At most `max` ids per call, so a page of
+    /// logs never waits on a dozen MSG91 round trips.
+    /// </summary>
+    private async Task<int> FillMissingTextsAsync(Dictionary<string, TemplateText> texts, IEnumerable<string> ids, int max)
+    {
+        int filled = 0;
+        foreach (var id in ids.Where(i => !string.IsNullOrWhiteSpace(i)).Distinct(StringComparer.OrdinalIgnoreCase).Take(max))
+        {
+            if (texts.TryGetValue(id, out var have) && !string.IsNullOrWhiteSpace(have.Text)) continue;
+            var (name, text) = await _sms.FetchTemplateAsync(id);
+            if (string.IsNullOrWhiteSpace(text)) continue;
+            texts[id] = new TemplateText(have?.Name ?? name, text.Trim());
+            filled++;
+        }
+        if (filled > 0) await SaveTextsAsync(texts);
+        return filled;
+    }
 
     public record TemplateText(string? Name, string? Text);
 
@@ -72,7 +103,8 @@ public class SmsLogsController : ControllerBase
         return names;
     }
 
-    private static readonly Regex VarSlot = new(@"\{#var#\}", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+    // {#var#} (DLT) and ##var## (MSG91) both mean "the next value".
+    private static readonly Regex VarSlot = new(@"\{#var#\}|##var##", RegexOptions.IgnoreCase | RegexOptions.Compiled);
     private static readonly Regex NamedSlot = new(@"##([A-Za-z0-9_]+)##", RegexOptions.Compiled);
 
     /// <summary>The message as the customer read it, or null when the template text is not saved.</summary>
@@ -128,6 +160,9 @@ public class SmsLogsController : ControllerBase
             .Skip((page - 1) * limit).Take(limit).ToListAsync();
 
         var texts = await LoadTextsAsync();
+        // The wording is MSG91's; fetch what is missing for this page once, and keep it.
+        await FillMissingTextsAsync(texts, rows.Select(r => r.TemplateId)
+            .Where(id => !texts.TryGetValue(id, out var t) || string.IsNullOrWhiteSpace(t.Text)), 6);
         var names = await NamesAsync(texts);
 
         return Ok(new
@@ -203,11 +238,28 @@ public class SmsLogsController : ControllerBase
         if (name.Length == 0 && text.Length == 0) texts.Remove(id);
         else texts[id] = new TemplateText(name.Length > 0 ? name : null, text.Length > 0 ? text : null);
 
-        var json = JsonSerializer.Serialize(texts);
-        var row = await _db.SiteSettings.FirstOrDefaultAsync(s => s.Key == TemplateTextsKey);
-        if (row is null) _db.SiteSettings.Add(new SiteSetting { Key = TemplateTextsKey, Value = json });
-        else { row.Value = json; row.UpdatedAt = DateTimeOffset.UtcNow; }
-        await _db.SaveChangesAsync();
+        await SaveTextsAsync(texts);
         return Ok(new { success = true });
+    }
+
+    // POST /api/sms-logs/templates/fetch  { ids?: [...], overwrite?: false }
+    // Reads the wording of the templates from MSG91 - every template in Settings
+    // and in the log when no ids are given.
+    public record FetchRequest(List<string>? Ids, bool Overwrite = false);
+
+    [HttpPost("templates/fetch")]
+    public async Task<IActionResult> FetchTemplates([FromBody] FetchRequest? req)
+    {
+        var texts = await LoadTextsAsync();
+        var names = await NamesAsync(texts);
+        var ids = req?.Ids is { Count: > 0 } ? req.Ids
+            : names.Keys.Concat(await _db.SmsLogs.Select(x => x.TemplateId).Distinct().ToListAsync()).ToList();
+        if (req?.Overwrite == true)
+            foreach (var id in ids)
+                if (texts.TryGetValue(id, out var t)) texts[id] = t with { Text = null };
+        var filled = await FillMissingTextsAsync(texts, ids, 40);
+        var missing = ids.Where(i => !string.IsNullOrWhiteSpace(i)).Distinct(StringComparer.OrdinalIgnoreCase)
+            .Count(i => !texts.TryGetValue(i, out var t) || string.IsNullOrWhiteSpace(t.Text));
+        return Ok(new { success = true, filled, missing });
     }
 }

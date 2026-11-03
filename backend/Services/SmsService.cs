@@ -376,6 +376,53 @@ public class SmsService
     /// the feature yet.
     public Task<string?> SettingAsync(string key) => Setting(key);
 
+    /// <summary>
+    /// The wording of a template, read back from MSG91 (POST /api/v5/sms/getTemplateVersions).
+    /// The active version wins; otherwise the newest. Null when MSG91 has nothing or says no.
+    /// </summary>
+    public async Task<(string? Name, string? Text)> FetchTemplateAsync(string templateId)
+    {
+        var authKey = await Setting("msg91AuthKey");
+        if (string.IsNullOrWhiteSpace(authKey) || string.IsNullOrWhiteSpace(templateId)) return (null, null);
+        try
+        {
+            using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+            using var reqMsg = new HttpRequestMessage(HttpMethod.Post, "https://control.msg91.com/api/v5/sms/getTemplateVersions")
+            {
+                Content = new StringContent(System.Text.Json.JsonSerializer.Serialize(new { template_id = templateId.Trim() }),
+                                            Encoding.UTF8, "application/json"),
+            };
+            reqMsg.Headers.Add("authkey", authKey);
+            reqMsg.Headers.Add("accept", "application/json");
+            var res = await http.SendAsync(reqMsg);
+            var body = await res.Content.ReadAsStringAsync();
+            using var doc = System.Text.Json.JsonDocument.Parse(body);
+            var root = doc.RootElement;
+            if (root.TryGetProperty("hasError", out var he) && he.ValueKind == System.Text.Json.JsonValueKind.True) return (null, null);
+            if (!root.TryGetProperty("data", out var data) || data.ValueKind != System.Text.Json.JsonValueKind.Array) return (null, null);
+
+            string? name = null, text = null; bool best = false;
+            foreach (var v in data.EnumerateArray())
+            {
+                string? Str(string k) => v.TryGetProperty(k, out var x)
+                    ? (x.ValueKind == System.Text.Json.JsonValueKind.String ? x.GetString() : x.ToString()) : null;
+                var t = Str("template_data");
+                if (string.IsNullOrWhiteSpace(t)) continue;
+                var active = (Str("active_status") ?? "") is "1" or "true" or "True";
+                if (text is null || (active && !best))
+                {
+                    text = t; name = Str("template_name"); best = active;
+                }
+            }
+            return (name, text);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Could not read template {Template} from MSG91.", templateId);
+            return (null, null);
+        }
+    }
+
     public record BulkResult(bool Configured, int Sent, int Failed, string? Error);
 
     /// <summary>

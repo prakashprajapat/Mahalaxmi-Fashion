@@ -122,6 +122,19 @@ export default function SmsLogsPage() {
     finally { setTplSaving(null); }
   };
 
+  const [fetching, setFetching] = useState(false);
+  const fetchFromMsg91 = async (overwrite = false) => {
+    setFetching(true); setTplMsg('');
+    try {
+      const res = await fetch('/api/sms-logs/templates/fetch', { method: 'POST', headers: { ...auth(), 'Content-Type': 'application/json' }, body: JSON.stringify({ overwrite }) });
+      const b = await res.json().catch(() => ({}));
+      if (!res.ok || !b.success) throw new Error(b.message || `Could not fetch (${res.status})`);
+      setTplMsg(`${b.filled} template text(s) fetched from MSG91.${b.missing ? ` ${b.missing} could not be found there - paste those by hand.` : ''}`);
+      await loadTpls(); load();
+    } catch (e) { setTplMsg((e as Error).message); }
+    finally { setFetching(false); }
+  };
+
   const allPicked = rows.length > 0 && rows.every(r => picked.has(r.id));
   const pages = Math.max(1, Math.ceil(total / PAGE));
   const missingText = tpls.filter(t => !t.text && t.sent > 0).length;
@@ -260,10 +273,17 @@ export default function SmsLogsPage() {
       ) : (
         <Card title="Template texts">
           <p style={{ fontSize: 13, color: '#555', margin: '0 0 1rem', lineHeight: 1.6 }}>
-            MSG91 only receives the template id and the values, so the website does not know the wording of a message until you paste it here once.
-            Copy the exact DLT text from MSG91 → Templates, with <code>{'{#var#}'}</code> where each value goes (or <code>##order_id##</code> style names).
-            Older logs show their full message as soon as the text is saved.
+            The wording of each message is read from MSG91 by itself (the Logs page does it for any template it has not seen yet).
+            Press the button to read them all now. A text can also be pasted or corrected by hand: <code>{'{#var#}'}</code> or <code>##var##</code> where each value goes.
           </p>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: '1rem' }}>
+            <button className="adm-btn adm-btn-primary" disabled={fetching} onClick={() => fetchFromMsg91(false)}>
+              {fetching ? 'Reading from MSG91…' : 'Fetch missing texts from MSG91'}
+            </button>
+            <button className="adm-btn" disabled={fetching} onClick={() => { if (confirm('Read every template text again from MSG91, replacing what is saved?')) fetchFromMsg91(true); }}>
+              Refresh all from MSG91
+            </button>
+          </div>
           {tplMsg && <p style={{ color: '#1a7f4b', fontWeight: 600, fontSize: 13 }}>{tplMsg}</p>}
           {tpls.length === 0 ? <Empty>No templates yet.</Empty> : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
