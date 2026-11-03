@@ -1325,6 +1325,54 @@ public class OrdersController : ControllerBase
     // living in exactly one place. So this answers readyToShip and the screen
     // makes that one call, through the same door every other status change
     // goes through.
+    // Once a parcel has left the bench (picked up, in transit, delivered, on its
+    // way back) the bag it went in is history: it must not be moved to another
+    // order, and that order must not be given a different bag.
+    private static readonly HashSet<string> BagMovable = new(StringComparer.OrdinalIgnoreCase)
+        { "Order Received", "Pending", "Pending confirmation", "Paid", "Order Packed", "Ready for Shipping", "Cancelled" };
+    private static bool BagLocked(string? status) => !BagMovable.Contains((status ?? "").Trim());
+
+    private static string NormBag(string? raw) =>
+        new string((raw ?? "").Trim().Where(c => char.IsLetterOrDigit(c) || c == '-').ToArray());
+
+    // GET /api/orders/{orderId}/bag-check?bag=XXXX  - read only.
+    // What Pack & Scan needs to decide between saving straight away (both codes
+    // new), asking "Relink?" (either is already used), and refusing (the bag is
+    // on a parcel that has already left).
+    [HttpGet("{orderId}/bag-check")]
+    [Authorize]
+    [RequirePerm("orders")]
+    public async Task<IActionResult> CheckBag(string orderId, [FromQuery] string? bag)
+    {
+        var code = NormBag(bag);
+        var order = await _db.SiteOrders.AsNoTracking().FirstOrDefaultAsync(o => o.OrderId == orderId || o.Awb == orderId);
+        if (order is null)
+            return NotFound(new { success = false, message = "No order matches that number." });
+
+        var isLabel = code.Length > 0 && (string.Equals(code, order.Awb, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(code, order.OrderId, StringComparison.OrdinalIgnoreCase)
+            || await _db.SiteOrders.AnyAsync(o => o.Awb == code || o.OrderId == code));
+        var holder = code.Length == 0 ? null : await _db.SiteOrders.AsNoTracking()
+            .Where(o => o.BagBarcode == code && o.OrderId != order.OrderId)
+            .Select(o => new { o.OrderId, o.Awb, o.Status })
+            .FirstOrDefaultAsync();
+
+        return Ok(new
+        {
+            success = true,
+            orderId = order.OrderId,
+            orderStatus = order.Status,
+            orderBag = order.BagBarcode,
+            orderLocked = BagLocked(order.Status),
+            sameBag = code.Length > 0 && string.Equals(order.BagBarcode, code, StringComparison.OrdinalIgnoreCase),
+            isLabel,
+            bagOrderId = holder?.OrderId,
+            bagOrderAwb = holder?.Awb,
+            bagOrderStatus = holder?.Status,
+            bagLocked = holder is not null && BagLocked(holder.Status),
+        });
+    }
+
     [HttpPatch("{orderId}/bag-barcode")]
     [Authorize]
     [RequirePerm("orders")]
@@ -1332,7 +1380,7 @@ public class OrdersController : ControllerBase
     {
         // A scanner gun sends what it read plus Enter, and a bag code can
         // legitimately carry a hyphen. Everything else is noise from the read.
-        var code = new string((req.Barcode ?? "").Trim().Where(c => char.IsLetterOrDigit(c) || c == '-').ToArray());
+        var code = NormBag(req.Barcode);
         if (code.Length == 0)
             return BadRequest(new { success = false, message = "Nothing was scanned. Try the bag code again." });
         if (code.Length > 64)
@@ -1357,14 +1405,54 @@ public class OrdersController : ControllerBase
             return BadRequest(new { success = false, message =
                 "That is a shipping label (AWB / order number), not a bag. Scan the code printed on the bag." });
 
+        // The same bag scanned again on the same order: nothing to change.
+        if (string.Equals(order.BagBarcode, code, StringComparison.OrdinalIgnoreCase))
+            return Ok(new
+            {
+                success = true, alreadyLinked = true,
+                orderId = order.OrderId, awb = order.Awb, status = order.Status, bagBarcode = order.BagBarcode,
+                readyToShip = false,
+                note = $"Bag {code} is already linked to this order. Nothing to change.",
+            });
+
+        // A parcel that has left keeps the bag it left in.
+        if (!string.IsNullOrWhiteSpace(order.BagBarcode) && BagLocked(order.Status))
+            return Conflict(new { success = false, locked = true, message =
+                $"Order {order.OrderId} is already \"{order.Status}\" in bag {order.BagBarcode}. Its bag cannot be changed now." });
+
         var clash = await _db.SiteOrders
             .FirstOrDefaultAsync(o => o.BagBarcode == code && o.OrderId != order.OrderId);
         if (clash is not null)
-            return Conflict(new
+        {
+            if (BagLocked(clash.Status))
+                return Conflict(new { success = false, locked = true, message =
+                    $"Bag {code} went out with order {clash.OrderId} (\"{clash.Status}\"). It cannot be relinked. Use a different bag." });
+            if (req.Relink != true)
+                return Conflict(new { success = false, needsRelink = true, bagOrderId = clash.OrderId, message =
+                    $"That bag is already recorded against order {clash.OrderId}. Press Relink to move it to this order, or use a different bag." });
+
+            // Relink: the bag leaves the other order, written down on both.
+            _db.PackEvents.Add(new PackEvent
             {
-                success = false,
-                message = $"That bag is already recorded against order {clash.OrderId}. Use a different bag, or clear it from that order first.",
+                OrderId = clash.OrderId,
+                Awb = clash.Awb,
+                Action = PackController.BagCleared,
+                PreviousBag = clash.BagBarcode,
+                PreviousStatus = clash.Status,
+                NewStatus = clash.Status,
+                Who = PackedBy(),
+                Note = $"Bag relinked to {order.OrderId}",
             });
+            clash.BagBarcode = null;
+            clash.UpdatedAt = DateTimeOffset.UtcNow;
+            // Saved now: the unique index on bag_barcode must see the old row
+            // let go before the new one takes it.
+            await _db.SaveChangesAsync();
+        }
+
+        if (req.Relink == false && !string.IsNullOrWhiteSpace(order.BagBarcode))
+            return Conflict(new { success = false, needsRelink = true, message =
+                $"Order {order.OrderId} is already in bag {order.BagBarcode}. Press Relink to change it to {code}." });
 
         // Re-packing into a fresh bag is ordinary, so an existing code is
         // replaced rather than refused - but it is written down, because a bag

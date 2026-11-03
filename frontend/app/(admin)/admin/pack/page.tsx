@@ -29,7 +29,7 @@ import Link from 'next/link';
 import { ordersApi, packApi, type PackEvent } from '@/lib/api';
 import { getAdminToken } from '@/lib/auth';
 import { PageHeader, Card } from '@/components/admin/Ui';
-import PackScanner, { type LookupResult, type SaveResult } from '@/components/admin/PackScanner';
+import PackScanner, { type LookupResult, type SaveResult, type BagCheck } from '@/components/admin/PackScanner';
 import { isTouchPhone } from '@/lib/barcodeScan';
 import type { Order } from '@/types';
 
@@ -126,7 +126,7 @@ export default function PackAndScanPage() {
 
   // ── Step 2: the bag ───────────────────────────────────────────────────────
   // Pure as well: records the bag, moves the order on, and says what happened.
-  const saveBagFor = useCallback(async (o: Order, scanned: string): Promise<SaveResult> => {
+  const saveBagFor = useCallback(async (o: Order, scanned: string, relink?: boolean): Promise<SaveResult> => {
     // The label scanned twice. The server refuses this too; saying it here is
     // instant and keeps the parcel on screen so the bag can be scanned next.
     const same = (x?: string | null) => !!x && x.trim().toLowerCase() === scanned.trim().toLowerCase();
@@ -136,10 +136,12 @@ export default function PackAndScanPage() {
     const token = getAdminToken() ?? '';
     let r;
     try {
-      r = await ordersApi.setBagBarcode(o.id, scanned, token);
+      r = await ordersApi.setBagBarcode(o.id, scanned, token, relink);
     } catch (e) {
       return { kind: 'err', text: (e as Error).message || 'Could not record that bag.' };
     }
+
+    if (r.alreadyLinked) return { kind: 'warn', text: r.note || `Bag ${r.bagBarcode} is already linked to this order.` };
 
     if (!r.readyToShip) {
       // Saved, but the order cannot advance - no AWB yet, or it is already
@@ -166,6 +168,10 @@ export default function PackAndScanPage() {
       };
     }
   }, [loadHistory, histQ]);
+
+  const checkBagFor = useCallback(
+    (o: Order, bag: string): Promise<BagCheck> => ordersApi.checkBag(o.id, bag, getAdminToken() ?? ''),
+    []);
 
   const saveBag = async (scanned: string) => {
     if (!order) return;
@@ -208,6 +214,7 @@ export default function PackAndScanPage() {
         <PackScanner
           lookup={lookupLabel}
           save={saveBagFor}
+          check={checkBagFor}
           onClose={() => { setCamOpen(false); loadHistory(histQ); }}
         />
       )}

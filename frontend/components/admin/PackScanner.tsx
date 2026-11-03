@@ -5,9 +5,10 @@
  *
  *   Step 1  point at the shipping label  -> the AWB is read and the order found
  *   Step 2  point at the bag (thaili)    -> its code is read
- *   Step 3  check both and press Save    -> or Relink to scan the bag again
- *
- * Nothing is written until Save. The camera stays open across all three steps
+ *   Step 3  both codes new               -> saved at once, camera back to step 1
+ *           either code already used     -> Relink / scan another bag
+ *           bag on a parcel already gone -> refused, scan another bag
+ * The camera stays open across all three steps
  * so the phone does not ask for permission again, and after a save it goes
  * straight back to step 1 for the next parcel.
  */
@@ -18,16 +19,21 @@ import { cameraErrorText, makeFrameReader, openBackCamera, type FrameReader } fr
 
 export type LookupResult = { order?: Order; error?: string; warn?: string };
 export type SaveResult = { kind: 'ok' | 'warn' | 'err'; text: string };
+export type BagCheck = {
+  orderStatus: string; orderBag?: string | null; orderLocked: boolean; sameBag: boolean; isLabel: boolean;
+  bagOrderId?: string | null; bagOrderStatus?: string | null; bagLocked: boolean;
+};
 
 type Stage = 'awb' | 'bag' | 'confirm' | 'saving' | 'done';
 
 const PLUM = '#7a2c3b';
 
 export default function PackScanner({
-  lookup, save, onClose,
+  lookup, save, check, onClose,
 }: {
   lookup: (code: string) => Promise<LookupResult>;
-  save: (order: Order, bag: string) => Promise<SaveResult>;
+  save: (order: Order, bag: string, relink?: boolean) => Promise<SaveResult>;
+  check: (order: Order, bag: string) => Promise<BagCheck>;
   onClose: () => void;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -41,6 +47,8 @@ export default function PackScanner({
   const [bag, setBag] = useState('');
   const [msg, setMsg] = useState<SaveResult | null>(null);
   const [askExit, setAskExit] = useState(false);
+  // Why step 3 is asking instead of saving: what is already linked where.
+  const [why, setWhy] = useState('');
   const [working, setWorking] = useState(false);
 
   // ── open the camera and the reader once ─────────────────────────────────
@@ -98,11 +106,56 @@ export default function PackScanner({
         setMsg({ kind: 'err', text: 'That is the shipping label again. Point at the code printed on the BAG.' });
         return;
       }
+      if (!o) return;
+      setWorking(true);
+      let c: BagCheck;
+      try { c = await check(o, code); }
+      catch (e) { setWorking(false); setMsg({ kind: 'err', text: (e as Error).message || 'Could not check that bag. Try again.' }); return; }
+
+      if (c.isLabel) {
+        setWorking(false);
+        setMsg({ kind: 'err', text: 'That is a shipping label, not a bag. Point at the code printed on the BAG.' });
+        return;
+      }
+      if (c.sameBag) {
+        setWorking(false);
+        setBag(code);
+        setMsg({ kind: 'warn', text: `Bag ${code} is already linked to this order. Nothing to change.` });
+        setStage('done');
+        return;
+      }
+      if (c.orderLocked && c.orderBag) {
+        setWorking(false);
+        setBag(code);
+        setMsg({ kind: 'err', text: `This order is already "${c.orderStatus}" in bag ${c.orderBag}. Its bag cannot be changed now.` });
+        setStage('done');
+        return;
+      }
+      if (c.bagOrderId && c.bagLocked) {
+        // Keep scanning: the packer needs a different bag, not a different screen.
+        setWorking(false);
+        setMsg({ kind: 'err', text: `Bag ${code} went out with order ${c.bagOrderId} ("${c.bagOrderStatus}"). It cannot be relinked. Scan a different bag.` });
+        return;
+      }
       setBag(code);
-      setMsg(null);
-      setStage('confirm');
+      if (c.bagOrderId || c.orderBag) {
+        setWorking(false);
+        setWhy([
+          c.orderBag ? `This order is already in bag ${c.orderBag}.` : '',
+          c.bagOrderId ? `Bag ${code} is linked to order ${c.bagOrderId} ("${c.bagOrderStatus}").` : '',
+        ].filter(Boolean).join(' '));
+        setMsg(null);
+        setStage('confirm');
+        return;
+      }
+      // Both new: save straight away, no question.
+      setStage('saving');
+      const r = await save(o, code, false);
+      setWorking(false);
+      setMsg(r);
+      setStage('done');
     }
-  }, [lookup]);
+  }, [lookup, check, save]);
 
   useEffect(() => {
     const v = videoRef.current;
@@ -123,14 +176,14 @@ export default function PackScanner({
 
   // ── actions ─────────────────────────────────────────────────────────────
   const restart = () => {
-    setOrder(null); setBag(''); setMsg(null); lastRef.current = { code: '', at: 0 }; setStage('awb');
+    setOrder(null); setBag(''); setMsg(null); setWhy(''); lastRef.current = { code: '', at: 0 }; setStage('awb');
   };
-  const relink = () => { setBag(''); setMsg(null); lastRef.current = { code: '', at: 0 }; setStage('bag'); };
+  const scanAnotherBag = () => { setBag(''); setMsg(null); setWhy(''); lastRef.current = { code: '', at: 0 }; setStage('bag'); };
 
-  const doSave = async () => {
+  const doRelink = async () => {
     if (!order || !bag) return;
     setStage('saving');
-    const r = await save(order, bag);
+    const r = await save(order, bag, true);
     setMsg(r);
     if (r.kind === 'err') { setStage('confirm'); return; }
     setStage('done');
@@ -145,7 +198,7 @@ export default function PackScanner({
 
   const scanning = stage === 'awb' || stage === 'bag';
   const stepNo = stage === 'awb' ? 1 : stage === 'bag' ? 2 : 3;
-  const title = stage === 'awb' ? 'Scanning AWB Barcode' : stage === 'bag' ? 'Scanning Bag Code' : stage === 'done' ? 'Saved' : 'Check and Save';
+  const title = stage === 'awb' ? 'Scanning AWB Barcode' : stage === 'bag' ? 'Scanning Bag Code' : stage === 'done' ? (msg?.kind === 'ok' ? 'Saved' : 'Done') : stage === 'saving' ? 'Saving…' : 'Already linked - Relink?';
   const aim = stage === 'awb' ? 'Point camera at the AWB barcode on the label' : 'Point camera at the code on the bag (thaili)';
   const msgColour = msg?.kind === 'ok' ? '#1a7f4b' : msg?.kind === 'warn' ? '#8a6100' : '#a3122b';
   const msgBg = msg?.kind === 'ok' ? '#eaf7f0' : msg?.kind === 'warn' ? '#fdf5e3' : '#fdeced';
@@ -211,16 +264,16 @@ export default function PackScanner({
                 {l.name} — {l.size || '—'} / {l.color || '—'} × {l.quantity}
               </div>
             ))}
-            {order.bagBarcode && stage === 'confirm' && (
-              <div style={{ color: '#8a6100', fontWeight: 600 }}>Already linked to bag {order.bagBarcode}. Saving will relink it to the new bag.</div>
+            {why && stage === 'confirm' && (
+              <div style={{ color: '#8a6100', fontWeight: 600 }}>{why} Relink to put this order in bag {bag}.</div>
             )}
           </div>
         )}
 
-        {(stage === 'confirm' || stage === 'saving') && (
+        {(stage === 'confirm' || (stage === 'saving' && why)) && (
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 12 }}>
-            <button onClick={relink} disabled={stage === 'saving'} style={btn(false)}>Relink (scan bag again)</button>
-            <button onClick={doSave} disabled={stage === 'saving'} style={btn(true)}>{stage === 'saving' ? 'Saving…' : 'Save'}</button>
+            <button onClick={scanAnotherBag} disabled={stage === 'saving'} style={btn(false)}>Scan another bag</button>
+            <button onClick={doRelink} disabled={stage === 'saving'} style={btn(true)}>{stage === 'saving' ? 'Saving…' : 'Relink'}</button>
             <button onClick={restart} disabled={stage === 'saving'} style={{ ...btn(false), gridColumn: '1 / -1', border: 0, color: '#777', padding: 6 }}>Start over with a new label</button>
           </div>
         )}

@@ -124,5 +124,8 @@ public record AdminUpdateOrderRequest(
 
 // What the packing bench scans off the thaili. One field, because that is all
 // a scanner gun sends.
-public record BagBarcodeRequest(string? Barcode);
+// Relink: null = the old behaviour (replace this order's own bag, refuse a bag
+// that is on another order). true = the packer pressed Relink: also take the bag
+// off the other order. false = never replace anything; answer what clashed.
+public record BagBarcodeRequest(string? Barcode, bool? Relink = null);
 public record ReturnOtpRequest(string? Otp);

@@ -342,14 +342,21 @@ export const ordersApi = {
   // It answers readyToShip rather than moving the order itself: "Ready for
   // Shipping" hands out the GST invoice number, pushes to Delhivery and texts
   // the customer, and all of that stays in updateStatus above.
-  setBagBarcode: (idOrAwb: string, barcode: string, token: string) =>
+  // relink: undefined = old behaviour, true = Relink pressed, false = never replace.
+  setBagBarcode: (idOrAwb: string, barcode: string, token: string, relink?: boolean) =>
     request<{
       success: boolean; orderId: string; awb?: string | null; status: string;
-      bagBarcode: string; readyToShip: boolean; note?: string | null;
+      bagBarcode: string; readyToShip: boolean; note?: string | null; alreadyLinked?: boolean;
     }>(
       `/orders/${encodeURIComponent(idOrAwb)}/bag-barcode`,
-      { method: 'PATCH', body: JSON.stringify({ barcode }) }, token
+      { method: 'PATCH', body: JSON.stringify(relink === undefined ? { barcode } : { barcode, relink }) }, token
     ),
+  checkBag: (idOrAwb: string, bag: string, token: string) =>
+    request<{
+      success: boolean; orderId: string; orderStatus: string; orderBag?: string | null; orderLocked: boolean;
+      sameBag: boolean; isLabel: boolean;
+      bagOrderId?: string | null; bagOrderAwb?: string | null; bagOrderStatus?: string | null; bagLocked: boolean;
+    }>(`/orders/${encodeURIComponent(idOrAwb)}/bag-check?bag=${encodeURIComponent(bag)}`, {}, token),
   clearBagBarcode: (idOrAwb: string, token: string) =>
     request<{ success: boolean; orderId: string }>(
       `/orders/${encodeURIComponent(idOrAwb)}/bag-barcode`, { method: 'DELETE' }, token
