@@ -423,6 +423,93 @@ public class OrdersController : ControllerBase
             System.Globalization.CultureInfo.InvariantCulture, out var v) && v >= 0m ? v : fallback;
     }
 
+    // An account made with a mobile or email OTP starts nearly empty: no name,
+    // no email (or no mobile), no address. The first order carries all of it,
+    // so every BLANK field of the signed-in customer's profile is filled from
+    // the checkout. Nothing already on the profile is ever overwritten - the
+    // customer may be sending this parcel to somebody else. An email or mobile
+    // is only taken when no other account already uses it, and is marked
+    // unverified (typed, not proven). A saved address is added only when the
+    // customer has none yet, so the next checkout is pre-filled.
+    private async Task FillBlankProfileAsync(int meId, PlaceOrderRequest req)
+    {
+        var me = await _db.Customers.FirstOrDefaultAsync(c => c.Id == meId);
+        if (me is null) return;
+        bool changed = false;
+        static string T(string? v) => (v ?? "").Trim();
+        static string Cut(string v, int n) => v.Length > n ? v[..n] : v;
+
+        var email = T(req.CustomerEmail).ToLowerInvariant();
+        if (string.IsNullOrWhiteSpace(me.Email) && email.Length is > 5 and <= 254 && email.Contains('@') && email.Contains('.')
+            && !await _db.Customers.AnyAsync(c => c.Email == email && c.Id != meId))
+        {
+            me.Email = email;
+            me.EmailVerified = false;   // typed, not proven - see SocialLogin
+            changed = true;
+        }
+
+        var ten = OutreachContact.Phone10(req.CustomerPhone);
+        if (string.IsNullOrWhiteSpace(me.Phone) && ten is not null
+            && !await _db.Customers.AnyAsync(c => c.Phone10 == ten && c.Id != meId))
+        {
+            me.Phone = ten;
+            me.PhoneVerified = false;
+            changed = true;
+        }
+
+        var name = T(req.CustomerName).Length > 0 ? T(req.CustomerName) : T(req.ShippingName);
+        if (string.IsNullOrWhiteSpace(me.FirstName) && string.IsNullOrWhiteSpace(me.LastName) && name.Length > 0)
+        {
+            var parts = name.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
+            me.FirstName = Cut(parts[0], 100);
+            me.LastName = parts.Length > 1 ? Cut(parts[1], 100) : "";
+            changed = true;
+        }
+
+        var addr = T(req.ShippingAddress);
+        var pin = new string(T(req.ShippingPincode).Where(char.IsDigit).ToArray());
+        var state = Services.IndianStates.Normalize(T(req.ShippingState)) ?? "";
+        var city = T(req.ShippingCity);
+        if (string.IsNullOrWhiteSpace(me.AddrLine1) && string.IsNullOrWhiteSpace(me.Pincode) && addr.Length > 0)
+        {
+            me.AddrLine1 = Cut(addr, 250);
+            if (pin.Length == 6) me.Pincode = pin;
+            if (string.IsNullOrWhiteSpace(me.State)) me.State = state;
+            if (string.IsNullOrWhiteSpace(me.District)) me.District = Cut(city, 80);
+            changed = true;
+        }
+        else
+        {
+            if (string.IsNullOrWhiteSpace(me.State) && state.Length > 0) { me.State = state; changed = true; }
+            if (string.IsNullOrWhiteSpace(me.District) && city.Length > 0) { me.District = Cut(city, 80); changed = true; }
+        }
+
+        if (addr.Length > 0 && pin.Length == 6 && !await _db.CustomerAddresses.AnyAsync(a => a.CustomerId == meId))
+        {
+            _db.CustomerAddresses.Add(new CustomerAddress
+            {
+                CustomerId = meId,
+                Label = "Home",
+                FullName = Cut(T(req.ShippingName).Length > 0 ? T(req.ShippingName) : name, 120),
+                Phone = ten ?? "",
+                AddrLine1 = addr.Length > 400 ? addr[..400] : addr,
+                Pincode = pin,
+                City = city.Length > 80 ? city[..80] : city,
+                State = state.Length > 80 ? state[..80] : state,
+                IsDefault = true,
+                CreatedAt = DateTimeOffset.UtcNow,
+            });
+            changed = true;
+        }
+
+        if (changed)
+        {
+            me.UpdatedAt = DateTimeOffset.UtcNow;
+            await _db.SaveChangesAsync();
+            _log.LogInformation("Customer {Id}: blank profile fields filled from checkout.", meId);
+        }
+    }
+
     [HttpPost]
     [EnableRateLimiting("checkout")]
     public async Task<IActionResult> PlaceOrder([FromBody] PlaceOrderRequest req)
@@ -481,25 +568,11 @@ public class OrdersController : ControllerBase
         // account would hand a stranger a way into it.
         if (!string.IsNullOrEmpty(jwtCustomerId) && int.TryParse(jwtCustomerId, out var meId) && meId > 0)
         {
-            var typed = (req.CustomerEmail ?? "").Trim().ToLowerInvariant();
-            if (typed.Length is > 5 and <= 254 && typed.Contains('@') && typed.Contains('.'))
+            try { await FillBlankProfileAsync(meId, req); }
+            catch (Exception ex)
             {
-                try
-                {
-                    var me = await _db.Customers.FirstOrDefaultAsync(c => c.Id == meId);
-                    if (me is not null && string.IsNullOrWhiteSpace(me.Email)
-                        && !await _db.Customers.AnyAsync(c => c.Email == typed && c.Id != meId))
-                    {
-                        me.Email = typed;
-                        me.EmailVerified = false;   // typed, not proven - see SocialLogin
-                        await _db.SaveChangesAsync();
-                    }
-                }
-                catch (Exception ex)
-                {
-                    // Never let a profile tidy-up cost the customer their order.
-                    _log.LogWarning(ex, "Could not save checkout email to customer {Id}", meId);
-                }
+                // Never let a profile tidy-up cost the customer their order.
+                _log.LogWarning(ex, "Could not fill customer {Id}'s profile from checkout", meId);
             }
         }
 
