@@ -83,6 +83,15 @@ const SECTIONS = [
     ]
   },
   {
+    title: 'WhatsApp auto leads (Meta Cloud API)',
+    desc: 'Every number that messages the shop on WhatsApp (and every chat you reply to from the WhatsApp Business app) is added to Popup Leads with source "whatsapp", once. In developers.facebook.com: your app → WhatsApp → Configuration → Webhook: Callback URL https://www.mahalaxmifashionhub.com/api/whatsapp/webhook, Verify token = the value below, then subscribe to the "messages" field (and "smb_message_echoes" and "history" if offered). App Secret is in the app\'s Settings → Basic. Nothing is ever sent to customers from here. Secrets stay blank here after saving — re-enter only to change them.',
+    fields: [
+      { key: 'waWebhookVerifyToken', label: 'Webhook Verify Token (choose any secret string — paste the same into Meta)', type: 'text' },
+      { key: 'waAppSecret', label: 'Meta App Secret of the WhatsApp app (blank = use the Meta Lead Ads App Secret above)', type: 'password' },
+      { key: 'waLeadsEnabled', label: 'Add WhatsApp numbers to Popup Leads — type off to stop; leave blank for on', type: 'text' },
+    ]
+  },
+  {
     title: 'SEO — Homepage & Google',
     desc: 'This text appears in Google search results and the browser tab. Leave blank to use defaults. (Product page SEO is generated automatically from each product\'s name/description.)',
     fields: [

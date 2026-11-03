@@ -46,6 +46,7 @@ public class SettingsController : ControllerBase
     {
         "admin_email",
         "smsTemplateTexts",
+        "waWebhookVerifyToken", "waAppSecret", "waLeadsEnabled",
 
         // Read only by the admin panel (through /settings/admin). The owner's
         // notification inboxes, the ad account ids, and the shop's own job
