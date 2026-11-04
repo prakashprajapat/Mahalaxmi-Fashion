@@ -79,6 +79,27 @@ export const LABEL_CSS = `
 // scanned, and a third code on a sticker this full only gives the gun
 // something else to catch.
 
+// The name printed on the label: the courier who carries the parcel, and only
+// that. A Shiprocket waybill is stored as "Shiprocket / Amazon Prepaid
+// Surface 500g" (Shiprocket picks the courier and names its service); the
+// label says "Amazon Shipping", not the aggregator or the rate card.
+export function courierBrand(raw?: string | null): string {
+  let c = (raw || '').trim();
+  if (!c) return '';
+  c = c.replace(/^shiprocket\s*\/\s*/i, '').trim();
+  if (!c || /^shiprocket$/i.test(c)) return 'Shiprocket';
+  const known: [RegExp, string][] = [
+    [/amazon/i, 'Amazon Shipping'], [/xpress\s*bees|xpressbees/i, 'Xpressbees'], [/delhivery/i, 'Delhivery'],
+    [/ekart/i, 'Ekart'], [/blue\s*dart|bluedart/i, 'Blue Dart'], [/dtdc/i, 'DTDC'], [/shadowfax/i, 'Shadowfax'],
+    [/ecom/i, 'Ecom Express'], [/india\s*post/i, 'India Post'], [/smartr/i, 'Smartr'], [/shree\s*maruti/i, 'Shree Maruti'],
+    [/professional/i, 'The Professional Couriers'], [/gati/i, 'Gati'], [/dunzo/i, 'Dunzo'], [/borzo/i, 'Borzo'],
+  ];
+  for (const [re, name] of known) if (re.test(c)) return name;
+  // Unknown: the brand before the service words.
+  const brand = c.split(/\s+(?:surface|air|express|prepaid|cod|standard|economy|\d)/i)[0].trim();
+  return brand || c;
+}
+
 export const buildLabelBody = (order: Order): string => {
     const esc = (s: string | number | null | undefined) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] as string));
     const money = (n: number) => 'Rs.' + Number(n || 0).toFixed(2);
@@ -88,7 +109,7 @@ export const buildLabelBody = (order: Order): string => {
     // code is never blank). Print labels after assigning the AWB and both carry the AWB.
     const codeVal = awb || order.id;
 
-    const courier = (order.courier || '').trim();
+    const courier = courierBrand(order.courier);
     const showCourier = !!awb && !!courier;
     const gstRate = Number(order.cart[0]?.gstRate) || 5;
     const hsn = order.cart[0]?.hsn || '6211';
