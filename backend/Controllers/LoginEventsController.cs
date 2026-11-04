@@ -132,4 +132,22 @@ public class LoginEventsController : ControllerBase
             }),
         });
     }
+
+    public record DeleteOldRequest(DateTime? Before);
+
+    // POST /api/login-events/delete-old  { before: "2026-10-01" }
+    // Owner only: forgets every login record (customer and staff) from before
+    // that day, India time, so the table does not grow for ever.
+    [HttpPost("delete-old")]
+    [RequireOwner]
+    public async Task<IActionResult> DeleteOld([FromBody] DeleteOldRequest req)
+    {
+        if (req.Before is not { } before) return BadRequest(new { success = false, message = "Choose a date." });
+        var cut = new DateTimeOffset(DateTime.SpecifyKind(before.Date, DateTimeKind.Unspecified), TimeSpan.FromHours(5.5)).ToUniversalTime();
+        // Today and yesterday stay: Follow-up Calls is working from them.
+        var keep = DateTimeOffset.UtcNow.AddDays(-2);
+        if (cut > keep) cut = keep;
+        var n = await _db.LoginEvents.Where(e => e.CreatedAt < cut).ExecuteDeleteAsync();
+        return Ok(new { success = true, deleted = n });
+    }
 }

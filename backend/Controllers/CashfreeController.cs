@@ -878,6 +878,31 @@ public class CashfreeController : ControllerBase
         return Ok(new { success = true, asked, changed, capped = rows.Count == 300 });
     }
 
+    public record DeleteOldPaymentsRequest(DateTime? Before);
+
+    // POST /api/cashfree/payments/delete-old  { before: "2026-10-01" }
+    // Owner only. Forgets checkouts from before that day that never became
+    // money: not paid, not SUCCESS at Cashfree, and no order made from them.
+    // A paid checkout is never touched - it is the record the reconcile
+    // screens and the webhook recovery read. The last 7 days always stay, so
+    // the abandoned-payment SMS and Follow-up Calls still have their rows.
+    [HttpPost("payments/delete-old")]
+    [Authorize]
+    [RequireOwner]
+    public async Task<IActionResult> DeleteOldPayments([FromBody] DeleteOldPaymentsRequest req)
+    {
+        if (req.Before is not { } before) return BadRequest(new { success = false, message = "Choose a date." });
+        var cut = new DateTimeOffset(DateTime.SpecifyKind(before.Date, DateTimeKind.Unspecified), TimeSpan.FromHours(5.5)).ToUniversalTime();
+        var keep = DateTimeOffset.UtcNow.AddDays(-7);
+        if (cut > keep) cut = keep;
+        var n = await _db.CashfreeOrders
+            .Where(c => c.CreatedAt < cut && c.PaidAt == null && c.Status != "paid"
+                     && (c.CfStatus == null || c.CfStatus != "SUCCESS")
+                     && !_db.SiteOrders.Any(o => o.OrderId == c.LocalOrderId))
+            .ExecuteDeleteAsync();
+        return Ok(new { success = true, deleted = n });
+    }
+
     // GET /api/cashfree/payments?from=&to=&status=&method=&q=&page=&pageSize=
     [HttpGet("payments")]
     [Authorize]

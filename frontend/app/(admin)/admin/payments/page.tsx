@@ -4,6 +4,7 @@ import { cashfreeApi, type CfCartLine } from '@/lib/api';
 import { getAdminToken } from '@/lib/auth';
 import * as XLSX from 'xlsx';
 import { PageHeader, Card, Stat, StatGrid, Empty, Pill, Chips } from '@/components/admin/Ui';
+import DeleteOldHistory from '@/components/admin/DeleteOldHistory';
 
 // Everyone who reached a payment page, whether or not they paid.
 //
@@ -289,6 +290,10 @@ export default function AdminPaymentsPage() {
           </p>
         </div>
       </Card>
+
+      <DeleteOldHistory endpoint="/api/cashfree/payments/delete-old" what="unpaid checkouts"
+        keepNote="Only checkouts that were never paid and never became an order are deleted. Paid ones and the last 7 days always stay."
+        onDone={() => load(1)} />
 
       {s && (
         <StatGrid>

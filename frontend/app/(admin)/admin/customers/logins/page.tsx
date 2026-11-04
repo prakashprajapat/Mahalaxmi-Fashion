@@ -4,6 +4,7 @@ import { useSearchParams } from 'next/navigation';
 import { getAdminToken, isOwnerAdmin } from '@/lib/auth';
 import { downloadCsv } from '@/lib/adminPaged';
 import { PageHeader, Card, Stat, StatGrid, Chips, Pill, Empty } from '@/components/admin/Ui';
+import DeleteOldHistory from '@/components/admin/DeleteOldHistory';
 
 interface LoginRow {
   id: number;
@@ -125,6 +126,9 @@ function LoginsInner() {
           </>
         }
       />
+
+      <DeleteOldHistory endpoint="/api/login-events/delete-old" what="login records"
+        keepNote="Customer and staff logins before the date are deleted. Today and yesterday always stay." onDone={load} />
 
       <StatGrid cols={4}>
         <Stat label="Logins today" value={summary?.today ?? '-'} />
