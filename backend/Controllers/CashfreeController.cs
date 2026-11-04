@@ -436,6 +436,30 @@ public class CashfreeController : ControllerBase
         {
             var evt = JsonSerializer.Deserialize<JsonElement>(body);
             var type = evt.TryGetProperty("type", out var t) ? t.GetString() : "";
+
+            // The customer left the payment page, or the bank said no. Written
+            // down at once, so the "payment not completed" text (USER_DROPPED2)
+            // goes within minutes instead of on the hourly sweep.
+            if (string.Equals(type, "PAYMENT_USER_DROPPED_WEBHOOK", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(type, "PAYMENT_FAILED_WEBHOOK", StringComparison.OrdinalIgnoreCase))
+            {
+                string? dropId = null;
+                if (evt.TryGetProperty("data", out var dd) && dd.TryGetProperty("order", out var dor)
+                    && dor.TryGetProperty("order_id", out var did))
+                    dropId = did.GetString();
+                if (!string.IsNullOrEmpty(dropId))
+                {
+                    var row = await _db.CashfreeOrders.FirstOrDefaultAsync(c => c.LocalOrderId == dropId);
+                    if (row is not null && row.Status != "paid" && row.CfStatus != "SUCCESS")
+                    {
+                        row.CfStatus = type!.ToUpperInvariant().Contains("FAILED") ? "FAILED" : "USER_DROPPED";
+                        row.SyncedAt = DateTimeOffset.UtcNow;
+                        await _db.SaveChangesAsync();
+                    }
+                }
+                return Ok(new { success = true });
+            }
+
             if (!string.Equals(type, "PAYMENT_SUCCESS_WEBHOOK", StringComparison.OrdinalIgnoreCase))
                 return Ok(new { success = true }); // ignore other events
 
@@ -723,7 +747,7 @@ public class CashfreeController : ControllerBase
     private static readonly string[] FinalCfStatuses = ["SUCCESS", "FAILED", "USER_DROPPED", "CANCELLED"];
 
     /// What the payments array says, boiled down to one word and one method.
-    private static (string Status, string Method, string PaymentId, DateTimeOffset? When) ReadPayments(JsonElement arr)
+    internal static (string Status, string Method, string PaymentId, DateTimeOffset? When) ReadPayments(JsonElement arr)
     {
         if (arr.ValueKind != JsonValueKind.Array || arr.GetArrayLength() == 0)
             return ("NOT_ATTEMPTED", "", "", null);
@@ -758,6 +782,31 @@ public class CashfreeController : ControllerBase
 
         if (status.Length == 0) status = "PENDING";
         return (status, method, id, when);
+    }
+
+    /// What Cashfree says became of one checkout, for code outside this
+    /// controller (the abandoned-payment text asks just before it sends).
+    /// Null when Cashfree is not set up or could not be reached.
+    internal static async Task<(string Status, string Method, string PaymentId, DateTimeOffset? When)?> AskPaymentsAsync(
+        IConfiguration config, HttpClient http, string localId, CancellationToken ct)
+    {
+        var appId = config["Cashfree:AppId"] ?? "";
+        var secret = config["Cashfree:SecretKey"] ?? "";
+        if (appId.Length == 0 || secret.Length == 0) return null;
+        var baseUrl = (config["Cashfree:Mode"] ?? "production").ToLowerInvariant() == "sandbox"
+            ? "https://sandbox.cashfree.com/pg" : "https://api.cashfree.com/pg";
+        try
+        {
+            using var rq = new HttpRequestMessage(HttpMethod.Get, $"{baseUrl}/orders/{Uri.EscapeDataString(localId)}/payments");
+            rq.Headers.Add("x-client-id", appId);
+            rq.Headers.Add("x-client-secret", secret);
+            rq.Headers.Add("x-api-version", ApiVersion);
+            rq.Headers.Add("accept", "application/json");
+            using var rs = await http.SendAsync(rq, ct);
+            if (!rs.IsSuccessStatusCode) return null;
+            return ReadPayments(JsonSerializer.Deserialize<JsonElement>(await rs.Content.ReadAsStringAsync(ct)));
+        }
+        catch { return null; }
     }
 
     // POST /api/cashfree/payments/sync?from=&to=

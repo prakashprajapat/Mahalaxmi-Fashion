@@ -213,8 +213,8 @@ const SECTIONS = [
     title: 'Automatic SMS to the customer about their order',
     desc: 'Seven DLT templates, each sent on its own trigger: the order is placed, the waybill is made, '
         + 'the parcel goes out for delivery, it arrives, it comes back instead, the review ask an hour after '
-        + 'delivery (three times, 48 hours apart), and the nudge an hour after someone reaches the payment page '
-        + 'and does not pay. Paste the MSG91 FLOW id for each one \u2014 not the DLT template id. A box left blank '
+        + 'delivery (three times, 48 hours apart), and the nudge a few minutes after someone leaves the payment page without paying. '
+        + 'Paste the MSG91 FLOW id for each one \u2014 not the DLT template id. A box left blank '
         + 'simply means that message is not sent; nothing else breaks.',
     fields: [
       { key: 'customerSmsEnabled',   label: 'Master switch \u2014 type off to stop every message below. Leave blank for on.', type: 'text' },

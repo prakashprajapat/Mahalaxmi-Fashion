@@ -76,7 +76,15 @@ public class OrderMessenger
     /// How long a payment gets to finish before it counts as abandoned. Someone
     /// who steps away and pays ten minutes later must not be told their payment
     /// failed - that message is worse than no message.
-    public static readonly TimeSpan DroppedDelay = TimeSpan.FromHours(1);
+    ///
+    /// Shortened on request: the text should arrive while the customer still
+    /// remembers the checkout. Cashfree is asked just before sending, so a
+    /// payment that went through, or is still with the bank, is never called
+    /// failed - the delay is only a short breather for an instant retry.
+    public static readonly TimeSpan DroppedDelay = TimeSpan.FromMinutes(3);
+    /// When Cashfree says nobody has tried to pay yet (NOT_ATTEMPTED), she may
+    /// still be on the page choosing UPI or card. A little longer for that.
+    public static readonly TimeSpan NotAttemptedDelay = TimeSpan.FromMinutes(10);
 
     // ── the one way anything is sent ────────────────────────────────────────
 

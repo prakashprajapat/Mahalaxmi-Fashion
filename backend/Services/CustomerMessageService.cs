@@ -11,7 +11,8 @@ namespace MahalaxmiApi.Services;
 /// from the code that handles the event. These two have nothing happen at all:
 ///
 ///   Review       an hour after delivery, then twice more, 48 hours apart
-///   UserDropped  an hour after somebody reached the payment page and did not pay
+///   UserDropped  a few minutes after somebody reached the payment page and did not pay
+///                (checked every 2 minutes; Cashfree is asked before each send)
 ///
 /// Both are the kind of message that is worse than useless if it goes twice,
 /// or late, or to the wrong person, so the care here is mostly about what the
@@ -50,6 +51,9 @@ public class CustomerMessageService : BackgroundService
     // four, and the point of the first review ask is that it arrives while the
     // parcel is still on the table.
     private static readonly TimeSpan Interval = TimeSpan.FromHours(1);
+    // The abandoned-payment text goes within minutes, so that part of the
+    // sweep runs on its own, much shorter clock.
+    private static readonly TimeSpan DroppedInterval = TimeSpan.FromMinutes(2);
 
     /// A delivery older than this has had its three chances. Also what stops
     /// the first sweep after a deploy from working through the whole year.
@@ -78,17 +82,20 @@ public class CustomerMessageService : BackgroundService
         try { await Task.Delay(TimeSpan.FromMinutes(6), stoppingToken); }
         catch (OperationCanceledException) { return; }
 
+        var lastReview = DateTimeOffset.MinValue;
         while (!stoppingToken.IsCancellationRequested)
         {
-            try { await RunOnceAsync(stoppingToken); }
+            var reviewDue = DateTimeOffset.UtcNow - lastReview >= Interval;
+            try { await RunOnceAsync(reviewDue, stoppingToken); }
             catch (Exception ex) { _log.LogError(ex, "Customer message sweep failed."); }
+            if (reviewDue) lastReview = DateTimeOffset.UtcNow;
 
-            try { await Task.Delay(Interval, stoppingToken); }
+            try { await Task.Delay(DroppedInterval, stoppingToken); }
             catch (OperationCanceledException) { return; }
         }
     }
 
-    private async Task RunOnceAsync(CancellationToken ct)
+    private async Task RunOnceAsync(bool withReviews, CancellationToken ct)
     {
         using var scope = _scopeFactory.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -96,8 +103,8 @@ public class CustomerMessageService : BackgroundService
 
         if (await OffAsync(db, EnabledSettingKey, ct)) return;
 
-        await ReviewSweepAsync(db, msg, ct);
-        await DroppedSweepAsync(db, msg, ct);
+        if (withReviews) await ReviewSweepAsync(db, msg, ct);
+        await DroppedSweepAsync(db, msg, scope.ServiceProvider, ct);
     }
 
     private static async Task<bool> OffAsync(AppDbContext db, string key, CancellationToken ct)
@@ -175,11 +182,12 @@ public class CustomerMessageService : BackgroundService
 
     // ── the payment nobody finished ─────────────────────────────────────────
 
-    private async Task DroppedSweepAsync(AppDbContext db, OrderMessenger msg, CancellationToken ct)
+    private async Task DroppedSweepAsync(AppDbContext db, OrderMessenger msg, IServiceProvider sp, CancellationToken ct)
     {
         var now = DateTimeOffset.UtcNow;
         var due = now - OrderMessenger.DroppedDelay;
         var floor = now - DroppedWindow;
+        var pendingRecheck = now - TimeSpan.FromMinutes(10);
 
         // PENDING is deliberately not here. Cashfree uses it while a bank is
         // still deciding, and a text saying the payment did not go through,
@@ -195,7 +203,10 @@ public class CustomerMessageService : BackgroundService
                      && c.CreatedAt >= floor
                      && c.PaidAt == null
                      && c.Status != "paid"
-                     && (c.CfStatus == null || (c.CfStatus != "SUCCESS" && c.CfStatus != "PENDING"))
+                     && (c.CfStatus == null || c.CfStatus != "SUCCESS")
+                     // Still with the bank when last asked: asked again, but
+                     // not more often than every ten minutes.
+                     && (c.CfStatus != "PENDING" || c.SyncedAt == null || c.SyncedAt < pendingRecheck)
                      // It became an order after all: the webhook wrote it, she
                      // paid on a second attempt, or it was switched to Cash on
                      // Delivery. Whatever the payment row still says, there is
@@ -220,6 +231,31 @@ public class CustomerMessageService : BackgroundService
             .Where(p => p.Length > 0)
             .ToHashSet();
 
+        // Orders placed since the oldest of these checkouts, by phone. Someone
+        // whose payment dropped and who then paid on a second try (a new
+        // checkout id) or switched to Cash on Delivery has bought - telling her
+        // the payment failed would be wrong.
+        var oldest = drops.Min(d => d.CreatedAt);
+        var laterOrders = (await db.SiteOrders
+            .Where(o => o.CreatedAt >= oldest)
+            .Select(o => new { o.CreatedAt, o.CustomerJson, o.ShippingJson })
+            .ToListAsync(ct))
+            .Select(o => (o.CreatedAt, Phone: Last10(OrderMessenger.Field(o.CustomerJson, "phone")
+                                                   ?? OrderMessenger.Field(o.ShippingJson, "phone"))))
+            .Where(o => o.Phone.Length > 0)
+            .ToList();
+        var paidLater = (await db.CashfreeOrders
+            .Where(c => c.CreatedAt >= oldest && (c.PaidAt != null || c.Status == "paid" || c.CfStatus == "SUCCESS"))
+            .Select(c => new { c.CreatedAt, c.CustomerJson, c.ShippingJson })
+            .ToListAsync(ct))
+            .Select(c => (c.CreatedAt, Phone: Last10(OrderMessenger.Field(c.CustomerJson, "phone")
+                                                   ?? OrderMessenger.Field(c.ShippingJson, "phone"))))
+            .Where(c => c.Phone.Length > 0)
+            .ToList();
+
+        var config = sp.GetRequiredService<IConfiguration>();
+        var http = sp.GetRequiredService<IHttpClientFactory>().CreateClient("cashfree");
+
         var sent = 0;
         foreach (var cf in drops)
         {
@@ -228,6 +264,39 @@ public class CustomerMessageService : BackgroundService
             var phone = OrderMessenger.Field(cf.CustomerJson, "phone")
                      ?? OrderMessenger.Field(cf.ShippingJson, "phone");
             var key = Last10(phone);
+
+            // Settled without a text (written down as a skip, so the row does
+            // not come back every two minutes and crowd out the batch).
+            async Task SkipAsync() => await msg.SendOnceAsync(cf.LocalOrderId, OrderMessenger.UserDropped, null,
+                Array.Empty<string>(), null, 1, ct);
+
+            if (key.Length > 0 && (laterOrders.Any(o => o.Phone == key && o.CreatedAt >= cf.CreatedAt)
+                                || paidLater.Any(o => o.Phone == key && o.CreatedAt >= cf.CreatedAt)))
+            {
+                await SkipAsync();
+                continue;
+            }
+
+            // Ask Cashfree now, unless the webhook already said dropped/failed.
+            // A payment still with the bank (PENDING) or one that went through
+            // is never called failed.
+            if (cf.CfStatus is not ("USER_DROPPED" or "FAILED" or "CANCELLED"))
+            {
+                var ans = await Controllers.CashfreeController.AskPaymentsAsync(config, http, cf.LocalOrderId, ct);
+                if (ans is { } a)
+                {
+                    cf.CfStatus = a.Status;
+                    cf.SyncedAt = DateTimeOffset.UtcNow;
+                    if (a.Method.Length > 0) cf.PaymentMethod = a.Method;
+                    if (a.PaymentId.Length > 0) cf.CfPaymentId = a.PaymentId;
+                    await db.SaveChangesAsync(ct);
+                    if (a.Status == "SUCCESS") { await SkipAsync(); continue; }
+                    if (a.Status == "PENDING") continue;
+                    if (a.Status == "NOT_ATTEMPTED" && cf.CreatedAt > now - OrderMessenger.NotAttemptedDelay) continue;
+                }
+                // Cashfree unreachable: the old rule - an hour of silence.
+                else if (cf.CreatedAt > now - TimeSpan.FromHours(1)) continue;
+            }
 
             // No number to text. Recorded as a skip so the row is not picked up
             // again every hour until the window closes.
@@ -238,7 +307,7 @@ public class CustomerMessageService : BackgroundService
                 continue;
             }
 
-            if (recent.Contains(key)) continue;
+            if (recent.Contains(key)) { await SkipAsync(); continue; }
 
             if (await msg.UserDroppedAsync(cf, phone, ct))
             {
