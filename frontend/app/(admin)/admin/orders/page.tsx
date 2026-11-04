@@ -9,6 +9,7 @@ import { FOLLOW_UP_GROUPS, followUpOf, type FollowUpKey } from '@/lib/courierFol
 import type { Order } from '@/types';
 import { openOrderLabels, openPicklist } from '@/lib/orderLabel';
 import { downloadLabelsPdf } from '@/lib/labelPdf';
+import { courierCodesFor } from '@/lib/courierCodes';
 import { inr } from '@/lib/price';
 import { PageHeader, Card, Stat, StatGrid, Chips, Empty } from '@/components/admin/Ui';
 import { bucketAccepts, claimedBy } from '@/lib/orderStatus';
@@ -675,13 +676,16 @@ export default function AdminOrdersPage() {
   // for any reason, the old print window opens instead, so a parcel never waits.
   const downloadLabels = async (list: Order[]) => {
     if (!list.length) return;
-    // Always the shop's own label. The courier's label (Shiprocket waybills)
-    // is on its own "Courier label" link in the row.
+    // Always the shop's own label. A Shiprocket waybill also carries the
+    // courier's two 2D codes, lifted off its label, either side of the barcode.
+    // The courier's own label stays on its "Courier label" link in the row.
+    let codes: Record<string, string[]> = {};
+    try { codes = await courierCodesFor(list, getAdminToken() ?? ''); } catch (e) { console.warn(e); }
     try {
-      await downloadLabelsPdf(list);
+      await downloadLabelsPdf(list, codes);
     } catch (e) {
       console.error(e);
-      openOrderLabels(list);
+      openOrderLabels(list, codes);
     }
   };
   const downloadShippingLabel = (order: Order) => downloadLabels([order]);

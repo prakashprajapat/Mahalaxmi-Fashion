@@ -59,11 +59,11 @@ async function toDataUrl(src: string): Promise<string | null> {
   });
 }
 
-async function labelToJpeg(order: Order): Promise<{ bytes: Uint8Array; px: number; py: number }> {
+async function labelToJpeg(order: Order, codes?: string[]): Promise<{ bytes: Uint8Array; px: number; py: number }> {
   // Parse the label as HTML, fix it up, then serialise it as XHTML: an SVG
   // foreignObject only accepts well-formed XML (no &middot;, no bare <img>).
   const holder = document.createElement('div');
-  holder.innerHTML = buildLabelBody(order);
+  holder.innerHTML = buildLabelBody(order, codes);
 
   for (const svg of Array.from(holder.querySelectorAll('svg.bc'))) {
     const { rects, total } = code128Rects(svg.getAttribute('data-code') ?? '');
@@ -183,10 +183,10 @@ function buildPdf(pages: { bytes: Uint8Array; px: number; py: number }[]): Blob 
 }
 
 /** Draw the labels and save them as one PDF, named like the print version was. */
-export async function downloadLabelsPdf(list: Order[]): Promise<void> {
+export async function downloadLabelsPdf(list: Order[], codes?: Record<string, string[]>): Promise<void> {
   if (!list.length) return;
   const pages = [];
-  for (const o of list) pages.push(await labelToJpeg(o));
+  for (const o of list) pages.push(await labelToJpeg(o, codes?.[o.id]));
   const blob = buildPdf(pages);
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');

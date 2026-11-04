@@ -55,6 +55,10 @@ export const LABEL_CSS = `
       .qrbox{border:1px solid #111;padding:2px;display:flex;align-items:center;justify-content:center}
       .bc{display:block;width:75%;height:30px;margin:0 auto}
       .qr{width:58px;height:58px;flex-shrink:0;display:block}
+      /* Shiprocket: the courier's two 2D codes either side of the AWB barcode. */
+      .codewrap.sr{gap:4px}
+      .codewrap.sr .bc{width:94%;height:34px}
+      .codewrap.sr .srcode{width:66px;height:66px;flex-shrink:0;display:block;image-rendering:pixelated}
       .to{font-size:11px;font-weight:800;margin:1px 0}
       .txt{font-size:8px}
       .big{font-weight:800;font-size:11px}
@@ -100,7 +104,9 @@ export function courierBrand(raw?: string | null): string {
   return brand || c;
 }
 
-export const buildLabelBody = (order: Order): string => {
+// codes: the courier's own 2D codes (Shiprocket only, from lib/courierCodes) -
+// printed either side of the barcode in place of our QR.
+export const buildLabelBody = (order: Order, codes?: string[] | null): string => {
     const esc = (s: string | number | null | undefined) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] as string));
     const money = (n: number) => 'Rs.' + Number(n || 0).toFixed(2);
     const awb = order.awb || '';
@@ -110,6 +116,10 @@ export const buildLabelBody = (order: Order): string => {
     const codeVal = awb || order.id;
 
     const courier = courierBrand(order.courier);
+    // Only data: images we made ourselves, and only on a Shiprocket waybill.
+    const srCodes = awb && /^shiprocket/i.test(order.courier || '')
+      ? (codes || []).filter(c => /^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(c)).slice(0, 2)
+      : [];
     const showCourier = !!awb && !!courier;
     const gstRate = Number(order.cart[0]?.gstRate) || 5;
     const hsn = order.cart[0]?.hsn || '6211';
@@ -163,6 +173,15 @@ export const buildLabelBody = (order: Order): string => {
       </div>
       <div class="box" style="margin-top:3px">
         <div class="lbl">AWB / TRACKING ID</div>
+        ${srCodes.length ? `
+        <div class="codewrap sr">
+          <div class="qrbox"><img class="srcode" alt="2D code" src="${srCodes[0]}" /></div>
+          <div class="bcbox">
+            <svg class="bc" data-code="${esc(codeVal)}"></svg>
+            <div class="awbnum">${esc(awb)}</div>
+          </div>
+          ${srCodes[1] ? `<div class="qrbox"><img class="srcode" alt="2D code" src="${srCodes[1]}" /></div>` : ''}
+        </div>` : `
         <div class="codewrap">
           <div class="bcbox">
             <svg class="bc" data-code="${esc(codeVal)}"></svg>
@@ -172,7 +191,7 @@ export const buildLabelBody = (order: Order): string => {
             <img class="qr" alt="QR" onerror="this.style.display='none'"
               src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&margin=0&data=${encodeURIComponent(codeVal)}" />
           </div>
-        </div>
+        </div>`}
       </div>
       <div class="cols">
         <div class="box"><div class="lbl">ORDER ID</div><div class="big">${esc(order.id)}</div></div>
@@ -281,9 +300,9 @@ export const labelFileName = (list: Order[], now: Date = new Date()): string => 
        + `-${p(now.getHours())}${p(now.getMinutes())}${p(now.getSeconds())}`;
 };
 
-export const openOrderLabels = (list: Order[]) => {
+export const openOrderLabels = (list: Order[], codes?: Record<string, string[]>) => {
     if (!list.length) return;
-    const bodies = list.map(buildLabelBody).join('\n');
+    const bodies = list.map(o => buildLabelBody(o, codes?.[o.id])).join('\n');
     const html = `<!doctype html><html><head><meta charset="utf-8"><title>${labelFileName(list)}</title>
     <style>${LABEL_CSS}</style>
     <script>${BARCODE_JS}</script></head>

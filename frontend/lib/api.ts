@@ -266,6 +266,15 @@ export const ordersApi = {
     window.open(url, '_blank');
     setTimeout(() => URL.revokeObjectURL(url), 60000);
   },
+  // The picture inside a Shiprocket waybill's own label PDF (PNG or JPEG),
+  // for lifting its 2D codes onto our label. See lib/courierCodes.ts.
+  courierLabelImage: async (orderId: string, token: string): Promise<Blob> => {
+    const res = await fetch(`${API_BASE}/orders/${encodeURIComponent(orderId)}/courier-label-image`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!res.ok) throw new Error(`courier label ${res.status}`);
+    return res.blob();
+  },
   // How many orders have arrived since a moment. Deliberately tiny: this is
   // asked every half minute while the orders page is open, and the answer is
   // almost always zero, so zero has to cost almost nothing.

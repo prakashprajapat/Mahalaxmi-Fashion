@@ -1422,6 +1422,37 @@ public class OrdersController : ControllerBase
     private static string NormBag(string? raw) =>
         new string((raw ?? "").Trim().Where(c => char.IsLetterOrDigit(c) || c == '-').ToArray());
 
+    // GET /api/orders/{orderId}/courier-label-image
+    // The picture inside the courier's own label PDF (Shiprocket only), so the
+    // admin's label can carry the courier's 2D codes beside our barcode. The
+    // browser cannot fetch Shiprocket's file itself (no CORS), nor read a PDF.
+    [HttpGet("{orderId}/courier-label-image")]
+    [Authorize]
+    [RequirePerm("orders")]
+    public async Task<IActionResult> CourierLabelImage(string orderId)
+    {
+        var order = await _db.SiteOrders.FirstOrDefaultAsync(o => o.OrderId == orderId || o.Awb == orderId);
+        if (order is null) return NotFound(new { success = false, message = "No order matches that number." });
+        if (!(order.Courier ?? "").StartsWith("Shiprocket", StringComparison.OrdinalIgnoreCase))
+            return NotFound(new { success = false, message = "Only Shiprocket waybills have a courier label." });
+
+        var key = "srlabelimg:" + order.OrderId + ":" + order.Awb;
+        if (_cache.TryGetValue(key, out (byte[] Bytes, string Type) hit)) return File(hit.Bytes, hit.Type);
+
+        if (string.IsNullOrWhiteSpace(order.LabelUrl) && !string.IsNullOrWhiteSpace(order.ShiprocketShipmentId))
+        {
+            order.LabelUrl = await _shiprocket.LabelUrlAsync(order.ShiprocketShipmentId);
+            if (!string.IsNullOrWhiteSpace(order.LabelUrl)) await _db.SaveChangesAsync();
+        }
+        if (string.IsNullOrWhiteSpace(order.LabelUrl))
+            return NotFound(new { success = false, message = "Shiprocket has not given a label for this order yet." });
+
+        var img = await Services.CourierLabelImage.FetchAsync(order.LabelUrl, _log);
+        if (img is null) return UnprocessableEntity(new { success = false, message = "The courier label could not be read." });
+        _cache.Set(key, (img.Value.Bytes, img.Value.ContentType), TimeSpan.FromHours(6));
+        return File(img.Value.Bytes, img.Value.ContentType);
+    }
+
     // GET /api/orders/{orderId}/bag-check?bag=XXXX  - read only.
     // What Pack & Scan needs to decide between saving straight away (both codes
     // new), asking "Relink?" (either is already used), and refusing (the bag is
