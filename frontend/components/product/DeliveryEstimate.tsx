@@ -48,13 +48,10 @@ export default function DeliveryEstimate() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // Asked once, remembered for the whole visit. Typing a pincode again on every
-  // product is the kind of small tax that makes people stop checking at all.
-  useEffect(() => {
-    const saved = storage.get(PIN_KEY);
-    if (saved && saved.length === 6) { setPin(saved); void check(saved); }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // Not remembered: the box starts empty on every product page (the owner's
+  // choice). A pincode saved by the old version is cleared, so it does not
+  // keep showing up.
+  useEffect(() => { storage.remove(PIN_KEY); }, []);
 
   async function check(p: string) {
     const digits = p.replace(/\D/g, '');
@@ -65,7 +62,6 @@ export default function DeliveryEstimate() {
       const data = await res.json();
       if (!res.ok || !data.success) { setError(data.message || 'Could not check that pincode.'); return; }
       setAnswer(data as Answer);
-      storage.set(PIN_KEY, digits);
     } catch {
       setError('Could not reach the server. Please try again.');
     } finally {
