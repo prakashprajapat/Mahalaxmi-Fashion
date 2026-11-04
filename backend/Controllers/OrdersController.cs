@@ -60,13 +60,15 @@ public class OrdersController : ControllerBase
     //  • codBlockedPincodes — SiteSetting storing pincodes where COD is switched off by the store.
     //  • A customer with more than this many Cancelled orders is treated as "high risk" (red zone)
     //    and is not allowed to place COD orders.
+    private readonly Services.ShiprocketService _shiprocket;
     private const string CodBlockedKey = "codBlockedPincodes";
     private const string PublicSettingsCacheKey = "public_settings";
     private const int HighRiskCancelThreshold = 2; // > 2 (i.e. 3+) cancelled orders ⇒ high risk
 
 
-    public OrdersController(AppDbContext db, IWebHostEnvironment env, Services.DelhiveryService delhivery, Services.AdminNotifier notify, Services.SmsService sms, Services.OrderMessenger msg, Services.WalletService wallet, Services.EmailService email, ILogger<OrdersController> log, IMemoryCache cache)
+    public OrdersController(AppDbContext db, IWebHostEnvironment env, Services.DelhiveryService delhivery, Services.AdminNotifier notify, Services.SmsService sms, Services.OrderMessenger msg, Services.WalletService wallet, Services.EmailService email, ILogger<OrdersController> log, IMemoryCache cache, Services.ShiprocketService shiprocket)
     {
+        _shiprocket = shiprocket;
         _db = db;
         _env = env;
         _delhivery = delhivery;
@@ -627,6 +629,18 @@ public class OrdersController : ControllerBase
             var blockedPins = await GetCodBlockedPincodesAsync();
             if (shipPin.Length == 6 && blockedPins.Contains(shipPin))
                 return BadRequest(new { success = false, message = "Cash on Delivery isn't available for this pincode right now. Please choose online payment to place your order." });
+
+            // (a2) No courier delivers there at all, or none collects cash there.
+            // Checked BEFORE the order exists: Delhivery only hears of an order
+            // when the AWB is made, and by then the customer has been promised it.
+            if (shipPin.Length == 6)
+            {
+                var carry = await PinAnswerAsync(shipPin);
+                if (carry.known && !carry.ok)
+                    return BadRequest(new { success = false, message = "Sorry, our couriers cannot deliver to this pincode right now. Please use a different delivery address." });
+                if (carry.known && !carry.cod)
+                    return BadRequest(new { success = false, message = "Cash on Delivery isn't available for this pincode. Please choose online payment to place your order." });
+            }
 
             // (b) High-risk customer (too many past cancelled orders) — force prepaid.
             var priorCancels = await CancelledCountAsync(req.CustomerId);
@@ -2503,6 +2517,43 @@ public class OrdersController : ControllerBase
     // Delhivery serviceability + COD availability + honest delivery-day estimate for a
     // pincode (origin: Balotra 344022). Result is safe to cache — serviceability rarely changes.
     private static readonly Dictionary<string, (bool known, bool ok, bool cod, string? city, string? state, DateTimeOffset at)> _pinCache = new();
+
+    // Who can carry a parcel to this pincode: Delhivery first, Shiprocket where
+    // Delhivery does not go (not in its list, or an embargo). Serviceable when
+    // either does; COD when either does it with COD.
+    private async Task<(bool known, bool ok, bool cod, string? city, string? state, string courier)> CarriersAsync(string p)
+    {
+        var dl = await _delhivery.CheckPincodeAsync(p);
+        if (dl.Known && dl.Serviceable && dl.Cod) return (true, true, true, dl.City, dl.State, "Delhivery");
+        var sr = await _shiprocket.CheckPincodeAsync(p);
+        var known = dl.Known || sr.Known;
+        var ok = (dl.Known && dl.Serviceable) || (sr.Known && sr.Serviceable);
+        var cod = (dl.Serviceable && dl.Cod) || (sr.Serviceable && sr.Cod);
+        var courier = dl.Serviceable ? "Delhivery" : sr.Serviceable ? "Shiprocket" : "";
+        return (known, ok, cod, dl.City, dl.State, courier);
+    }
+
+    /// <summary>The cached answer for a pincode (12 h), shared by the pincode check, checkout and AWB.</summary>
+    private async Task<(bool known, bool ok, bool cod, string? city, string? state)> PinAnswerAsync(string p)
+    {
+        lock (_pinCache)
+        {
+            if (_pinCache.TryGetValue(p, out var hit) && DateTimeOffset.UtcNow - hit.at < TimeSpan.FromHours(12))
+                return (hit.known, hit.ok, hit.cod, hit.city, hit.state);
+        }
+        var c = await CarriersAsync(p);
+        lock (_pinCache)
+        {
+            if (_pinCache.Count > 5000)
+            {
+                var stale = DateTimeOffset.UtcNow - TimeSpan.FromHours(12);
+                foreach (var k in _pinCache.Where(e => e.Value.at < stale).Select(e => e.Key).ToList()) _pinCache.Remove(k);
+                if (_pinCache.Count > 5000) _pinCache.Clear();
+            }
+            _pinCache[p] = (c.known, c.ok, c.cod, c.city, c.state, DateTimeOffset.UtcNow);
+        }
+        return (c.known, c.ok, c.cod, c.city, c.state);
+    }
     [HttpGet("pincode/{pin}")]
     [AllowAnonymous]
     // Six digits is a million possible pincodes to walk, and a miss costs a
@@ -2528,36 +2579,7 @@ public class OrdersController : ControllerBase
         // needed, just a sentinel value that collides with real data. The fix
         // is to stop asking the value whether it is there and ask the
         // dictionary, which is the only thing that knows.
-        (bool known, bool ok, bool cod, string? city, string? state) r = default;
-        var cached = false;
-        lock (_pinCache)
-        {
-            if (_pinCache.TryGetValue(p, out var hit) && DateTimeOffset.UtcNow - hit.at < TimeSpan.FromHours(12))
-            {
-                r = (hit.known, hit.ok, hit.cod, hit.city, hit.state);
-                cached = true;
-            }
-        }
-        if (!cached)
-        {
-            var chk = await _delhivery.CheckPincodeAsync(p);
-            r = (chk.Known, chk.Serviceable, chk.Cod, chk.City, chk.State);
-            lock (_pinCache)
-            {
-                // Was: Clear() - which handed anyone walking pincodes a way to
-                // throw away every real answer the shop depends on, 5000 made-up
-                // ones at a time. Drop what has expired first, and only if that
-                // frees nothing fall back to emptying it.
-                if (_pinCache.Count > 5000)
-                {
-                    var stale = DateTimeOffset.UtcNow - TimeSpan.FromHours(12);
-                    foreach (var k in _pinCache.Where(e => e.Value.at < stale).Select(e => e.Key).ToList())
-                        _pinCache.Remove(k);
-                    if (_pinCache.Count > 5000) _pinCache.Clear();
-                }
-                _pinCache[p] = (r.known, r.ok, r.cod, r.city, r.state, DateTimeOffset.UtcNow);
-            }
-        }
+        var r = await PinAnswerAsync(p);
 
         // Honest ETA heuristic from Balotra (Rajasthan) origin.
         int minDays, maxDays;
@@ -2776,7 +2798,7 @@ public class OrdersController : ControllerBase
         try
         {
             (checkedCount, updated) = await Services.DelhiveryTrackingSyncService
-                .SyncOnceAsync(_db, _delhivery, _log, ct);
+                .SyncOnceAsync(_db, _delhivery, _log, ct, shiprocket: _shiprocket);
         }
         catch (Exception ex)
         {
@@ -2955,12 +2977,63 @@ public class OrdersController : ControllerBase
         // COD cash to collect = order value minus any amount already paid from the wallet.
         // Never ask the courier for money the customer has already paid online.
         var codCollect = Math.Max(0m, order.Total - order.WalletUsed - order.AdvancePaid);
-        var result = await _delhivery.CreateForwardShipmentAsync(order.OrderId, to, isCod ? codCollect : 0m, "Fashion item");
-        if (!result.Success || string.IsNullOrWhiteSpace(result.Awb))
-            return BadRequest(new { success = false, message = result.Error ?? "Delhivery AWB generation failed." });
+        // Delhivery first. Shiprocket where Delhivery does not go: the pincode is
+        // not in its list, is under an embargo, or has no COD for a COD order -
+        // or Delhivery refuses the shipment for one of those reasons.
+        var dlPin = await _delhivery.CheckPincodeAsync(to.Pincode);
+        var useShiprocket = dlPin.Known && (!dlPin.Serviceable || (isCod && !dlPin.Cod));
+        string? delhiveryError = null;
+        if (!useShiprocket)
+        {
+            var result = await _delhivery.CreateForwardShipmentAsync(order.OrderId, to, isCod ? codCollect : 0m, "Fashion item");
+            if (!result.Success || string.IsNullOrWhiteSpace(result.Awb))
+            {
+                delhiveryError = result.Error ?? "Delhivery AWB generation failed.";
+                var e = delhiveryError.ToLowerInvariant();
+                if (!(e.Contains("embargo") || e.Contains("serviceab") || e.Contains("non serviceable") || e.Contains("pincode")))
+                    return BadRequest(new { success = false, message = delhiveryError });
+                useShiprocket = true;
+            }
+            else
+            {
+                return await AfterAwbAsync(order, result.Awb!, "Delhivery", null);
+            }
+        }
 
-        order.Awb = result.Awb;
-        order.Courier = "Delhivery";
+        if (!await _shiprocket.IsConfiguredAsync())
+            return BadRequest(new { success = false, message =
+                (delhiveryError ?? $"Delhivery does not deliver to {to.Pincode}{(dlPin.Embargo ? " (embargo)" : "")}.")
+                + " Shiprocket is not set up in Settings, so no AWB could be made." });
+
+        var items = new List<Services.ShiprocketService.SrItem>();
+        try
+        {
+            foreach (var line in JsonSerializer.Deserialize<List<CartLineDto>>(order.CartJson ?? "[]", _json) ?? new())
+                items.Add(new(line.Name ?? "Fashion item", line.Sku ?? "", Math.Max(1, line.Quantity),
+                              line.Quantity > 0 ? line.LineTotal / line.Quantity : line.Price, line.Hsn));
+        }
+        catch { /* one summary line below */ }
+        if (order.CodFee > 0) items.Add(new("COD charges", "COD", 1, order.CodFee, null));
+
+        var sr = await _shiprocket.CreateShipmentAsync(order.OrderId, to, GetJsonStr(cust, "email"), items, isCod, codCollect);
+        if (!sr.Success || string.IsNullOrWhiteSpace(sr.Awb))
+        {
+            if (sr.SrOrderId != null) { order.ShiprocketOrderId = sr.SrOrderId; order.ShiprocketShipmentId = sr.ShipmentId; await _db.SaveChangesAsync(); }
+            return BadRequest(new { success = false, message = sr.Error ?? "Shiprocket AWB generation failed." });
+        }
+        order.ShiprocketOrderId = sr.SrOrderId;
+        order.ShiprocketShipmentId = sr.ShipmentId;
+        order.LabelUrl = sr.LabelUrl;
+        return await AfterAwbAsync(order, sr.Awb!, "Shiprocket" + (string.IsNullOrWhiteSpace(sr.Courier) ? "" : " / " + sr.Courier), sr.PickupMessage);
+    }
+
+    // The same tail for either courier: save, tell the customer, ask for pickup.
+    private async Task<IActionResult> AfterAwbAsync(SiteOrder order, string awb, string courier, string? pickupMessage)
+    {
+        var result = new { Awb = awb };
+
+        order.Awb = awb;
+        order.Courier = courier;
         order.UpdatedAt = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync();
 
@@ -2974,13 +3047,15 @@ public class OrdersController : ControllerBase
         // AUTO PICKUP: din ke pehle AWB ke saath Delhivery pickup bhi khud schedule ho
         // jata hai (ek hi baar per date) — Delhivery One pe "Create New Pickup" click
         // karne ki zaroorat nahi. Fail ho to AWB phir bhi ban chuka hai; message dikha do.
-        string? pickupMessage = null;
-        try
+        if (IsDelhivery(order.Courier))
         {
-            var pickup = await _delhivery.AutoRequestPickupAsync();
-            pickupMessage = pickup.Message;
+            try
+            {
+                var pickup = await _delhivery.AutoRequestPickupAsync();
+                pickupMessage = pickup.Message;
+            }
+            catch { /* pickup best-effort — AWB result ko kabhi na roke */ }
         }
-        catch { /* pickup best-effort — AWB result ko kabhi na roke */ }
 
         return Ok(new { success = true, awb = result.Awb, order = MapOrder(order), pickupMessage });
     }
@@ -3040,9 +3115,21 @@ public class OrdersController : ControllerBase
         if (!AwbCancellable.Contains(order.Status, StringComparer.OrdinalIgnoreCase))
             return BadRequest(new { success = false, message =
                 $"Order {order.OrderId} is \"{order.Status}\"; its AWB can only be cancelled before the parcel is picked up." });
+        if (IsShiprocket(order.Courier))
+        {
+            var (srOk, srMsg) = await _shiprocket.CancelAsync(order.ShiprocketOrderId ?? "");
+            if (!srOk) return BadRequest(new { success = false, message = srMsg });
+            order.CourierStatus = "Cancelled";
+            order.CourierNote = Trunc(srMsg, 250);
+            order.CourierSeenAt = DateTimeOffset.UtcNow;
+            order.UpdatedAt = DateTimeOffset.UtcNow;
+            await _db.SaveChangesAsync();
+            _log.LogInformation("AWB {Awb} on order {OrderId} cancelled at Shiprocket by {Who}.", order.Awb, order.OrderId, Actor());
+            return Ok(new { success = true, message = srMsg, order = MapOrder(order) });
+        }
         if (!IsDelhivery(order.Courier))
             return BadRequest(new { success = false, message =
-                $"AWB {order.Awb} is a {order.Courier} waybill. Cancel it with {order.Courier}; only Delhivery waybills are cancelled from here." });
+                $"AWB {order.Awb} is a {order.Courier} waybill. Cancel it with {order.Courier}; only Delhivery and Shiprocket waybills are cancelled from here." });
 
         // Cancel first - one call in the normal case. Tracking is asked only
         // when Delhivery refuses, to tell "already cancelled on Delhivery One"
@@ -3095,6 +3182,20 @@ public class OrdersController : ControllerBase
             return Ok(new { success = true, message = "This order has no AWB.", order = MapOrder(order) });
 
         var oldAwb = order.Awb!;
+        // Shiprocket: its cancel is final the moment it is accepted, which is
+        // what our "Cancelled" marker records - nothing else to ask.
+        if (IsShiprocket(order.Courier))
+        {
+            if (!string.Equals(order.CourierStatus, "Cancelled", StringComparison.OrdinalIgnoreCase))
+                return BadRequest(new { success = false, message = $"Cancel AWB {oldAwb} first." });
+            order.Awb = null; order.Courier = null; order.CourierStatus = null; order.CourierNote = null;
+            order.CourierSeenAt = null; order.ExpectedDelivery = null;
+            order.ShiprocketOrderId = null; order.ShiprocketShipmentId = null; order.LabelUrl = null;
+            if (string.Equals(order.Status, "Shipped", StringComparison.OrdinalIgnoreCase)) order.Status = "Ready for Shipping";
+            order.UpdatedAt = DateTimeOffset.UtcNow;
+            await _db.SaveChangesAsync();
+            return Ok(new { success = true, message = $"AWB {oldAwb} removed. Generate a new one.", order = MapOrder(order) });
+        }
         if (!IsDelhivery(order.Courier))
             return BadRequest(new { success = false, message =
                 $"AWB {oldAwb} is a {order.Courier} waybill; it cannot be checked with Delhivery." });
@@ -3131,6 +3232,7 @@ public class OrdersController : ControllerBase
         order.CourierNote = null;
         order.CourierSeenAt = null;
         order.ExpectedDelivery = null;
+        order.LabelUrl = null;
         // A parcel that was only ever "Shipped" on paper goes back to the
         // queue it came from, ready for its new waybill.
         if (string.Equals(order.Status, "Shipped", StringComparison.OrdinalIgnoreCase))
@@ -3143,8 +3245,13 @@ public class OrdersController : ControllerBase
     }
 
     // A waybill with no courier written on it came from the Delhivery button.
+    // "Shiprocket / Delhivery Surface" is a Shiprocket waybill even though the
+    // word Delhivery is in it: it is booked, cancelled and tracked through Shiprocket.
+    private static bool IsShiprocket(string? courier) =>
+        !string.IsNullOrWhiteSpace(courier) && courier.TrimStart().StartsWith("shiprocket", StringComparison.OrdinalIgnoreCase);
     private static bool IsDelhivery(string? courier) =>
-        string.IsNullOrWhiteSpace(courier) || courier.Contains("delhivery", StringComparison.OrdinalIgnoreCase);
+        !IsShiprocket(courier)
+        && (string.IsNullOrWhiteSpace(courier) || courier.Contains("delhivery", StringComparison.OrdinalIgnoreCase));
 
     // Who pressed the button, for the log line.
     private string Actor() =>
@@ -3273,7 +3380,8 @@ public class OrdersController : ControllerBase
             CourierNote: o.CourierNote,
             CourierSeenAt: o.CourierSeenAt,
             ReturnOtp: o.ReturnOtp,
-            ReturnOtpAt: o.ReturnOtpAt
+            ReturnOtpAt: o.ReturnOtpAt,
+            LabelUrl: o.LabelUrl
         );
     }
 }

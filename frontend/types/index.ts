@@ -136,6 +136,8 @@ export interface Order {
   // back to placedAt for orders invoiced before this was recorded.
   invoicedAt?: string | null;
   courier?: string;
+  /** The courier's own label (Shiprocket waybills) - printed instead of ours. */
+  labelUrl?: string | null;
   returnIssue?: string;
   returnReason?: string;
   returnCallback?: string;

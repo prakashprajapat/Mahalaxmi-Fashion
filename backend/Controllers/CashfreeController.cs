@@ -30,9 +30,14 @@ public class CashfreeController : ControllerBase
     private readonly ILogger<CashfreeController> _logger;
     private readonly Services.WalletService _wallet;
     private readonly Services.AdminNotifier _notify;
+    private readonly Services.DelhiveryService _delhivery;
+    private readonly Services.ShiprocketService _shiprocket;
 
-    public CashfreeController(AppDbContext db, IConfiguration config, IHttpClientFactory httpFactory, ILogger<CashfreeController> logger, Services.WalletService wallet, Services.AdminNotifier notify)
+    public CashfreeController(AppDbContext db, IConfiguration config, IHttpClientFactory httpFactory, ILogger<CashfreeController> logger, Services.WalletService wallet, Services.AdminNotifier notify,
+        Services.DelhiveryService delhivery, Services.ShiprocketService shiprocket)
     {
+        _delhivery = delhivery;
+        _shiprocket = shiprocket;
         _db = db;
         _config = config;
         _http = httpFactory.CreateClient("cashfree");
@@ -76,6 +81,29 @@ public class CashfreeController : ControllerBase
         if (phone.Length > 10) phone = phone[^10..];
         if (phone.Length != 10)
             return BadRequest(new { success = false, message = "A valid 10-digit phone number is required for online payment." });
+
+        // Before any money moves: does any courier deliver to this pincode?
+        // (Delhivery, or Shiprocket where Delhivery does not go.) Refusing
+        // after the payment would leave the customer charged for an order
+        // nobody can deliver.
+        try
+        {
+            var pinRaw = req.Shipping is null ? "" :
+                (JsonSerializer.Deserialize<JsonElement>(JsonSerializer.Serialize(req.Shipping)) is { ValueKind: JsonValueKind.Object } sj
+                 && sj.TryGetProperty("pincode", out var pv) ? pv.ToString() : "");
+            var pin = new string(pinRaw.Where(char.IsDigit).ToArray());
+            if (pin.Length == 6)
+            {
+                var dl = await _delhivery.CheckPincodeAsync(pin);
+                if (!(dl.Known && dl.Serviceable))
+                {
+                    var sr = await _shiprocket.CheckPincodeAsync(pin);
+                    if ((dl.Known || sr.Known) && !(sr.Known && sr.Serviceable))
+                        return BadRequest(new { success = false, message = "Sorry, our couriers cannot deliver to this pincode right now. Please use a different delivery address." });
+                }
+            }
+        }
+        catch (Exception ex) { _logger.LogWarning(ex, "Pincode check before payment failed; continuing."); }
 
         // SEC: the browser does not get to say what the order costs.
         //

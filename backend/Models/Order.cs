@@ -146,6 +146,15 @@ public class SiteOrder
     [Column("courier")]
     public string? Courier { get; set; }
 
+    // Shiprocket only (the second courier, used where Delhivery does not go).
+    [Column("shiprocket_order_id")]
+    public string? ShiprocketOrderId { get; set; }
+    [Column("shiprocket_shipment_id")]
+    public string? ShiprocketShipmentId { get; set; }
+    /// <summary>The courier's own label (PDF) when it is not Delhivery - print this one, not ours.</summary>
+    [Column("label_url")]
+    public string? LabelUrl { get; set; }
+
     [Column("created_at")]
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 

@@ -104,6 +104,7 @@ builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<EmailService>();
 builder.Services.AddScoped<SmsService>();
 builder.Services.AddScoped<DelhiveryService>();
+builder.Services.AddScoped<ShiprocketService>();
 builder.Services.AddScoped<AdminNotifier>();
 builder.Services.AddScoped<OrderMessenger>();
 builder.Services.AddScoped<WalletService>();
@@ -573,6 +574,11 @@ using (var scope = app.Services.CreateScope())
         );
         CREATE INDEX IF NOT EXISTS idx_sms_logs_sent ON sms_logs (sent_at DESC);
         CREATE INDEX IF NOT EXISTS idx_sms_logs_phone ON sms_logs (phone);
+    ");
+    db.Database.ExecuteSqlRaw(@"
+        ALTER TABLE site_orders ADD COLUMN IF NOT EXISTS shiprocket_order_id VARCHAR(40);
+        ALTER TABLE site_orders ADD COLUMN IF NOT EXISTS shiprocket_shipment_id VARCHAR(40);
+        ALTER TABLE site_orders ADD COLUMN IF NOT EXISTS label_url TEXT;
     ");
     // State names typed as "TN", "BR", "tamilnadu" -> the proper name, once,
     // for orders, customers and saved addresses. New ones are tidied on save.

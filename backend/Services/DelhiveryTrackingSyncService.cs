@@ -62,7 +62,8 @@ public class DelhiveryTrackingSyncService : BackgroundService
         var delhivery = scope.ServiceProvider.GetRequiredService<DelhiveryService>();
         var notify = scope.ServiceProvider.GetService<AdminNotifier>();
         var msg = scope.ServiceProvider.GetService<OrderMessenger>();
-        await SyncOnceAsync(db, delhivery, _log, ct, notify, msg);
+        var shiprocket = scope.ServiceProvider.GetService<ShiprocketService>();
+        await SyncOnceAsync(db, delhivery, _log, ct, notify, msg, shiprocket);
     }
 
     /// <summary>
@@ -80,7 +81,7 @@ public class DelhiveryTrackingSyncService : BackgroundService
     /// </summary>
     public static async Task<(int Checked, int Updated)> SyncOnceAsync(
         AppDbContext db, DelhiveryService delhivery, ILogger? log = null, CancellationToken ct = default,
-        AdminNotifier? notify = null, OrderMessenger? msg = null)
+        AdminNotifier? notify = null, OrderMessenger? msg = null, ShiprocketService? shiprocket = null)
     {
         var active = await db.SiteOrders
             .Where(o => o.Awb != null && o.Awb != "" && ActiveStatuses.Contains(o.Status))
@@ -110,7 +111,14 @@ public class DelhiveryTrackingSyncService : BackgroundService
 
         foreach (var chunk in active.Chunk(40))
         {
-            var statuses = await delhivery.TrackAsync(chunk.Select(o => o.Awb!));
+            // Shiprocket waybills are asked of Shiprocket; it answers in the
+            // same shape, so everything below treats both couriers alike.
+            bool viaShiprocket(Models.SiteOrder o) =>
+                (o.Courier ?? "").TrimStart().StartsWith("shiprocket", StringComparison.OrdinalIgnoreCase);
+            var statuses = await delhivery.TrackAsync(chunk.Where(o => !viaShiprocket(o)).Select(o => o.Awb!));
+            var srChunk = chunk.Where(viaShiprocket).Select(o => o.Awb!).ToList();
+            if (srChunk.Count > 0 && shiprocket is not null)
+                foreach (var kv in await shiprocket.TrackAsync(srChunk)) statuses[kv.Key] = kv.Value;
             foreach (var order in chunk)
             {
                 if (!statuses.TryGetValue(order.Awb!, out var line)) continue;

@@ -47,6 +47,8 @@ public class SettingsController : ControllerBase
         "admin_email",
         "smsTemplateTexts",
         "waWebhookVerifyToken", "waAppSecret", "waLeadsEnabled", "waBusinessToken", "waAppId", "waConfigId",
+        "shiprocketEmail", "shiprocketPassword", "shiprocketToken", "shiprocketTokenAt", "shiprocketPickupLocation",
+        "shiprocketPickupPincode", "shiprocketWeightKg",
         "waGraphVersion", "waWabaId", "waPhoneNumberId", "waConnectedAt", "waContactsSyncAt", "waHistorySyncAt",
 
         // Read only by the admin panel (through /settings/admin). The owner's

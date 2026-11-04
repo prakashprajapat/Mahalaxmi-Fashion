@@ -135,6 +135,7 @@ export default function CheckoutPage() {
   const [codFeeAmt, setCodFeeAmt] = useState(COD_FEE);
   const [codAdvanceAmt, setCodAdvanceAmt] = useState(0);
   const [codAvailable, setCodAvailable] = useState(true); // COD allowed for the entered pincode?
+  const [pinUnserviceable, setPinUnserviceable] = useState(false); // no courier delivers there
 
   const [shipping, setShipping] = useState({
     name: '', email: '', phone: '', address: '', city: '', pincode: '', state: '',
@@ -484,13 +485,14 @@ export default function CheckoutPage() {
   // If COD isn't available we hide the option and fall back to online payment.
   useEffect(() => {
     const pin = (shipping.pincode || '').replace(/\D/g, '');
-    if (pin.length !== 6) { setCodAvailable(true); return; }
+    if (pin.length !== 6) { setCodAvailable(true); setPinUnserviceable(false); return; }
     let cancelled = false;
     (async () => {
       try {
         const r = await ordersApi.checkPincode(pin);
         if (cancelled) return;
         const ok = r.cod !== false;
+        setPinUnserviceable(!!r.known && r.serviceable === false);
         setCodAvailable(ok);
         if (!ok) setPayMethod('online');
       } catch { if (!cancelled) setCodAvailable(true); }
@@ -1153,6 +1155,11 @@ export default function CheckoutPage() {
                 <label style={{ fontSize: '.85rem', fontWeight: 600, display: 'block', marginBottom: '.3rem' }}>Pincode *</label>
                 <input value={shipping.pincode} maxLength={6} onChange={e => handlePincodeChange(e.target.value)}
                   style={{ width: '100%', border: '1.5px solid #ddd', borderRadius: '8px', padding: '.6rem .75rem', fontSize: '.9rem', boxSizing: 'border-box' }} />
+                {pinUnserviceable && (
+                  <p style={{ margin: '.35rem 0 0', color: '#c0392b', fontSize: '.82rem', fontWeight: 600 }}>
+                    Sorry, our couriers cannot deliver to this pincode right now. Please use a different delivery address.
+                  </p>
+                )}
               </div>
               {/* Address */}
               <div style={{ gridColumn: '1 / -1' }}>

@@ -528,7 +528,7 @@ public class DelhiveryService
         return null;
     }
 
-    public record PinCheck(bool Known, bool Serviceable, bool Cod, string? City, string? State);
+    public record PinCheck(bool Known, bool Serviceable, bool Cod, string? City, string? State, bool Embargo = false);
 
     /// <summary>
     /// Checks whether Delhivery services a pincode (and whether COD is available there).
@@ -572,6 +572,16 @@ public class DelhiveryService
 
             var cod = string.Equals(GetStr("cod"), "Y", StringComparison.OrdinalIgnoreCase)
                    || string.Equals(GetStr("cash"), "Y", StringComparison.OrdinalIgnoreCase);
+
+            // A pincode Delhivery has stopped taking parcels for (floods, strikes,
+            // local trouble) is STILL in the list - with "Embargo" in remarks.
+            // Reading only "is it in the list" sold orders to Aluva (683501)
+            // that Delhivery would not carry. Prepaid "N" means the same.
+            var remarks = (GetStr("remarks") ?? "").Trim();
+            var embargo = remarks.Contains("embargo", StringComparison.OrdinalIgnoreCase);
+            var prepaidNo = string.Equals(GetStr("pre_paid"), "N", StringComparison.OrdinalIgnoreCase);
+            if (embargo || prepaidNo)
+                return new PinCheck(true, false, false, GetStr("district"), GetStr("state_code"), embargo);
             return new PinCheck(true, true, cod, GetStr("district"), GetStr("state_code"));
         }
         catch { return none; }

@@ -47,6 +47,17 @@ const SECTIONS = [
     ]
   },
   {
+    title: 'Shiprocket (second courier)',
+    desc: 'Used only where Delhivery does not deliver (pincode not in its list, or under an embargo) or has no COD: those orders get their AWB, pickup and label from Shiprocket instead, and the pincode check / checkout accepts orders when either courier delivers. In Shiprocket: Settings → API → Configure → Create an API User (a separate email from your login) and use those details here. Pickup location name must match exactly the one in Shiprocket → Settings → Pickup Addresses. Passwords stay blank here after saving — re-enter only to change.',
+    fields: [
+      { key: 'shiprocketEmail', label: 'Shiprocket API user email', type: 'text' },
+      { key: 'shiprocketPassword', label: 'Shiprocket API user password', type: 'password' },
+      { key: 'shiprocketPickupLocation', label: 'Pickup location name in Shiprocket (e.g. Primary)', type: 'text' },
+      { key: 'shiprocketPickupPincode', label: 'Pickup pincode (blank = 344022)', type: 'text' },
+      { key: 'shiprocketWeightKg', label: 'Parcel weight in kg (blank = 0.5)', type: 'text' },
+    ]
+  },
+  {
     title: 'Cash on Delivery',
     desc: 'Take part of a COD order online before it is accepted. An abandoned payment leaves no order behind, which is what stops fake orders. The courier is automatically told to collect only the remaining amount, so a customer is never charged twice. Set the advance to 0 to switch it off.',
     fields: [

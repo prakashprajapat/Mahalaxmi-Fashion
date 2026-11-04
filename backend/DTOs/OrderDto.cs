@@ -79,7 +79,9 @@ public record OrderDto(
     string? CourierNote = null,
     DateTimeOffset? CourierSeenAt = null,
     string? ReturnOtp = null,
-    DateTimeOffset? ReturnOtpAt = null
+    DateTimeOffset? ReturnOtpAt = null,
+    // The courier's own label, for a waybill not made by Delhivery (Shiprocket).
+    string? LabelUrl = null
 );
 
 public record PlaceOrderRequest(

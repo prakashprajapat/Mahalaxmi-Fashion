@@ -663,6 +663,12 @@ export default function AdminOrdersPage() {
   // for any reason, the old print window opens instead, so a parcel never waits.
   const downloadLabels = async (list: Order[]) => {
     if (!list.length) return;
+    // A Shiprocket waybill must go out on the courier's own label (its sort
+    // codes are on it); ours is only for Delhivery.
+    const theirs = list.filter(o => o.labelUrl && (o.courier || '').toLowerCase().startsWith('shiprocket'));
+    theirs.forEach(o => window.open(o.labelUrl as string, '_blank', 'noopener'));
+    list = list.filter(o => !theirs.includes(o));
+    if (!list.length) return;
     try {
       await downloadLabelsPdf(list);
     } catch (e) {
