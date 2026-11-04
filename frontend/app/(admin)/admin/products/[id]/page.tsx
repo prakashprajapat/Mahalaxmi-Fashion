@@ -933,11 +933,34 @@ export default function EditProductPage() {
   };
 
   // ── Discount calc ──
+  // The three boxes keep each other in step: a new Price re-works the
+  // discount price from the %, a new % re-works the price, and a discount
+  // price typed by hand re-works the %. Before, only the % box did anything,
+  // so changing the Price left the old discount price (and a wrong %) behind.
+  const pctPrice = (mrp: string, pct: string) => {
+    const m = Number(mrp), n = parseFloat(pct);
+    return m > 0 && !isNaN(n) && n > 0 && n < 100 ? String(Math.round(m * (1 - n / 100))) : null;
+  };
+  const pctOf = (mrp: string, dp: string) => {
+    const m = Number(mrp), d = Number(dp);
+    return m > 0 && d > 0 && d < m ? String(Math.round(((m - d) / m) * 100)) : '';
+  };
   const handleDiscPct = (pct: string) => {
     setDiscPct(pct);
     const n = parseFloat(pct);
-    if (!isNaN(n) && n > 0 && n < 100 && price)
-      setDiscPrice(String(Math.round(Number(price) * (1 - n / 100))));
+    if (pct.trim() === '' || n === 0) { setDiscPrice(''); return; }
+    const dp = pctPrice(price, pct);
+    if (dp) setDiscPrice(dp);
+  };
+  const handlePrice = (v: string) => {
+    setPrice(v);
+    const dp = pctPrice(v, discPct);
+    if (dp) setDiscPrice(dp);
+    else if (discPrice) setDiscPct(pctOf(v, discPrice));
+  };
+  const handleDiscPrice = (v: string) => {
+    setDiscPrice(v);
+    setDiscPct(pctOf(price, v));
   };
 
   // ── Load reusable catalog (custom colours & sizes saved earlier) ──
@@ -1481,7 +1504,7 @@ export default function EditProductPage() {
 
           <div>
             <label style={lbl}>Price (₹) <span style={{ color:'#c62828' }}>*</span></label>
-            <input type="number" value={price} onChange={e => setPrice(e.target.value)} style={inp} />
+            <input type="number" value={price} onChange={e => handlePrice(e.target.value)} style={inp} />
           </div>
 
           <div>
@@ -1491,7 +1514,7 @@ export default function EditProductPage() {
 
           <div>
             <label style={lbl}>Discount Price (₹)</label>
-            <input type="number" value={discPrice} onChange={e => setDiscPrice(e.target.value)} placeholder="Optional" style={inp} />
+            <input type="number" value={discPrice} onChange={e => handleDiscPrice(e.target.value)} placeholder="Optional" style={inp} />
           </div>
 
           {/* ── What the shop is owed, and what we keep ───────────────────
@@ -1525,7 +1548,7 @@ export default function EditProductPage() {
                 </div>
                 {suggestedPrice > 0 && Number(discPrice || price || 0) !== suggestedPrice && (
                   <button type="button"
-                    onClick={() => { if (discPrice) setDiscPrice(String(suggestedPrice)); else setPrice(String(suggestedPrice)); }}
+                    onClick={() => { if (discPrice) handleDiscPrice(String(suggestedPrice)); else handlePrice(String(suggestedPrice)); }}
                     style={{ marginTop: '.35rem', border: '1px solid #722f37', background: '#fff', color: '#722f37', borderRadius: 8, padding: '.3rem .6rem', fontSize: '.75rem', fontWeight: 700, cursor: 'pointer' }}>
                     Use this price
                   </button>
