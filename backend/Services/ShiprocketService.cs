@@ -193,6 +193,24 @@ public class ShiprocketService
         };
 
         var (ok, body) = await CallAsync(HttpMethod.Post, "/orders/create/adhoc", payload);
+
+        // "Wrong Pickup location entered" comes back WITH the list of the
+        // shop's real pickup locations. When Settings has none (or a stale
+        // name), take the shop's location from that list, keep it, and retry -
+        // rather than make the owner go and copy a name across by hand.
+        if (!ok && body.Contains("pickup location", StringComparison.OrdinalIgnoreCase))
+        {
+            var known = PickupNames(body);
+            var pick = known.FirstOrDefault(n => string.Equals(n, pickup, StringComparison.OrdinalIgnoreCase))
+                       ?? (known.Count >= 1 ? known[0] : null);
+            if (pick != null && !string.Equals(pick, pickup, StringComparison.Ordinal))
+            {
+                _log.LogInformation("Shiprocket pickup location '{Old}' not found; using '{New}'.", pickup, pick);
+                payload["pickup_location"] = pick;
+                await SaveSetting("shiprocketPickupLocation", pick);
+                (ok, body) = await CallAsync(HttpMethod.Post, "/orders/create/adhoc", payload);
+            }
+        }
         string? srOrder = null, shipment = null;
         try
         {
@@ -226,6 +244,32 @@ public class ShiprocketService
 
         var label = await LabelUrlAsync(shipment);
         return new SrShipment(true, awb, courier, srOrder, shipment, label, null, pickupMsg);
+    }
+
+    private static List<string> PickupNames(string body)
+    {
+        var names = new List<string>();
+        try
+        {
+            using var d = JsonDocument.Parse(body);
+            void Walk(JsonElement e)
+            {
+                if (e.ValueKind == JsonValueKind.Object)
+                {
+                    foreach (var p in e.EnumerateObject())
+                    {
+                        if (p.Name == "pickup_location" && p.Value.ValueKind == JsonValueKind.String
+                            && !string.IsNullOrWhiteSpace(p.Value.GetString()))
+                            names.Add(p.Value.GetString()!.Trim());
+                        else Walk(p.Value);
+                    }
+                }
+                else if (e.ValueKind == JsonValueKind.Array) foreach (var x in e.EnumerateArray()) Walk(x);
+            }
+            Walk(d.RootElement);
+        }
+        catch { }
+        return names.Distinct().ToList();
     }
 
     public async Task<string?> LabelUrlAsync(string shipmentId)
