@@ -88,7 +88,7 @@ public class FollowUpsController : ControllerBase
         return null;
     }
 
-    private record NoteSum(string? Outcome, string? Note, DateTimeOffset? At, string? By, DateTimeOffset? CallbackAt, int Count);
+    private record NoteSum(string? Outcome, string? Note, DateTimeOffset? At, string? By, DateTimeOffset? CallbackAt, int Count, DateTimeOffset? WaAt);
 
     private async Task<Dictionary<string, NoteSum>> NotesForAsync(string kind, List<string> ids)
     {
@@ -101,7 +101,9 @@ public class FollowUpsController : ControllerBase
             var last = g.First();
             // The latest "call back on" still in the future, from any note.
             var cb = g.Where(n => n.CallbackAt != null).Select(n => n.CallbackAt).FirstOrDefault();
-            return new NoteSum(last.Outcome, last.Note, last.CreatedAt, last.CreatedBy, cb, g.Count());
+            // When a WhatsApp went from this page (the tick on the button).
+            var wa = g.Where(n => n.Outcome == "whatsapp_sent").Select(n => (DateTimeOffset?)n.CreatedAt).FirstOrDefault();
+            return new NoteSum(last.Outcome, last.Note, last.CreatedAt, last.CreatedBy, cb, g.Count(), wa);
         });
     }
 
@@ -155,7 +157,7 @@ public class FollowUpsController : ControllerBase
                 reviewed = rv != null, rating = rv?.Rating, reviewStatus = rv?.Status,
                 smsCount = ask.Count, smsLast = ask.Count > 0 ? ask.Last : (DateTimeOffset?)null,
                 lastOutcome = n?.Outcome, lastNote = n?.Note, lastAt = n?.At, lastBy = n?.By,
-                callbackAt = n?.CallbackAt, calls = n?.Count ?? 0,
+                callbackAt = n?.CallbackAt, calls = n?.Count ?? 0, waAt = n?.WaAt,
                 stage = Stage(n, rv != null),
             };
         }).ToList();
@@ -234,7 +236,7 @@ public class FollowUpsController : ControllerBase
                 whatsAppAt = wa.TryGetValue(c.LocalOrderId, out var w) ? w : (DateTimeOffset?)null,
                 boughtOrder = bought,
                 lastOutcome = n?.Outcome, lastNote = n?.Note, lastAt = n?.At, lastBy = n?.By,
-                callbackAt = n?.CallbackAt, calls = n?.Count ?? 0,
+                callbackAt = n?.CallbackAt, calls = n?.Count ?? 0, waAt = n?.WaAt,
                 stage = Stage(n, bought != null),
             };
         }).ToList();
@@ -333,7 +335,7 @@ public class FollowUpsController : ControllerBase
                 helpSms = mine.Where(h => h.Channel == "login-sms").Select(h => (DateTimeOffset?)h.SentAt).OrderByDescending(x => x).FirstOrDefault(),
                 gotIn,
                 lastOutcome = nt?.Outcome, lastNote = nt?.Note, lastAt = nt?.At, lastBy = nt?.By,
-                callbackAt = nt?.CallbackAt, calls = nt?.Count ?? 0,
+                callbackAt = nt?.CallbackAt, calls = nt?.Count ?? 0, waAt = nt?.WaAt,
                 stage = Stage(nt, gotIn),
             };
         }).OrderByDescending(r => r.when).ToList();

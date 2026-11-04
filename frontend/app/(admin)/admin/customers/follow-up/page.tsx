@@ -28,7 +28,60 @@ interface Row {
   email?: string | null; attempts?: number; reason?: string | null; method?: string | null; platform?: string | null; device?: string | null;
   hasAccount?: boolean; helpMail?: string | null; helpSms?: string | null; gotIn?: boolean;
   lastOutcome?: string | null; lastNote?: string | null; lastAt?: string | null; lastBy?: string | null;
-  callbackAt?: string | null; calls: number; stage: Stage;
+  callbackAt?: string | null; calls: number; stage: Stage; waAt?: string | null;
+}
+interface SmsLogLite { id: number; vars?: string | null; message?: string | null; whatsappText?: string | null; sentAt: string }
+
+const SITE = 'https://www.mahalaxmifashionhub.com';
+function orderIdOfVars(v?: string | null): string | null {
+  if (!v) return null;
+  try {
+    const o = JSON.parse(v) as Record<string, string>;
+    if (o.order_id) return o.order_id.trim();
+    const hit = Object.values(o).find(x => /^MFH\d+/i.test(String(x).trim()));
+    return hit ? String(hit).trim() : null;
+  } catch { return null; }
+}
+
+// The WhatsApp text for a row: the SMS that already went (from SMS Logs, in
+// its WhatsApp layout) when there is one, otherwise a message written here.
+function waText(kind: Kind, r: Row, log?: SmsLogLite): string {
+  const hello = 'Dear ' + (r.name ? r.name.split(' ')[0] : 'Customer') + ',';
+  if (kind === 'dropped') {
+    if (log && (log.whatsappText || log.message)) return (log.whatsappText || log.message)!;
+    return [
+      'Dear Customer,', '',
+      'Your payment for the following order at Mahalaxmi Fashion Hub was not completed.', '',
+      `Order ID: ${r.refId}`,
+      r.items.length ? `Item Details : ${r.items.join(', ')}` : '',
+      `Order Amount: ${Math.round(r.amount)}`, '',
+      'You can visit our website to complete your purchase.', '',
+      `Website: ${SITE.replace('https://', '')}`, '',
+      'Thank you for choosing Mahalaxmi Fashion Hub.',
+    ].filter((x, i, a) => !(x === '' && a[i - 1] === '')).join('\n');
+  }
+  if (kind === 'review') {
+    const base = log && (log.whatsappText || log.message) ? (log.whatsappText || log.message)! : [
+      hello, '',
+      `Your order ${r.refId} from Mahalaxmi Fashion Hub has been delivered.`,
+      r.items.length ? `Item: ${r.items.join(', ')}` : '', '',
+      'How did you like it? Please share your review - it helps other customers a lot.',
+    ].filter(Boolean).join('\n');
+    return base.includes('/reviews') ? base
+      : `${base}\n\nWrite a review: ${SITE}/reviews\n\nThank you for choosing Mahalaxmi Fashion Hub.`;
+  }
+  const noAccount = /no such account/i.test(r.reason ?? '') || r.hasAccount === false;
+  return [
+    hello, '',
+    'We saw that you could not log in to Mahalaxmi Fashion Hub.', '',
+    noAccount
+      ? `Login with OTP - no password needed. Open ${SITE}/account, enter your mobile number or email and type the OTP we send. Your account is made in the same step.`
+      : `Login with OTP - no password needed. Open ${SITE}/account, enter your mobile number or email and type the OTP we send.`,
+    '',
+    noAccount ? '' : `Forgot your password? Reset it here: ${SITE}/forgot-password`,
+    '',
+    'Thank you for choosing Mahalaxmi Fashion Hub.',
+  ].filter((x, i, a) => !(x === '' && a[i - 1] === '')).join('\n');
 }
 interface Note { id: number; outcome: string; note?: string | null; callbackAt?: string | null; createdBy?: string | null; createdAt: string }
 
@@ -111,14 +164,39 @@ export default function FollowUpPage() {
   const [callback, setCallback] = useState('');
   const [saving, setSaving] = useState(false);
   const [formErr, setFormErr] = useState('');
+  // SMS that already went, by order id - the WhatsApp button sends the same text.
+  const [smsByOrder, setSmsByOrder] = useState<Record<string, SmsLogLite>>({});
 
   const load = async () => {
-    setLoading(true); setError('');
+    setLoading(true); setError(''); setSmsByOrder({});
     try {
       const res = await fetch(`/api/follow-ups/${API[kind]}?days=${days}`, { headers: auth() });
       if (!res.ok) throw new Error(res.status === 403 ? 'You do not have access to this list.' : `Could not load (${res.status})`);
       const b = await res.json();
       setRows(b.rows ?? []);
+      if (kind !== 'login') {
+        // Best effort: a staff member without the Campaigns page gets the
+        // message written here instead.
+        try {
+          const from = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
+          const lr = await fetch(`/api/sms-logs?from=${from}&limit=500`, { headers: auth() });
+          if (lr.ok) {
+            const lb = await lr.json();
+            const map: Record<string, SmsLogLite> = {};
+            for (const l of (lb.logs ?? []) as (SmsLogLite & { templateName?: string | null })[]) {
+              const oid = orderIdOfVars(l.vars);
+              if (!oid || map[oid] || !(l.whatsappText || l.message)) continue;
+              // Only the message this list is about: the USER_DROPPED2 text
+              // (the one with a WhatsApp layout), or the review ask - not the
+              // shipped / delivered texts of the same order.
+              if (kind === 'dropped' && !l.whatsappText) continue;
+              if (kind === 'review' && !/review/i.test(l.templateName ?? '')) continue;
+              map[oid] = l;
+            }
+            setSmsByOrder(map);
+          }
+        } catch { /* fallback text is used */ }
+      }
     } catch (e) {
       setRows([]); setError(e instanceof Error ? e.message : 'Could not load');
     } finally { setLoading(false); }
@@ -163,6 +241,41 @@ export default function FollowUpPage() {
       setOpen(null);
       await load();
     } finally { setSaving(false); }
+  };
+
+  const waHref = (r: Row) => `https://wa.me/91${r.phone}?text=${encodeURIComponent(waText(kind, r, smsByOrder[r.refId]))}`;
+  // Clicking WhatsApp writes it down (a "Sent on WhatsApp" call note, and the
+  // tick in SMS Logs for the same message), so the button shows a tick.
+  const markWa = async (r: Row) => {
+    const now = new Date().toISOString();
+    setRows(rs => rs.map(x => (x.refId === r.refId ? { ...x, waAt: now } : x)));
+    setOpen(o => (o && o.refId === r.refId ? { ...o, waAt: now } : o));
+    const log = smsByOrder[r.refId];
+    try {
+      if (log) await fetch(`/api/sms-logs/${log.id}/whatsapp`, { method: 'POST', headers: auth() });
+      await fetch('/api/follow-ups/notes', {
+        method: 'POST', headers: { ...auth(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kind, refId: r.refId, phone: r.phone, outcome: 'whatsapp_sent', note: 'WhatsApp message sent' }),
+      });
+    } catch { /* the tick stays for this visit */ }
+  };
+  const waSent = (r: Row) => r.waAt || (kind === 'dropped' ? r.whatsAppAt : null);
+  const WaButton = ({ r, big }: { r: Row; big?: boolean }) => {
+    const sent = waSent(r);
+    return (
+      <a className="adm-btn" href={waHref(r)} target="_blank" rel="noopener noreferrer" onClick={() => markWa(r)}
+         title={sent ? `Sent on WhatsApp ${when(sent)}` : 'Open WhatsApp with the message'}
+         style={{ padding: big ? undefined : '.2rem .5rem', fontSize: big ? undefined : 12,
+                  ...(sent ? { background: '#e7f6f3', borderColor: '#128C7E', color: '#0b6b5f', fontWeight: 700 } : { color: '#128C7E' }) }}>
+        {sent && (
+          <svg width="13" height="13" viewBox="0 0 24 24" aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 4 }}>
+            <circle cx="12" cy="12" r="11" fill="#128C7E" />
+            <path d="M7 12.5l3.2 3.2L17.5 8.5" stroke="#fff" strokeWidth="2.6" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        )}
+        WhatsApp
+      </a>
+    );
   };
 
   const delNote = async (id: number) => {
@@ -262,9 +375,9 @@ export default function FollowUpPage() {
                       <div style={{ fontWeight: 600 }}>{r.name || (kind === 'login' ? r.refId : '-')}</div>
                       {kind === 'login' && r.email && r.email !== r.name && <div style={small}>{r.email}</div>}
                       {r.phone && (
-                        <div style={{ display: 'flex', gap: 8, marginTop: 2 }}>
+                        <div style={{ display: 'flex', gap: 8, marginTop: 2, alignItems: 'center', flexWrap: 'wrap' }}>
                           <a href={`tel:+91${r.phone}`} style={{ color: '#2563eb' }}>{r.phone}</a>
-                          <a href={`https://wa.me/91${r.phone}`} target="_blank" rel="noopener noreferrer" style={{ color: '#128C7E', fontSize: 12 }}>WhatsApp</a>
+                          <WaButton r={r} />
                         </div>
                       )}
                     </td>
@@ -342,7 +455,7 @@ export default function FollowUpPage() {
             {open.phone && (
               <div style={{ display: 'flex', gap: 8, margin: '10px 0' }}>
                 <a className="adm-btn adm-btn-primary" href={`tel:+91${open.phone}`}>Call {open.phone}</a>
-                <a className="adm-btn" href={`https://wa.me/91${open.phone}`} target="_blank" rel="noopener noreferrer" style={{ color: '#128C7E' }}>WhatsApp</a>
+                <WaButton r={open} big />
               </div>
             )}
             {open.items.length > 0 && <div style={{ fontSize: 13, color: '#444', marginBottom: 10 }}>{open.items.join(', ')}</div>}
