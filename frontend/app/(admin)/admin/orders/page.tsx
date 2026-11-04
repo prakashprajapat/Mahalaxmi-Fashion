@@ -259,6 +259,9 @@ export default function AdminOrdersPage() {
   // overwritten, and the orders go one at a time rather than in a burst,
   // because Delhivery issues one waybill per call and rate-limits a flood -
   // which shows up as "some of them worked" and is horrible to unpick.
+  // The courier each generated AWB came from ("Delhivery" or "Shiprocket / X"),
+  // so Save does not stamp the dropdown's choice over a Shiprocket waybill.
+  const genCourier = useRef<Record<string, { awb: string; courier: string }>>({});
   const generateAllAwbs = async (list: Order[]) => {
     const pending = list.filter(o => !(awbMap[o.id] ?? '').trim());
     if (pending.length === 0) return;
@@ -266,6 +269,7 @@ export default function AdminOrdersPage() {
     setGenAll(true);
     const failed: string[] = [];
     let made = 0;
+    let madeDelhiveryOnly = true;
     try {
       for (const o of pending) {
         setGenAwbId(o.id);
@@ -273,13 +277,16 @@ export default function AdminOrdersPage() {
           const r = await ordersApi.generateAwb(o.id, getAdminToken() ?? '');
           if (r.awb) {
             made++;
+            const courier = r.order?.courier || 'Delhivery';
+            genCourier.current[o.id] = { awb: r.awb, courier };
+            if (!courier.toLowerCase().startsWith('delhivery')) madeDelhiveryOnly = false;
             setAwbMap(m => ({ ...m, [o.id]: r.awb! }));
             if (r.order) setOrders(prev => prev.map(x => (x.id === o.id ? r.order! : x)));
           } else {
             failed.push(o.id);
           }
-        } catch {
-          failed.push(o.id);
+        } catch (e) {
+          failed.push(`${o.id}: ${(e as Error).message || 'failed'}`);
         }
       }
     } finally {
@@ -288,7 +295,7 @@ export default function AdminOrdersPage() {
     }
 
     // Only claim the courier if Delhivery actually issued something.
-    if (made > 0) setNewStatus('Delhivery');
+    if (made > 0) setNewStatus(madeDelhiveryOnly ? 'Delhivery' : 'Shiprocket');
     if (failed.length > 0) {
       alert(
         `Could not get an AWB for ${failed.length} order${failed.length === 1 ? '' : 's'}:\n` +
@@ -547,7 +554,10 @@ export default function AdminOrdersPage() {
     try {
       for (const o of targets) {
         // eslint-disable-next-line no-await-in-loop
-        await ordersApi.updateStatus({ orderId: o.id, status: 'Shipped', awb: (awbMap[o.id] || '').trim(), courier: newStatus || 'Manual' }, getAdminToken() ?? '');
+        const awbNow = (awbMap[o.id] || '').trim();
+        const gen = genCourier.current[o.id];
+        await ordersApi.updateStatus({ orderId: o.id, status: 'Shipped', awb: awbNow,
+          courier: gen && gen.awb === awbNow ? gen.courier : (newStatus || 'Manual') }, getAdminToken() ?? '');
       }
       setAwbModal(false); setAwbMap({});
       fetchOrders();
@@ -1412,7 +1422,7 @@ export default function AdminOrdersPage() {
               <label style={{ fontSize: '.85rem', color: '#555', display: 'block', marginBottom: '.3rem' }}>Delivery Partner (all)</label>
               <select value={newStatus} onChange={e => setNewStatus(e.target.value)}
                 style={{ width: '100%', border: '1.5px solid #ddd', borderRadius: '8px', padding: '.6rem .75rem', fontSize: '.9rem' }}>
-                {['Delhivery', 'India Post', 'DTDC', 'Other / Manual'].map(s => <option key={s}>{s}</option>)}
+                {['Delhivery', 'Shiprocket', 'India Post', 'DTDC', 'Other / Manual'].map(s => <option key={s}>{s}</option>)}
               </select>
             </div>
 
@@ -1422,7 +1432,7 @@ export default function AdminOrdersPage() {
                 <div style={{ marginBottom: '.85rem' }}>
                   <button type="button" onClick={() => generateAllAwbs(awbOrders)}
                     disabled={genAll || blank === 0}
-                    title="Ask Delhivery for an AWB for every order still blank"
+                    title="Ask Delhivery for an AWB for every order still blank (Shiprocket where Delhivery does not deliver)"
                     style={{
                       width: '100%', background: blank === 0 ? '#eee' : '#0b6b3a',
                       color: blank === 0 ? '#999' : '#fff', border: 'none', borderRadius: '8px',
@@ -1433,7 +1443,7 @@ export default function AdminOrdersPage() {
                       ? `Generating\u2026 ${awbOrders.length - blank} of ${awbOrders.length} done`
                       : blank === 0
                         ? '\u2713 All AWBs filled'
-                        : `Generate ${blank} AWB${blank === 1 ? '' : 's'} (Delhivery)`}
+                        : `Generate ${blank} AWB${blank === 1 ? '' : 's'} (Delhivery / Shiprocket)`}
                   </button>
                   <p style={{ margin: '.35rem 0 0', fontSize: '.74rem', color: '#999', lineHeight: 1.5 }}>
                     Boxes you have already filled in are left alone.
@@ -1632,7 +1642,7 @@ export default function AdminOrdersPage() {
                             style={{ flex: '1 1 160px', border: '1.5px solid #ddd', borderRadius: 8, padding: '.5rem .65rem', fontSize: '.85rem', boxSizing: 'border-box' }} />
                           <select value={retCourier} onChange={e => setRetCourier(e.target.value)}
                             style={{ border: '1.5px solid #ddd', borderRadius: 8, padding: '.5rem', fontSize: '.85rem' }}>
-                            {['Delhivery', 'India Post', 'DTDC', 'Other / Manual'].map(c => <option key={c}>{c}</option>)}
+                            {['Delhivery', 'Shiprocket', 'India Post', 'DTDC', 'Other / Manual'].map(c => <option key={c}>{c}</option>)}
                           </select>
                         </div>
                         <div style={{ display: 'flex', gap: '.6rem', flexWrap: 'wrap' }}>
