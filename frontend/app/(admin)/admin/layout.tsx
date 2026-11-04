@@ -30,6 +30,7 @@ const ALL_NAV: { href?: string; label?: string; exact?: boolean; heading?: strin
   { href: '/admin/customers',   label: 'Customers' },
   { href: '/admin/customers/logins', label: 'Login History (Web / App)' },
   { href: '/admin/reviews',     label: 'Reviews' },
+  { href: '/admin/customers/follow-up', label: 'Follow-up Calls (Review / Payment)' },
   { href: '/admin/suppliers',   label: 'Seller Applications' },
 
   { heading: 'Marketing' },

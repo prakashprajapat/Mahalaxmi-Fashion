@@ -47,6 +47,7 @@ public class AppDbContext : DbContext
     public DbSet<RefreshToken> RefreshTokens { get; set; }
     public DbSet<LoginEvent> LoginEvents { get; set; }
     public DbSet<SmsLog> SmsLogs { get; set; }
+    public DbSet<FollowUpNote> FollowUpNotes { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

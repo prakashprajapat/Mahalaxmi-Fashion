@@ -576,6 +576,23 @@ using (var scope = app.Services.CreateScope())
         CREATE INDEX IF NOT EXISTS idx_sms_logs_phone ON sms_logs (phone);
         ALTER TABLE sms_logs ADD COLUMN IF NOT EXISTS whatsapp_at TIMESTAMPTZ;
     ");
+    // Customers -> Follow-up Calls: one row per call to a customer (review ask,
+    // or a payment left unfinished), with what was said.
+    db.Database.ExecuteSqlRaw(@"
+        CREATE TABLE IF NOT EXISTS followup_notes (
+            id          BIGSERIAL PRIMARY KEY,
+            kind        VARCHAR(10)  NOT NULL DEFAULT 'review',
+            ref_id      VARCHAR(64)  NOT NULL DEFAULT '',
+            phone       VARCHAR(20),
+            outcome     VARCHAR(30)  NOT NULL DEFAULT '',
+            note        TEXT,
+            callback_at TIMESTAMPTZ,
+            created_by  VARCHAR(120),
+            created_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS idx_followup_ref ON followup_notes (kind, ref_id);
+        CREATE INDEX IF NOT EXISTS idx_followup_created ON followup_notes (created_at DESC);
+    ");
     db.Database.ExecuteSqlRaw(@"
         ALTER TABLE site_orders ADD COLUMN IF NOT EXISTS shiprocket_order_id VARCHAR(40);
         ALTER TABLE site_orders ADD COLUMN IF NOT EXISTS shiprocket_shipment_id VARCHAR(40);
