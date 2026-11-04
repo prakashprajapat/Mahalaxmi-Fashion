@@ -139,6 +139,148 @@ public class FeedbackController : ControllerBase
         return Ok(new { success = true });
     }
 
+    // ── Feedback about a product -> a review on the product page ──────────
+    //
+    // Customers who liked what they bought sometimes write on the Feedback
+    // page instead of the review form. Feedback never shows on the website,
+    // so the shop can publish it as a review of the product they bought.
+
+    private static string Ten(string? p)
+    {
+        var d = new string((p ?? "").Where(char.IsDigit).ToArray());
+        return d.Length >= 10 ? d[^10..] : "";
+    }
+
+    private async Task<(Customer? Cust, List<(string OrderId, DateTimeOffset At, string Status, string? Cart)> Orders)> BuyerAsync(Feedback f)
+    {
+        var ten = Ten(f.Phone);
+        var mail = (f.Email ?? "").Trim().ToLowerInvariant();
+        Customer? cust = null;
+        if (f.CustomerId is int cid) cust = await _db.Customers.AsNoTracking().FirstOrDefaultAsync(c => c.Id == cid);
+        if (cust is null && ten.Length == 10) cust = await _db.Customers.AsNoTracking().FirstOrDefaultAsync(c => c.Phone10 == ten);
+        if (cust is null && mail.Length > 0) cust = await _db.Customers.AsNoTracking().FirstOrDefaultAsync(c => c.Email != null && c.Email.ToLower() == mail);
+        var cTen = Ten(cust?.Phone);
+        var cMail = (cust?.Email ?? "").Trim().ToLowerInvariant();
+
+        var since = DateTimeOffset.UtcNow.AddDays(-365);
+        var all = await _db.SiteOrders.AsNoTracking()
+            .Where(o => o.CreatedAt >= since)
+            .Select(o => new { o.OrderId, o.CreatedAt, o.Status, o.CustomerJson, o.ShippingJson, o.CartJson })
+            .ToListAsync();
+        var mine = all.Where(o =>
+        {
+            var p = Ten(OrderMessenger.Field(o.CustomerJson, "phone") ?? OrderMessenger.Field(o.ShippingJson, "phone"));
+            var e = (OrderMessenger.Field(o.CustomerJson, "email") ?? "").Trim().ToLowerInvariant();
+            return (p.Length == 10 && (p == ten || p == cTen)) || (e.Length > 0 && (e == mail || e == cMail));
+        })
+        .OrderByDescending(o => o.CreatedAt)
+        .Select(o => (o.OrderId, o.CreatedAt, o.Status, o.CartJson))
+        .ToList();
+        return (cust, mine);
+    }
+
+    // GET /api/feedback/5/products - what this person bought, to pick from.
+    [HttpGet("{id:int}/products")]
+    [Authorize]
+    [RequirePerm("reports")]
+    public async Task<IActionResult> Products(int id)
+    {
+        var f = await _db.Feedbacks.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id);
+        if (f is null) return NotFound(new { success = false, message = "Not found." });
+        var (cust, orders) = await BuyerAsync(f);
+
+        var lines = new List<(string OrderId, DateTimeOffset At, string Status, string Sku, string Name)>();
+        foreach (var o in orders)
+        {
+            if (string.IsNullOrWhiteSpace(o.Cart)) continue;
+            try
+            {
+                using var doc = System.Text.Json.JsonDocument.Parse(o.Cart);
+                if (doc.RootElement.ValueKind != System.Text.Json.JsonValueKind.Array) continue;
+                foreach (var line in doc.RootElement.EnumerateArray())
+                {
+                    string sku = "", name = "";
+                    foreach (var p in line.EnumerateObject())
+                    {
+                        if (p.Name.Equals("sku", StringComparison.OrdinalIgnoreCase) && p.Value.ValueKind == System.Text.Json.JsonValueKind.String) sku = p.Value.GetString() ?? "";
+                        if (p.Name.Equals("name", StringComparison.OrdinalIgnoreCase) && p.Value.ValueKind == System.Text.Json.JsonValueKind.String) name = p.Value.GetString() ?? "";
+                    }
+                    if (sku.Trim().Length > 0) lines.Add((o.OrderId, o.At, o.Status, sku.Trim(), name.Trim()));
+                }
+            }
+            catch { }
+        }
+        var skus = lines.Select(l => l.Sku.ToLower()).Distinct().ToList();
+        var products = await _db.Products.AsNoTracking()
+            .Where(p => p.Sku != null && skus.Contains(p.Sku.ToLower()))
+            .Select(p => new { p.Id, p.Name, p.Sku }).ToListAsync();
+        var bySku = products.GroupBy(p => p.Sku!.ToLowerInvariant()).ToDictionary(g => g.Key, g => g.First());
+        var orderIds = lines.Select(l => l.OrderId).Distinct().ToList();
+        var done = await _db.Reviews.AsNoTracking().Where(r => r.OrderId != null && orderIds.Contains(r.OrderId))
+            .Select(r => new { r.OrderId, r.ProductId }).ToListAsync();
+
+        var items = lines
+            .Where(l => bySku.ContainsKey(l.Sku.ToLowerInvariant()))
+            .Select(l =>
+            {
+                var p = bySku[l.Sku.ToLowerInvariant()];
+                return new
+                {
+                    productId = p.Id, name = p.Name, sku = p.Sku, orderId = l.OrderId, orderedAt = l.At, status = l.Status,
+                    reviewed = done.Any(d => d.OrderId == l.OrderId && d.ProductId == p.Id),
+                };
+            })
+            .GroupBy(x => (x.orderId, x.productId)).Select(g => g.First())
+            .ToList();
+
+        return Ok(new
+        {
+            success = true,
+            customer = cust is null ? null : new { cust.Id, name = $"{cust.FirstName} {cust.LastName}".Trim() },
+            items,
+        });
+    }
+
+    public record ToReviewRequest(int ProductId, string? OrderId);
+
+    // POST /api/feedback/5/to-review  { productId, orderId }
+    [HttpPost("{id:int}/to-review")]
+    [Authorize]
+    [RequirePerm("reports")]
+    public async Task<IActionResult> ToReview(int id, [FromBody] ToReviewRequest req)
+    {
+        var f = await _db.Feedbacks.FirstOrDefaultAsync(x => x.Id == id);
+        if (f is null) return NotFound(new { success = false, message = "Not found." });
+        if (f.Rating is < 1 or > 5) return BadRequest(new { success = false, message = "This feedback has no star rating, so it cannot be a review." });
+        if (string.IsNullOrWhiteSpace(f.Message)) return BadRequest(new { success = false, message = "The feedback has no words to publish." });
+        var product = await _db.Products.AsNoTracking().FirstOrDefaultAsync(p => p.Id == req.ProductId);
+        if (product is null) return BadRequest(new { success = false, message = "Choose the product." });
+
+        var (cust, orders) = await BuyerAsync(f);
+        var orderId = (req.OrderId ?? "").Trim();
+        // Only an order of this customer - a review says "verified buyer".
+        if (orderId.Length > 0 && !orders.Any(o => o.OrderId == orderId))
+            return BadRequest(new { success = false, message = "That order is not this customer's." });
+        if (orderId.Length > 0 && await _db.Reviews.AnyAsync(r => r.OrderId == orderId && r.ProductId == product.Id))
+            return BadRequest(new { success = false, message = "There is already a review for this product on that order." });
+
+        var review = new Review
+        {
+            ProductId = product.Id,
+            CustomerId = cust?.Id,
+            Rating = (short)f.Rating,
+            Body = f.Message.Trim(),
+            OrderId = orderId.Length > 0 ? orderId : null,
+            Status = "approved",
+        };
+        _db.Reviews.Add(review);
+        f.IsHandled = true;
+        var note = $"Published as a review of {product.Name} ({DateTimeOffset.UtcNow.ToOffset(TimeSpan.FromHours(5.5)):dd MMM yyyy}).";
+        f.AdminNote = string.IsNullOrWhiteSpace(f.AdminNote) ? note : Clip(f.AdminNote + "\n" + note, 2000);
+        await _db.SaveChangesAsync();
+        return Ok(new { success = true, reviewId = review.Id });
+    }
+
     [HttpDelete("{id:int}")]
     [Authorize]
     [RequirePerm("reports")]

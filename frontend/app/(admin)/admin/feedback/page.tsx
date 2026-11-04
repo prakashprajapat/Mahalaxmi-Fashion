@@ -44,6 +44,37 @@ export default function AdminFeedbackPage() {
   const [dates, setDates] = useState<DateWindow>(ANY_DATES);
   const [noteFor, setNoteFor] = useState<number | null>(null);
   const [noteText, setNoteText] = useState('');
+  // "Publish as product review": the products this person bought, to pick one.
+  type Bought = { productId: number; name: string; sku: string; orderId: string; orderedAt: string; status: string; reviewed: boolean };
+  const [pubFor, setPubFor] = useState<number | null>(null);
+  const [bought, setBought] = useState<Bought[] | null>(null);
+  const [pubMsg, setPubMsg] = useState('');
+  const [pubBusy, setPubBusy] = useState(false);
+  const openPublish = async (id: number) => {
+    setPubFor(id); setBought(null); setPubMsg('');
+    try {
+      const r = await fetch(`/api/feedback/${id}/products`, { headers: { Authorization: `Bearer ${getAdminToken() ?? ''}` } });
+      const b = await r.json();
+      setBought(b.items ?? []);
+      if (!(b.items ?? []).length) setPubMsg('No order found for this phone / email, so there is no product to attach the review to.');
+    } catch { setBought([]); setPubMsg('Could not load the orders.'); }
+  };
+  const publish = async (id: number, it: Bought) => {
+    if (!confirm(`Publish this feedback as a review of "${it.name}" on the website?`)) return;
+    setPubBusy(true); setPubMsg('');
+    try {
+      const r = await fetch(`/api/feedback/${id}/to-review`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${getAdminToken() ?? ''}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ productId: it.productId, orderId: it.orderId }),
+      });
+      const b = await r.json().catch(() => ({}));
+      if (!r.ok || !b.success) { setPubMsg(b.message || 'Could not publish.'); return; }
+      setPubFor(null);
+      await load();
+      alert('Published. It now shows on the product page.');
+    } finally { setPubBusy(false); }
+  };
 
   const load = async () => {
     setLoading(true);
@@ -252,7 +283,31 @@ export default function AdminFeedbackPage() {
                   </div>
                 )}
 
+                {pubFor === r.id && (
+                  <div style={{ margin: '0 0 .6rem', padding: '.6rem .75rem', border: '1px solid #ecdfd8', borderRadius: 8, background: '#fbf7f4' }}>
+                    <div style={{ fontSize: '.8rem', fontWeight: 700, color: '#722f37', marginBottom: '.4rem' }}>
+                      Which product is this review for?
+                    </div>
+                    {bought === null ? <div style={{ fontSize: '.83rem' }}>Finding their orders…</div> : bought.map(it => (
+                      <div key={it.orderId + it.productId} style={{ display: 'flex', gap: '.5rem', alignItems: 'center', flexWrap: 'wrap', padding: '.3rem 0', borderTop: '1px solid #f0e6e1' }}>
+                        <div style={{ flex: '1 1 260px', fontSize: '.85rem' }}>
+                          <b>{it.name}</b> <span style={{ color: '#8a7f76' }}>({it.sku})</span>
+                          <div style={{ fontSize: '.75rem', color: '#8a7f76' }}>{it.orderId} · {formatDate(it.orderedAt)} · {it.status}</div>
+                        </div>
+                        {it.reviewed
+                          ? <Pill tone="green">Already reviewed</Pill>
+                          : <button className="adm-btn adm-btn-primary" disabled={pubBusy} onClick={() => publish(r.id, it)}>Publish on this product</button>}
+                      </div>
+                    ))}
+                    {pubMsg && <div style={{ fontSize: '.82rem', color: '#c0392b', marginTop: '.35rem' }}>{pubMsg}</div>}
+                    <button className="adm-btn" style={{ marginTop: '.45rem' }} onClick={() => setPubFor(null)}>Cancel</button>
+                  </div>
+                )}
+
                 <div className="adm-actions" style={{ flexWrap: 'wrap', margin: 0 }}>
+                  {r.rating > 0 && (r.phone || r.email || r.customerId) && (
+                    <button onClick={() => openPublish(r.id)} style={{ color: '#722f37', fontWeight: 700 }}>Publish as product review</button>
+                  )}
                   <button onClick={() => toggleHandled(r)}>
                     {r.isHandled ? 'Mark not handled' : 'Mark handled'}
                   </button>
