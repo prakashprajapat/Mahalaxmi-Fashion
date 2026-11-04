@@ -673,12 +673,8 @@ export default function AdminOrdersPage() {
   // for any reason, the old print window opens instead, so a parcel never waits.
   const downloadLabels = async (list: Order[]) => {
     if (!list.length) return;
-    // A Shiprocket waybill must go out on the courier's own label (its sort
-    // codes are on it); ours is only for Delhivery.
-    const theirs = list.filter(o => o.labelUrl && (o.courier || '').toLowerCase().startsWith('shiprocket'));
-    theirs.forEach(o => window.open(o.labelUrl as string, '_blank', 'noopener'));
-    list = list.filter(o => !theirs.includes(o));
-    if (!list.length) return;
+    // Always the shop's own label. The courier's label (Shiprocket waybills)
+    // is on its own "Courier label" link in the row.
     try {
       await downloadLabelsPdf(list);
     } catch (e) {
@@ -1086,6 +1082,11 @@ export default function AdminOrdersPage() {
                         <td data-label="Action">
                           <div className="adm-actions" style={{ flexWrap: 'wrap', alignItems: 'center', margin: 0 }}>
                             <button onClick={() => downloadShippingLabel(o)}>Label</button>
+                            {o.labelUrl && (
+                              <a href={o.labelUrl} target="_blank" rel="noopener noreferrer"
+                                 title="The courier's own label with its sorting codes - keep it on the parcel too"
+                                 style={{ color: '#6b4e13', fontWeight: 600 }}>Courier label</a>
+                            )}
                             <button onClick={() => ordersApi.downloadInvoice(o.id, getAdminToken() ?? '').catch(() => {})}>Invoice</button>
                             {o.customerPhone && (
                               <details>
