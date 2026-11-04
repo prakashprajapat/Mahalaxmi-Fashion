@@ -59,6 +59,8 @@ const tabAccepts = (tabKey: string, status: string) =>
 const AWB_CANCELLABLE = ['Pending', 'On Hold', 'Order Packed', 'Ready for Shipping', 'Shipped'];
 const awbIsCancelled = (o: Order) => /cancel/i.test(o.courierStatus ?? '');
 const awbIsDelhivery = (o: Order) => !o.courier || /delhivery/i.test(o.courier);
+// Waybills the site can cancel itself: Delhivery's, and Shiprocket's it booked.
+const awbIsOurs = (o: Order) => awbIsDelhivery(o) || /^\s*shiprocket/i.test(o.courier || '');
 
 const RETURN_STATUS_TABS: { key: string; label: string; hidden?: boolean }[] = [
   { key: 'all',              label: 'All Returns' },
@@ -1042,7 +1044,7 @@ export default function AdminOrdersPage() {
                                       style={{ background: 'none', border: 0, padding: 0, cursor: 'pointer', fontFamily: 'monospace',
                                                fontSize: '.74rem', color: '#1565c0', textDecoration: 'underline' }}>{o.awb}</button>
                             : <span style={{ color: '#c4bab5' }}>&mdash;</span>}
-                          {o.awb && awbIsDelhivery(o) && (awbIsCancelled(o) || AWB_CANCELLABLE.includes(o.status)) && (
+                          {o.awb && awbIsOurs(o) && (awbIsCancelled(o) || AWB_CANCELLABLE.includes(o.status)) && (
                             <div style={{ marginTop: '.25rem' }}>
                               {awbIsCancelled(o) && (
                                 <span style={{ fontSize: '.68rem', color: '#c0392b', fontWeight: 700, marginRight: '.4rem' }}>Cancelled</span>
@@ -1189,7 +1191,7 @@ export default function AdminOrdersPage() {
             {liveModal.loading && <p style={{ color: '#888' }}>Fetching live status from Delhivery…</p>}
 
             {!liveModal.loading && !liveModal.data?.live && (
-              <p style={{ color: '#c62828' }}>Live tracking unavailable right now. Please check the Delhivery portal.</p>
+              <p style={{ color: '#c62828' }}>Live tracking unavailable right now. Please check the courier's portal (Delhivery One or Shiprocket).</p>
             )}
 
             {!liveModal.loading && liveModal.data?.live && (() => {

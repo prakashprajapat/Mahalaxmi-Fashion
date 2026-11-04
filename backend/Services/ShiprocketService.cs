@@ -291,6 +291,46 @@ public class ShiprocketService
         return ok ? (true, "Cancelled in Shiprocket.") : (false, "Shiprocket refused: " + LogSafe.Body(body));
     }
 
+    /// <summary>The customer tracking page's view of one Shiprocket waybill: status, date, scans newest first.</summary>
+    public async Task<DelhiveryService.TrackDetail> TrackDetailAsync(string awb)
+    {
+        var none = new DelhiveryService.TrackDetail(false, null, null, new List<DelhiveryService.TrackScan>());
+        if (!await IsConfiguredAsync()) return none;
+        var (ok, body) = await CallAsync(HttpMethod.Get, $"/courier/track/awb/{Uri.EscapeDataString(awb)}");
+        if (!ok) return none;
+        try
+        {
+            using var d = JsonDocument.Parse(body);
+            if (!d.RootElement.TryGetProperty("tracking_data", out var td)) return none;
+            string? status = null, edd = null;
+            if (td.TryGetProperty("shipment_track", out var st) && st.ValueKind == JsonValueKind.Array && st.GetArrayLength() > 0)
+            {
+                var s0 = st[0];
+                status = s0.TryGetProperty("current_status", out var cs) ? cs.ToString() : null;
+                edd = s0.TryGetProperty("edd", out var e) && e.ValueKind != JsonValueKind.Null ? e.ToString() : null;
+            }
+            if (string.IsNullOrWhiteSpace(edd) && td.TryGetProperty("etd", out var etd) && etd.ValueKind != JsonValueKind.Null)
+                edd = etd.ToString();
+            var scans = new List<DelhiveryService.TrackScan>();
+            if (td.TryGetProperty("shipment_track_activities", out var acts) && acts.ValueKind == JsonValueKind.Array)
+                foreach (var a in acts.EnumerateArray())
+                    scans.Add(new DelhiveryService.TrackScan(
+                        a.TryGetProperty("date", out var dt) ? dt.ToString() : "",
+                        a.TryGetProperty("location", out var lo) ? lo.ToString() : "",
+                        (a.TryGetProperty("activity", out var ac) ? ac.ToString() : "")
+                            .Trim(),
+                        a.TryGetProperty("sr-status-label", out var lb) ? lb.ToString() : ""));
+            if (string.IsNullOrWhiteSpace(status) && scans.Count == 0)
+            {
+                // Booked, not yet picked up: Shiprocket has nothing to say yet.
+                return new DelhiveryService.TrackDetail(true, "Pickup scheduled", edd, scans);
+            }
+            var title = System.Globalization.CultureInfo.InvariantCulture.TextInfo.ToTitleCase((status ?? "").ToLowerInvariant());
+            return new DelhiveryService.TrackDetail(true, title, edd, scans);
+        }
+        catch { return none; }
+    }
+
     /// <summary>
     /// Tracking for Shiprocket waybills, in the same shape the Delhivery sweep
     /// reads, so one sweep handles both: "In Transit", "Delivered", and the

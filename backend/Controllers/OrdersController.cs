@@ -2843,7 +2843,10 @@ public class OrdersController : ControllerBase
         if (order is null)
             return NotFound(new { success = false, message = "No shipment found with this AWB." });
 
-        var detail = await _delhivery.TrackDetailAsync(safe);
+        // Asked of whoever carries it: a Shiprocket waybill is unknown to Delhivery.
+        var detail = IsShiprocket(order.Courier)
+            ? await _shiprocket.TrackDetailAsync(safe)
+            : await _delhivery.TrackDetailAsync(safe);
         if (!detail.Success)
             return Ok(new { success = true, live = false, orderId = order.OrderId, siteStatus = order.Status });
 
