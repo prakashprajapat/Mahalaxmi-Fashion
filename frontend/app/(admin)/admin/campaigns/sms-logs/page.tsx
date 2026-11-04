@@ -294,13 +294,6 @@ export default function SmsLogsPage() {
                           </a>{' '}
                           <button className="adm-btn" style={{ padding: '.25rem .55rem', fontSize: 12, color: '#c0392b' }}
                                   onClick={() => del({ ids: [l.id] }, 'Delete this log?')}>Delete</button>
-                          {l.whatsAppAt && (
-                            <div style={{ fontSize: 11, color: '#0b6b5f', marginTop: 4 }}>
-                              <Tick /> Sent on WhatsApp {when(l.whatsAppAt)}{' '}
-                              <button onClick={() => markWa(l, true)} title="Take the tick off"
-                                      style={{ background: 'none', border: 0, padding: 0, color: '#888', cursor: 'pointer', fontSize: 11, textDecoration: 'underline' }}>undo</button>
-                            </div>
-                          )}
                         </td>
                       </tr>
                     ))}
