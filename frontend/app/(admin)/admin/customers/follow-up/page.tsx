@@ -9,8 +9,13 @@ import { PageHeader, Card, Stat, StatGrid, Chips, Pill, Empty } from '@/componen
 //   Review calls      delivered orders: has the customer reviewed yet?
 //   Payment dropped   checkouts left unpaid: the USER_DROPPED2 text, the
 //                     WhatsApp tick from SMS Logs, and whether she bought later.
+//   Login failed      failed logins from Login History (no such account /
+//                     wrong password): the help mail/SMS, and did they get in.
 
-type Kind = 'review' | 'dropped';
+type Kind = 'review' | 'dropped' | 'login';
+const API: Record<Kind, string> = { review: 'reviews', dropped: 'dropped', login: 'logins' };
+const DEFAULT_DAYS: Record<Kind, number> = { review: 30, dropped: 15, login: 15 };
+const REASON: Record<string, string> = { no_account: 'No such account', wrong_password: 'Wrong password' };
 type Stage = 'todo' | 'callback' | 'called' | 'done';
 
 interface Row {
@@ -19,6 +24,9 @@ interface Row {
   reviewed?: boolean; rating?: number | null; reviewStatus?: string | null; smsCount?: number; smsLast?: string | null;
   // dropped
   cfStatus?: string | null; smsAt?: string | null; smsStatus?: string | null; whatsAppAt?: string | null; boughtOrder?: string | null;
+  // login
+  email?: string | null; attempts?: number; reason?: string | null; method?: string | null; platform?: string | null; device?: string | null;
+  hasAccount?: boolean; helpMail?: string | null; helpSms?: string | null; gotIn?: boolean;
   lastOutcome?: string | null; lastNote?: string | null; lastAt?: string | null; lastBy?: string | null;
   callbackAt?: string | null; calls: number; stage: Stage;
 }
@@ -51,9 +59,22 @@ const OUTCOMES: Record<Kind, { key: string; label: string }[]> = {
     { key: 'not_interested', label: 'Not interested' },
     { key: 'other', label: 'Other' },
   ],
+  login: [
+    { key: 'logged_in', label: 'Logged in now' },
+    { key: 'account_made', label: 'Account made' },
+    { key: 'helped_login', label: 'Explained OTP login' },
+    { key: 'not_picked', label: 'Not picked' },
+    { key: 'busy', label: 'Busy' },
+    { key: 'call_later', label: 'Call later' },
+    { key: 'switched_off', label: 'Switched off' },
+    { key: 'whatsapp_sent', label: 'Sent on WhatsApp' },
+    { key: 'wrong_number', label: 'Wrong number' },
+    { key: 'not_interested', label: 'Not interested' },
+    { key: 'other', label: 'Other' },
+  ],
 };
 const outcomeLabel = (k?: string | null) =>
-  [...OUTCOMES.review, ...OUTCOMES.dropped].find(o => o.key === k)?.label ?? (k || '');
+  [...OUTCOMES.review, ...OUTCOMES.dropped, ...OUTCOMES.login].find(o => o.key === k)?.label ?? (k || '');
 
 const STAGE: Record<Stage, { label: string; tone: 'red' | 'amber' | 'green' | 'grey' }> = {
   todo: { label: 'To call', tone: 'red' },
@@ -94,7 +115,7 @@ export default function FollowUpPage() {
   const load = async () => {
     setLoading(true); setError('');
     try {
-      const res = await fetch(`/api/follow-ups/${kind === 'review' ? 'reviews' : 'dropped'}?days=${days}`, { headers: auth() });
+      const res = await fetch(`/api/follow-ups/${API[kind]}?days=${days}`, { headers: auth() });
       if (!res.ok) throw new Error(res.status === 403 ? 'You do not have access to this list.' : `Could not load (${res.status})`);
       const b = await res.json();
       setRows(b.rows ?? []);
@@ -116,7 +137,7 @@ export default function FollowUpPage() {
     const dg = t.replace(/\D/g, '');
     return rows
       .filter(r => stage === 'all' || r.stage === stage)
-      .filter(r => !t || r.refId.toLowerCase().includes(t) || r.name.toLowerCase().includes(t) || (dg.length >= 4 && r.phone.includes(dg)));
+      .filter(r => !t || r.refId.toLowerCase().includes(t) || r.name.toLowerCase().includes(t) || (r.email ?? '').toLowerCase().includes(t) || (dg.length >= 4 && r.phone.includes(dg)));
   }, [rows, stage, q]);
 
   const openRow = async (r: Row) => {
@@ -152,6 +173,15 @@ export default function FollowUpPage() {
   };
 
   const exportExcel = () => {
+    if (kind === 'login') {
+      downloadCsv([
+        ['Last try', 'Login id', 'Name', 'Phone', 'Email', 'Attempts', 'Why', 'Has account', 'Help mail', 'Help SMS', 'Got in later', 'Stage', 'Last call', 'Note', 'Call back', 'Calls'],
+        ...shown.map(r => [when(r.when), r.refId, r.name, r.phone, r.email ?? '', String(r.attempts ?? 0), REASON[r.reason ?? ''] ?? r.reason ?? '',
+          r.hasAccount ? 'Yes' : 'No', when(r.helpMail), when(r.helpSms), r.gotIn ? 'Yes' : 'No',
+          STAGE[r.stage].label, outcomeLabel(r.lastOutcome), r.lastNote ?? '', when(r.callbackAt), String(r.calls)]),
+      ], `follow-up-login-${new Date().toISOString().slice(0, 10)}.csv`);
+      return;
+    }
     downloadCsv([
       kind === 'review'
         ? ['Delivered', 'Order', 'Customer', 'Phone', 'Items', 'Amount', 'Review', 'Review SMS', 'Stage', 'Last call', 'Note', 'Call back', 'Calls']
@@ -180,14 +210,15 @@ export default function FollowUpPage() {
         </>}
       />
 
-      <Chips value={kind} onChange={k => { setKind(k as Kind); setStage('todo'); setDays(k === 'review' ? 30 : 15); }}
-             items={[{ key: 'review', label: 'Review calls' }, { key: 'dropped', label: 'Payment not completed (USER_DROPPED2)' }]} />
+      <Chips value={kind} onChange={k => { setKind(k as Kind); setStage('todo'); setDays(DEFAULT_DAYS[k as Kind]); }}
+             items={[{ key: 'review', label: 'Review calls' }, { key: 'dropped', label: 'Payment not completed (USER_DROPPED2)' },
+                     { key: 'login', label: 'Login failed' }]} />
 
       <StatGrid cols={4}>
         <Stat label="To call" value={counts.todo} tone={counts.todo ? 'red' : undefined} onClick={() => setStage('todo')} />
         <Stat label="Call back due" value={counts.callback} onClick={() => setStage('callback')} />
         <Stat label="Called" value={counts.called} onClick={() => setStage('called')} />
-        <Stat label={kind === 'review' ? 'Reviewed / closed' : 'Ordered / closed'} value={counts.done} tone="green" onClick={() => setStage('done')} />
+        <Stat label={kind === 'review' ? 'Reviewed / closed' : kind === 'login' ? 'Logged in / closed' : 'Ordered / closed'} value={counts.done} tone="green" onClick={() => setStage('done')} />
       </StatGrid>
 
       <Card>
@@ -199,7 +230,7 @@ export default function FollowUpPage() {
             { key: 'done', label: 'Done', count: counts.done },
             { key: 'all', label: 'All', count: counts.all },
           ]} />
-          <input className="adm-input" value={q} onChange={e => setQ(e.target.value)} placeholder="Name, mobile or order id" style={{ flex: 1, minWidth: 180 }} />
+          <input className="adm-input" value={q} onChange={e => setQ(e.target.value)} placeholder={kind === 'login' ? 'Name, mobile or email' : 'Name, mobile or order id'} style={{ flex: 1, minWidth: 180 }} />
           <select className="adm-input" value={days} onChange={e => setDays(Number(e.target.value))} style={{ width: 150 }}>
             {[7, 15, 30, 60, 90].map(d => <option key={d} value={d}>Last {d} days</option>)}
           </select>
@@ -211,10 +242,10 @@ export default function FollowUpPage() {
             <table className="adm-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
                 <tr style={{ textAlign: 'left' }}>
-                  <th style={cell}>{kind === 'review' ? 'Delivered' : 'Checkout'}</th>
+                  <th style={cell}>{kind === 'review' ? 'Delivered' : kind === 'login' ? 'Last try' : 'Checkout'}</th>
                   <th style={cell}>Customer</th>
-                  <th style={cell}>Items</th>
-                  <th style={cell}>{kind === 'review' ? 'Review' : 'SMS / WhatsApp'}</th>
+                  <th style={cell}>{kind === 'login' ? 'What went wrong' : 'Items'}</th>
+                  <th style={cell}>{kind === 'review' ? 'Review' : kind === 'login' ? 'Help sent / got in' : 'SMS / WhatsApp'}</th>
                   <th style={cell}>Last call</th>
                   <th style={cell}></th>
                 </tr>
@@ -224,11 +255,12 @@ export default function FollowUpPage() {
                   <tr key={r.refId} style={{ borderTop: '1px solid #eee' }}>
                     <td style={{ ...cell, whiteSpace: 'nowrap' }}>
                       {when(r.when)}
-                      <div style={{ ...small, fontFamily: 'monospace' }}>{r.refId}</div>
-                      <div style={small}>{money(r.amount)}</div>
+                      {kind !== 'login' && <div style={{ ...small, fontFamily: 'monospace' }}>{r.refId}</div>}
+                      {kind !== 'login' && <div style={small}>{money(r.amount)}</div>}
                     </td>
                     <td style={cell}>
-                      <div style={{ fontWeight: 600 }}>{r.name || '-'}</div>
+                      <div style={{ fontWeight: 600 }}>{r.name || (kind === 'login' ? r.refId : '-')}</div>
+                      {kind === 'login' && r.email && r.email !== r.name && <div style={small}>{r.email}</div>}
                       {r.phone && (
                         <div style={{ display: 'flex', gap: 8, marginTop: 2 }}>
                           <a href={`tel:+91${r.phone}`} style={{ color: '#2563eb' }}>{r.phone}</a>
@@ -237,10 +269,22 @@ export default function FollowUpPage() {
                       )}
                     </td>
                     <td style={{ ...cell, maxWidth: 320 }}>
-                      {r.items.length ? r.items.map((it, i) => <div key={i}>{it}</div>) : <span style={small}>-</span>}
+                      {kind === 'login' ? (
+                        <>
+                          <Pill tone="red">{REASON[r.reason ?? ''] ?? (r.reason || 'Failed')}</Pill>
+                          <div style={small}>{r.attempts} {r.attempts === 1 ? 'try' : 'tries'} · {r.method} · {r.platform === 'app' ? 'App' : 'Website'}{r.device ? ` · ${r.device}` : ''}</div>
+                          <div style={small}>{r.hasAccount ? 'Has an account' : 'No account yet'}</div>
+                        </>
+                      ) : r.items.length ? r.items.map((it, i) => <div key={i}>{it}</div>) : <span style={small}>-</span>}
                     </td>
                     <td style={cell}>
-                      {kind === 'review' ? (
+                      {kind === 'login' ? (
+                        <>
+                          {r.gotIn ? <Pill tone="green">Logged in later</Pill> : <Pill tone="amber">Not in yet</Pill>}
+                          <div style={small}>{r.helpMail ? `Help mail ${when(r.helpMail)}` : 'No help mail'}</div>
+                          <div style={small}>{r.helpSms ? `Help SMS ${when(r.helpSms)}` : 'No help SMS'}</div>
+                        </>
+                      ) : kind === 'review' ? (
                         <>
                           {r.reviewed
                             ? <Pill tone="green">Reviewed{r.rating ? ` ${r.rating}/5` : ''}</Pill>
@@ -291,7 +335,7 @@ export default function FollowUpPage() {
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
               <div>
                 <div style={{ fontWeight: 700, fontSize: 16 }}>{open.name || 'Customer'}</div>
-                <div style={small}>{open.refId} · {money(open.amount)}</div>
+                <div style={small}>{kind === 'login' ? `${open.refId} · ${REASON[open.reason ?? ''] ?? open.reason ?? ''}` : `${open.refId} · ${money(open.amount)}`}</div>
               </div>
               <button className="adm-btn" onClick={() => setOpen(null)}>Close</button>
             </div>
@@ -316,7 +360,9 @@ export default function FollowUpPage() {
               ))}
             </div>
             <textarea className="adm-input" rows={4} value={note} onChange={e => setNote(e.target.value)}
-                      placeholder="What did the customer say? (e.g. size was small, will review after using, wants exchange, will pay tonight)"
+                      placeholder={kind === 'login'
+                        ? 'What did the customer say? (e.g. forgot password, did not know about OTP login, logged in on call)'
+                        : 'What did the customer say? (e.g. size was small, will review after using, wants exchange, will pay tonight)'}
                       style={{ width: '100%', marginTop: 10, fontFamily: 'inherit', resize: 'vertical' }} />
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
               <label style={{ fontSize: 13 }}>Call back on</label>

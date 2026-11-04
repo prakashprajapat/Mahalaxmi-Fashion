@@ -30,11 +30,12 @@ public class FollowUpsController : ControllerBase
     {
         "will_review", "reviewed", "will_order", "ordered", "not_picked", "busy", "call_later",
         "switched_off", "wrong_number", "complaint", "payment_problem", "not_interested", "whatsapp_sent", "other",
+        "logged_in", "helped_login", "account_made",
     };
     /// Outcomes that close the follow-up: nothing more to chase.
     private static readonly HashSet<string> Closing = new(StringComparer.OrdinalIgnoreCase)
     {
-        "reviewed", "ordered", "wrong_number", "not_interested",
+        "reviewed", "ordered", "wrong_number", "not_interested", "logged_in", "account_made",
     };
 
     private static string Last10(string? phone)
@@ -249,6 +250,105 @@ public class FollowUpsController : ControllerBase
         return Ok(new { success = true, rows });
     }
 
+    /// The login id as one key: a mobile number as its last ten digits, an
+    /// email in lower case - so "+91 98..." and "98..." are one person.
+    private static string LoginKey(string? loginId)
+    {
+        var t = (loginId ?? "").Trim();
+        if (t.Contains('@')) return t.ToLowerInvariant();
+        var d = new string(t.Where(char.IsDigit).ToArray());
+        return d.Length >= 10 ? d[^10..] : t.ToLowerInvariant();
+    }
+
+    // GET /api/follow-ups/logins?days=15&q=
+    // Customers whose login failed (no such account / wrong password), one row
+    // per person: how often, why, whether the help mail/SMS went, and whether
+    // they got in afterwards.
+    [HttpGet("logins")]
+    public async Task<IActionResult> Logins([FromQuery] int days = 15, [FromQuery] string? q = null)
+    {
+        days = Math.Clamp(days, 1, 90);
+        var floor = DateTimeOffset.UtcNow.AddDays(-days);
+        var events = await _db.LoginEvents.AsNoTracking()
+            .Where(e => e.SubjectType == "customer" && e.CreatedAt >= floor)
+            .OrderByDescending(e => e.CreatedAt)
+            .Take(5000)
+            .Select(e => new { e.SubjectId, e.LoginId, e.Method, e.Platform, e.Device, e.Success, e.Reason, e.CreatedAt })
+            .ToListAsync();
+
+        var failed = events.Where(e => !e.Success && LoginKey(e.LoginId).Length > 0)
+            .GroupBy(e => LoginKey(e.LoginId)).ToList();
+        if (failed.Count == 0) return Ok(new { success = true, rows = Array.Empty<object>() });
+
+        var keys = failed.Select(g => g.Key).ToList();
+        var subjectIds = failed.SelectMany(g => g).Select(e => e.SubjectId).Where(x => !string.IsNullOrEmpty(x))
+            .Select(x => int.TryParse(x, out var n) ? n : 0).Where(n => n > 0).Distinct().ToList();
+        var emails = keys.Where(k => k.Contains('@')).ToList();
+        var phones = keys.Where(k => !k.Contains('@')).ToList();
+
+        var customers = await _db.Customers.AsNoTracking()
+            .Where(c => subjectIds.Contains(c.Id) || (c.Email != null && emails.Contains(c.Email.ToLower())) || (c.Phone10 != null && phones.Contains(c.Phone10)))
+            .Select(c => new { c.Id, c.FirstName, c.LastName, c.Email, c.Phone, c.Phone10 })
+            .ToListAsync();
+        var leads = await _db.PopupLeads.AsNoTracking()
+            .Where(l => l.Email != null && emails.Contains(l.Email.ToLower()) && l.Phone != null)
+            .OrderByDescending(l => l.CreatedAt).Select(l => new { l.Email, l.Phone, l.Name }).ToListAsync();
+        var helps = await _db.InviteSends.AsNoTracking()
+            .Where(i => (i.Audience == LoginHelpNudge.Audience || i.Audience == LoginHelpNudge.WrongPwAudience) && i.SentAt >= floor)
+            .Select(i => new { i.Audience, i.PersonId, i.Email, i.Phone, i.Channel, i.SentAt })
+            .ToListAsync();
+        var notes = await NotesForAsync("login", keys);
+
+        var rows = failed.Select(g =>
+        {
+            var key = g.Key;
+            var last = g.First();
+            var ids = g.Select(e => int.TryParse(e.SubjectId, out var n) ? n : 0).Where(n => n > 0).ToHashSet();
+            var cust = customers.FirstOrDefault(c => ids.Contains(c.Id))
+                    ?? customers.FirstOrDefault(c => key.Contains('@') ? (c.Email ?? "").ToLower() == key : c.Phone10 == key);
+            var name = cust is null ? "" : $"{cust.FirstName} {cust.LastName}".Trim();
+            var lead = key.Contains('@') ? leads.FirstOrDefault(l => (l.Email ?? "").ToLower() == key) : null;
+            if (name.Length == 0) name = lead?.Name?.Trim() ?? "";
+            var phone = Last10(cust?.Phone);
+            if (phone.Length != 10 && !key.Contains('@')) phone = Last10(key);
+            if (phone.Length != 10) phone = Last10(lead?.Phone);
+            var email = cust?.Email ?? (key.Contains('@') ? key : null);
+
+            var mine = helps.Where(h => (email != null && (h.Email ?? "").ToLower() == email.ToLower())
+                                     || (cust != null && h.PersonId == cust.Id && h.Audience == LoginHelpNudge.WrongPwAudience)).ToList();
+            if (phone.Length != 10)
+                phone = Last10(mine.Select(h => h.Phone).FirstOrDefault(p => !string.IsNullOrEmpty(p)));
+
+            // In afterwards: a successful login with the same id, or into the same account.
+            var gotIn = events.Any(e => e.Success && e.CreatedAt > last.CreatedAt
+                && (LoginKey(e.LoginId) == key || (cust != null && e.SubjectId == cust.Id.ToString())));
+            notes.TryGetValue(key, out var nt);
+            return new
+            {
+                refId = key, when = (DateTimeOffset?)last.CreatedAt, name, phone, email,
+                amount = 0m, items = new List<string>(),
+                attempts = g.Count(), reason = last.Reason, method = last.Method, platform = last.Platform, device = last.Device,
+                hasAccount = cust != null,
+                helpMail = mine.Where(h => h.Channel == "login-email").Select(h => (DateTimeOffset?)h.SentAt).OrderByDescending(x => x).FirstOrDefault(),
+                helpSms = mine.Where(h => h.Channel == "login-sms").Select(h => (DateTimeOffset?)h.SentAt).OrderByDescending(x => x).FirstOrDefault(),
+                gotIn,
+                lastOutcome = nt?.Outcome, lastNote = nt?.Note, lastAt = nt?.At, lastBy = nt?.By,
+                callbackAt = nt?.CallbackAt, calls = nt?.Count ?? 0,
+                stage = Stage(nt, gotIn),
+            };
+        }).OrderByDescending(r => r.when).ToList();
+
+        if (!string.IsNullOrWhiteSpace(q))
+        {
+            var t = q.Trim();
+            var dg = new string(t.Where(char.IsDigit).ToArray());
+            rows = rows.Where(r => r.refId.Contains(t, StringComparison.OrdinalIgnoreCase)
+                                || r.name.Contains(t, StringComparison.OrdinalIgnoreCase)
+                                || (dg.Length >= 4 && r.phone.Contains(dg))).ToList();
+        }
+        return Ok(new { success = true, rows });
+    }
+
     // GET /api/follow-ups/notes?kind=review&refId=MFH...
     [HttpGet("notes")]
     public async Task<IActionResult> Notes([FromQuery] string kind, [FromQuery] string refId)
@@ -268,7 +368,7 @@ public class FollowUpsController : ControllerBase
     public async Task<IActionResult> AddNote([FromBody] NoteRequest req)
     {
         var kind = (req.Kind ?? "").Trim().ToLowerInvariant();
-        if (kind is not ("review" or "dropped")) return BadRequest(new { success = false, message = "Unknown list." });
+        if (kind is not ("review" or "dropped" or "login")) return BadRequest(new { success = false, message = "Unknown list." });
         var refId = (req.RefId ?? "").Trim();
         if (refId.Length == 0 || refId.Length > 64) return BadRequest(new { success = false, message = "Order id is required." });
         var outcome = (req.Outcome ?? "").Trim();
