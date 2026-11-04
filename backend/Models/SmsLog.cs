@@ -27,4 +27,6 @@ public class SmsLog
     [Column("detail")] public string? Detail { get; set; }
     /// <summary>MSG91's request id, to find the same message in their panel.</summary>
     [Column("request_id")] public string? RequestId { get; set; }
+    /// <summary>When the admin sent the same message on WhatsApp from SMS Logs (the tick). Null = not yet.</summary>
+    [Column("whatsapp_at")] public DateTimeOffset? WhatsAppAt { get; set; }
 }

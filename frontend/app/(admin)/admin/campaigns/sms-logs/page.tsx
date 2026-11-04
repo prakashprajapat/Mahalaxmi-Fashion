@@ -8,6 +8,7 @@ interface Log {
   status: 'sent' | 'failed'; detail?: string | null; requestId?: string | null;
   templateName?: string | null; vars?: string | null; message?: string | null;
   itemLinks?: string[] | null; whatsappText?: string | null;
+  whatsAppAt?: string | null;
 }
 interface Tpl { id: string; name?: string | null; text?: string | null; sent: number }
 
@@ -110,6 +111,29 @@ export default function SmsLogsPage() {
     setCopied(l.id); setTimeout(() => setCopied(c => (c === l.id ? null : c)), 1500);
   };
   const waHref = (l: Log) => `https://wa.me/91${l.phone}?text=${encodeURIComponent(textOf(l))}`;
+
+  // The tick: which messages have also gone on WhatsApp. Saved on the server,
+  // so it shows on every device and survives a reload.
+  const markWa = async (l: Log, undo = false) => {
+    const stamp = undo ? null : (l.whatsAppAt || new Date().toISOString());
+    const put = (v: string | null) => {
+      setRows(rs => rs.map(r => (r.id === l.id ? { ...r, whatsAppAt: v } : r)));
+      setOpen(o => (o && o.id === l.id ? { ...o, whatsAppAt: v } : o));
+    };
+    put(stamp);
+    try {
+      const res = await fetch(`/api/sms-logs/${l.id}/whatsapp${undo ? '?undo=true' : ''}`, { method: 'POST', headers: auth() });
+      const b = await res.json().catch(() => ({}));
+      if (!res.ok || !b.success) put(l.whatsAppAt ?? null);
+      else put(b.whatsAppAt ?? null);
+    } catch { put(l.whatsAppAt ?? null); }
+  };
+  const Tick = () => (
+    <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true" style={{ verticalAlign: '-2px' }}>
+      <circle cx="12" cy="12" r="11" fill="#128C7E" />
+      <path d="M7 12.5l3.2 3.2L17.5 8.5" stroke="#fff" strokeWidth="2.6" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
 
   const saveTpl = async (id: string) => {
     setTplSaving(id); setTplMsg('');
@@ -261,11 +285,22 @@ export default function SmsLogsPage() {
                           <button className="adm-btn" style={{ padding: '.25rem .55rem', fontSize: 12 }} disabled={!textOf(l)} onClick={() => copy(l)}>
                             {copied === l.id ? 'Copied' : 'Copy'}
                           </button>{' '}
-                          <a className="adm-btn" style={{ padding: '.25rem .55rem', fontSize: 12, color: '#128C7E', pointerEvents: l.phone ? undefined : 'none', opacity: l.phone ? 1 : .5 }}
-                             title={l.message ? 'Open WhatsApp with this message' : 'Template text not saved yet: WhatsApp opens with the values only'}
-                             href={l.phone ? waHref(l) : undefined} target="_blank" rel="noopener noreferrer">WhatsApp</a>{' '}
+                          <a className="adm-btn" style={{ padding: '.25rem .55rem', fontSize: 12, pointerEvents: l.phone ? undefined : 'none', opacity: l.phone ? 1 : .5,
+                                      ...(l.whatsAppAt ? { background: '#e7f6f3', borderColor: '#128C7E', color: '#0b6b5f', fontWeight: 700 } : { color: '#128C7E' }) }}
+                             title={l.whatsAppAt ? `Sent on WhatsApp ${when(l.whatsAppAt)}` : l.message ? 'Open WhatsApp with this message' : 'Template text not saved yet: WhatsApp opens with the values only'}
+                             href={l.phone ? waHref(l) : undefined} target="_blank" rel="noopener noreferrer"
+                             onClick={() => { if (l.phone) markWa(l); }}>
+                            {l.whatsAppAt ? <><Tick /> WhatsApp</> : 'WhatsApp'}
+                          </a>{' '}
                           <button className="adm-btn" style={{ padding: '.25rem .55rem', fontSize: 12, color: '#c0392b' }}
                                   onClick={() => del({ ids: [l.id] }, 'Delete this log?')}>Delete</button>
+                          {l.whatsAppAt && (
+                            <div style={{ fontSize: 11, color: '#0b6b5f', marginTop: 4 }}>
+                              <Tick /> Sent on WhatsApp {when(l.whatsAppAt)}{' '}
+                              <button onClick={() => markWa(l, true)} title="Take the tick off"
+                                      style={{ background: 'none', border: 0, padding: 0, color: '#888', cursor: 'pointer', fontSize: 11, textDecoration: 'underline' }}>undo</button>
+                            </div>
+                          )}
                         </td>
                       </tr>
                     ))}
@@ -336,7 +371,8 @@ export default function SmsLogsPage() {
             {open.requestId && <div style={{ fontSize: 11, color: '#999', marginTop: 6 }}>MSG91 request id: {open.requestId}</div>}
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 12 }}>
               <button className="adm-btn" onClick={() => copy(open)}>{copied === open.id ? 'Copied' : 'Copy'}</button>
-              {open.phone && <a className="adm-btn adm-btn-primary" href={waHref(open)} target="_blank" rel="noopener noreferrer">Send on WhatsApp</a>}
+              {open.phone && <a className="adm-btn adm-btn-primary" href={waHref(open)} target="_blank" rel="noopener noreferrer"
+                                 onClick={() => markWa(open)}>{open.whatsAppAt ? <><Tick /> Sent - send again</> : 'Send on WhatsApp'}</a>}
             </div>
           </div>
         </div>

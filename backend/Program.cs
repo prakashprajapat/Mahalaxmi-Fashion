@@ -574,6 +574,7 @@ using (var scope = app.Services.CreateScope())
         );
         CREATE INDEX IF NOT EXISTS idx_sms_logs_sent ON sms_logs (sent_at DESC);
         CREATE INDEX IF NOT EXISTS idx_sms_logs_phone ON sms_logs (phone);
+        ALTER TABLE sms_logs ADD COLUMN IF NOT EXISTS whatsapp_at TIMESTAMPTZ;
     ");
     db.Database.ExecuteSqlRaw(@"
         ALTER TABLE site_orders ADD COLUMN IF NOT EXISTS shiprocket_order_id VARCHAR(40);

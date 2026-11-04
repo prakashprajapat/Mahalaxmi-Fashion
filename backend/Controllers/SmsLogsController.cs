@@ -178,6 +178,7 @@ public class SmsLogsController : ControllerBase
             logs = rows.Select(r => new
             {
                 r.Id, r.SentAt, r.Phone, r.TemplateId, r.Kind, r.Status, r.Detail, r.RequestId,
+                whatsAppAt = r.WhatsAppAt,
                 templateName = names.TryGetValue(r.TemplateId, out var nm) ? nm : null,
                 vars = r.VarsJson,
                 message = Render(texts.TryGetValue(r.TemplateId, out var tx) ? tx.Text : null, r.VarsJson),
@@ -283,6 +284,19 @@ public class SmsLogsController : ControllerBase
             t = at.Success ? t.Insert(at.Index, "\n" + item) : t + "\n" + item;
         }
         return Regex.Replace(t, @"\n{3,}", "\n\n").Trim();
+    }
+
+    // POST /api/sms-logs/{id}/whatsapp          tick: sent on WhatsApp
+    // POST /api/sms-logs/{id}/whatsapp?undo=true  take the tick off
+    [HttpPost("{id:long}/whatsapp")]
+    public async Task<IActionResult> MarkWhatsApp(long id, [FromQuery] bool undo = false)
+    {
+        var row = await _db.SmsLogs.FirstOrDefaultAsync(x => x.Id == id);
+        if (row is null) return NotFound(new { success = false, message = "That log is gone." });
+        if (undo) row.WhatsAppAt = null;
+        else row.WhatsAppAt ??= DateTimeOffset.UtcNow;
+        await _db.SaveChangesAsync();
+        return Ok(new { success = true, whatsAppAt = row.WhatsAppAt });
     }
 
     public record DeleteRequest(List<long>? Ids, DateTime? OlderThan);
