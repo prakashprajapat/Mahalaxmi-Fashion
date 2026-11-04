@@ -332,6 +332,43 @@ public class ShiprocketService
     }
 
     /// <summary>
+    /// Shiprocket's status words, put into the words the rest of the shop
+    /// already reads from Delhivery - so the same sweep, the same dashboard
+    /// boxes (Out for delivery, Failed delivery) and the same customer SMS work
+    /// for both couriers:
+    ///   Status   "In Transit" / "Delivered" / "Not Picked" / "RTO ..." / "Cancelled"
+    ///   note     the event: "Out for delivery ...", "Delivery attempted - <reason>" ...
+    /// </summary>
+    public static (string Status, string Type, string Note) Translate(string current, string lastScan)
+    {
+        var up = current.Trim().ToUpperInvariant();
+        var scan = lastScan.Trim();
+        string Note(string head) => scan.Length > 0 && !scan.Contains(head, StringComparison.OrdinalIgnoreCase) ? $"{head} - {scan}" : (scan.Length > 0 ? scan : head);
+
+        if (up.Contains("RTO") || up.Contains("RETURN"))
+            return up.Contains("DELIVERED") ? ("RTO - Returned", "RT", Note("RETURN Accepted"))
+                                            : ("RTO In Transit", "RT", Note("Out for Return"));
+        if (up.Contains("CANCEL")) return ("Cancelled", "CN", Note("Cancelled"));
+        if (up == "DELIVERED" || (up.Contains("DELIVERED") && !up.Contains("UNDELIVERED")))
+            return ("Delivered", "DL", Note("Delivered"));
+        if (up.Contains("OUT FOR DELIVERY"))
+            return ("In Transit", "UD", Note("Out for delivery"));
+        // Shiprocket's NDR: an attempt that did not deliver. Said in the words
+        // the Failed delivery box looks for.
+        if (up.Contains("UNDELIVERED") || up.Contains("NDR") || up.Contains("FAILED"))
+            return ("In Transit", "UD", Note("Delivery attempted"));
+        if (up.Contains("PICKUP") || up.Contains("MANIFEST") || up.Contains("AWB ASSIGNED") || up.Contains("NEW") || up.Contains("READY TO SHIP"))
+        {
+            // "PICKED UP" is the parcel moving; everything else here is before it.
+            if (up.Contains("PICKED UP")) return ("In Transit", "UD", Note("Picked up"));
+            return ("Not Picked", "UD", Note(System.Globalization.CultureInfo.InvariantCulture.TextInfo.ToTitleCase(current.ToLowerInvariant())));
+        }
+        if (up.Contains("LOST") || up.Contains("DAMAGED") || up.Contains("DESTROYED"))
+            return ("In Transit", "UD", Note("On hold - " + current));
+        return ("In Transit", "UD", Note(System.Globalization.CultureInfo.InvariantCulture.TextInfo.ToTitleCase(current.ToLowerInvariant())));
+    }
+
+    /// <summary>
     /// Tracking for Shiprocket waybills, in the same shape the Delhivery sweep
     /// reads, so one sweep handles both: "In Transit", "Delivered", and the
     /// return leg as "RTO ..." (status type RT) so IsReturnLeg / IsBackWithUs work.
@@ -364,12 +401,8 @@ public class ShiprocketService
                              + (a0.TryGetProperty("activity", out var ac) ? " " + ac.ToString() : "");
                 }
                 if (string.IsNullOrWhiteSpace(cur)) continue;
-                var up = cur.ToUpperInvariant();
-                var returning = up.Contains("RTO") || up.Contains("RETURN");
-                var status = returning
-                    ? (up.Contains("DELIVERED") ? "RTO - Returned" : "RTO In Transit")
-                    : System.Globalization.CultureInfo.InvariantCulture.TextInfo.ToTitleCase(cur.ToLowerInvariant());
-                result[awb] = new DelhiveryService.TrackLine(status, eta, returning ? "RT" : "", cur, lastScan.Trim());
+                var (status, type, note) = Translate(cur, lastScan.Trim());
+                result[awb] = new DelhiveryService.TrackLine(status, eta, type, note, note);
             }
             catch { }
         }
