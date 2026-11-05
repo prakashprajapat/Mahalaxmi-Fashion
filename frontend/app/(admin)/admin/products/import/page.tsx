@@ -154,7 +154,14 @@ export default function ImportProductsPage() {
 
       // Shrink it here rather than on the server: a supplier's photo is often
       // 3000px wide, and nothing on the site shows more than 1080.
-      const blob = await (await fetch(body.dataUrl)).blob();
+      // Decoded by hand: fetch() of a data: URL is refused by the site's
+      // Content-Security-Policy, which is why no imported product got a photo.
+      const [head, b64] = String(body.dataUrl).split(',', 2);
+      const mime = /data:([^;]+)/.exec(head)?.[1] || 'image/jpeg';
+      const bin = atob(b64 ?? '');
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      const blob = new Blob([bytes], { type: mime });
       const file = new File([blob], 'photo', { type: blob.type || 'image/jpeg' });
       const small = await compressImage(file);
       return await new Promise<string>((resolve, reject) => {
@@ -202,6 +209,11 @@ export default function ImportProductsPage() {
           if (got) gallery.push(got);
         }
 
+        // No SKU in the file: the next shop SKU (MFH1321, MFH1322...), the
+        // same number the Add Product screen would give.
+        if (!item.sku && !item.existingId) {
+          try { item.sku = (await productsApi.nextSku(token)).sku || ''; } catch { /* the server gives one */ }
+        }
         const payload = toApiProduct(item, main ?? '', gallery);
         const res: any = await productsApi.bulkSave([payload], token);
 

@@ -456,7 +456,7 @@ export function buildProducts(
     return col ? (r[col] ?? '').trim() : '';
   };
 
-  return rows.map(r => {
+  const list = rows.map(r => {
     const supplierPrice = parseMoney(take(r, 'price'));
     const mrp = parseMoney(take(r, 'mrp'));
     const price = applyMargin(supplierPrice, rule);
@@ -490,6 +490,38 @@ export function buildProducts(
       existingName: match?.name,
     };
   }).filter(p => p.name || p.sku);          // a wholly empty row is not a product
+
+  return mergeSameProduct(list);
+}
+
+// One product, many rows. Supplier files (Meesho, Shopify) give a row per size
+// or colour; rows with the same name and description are one product on this
+// site, so their sizes, colours and photos are put together under one SKU.
+function mergeSameProduct(list: BuiltProduct[]): BuiltProduct[] {
+  const out: BuiltProduct[] = [];
+  const byKey = new Map<string, BuiltProduct>();
+  const add = (into: string[], more: string[]) => {
+    for (const v of more) if (!into.some(x => x.toLowerCase() === v.toLowerCase())) into.push(v);
+  };
+  for (const p of list) {
+    const key = p.name ? `${p.name.trim().toLowerCase()}|${p.description.trim().toLowerCase()}` : '';
+    const first = key ? byKey.get(key) : undefined;
+    if (!first) {
+      const copy = { ...p, images: [...p.images], sizes: [...p.sizes], colours: [...p.colours] };
+      out.push(copy);
+      if (key) byKey.set(key, copy);
+      continue;
+    }
+    add(first.sizes, p.sizes);
+    add(first.colours, p.colours);
+    add(first.images, p.images);
+    if (!first.image && p.image) first.image = p.image;
+    if (!first.sku && p.sku) { first.sku = p.sku; first.existingId = p.existingId; first.existingName = p.existingName; }
+    if (!first.existingId && p.existingId) { first.existingId = p.existingId; first.existingName = p.existingName; }
+    if (first.stock !== 'In Stock' && p.stock === 'In Stock') first.stock = 'In Stock';
+    if (!first.fabric && p.fabric) first.fabric = p.fabric;
+  }
+  return out;
 }
 
 /** What the page sends to POST /api/products, which already knows how to upsert. */
@@ -498,7 +530,9 @@ export function toApiProduct(p: BuiltProduct, imageValue: string, galleryValues:
     dbId: p.existingId ?? null,
     sku: p.sku || null,
     name: p.name,
-    category: p.category,
+    // "Men", as the Add / Edit screens write it - a lower-case "men" showed as
+    // "Women" in the Edit screen's dropdown.
+    category: p.category ? p.category.charAt(0).toUpperCase() + p.category.slice(1).toLowerCase() : p.category,
     subcategory: p.subcategory,
     price: p.price,
     discountPrice: null,
