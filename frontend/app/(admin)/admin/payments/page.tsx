@@ -66,7 +66,7 @@ const money = (n: number) => `₹${Number(n || 0).toLocaleString('en-IN')}`;
 const when = (s: string | null) => {
   if (!s) return '—';
   const d = new Date(s);
-  return `${d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}, ${d.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' })}`;
+  return `${d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}, ${d.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' })}`;
 };
 
 export default function AdminPaymentsPage() {

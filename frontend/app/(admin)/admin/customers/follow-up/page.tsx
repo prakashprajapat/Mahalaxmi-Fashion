@@ -23,6 +23,7 @@ interface Row {
   // review
   reviewed?: boolean; rating?: number | null; reviewStatus?: string | null; smsCount?: number; smsLast?: string | null;
   // dropped
+  itemLinks?: string[];
   cfStatus?: string | null; smsAt?: string | null; smsStatus?: string | null; whatsAppAt?: string | null; boughtOrder?: string | null;
   // login
   email?: string | null; attempts?: number; reason?: string | null; method?: string | null; platform?: string | null; device?: string | null;
@@ -53,7 +54,8 @@ function waText(kind: Kind, r: Row, log?: SmsLogLite): string {
       'Dear Customer,', '',
       'Your payment for the following order at Mahalaxmi Fashion Hub was not completed.', '',
       `Order ID: ${r.refId}`,
-      r.items.length ? `Item Details : ${r.items.join(', ')}` : '',
+      r.when ? `Transaction Date: ${new Date(r.when).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}` : '',
+      r.itemLinks?.length ? `Item Details : ${r.itemLinks.join('\n')}` : r.items.length ? `Item Details : ${r.items.join(', ')}` : '',
       `Order Amount: ${Math.round(r.amount)}`, '',
       'You can visit our website to complete your purchase.', '',
       `Website: ${SITE.replace('https://', '')}`, '',
@@ -139,7 +141,7 @@ const STAGE: Record<Stage, { label: string; tone: 'red' | 'amber' | 'green' | 'g
 const auth = () => ({ Authorization: `Bearer ${getAdminToken() ?? ''}` });
 function when(raw?: string | null) {
   if (!raw) return '';
-  return new Date(raw).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+  return new Date(raw).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 const money = (n: number) => '₹' + Math.round(Number(n) || 0).toLocaleString('en-IN');
 // datetime-local wants local time without a zone.

@@ -88,6 +88,47 @@ public class FollowUpsController : ControllerBase
         return null;
     }
 
+    private static string Slug(string name)
+    {
+        var s = System.Text.RegularExpressions.Regex.Replace(name.ToLowerInvariant().Normalize(System.Text.NormalizationForm.FormKD), "[^a-z0-9]+", "-").Trim('-');
+        if (s.Length > 60) s = s[..60].TrimEnd('-');
+        return s;
+    }
+
+    private static List<string> Skus(string? cartJson)
+    {
+        var list = new List<string>();
+        if (string.IsNullOrWhiteSpace(cartJson)) return list;
+        try
+        {
+            using var doc = JsonDocument.Parse(cartJson);
+            if (doc.RootElement.ValueKind != JsonValueKind.Array) return list;
+            foreach (var line in doc.RootElement.EnumerateArray())
+                if (line.ValueKind == JsonValueKind.Object)
+                    foreach (var p in line.EnumerateObject())
+                        if (p.Name.Equals("sku", StringComparison.OrdinalIgnoreCase) && p.Value.ValueKind == JsonValueKind.String
+                            && !string.IsNullOrWhiteSpace(p.Value.GetString()))
+                            list.Add(p.Value.GetString()!.Trim());
+        }
+        catch { }
+        return list;
+    }
+
+    /// SKU (lower case) -> product page link, the same link SMS Logs puts in WhatsApp.
+    private async Task<Dictionary<string, string>> LinksAsync(IEnumerable<string> skus)
+    {
+        var all = skus.Select(s => s.ToLower()).Distinct().ToList();
+        if (all.Count == 0) return new();
+        var products = await _db.Products.AsNoTracking().Where(p => p.Sku != null && all.Contains(p.Sku.ToLower()))
+            .Select(p => new { p.Id, p.Name, p.Sku }).ToListAsync();
+        return products.GroupBy(p => p.Sku!.ToLowerInvariant()).ToDictionary(g => g.Key, g =>
+        {
+            var p = g.First();
+            var sl = Slug(p.Name);
+            return $"https://www.mahalaxmifashionhub.com/products/{(sl.Length > 0 ? sl + "-" : "")}{p.Id}";
+        });
+    }
+
     private record NoteSum(string? Outcome, string? Note, DateTimeOffset? At, string? By, DateTimeOffset? CallbackAt, int Count, DateTimeOffset? WaAt);
 
     private async Task<Dictionary<string, NoteSum>> NotesForAsync(string kind, List<string> ids)
@@ -217,6 +258,7 @@ public class FollowUpsController : ControllerBase
             .Where(o => o.Phone.Length == 10)
             .ToList();
         var notes = await NotesForAsync("dropped", ids);
+        var links = await LinksAsync(checkouts.SelectMany(c => Skus(c.CartJson)));
 
         var rows = checkouts.Select(c =>
         {
@@ -232,6 +274,8 @@ public class FollowUpsController : ControllerBase
                 refId = c.LocalOrderId, when = c.CreatedAt, name, phone,
                 amount = c.FullTotal > 0 ? c.FullTotal : c.AmountPaise / 100m,
                 items = Items(c.CartJson), cfStatus = c.CfStatus,
+                itemLinks = Skus(c.CartJson).Select(s => links.TryGetValue(s.ToLowerInvariant(), out var u) ? u : null)
+                    .Where(u => u != null).Select(u => u!).Distinct().ToList(),
                 smsAt = s?.SentAt, smsStatus = s?.Status,
                 whatsAppAt = wa.TryGetValue(c.LocalOrderId, out var w) ? w : (DateTimeOffset?)null,
                 boughtOrder = bought,
