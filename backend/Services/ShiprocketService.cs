@@ -311,15 +311,25 @@ public class ShiprocketService
             }
             if (string.IsNullOrWhiteSpace(edd) && td.TryGetProperty("etd", out var etd) && etd.ValueKind != JsonValueKind.Null)
                 edd = etd.ToString();
+            // Shown the way Delhivery's are: oldest first (the screen turns
+            // them round), in plain words that land under the right step
+            // (Picked Up / On the Way / Out for Delivery / Delivered), each
+            // event once, and no "NA" for a place nobody recorded.
             var scans = new List<DelhiveryService.TrackScan>();
+            var seen = new HashSet<string>();
             if (td.TryGetProperty("shipment_track_activities", out var acts) && acts.ValueKind == JsonValueKind.Array)
                 foreach (var a in acts.EnumerateArray())
-                    scans.Add(new DelhiveryService.TrackScan(
-                        a.TryGetProperty("date", out var dt) ? dt.ToString() : "",
-                        a.TryGetProperty("location", out var lo) ? lo.ToString() : "",
-                        (a.TryGetProperty("activity", out var ac) ? ac.ToString() : "")
-                            .Trim(),
-                        a.TryGetProperty("sr-status-label", out var lb) ? lb.ToString() : ""));
+                {
+                    var when = a.TryGetProperty("date", out var dt) ? dt.ToString() : "";
+                    var where = a.TryGetProperty("location", out var lo) ? lo.ToString().Trim() : "";
+                    if (where.Equals("NA", StringComparison.OrdinalIgnoreCase) || where == "-") where = "";
+                    var act = (a.TryGetProperty("activity", out var ac) ? ac.ToString() : "").Trim();
+                    var label = a.TryGetProperty("sr-status-label", out var lb) ? lb.ToString().Trim() : "";
+                    var (remark, back) = Readable(act, label);
+                    if (remark.Length == 0 || !seen.Add(remark + "|" + when + "|" + where)) continue;
+                    scans.Add(new DelhiveryService.TrackScan(when, where, remark, back ? "RT" : ""));
+                }
+            scans.Reverse();
             if (string.IsNullOrWhiteSpace(status) && scans.Count == 0)
             {
                 // Booked, not yet picked up: Shiprocket has nothing to say yet.
@@ -329,6 +339,48 @@ public class ShiprocketService
             return new DelhiveryService.TrackDetail(true, title, edd, scans);
         }
         catch { return none; }
+    }
+
+    /// One Shiprocket / Amazon scan in the words Delhivery uses, so the Live
+    /// Tracking box puts it under the right step. Returns (words, is return leg).
+    private static (string Remark, bool Back) Readable(string activity, string label)
+    {
+        var raw = activity.Trim();
+        // "ArrivedAtCarrierFacility" -> "Arrived At Carrier Facility"
+        var spaced = System.Text.RegularExpressions.Regex.Replace(raw, "(?<=[a-z])(?=[A-Z])", " ").Trim();
+        var k = new string(raw.Where(char.IsLetter).ToArray()).ToLowerInvariant();
+        var l = label.ToUpperInvariant();
+        bool back = k.Contains("rto") || k.Contains("return") || l.Contains("RTO") || l.Contains("RETURN");
+
+        string? known = k switch
+        {
+            "readyforreceive" or "readyforpickup" or "pickupscheduled" or "pickupgenerated" => "Ready for pickup",
+            "pickupdone" or "pickedup" or "shipmentpickedup" => "Picked up from the shop",
+            "arrivedatcarrierfacility" or "arrivedatfacility" or "received" or "receivedatfacility" => "Received at facility",
+            "departed" or "departedfromfacility" or "intransit" => "In transit - left the facility",
+            "outfordelivery" => "Out for delivery",
+            "delivered" => "Delivered",
+            "deliveryattempted" or "undeliverable" or "deliveryfailed" or "customerunavailable" => "Out for delivery - attempt failed (undelivered)",
+            _ => null,
+        };
+        if (known is null)
+        {
+            // Unknown code: its own words, plus Shiprocket's step label when
+            // that is what says where it belongs ("IN TRANSIT", "PICKED UP").
+            known = spaced.Length > 0 ? spaced : label;
+            var step = l switch
+            {
+                var x when x.Contains("OUT FOR DELIVERY") => "Out for delivery",
+                var x when x.Contains("UNDELIVERED") || x.Contains("NDR") => "Out for delivery - attempt failed (undelivered)",
+                var x when x.Contains("DELIVERED") => "Delivered",
+                var x when x.Contains("TRANSIT") || x.Contains("REACHED") => "In transit",
+                var x when x.Contains("PICKED") => "Picked up",
+                _ => "",
+            };
+            if (step.Length > 0 && !known.Contains(step, StringComparison.OrdinalIgnoreCase)) known = $"{known} ({step})";
+        }
+        if (back && !known.Contains("return", StringComparison.OrdinalIgnoreCase)) known = "Return - " + known;
+        return (known, back);
     }
 
     /// <summary>
