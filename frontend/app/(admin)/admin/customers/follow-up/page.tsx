@@ -156,7 +156,7 @@ export default function FollowUpPage() {
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [stage, setStage] = useState<'all' | Stage>('todo');
+  const [stage, setStage] = useState<'all' | Stage>('all');
   const [q, setQ] = useState('');
 
   const [open, setOpen] = useState<Row | null>(null);
@@ -325,7 +325,7 @@ export default function FollowUpPage() {
         </>}
       />
 
-      <Chips value={kind} onChange={k => { setKind(k as Kind); setStage('todo'); setDays(DEFAULT_DAYS[k as Kind]); }}
+      <Chips value={kind} onChange={k => { setKind(k as Kind); setStage('all'); setDays(DEFAULT_DAYS[k as Kind]); }}
              items={[{ key: 'review', label: 'Review calls' }, { key: 'dropped', label: 'Payment not completed (USER_DROPPED2)' },
                      { key: 'login', label: 'Login failed' }]} />
 
@@ -339,11 +339,11 @@ export default function FollowUpPage() {
       <Card>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center', marginBottom: 10 }}>
           <Chips value={stage} onChange={k => setStage(k as 'all' | Stage)} items={[
+            { key: 'all', label: 'All', count: counts.all },
             { key: 'todo', label: 'To call', count: counts.todo },
             { key: 'callback', label: 'Call back', count: counts.callback },
             { key: 'called', label: 'Called', count: counts.called },
             { key: 'done', label: 'Done', count: counts.done },
-            { key: 'all', label: 'All', count: counts.all },
           ]} />
           <input className="adm-input" value={q} onChange={e => setQ(e.target.value)} placeholder={kind === 'login' ? 'Name, mobile or email' : 'Name, mobile or order id'} style={{ flex: 1, minWidth: 180 }} />
           <select className="adm-input" value={days} onChange={e => setDays(Number(e.target.value))} style={{ width: 150 }}>
