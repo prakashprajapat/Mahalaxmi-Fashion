@@ -166,9 +166,10 @@ public class CustomersController : ControllerBase
     [RequirePerm("customers","campaigns")]
     public async Task<IActionResult> GetPhones([FromQuery] bool optedInOnly = false)
     {
-        var query = _db.Customers.AsQueryable();
-        if (optedInOnly)
-            query = query.Where(c => c.MarketingConsent);
+        // Marketing numbers are only ever the customers who said yes (DPDP:
+        // promotions need consent, and switching it off must stop them). The
+        // optedInOnly flag is kept for old callers but no longer widens it.
+        var query = _db.Customers.Where(c => c.MarketingConsent);
 
         var raw = await query
             .Where(c => c.Phone != null && c.Phone != "")
@@ -200,8 +201,8 @@ public class CustomersController : ControllerBase
         if (string.IsNullOrWhiteSpace(req.TemplateId))
             return BadRequest(new { success = false, message = "DLT-approved template ID is required." });
 
-        var query = _db.Customers.AsQueryable();
-        if (req.OptedInOnly) query = query.Where(c => c.MarketingConsent);
+        // Promotional SMS only to customers who agreed (DPDP consent / opt-out).
+        var query = _db.Customers.Where(c => c.MarketingConsent);
 
         var raw = await query.Where(c => c.Phone != null && c.Phone != "").Select(c => c.Phone!).ToListAsync();
         var phones = raw

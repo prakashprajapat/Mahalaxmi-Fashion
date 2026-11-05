@@ -7,7 +7,8 @@ import { PageHeader, Card, Stat, StatGrid } from '@/components/admin/Ui';
 export default function BulkCampaignsPage() {
   const [downloading, setDownloading] = useState(false);
   const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
-  const [onlyConsent, setOnlyConsent] = useState(true);
+  // Always opted-in only (DPDP: promotions need the customer's consent).
+  const onlyConsent = true;
   const [templateId, setTemplateId] = useState('');
   const [var1, setVar1] = useState('');
   const [var2, setVar2] = useState('');
@@ -69,9 +70,7 @@ export default function BulkCampaignsPage() {
       />
 
       <StatGrid cols={3}>
-        <Stat label="Sending to" value={onlyConsent ? 'Opted in only' : 'Everyone'}
-              action={onlyConsent ? 'Switch to everyone' : 'Switch to opted in only'}
-              onClick={() => setOnlyConsent(v => !v)} />
+        <Stat label="Sending to" value="Opted in only" />
         <Stat label="Numbers in that group" value={audience ? audience.count : '—'}
               action={audience ? undefined : 'Check with the download'} />
         <Stat label="Customers in total" value={audience ? audience.total : '—'} />
@@ -79,11 +78,10 @@ export default function BulkCampaignsPage() {
 
       <Card title="Who it goes to">
         <label style={{ display: 'flex', alignItems: 'flex-start', gap: '.5rem', fontSize: '.86rem', color: '#463d38', cursor: 'pointer', lineHeight: 1.5 }}>
-          <input type="checkbox" checked={onlyConsent} onChange={e => setOnlyConsent(e.target.checked)} style={{ marginTop: '.2rem' }} />
           <span>
-            <strong>Only customers who opted in to marketing.</strong> Leave this ticked for anything
-            promotional — a customer who never agreed to messages can report them, and reported numbers get the
-            whole sender blocked, not just that message.
+            <strong>Only customers who opted in to marketing.</strong> Promotional messages go only to customers
+            who agreed to them, and stop the moment a customer switches them off in My Account &rarr; Marketing
+            Preferences (DPDP Act). Order, delivery and OTP messages are not affected.
           </span>
         </label>
         <div style={{ display: 'flex', gap: '.6rem', alignItems: 'center', flexWrap: 'wrap', marginTop: '.8rem' }}>

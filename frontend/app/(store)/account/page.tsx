@@ -161,7 +161,7 @@ function AccountContent() {
               { href: '/account/address',    label: 'My Address' },
               { href: '/account/edit',       label: 'Edit Profile' },
               { href: '/account/pan',        label: 'PAN Card' },
-              { href: '/account/newsletter', label: 'Newsletter' },
+              { href: '/account/newsletter', label: 'Marketing Preferences' },
               { href: '/account/saved-cards',label: 'Saved Cards' },
               { href: '/account/downloads',  label: 'Downloads' },
               { href: '/reviews',            label: 'My Reviews' },

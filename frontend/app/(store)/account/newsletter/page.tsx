@@ -44,16 +44,16 @@ export default function NewsletterPage() {
     <>
       <section className="page-hero">
         <p className="eyebrow">My Account</p>
-        <h1>Newsletter Preferences</h1>
-        <p>Manage your email subscription and marketing preferences.</p>
+        <h1>Marketing Preferences</h1>
+        <p>Choose whether we may send you offers by SMS, WhatsApp and email.</p>
       </section>
 
       <main className="account-shell" style={{ display: 'block' }}>
         <section>
           <div className="form-card">
-            <h2>Email & Marketing Preferences</h2>
+            <h2>SMS, WhatsApp & Email Offers</h2>
             <p style={{ color: '#666', fontSize: '.9rem', marginBottom: '1.5rem' }}>
-              Choose whether you want to receive emails about new arrivals, offers, and updates from Mahalaxmi Fashion Hub.
+              Tick to receive new arrivals and offers from Mahalaxmi Fashion Hub. Untick and save to stop all promotional SMS, WhatsApp and email messages. Order, delivery and OTP messages still come, because they are needed for your orders.
             </p>
 
             <div style={{ background: consent ? '#e8f5e9' : '#f9f9f9', borderRadius: '12px', padding: '1.25rem', border: `1.5px solid ${consent ? '#c8e6c9' : '#eee'}`, marginBottom: '1.5rem' }}>
@@ -61,9 +61,9 @@ export default function NewsletterPage() {
                 <input type="checkbox" checked={consent} onChange={e => setConsent(e.target.checked)}
                   style={{ width: '18px', height: '18px', marginTop: '2px', flexShrink: 0, accentColor: '#722f37' }} />
                 <div>
-                  <p style={{ fontWeight: 700, marginBottom: '.25rem' }}>Subscribe to Newsletter & Offers</p>
+                  <p style={{ fontWeight: 700, marginBottom: '.25rem' }}>Send me offers by SMS, WhatsApp and email</p>
                   <p style={{ fontSize: '.85rem', color: '#666' }}>
-                    Receive updates about new saree collections, seasonal offers, festive discounts, and exclusive deals via email and WhatsApp.
+                    New collections, seasonal offers and festive discounts. You can switch this off here at any time.
                   </p>
                 </div>
               </label>
