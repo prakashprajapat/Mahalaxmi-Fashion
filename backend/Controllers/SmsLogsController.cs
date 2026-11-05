@@ -314,6 +314,9 @@ public class SmsLogsController : ControllerBase
         else if (req.OlderThan is { } before)
         {
             var cut = new DateTimeOffset(DateTime.SpecifyKind(before.Date, DateTimeKind.Unspecified), TimeSpan.FromHours(5.5)).ToUniversalTime();
+            // The last 12 months always stay (DPDP Rules 2025: logs >= 1 year).
+            var keep = DateTimeOffset.UtcNow.AddDays(-366);
+            if (cut > keep) cut = keep;
             n = await _db.SmsLogs.Where(x => x.SentAt < cut).ExecuteDeleteAsync();
         }
         else return BadRequest(new { success = false, message = "Nothing selected to delete." });

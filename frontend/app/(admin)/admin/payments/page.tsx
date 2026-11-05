@@ -292,7 +292,7 @@ export default function AdminPaymentsPage() {
       </Card>
 
       <DeleteOldHistory endpoint="/api/cashfree/payments/delete-old" what="unpaid checkouts"
-        keepNote="Only checkouts that were never paid and never became an order are deleted. Paid ones and the last 7 days always stay."
+        keepNote="Only checkouts that were never paid and never became an order are deleted. Paid ones and the last 12 months always stay (DPDP Rules: records kept at least one year)."
         onDone={() => load(1)} />
 
       {s && (

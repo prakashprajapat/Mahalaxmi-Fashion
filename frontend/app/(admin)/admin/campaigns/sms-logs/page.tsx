@@ -209,7 +209,7 @@ export default function SmsLogsPage() {
               </button>
               <span style={{ flex: 1 }} />
               <label style={{ fontSize: 13, color: '#555', display: 'flex', alignItems: 'center', gap: 6 }}>
-                Delete everything before
+                Delete everything before (last 12 months always kept)
                 <input type="date" className="adm-input" value={olderThan} onChange={e => setOlderThan(e.target.value)} />
               </label>
               <button className="adm-btn" style={{ color: '#c0392b' }} disabled={!olderThan}

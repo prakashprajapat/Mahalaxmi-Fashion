@@ -26,10 +26,20 @@ public class AuthService
         if (hash.StartsWith("$2"))
             return BCrypt.Net.BCrypt.Verify(password, hash);
 
-        // Legacy PBKDF2 fallback (if old passwords exist)
-        var derivedKey = PBKDF2Hash(password, salt);
-        return derivedKey == hash;
+        // Legacy PBKDF2 fallback (if old passwords exist). Compared in
+        // constant time; a match is upgraded to bcrypt at login (IsLegacyHash).
+        try
+        {
+            var derivedKey = PBKDF2Hash(password, salt);
+            return System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(
+                System.Text.Encoding.UTF8.GetBytes(derivedKey), System.Text.Encoding.UTF8.GetBytes(hash));
+        }
+        catch { return false; }
     }
+
+    /// An old PBKDF2 hash (10,000 rounds) rather than bcrypt. The login that
+    /// proves the password re-saves it as bcrypt, so these die out by use.
+    public static bool IsLegacyHash(string? hash) => !string.IsNullOrEmpty(hash) && !hash.StartsWith("$2");
 
     private static string PBKDF2Hash(string password, string salt)
     {

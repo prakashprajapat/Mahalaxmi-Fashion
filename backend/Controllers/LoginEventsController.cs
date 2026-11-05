@@ -144,8 +144,9 @@ public class LoginEventsController : ControllerBase
     {
         if (req.Before is not { } before) return BadRequest(new { success = false, message = "Choose a date." });
         var cut = new DateTimeOffset(DateTime.SpecifyKind(before.Date, DateTimeKind.Unspecified), TimeSpan.FromHours(5.5)).ToUniversalTime();
-        // Today and yesterday stay: Follow-up Calls is working from them.
-        var keep = DateTimeOffset.UtcNow.AddDays(-2);
+        // The last 12 months always stay: the DPDP Rules 2025 ask for logs of
+        // personal-data processing to be kept at least one year.
+        var keep = DateTimeOffset.UtcNow.AddDays(-366);
         if (cut > keep) cut = keep;
         var n = await _db.LoginEvents.Where(e => e.CreatedAt < cut).ExecuteDeleteAsync();
         return Ok(new { success = true, deleted = n });

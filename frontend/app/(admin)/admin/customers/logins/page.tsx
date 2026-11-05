@@ -128,7 +128,7 @@ function LoginsInner() {
       />
 
       <DeleteOldHistory endpoint="/api/login-events/delete-old" what="login records"
-        keepNote="Customer and staff logins before the date are deleted. Today and yesterday always stay." onDone={load} />
+        keepNote="Customer and staff logins before the date are deleted. The last 12 months always stay (DPDP Rules: logs kept at least one year)." onDone={load} />
 
       <StatGrid cols={4}>
         <Stat label="Logins today" value={summary?.today ?? '-'} />

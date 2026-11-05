@@ -893,7 +893,8 @@ public class CashfreeController : ControllerBase
     {
         if (req.Before is not { } before) return BadRequest(new { success = false, message = "Choose a date." });
         var cut = new DateTimeOffset(DateTime.SpecifyKind(before.Date, DateTimeKind.Unspecified), TimeSpan.FromHours(5.5)).ToUniversalTime();
-        var keep = DateTimeOffset.UtcNow.AddDays(-7);
+        // At least a year kept (DPDP Rules 2025: processing records >= 1 year).
+        var keep = DateTimeOffset.UtcNow.AddDays(-366);
         if (cut > keep) cut = keep;
         var n = await _db.CashfreeOrders
             .Where(c => c.CreatedAt < cut && c.PaidAt == null && c.Status != "paid"

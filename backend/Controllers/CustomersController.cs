@@ -1034,6 +1034,16 @@ public class CustomersController : ControllerBase
         // guesses short of a lockout.
         _limit.Forget(limitKey);
 
+        // An old PBKDF2 password is re-saved as bcrypt (slow hash, own salt)
+        // now that we have the plain password in hand for this one moment.
+        if (AuthService.IsLegacyHash(customer.PasswordHash))
+        {
+            var (bHash, bSalt) = _auth.HashPassword(req.Password);
+            customer.PasswordHash = bHash;
+            customer.PasswordSalt = bSalt;
+            await _db.SaveChangesAsync();
+        }
+
         LoginLogService.SetMethod(HttpContext, "password");
         var signIn = await SignInAsync(customer);
         return Ok(new
