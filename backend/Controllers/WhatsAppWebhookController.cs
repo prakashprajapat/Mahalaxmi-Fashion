@@ -125,6 +125,13 @@ public class WhatsAppWebhookController : ControllerBase
     // signed "Interakt-Signature: sha256=<hex HMAC of the body>" with the
     // Secret Key typed into both places. The number goes into Popup Leads
     // exactly as a Meta webhook number would.
+    // GET: opening the link in a browser (or a URL check) says it is alive,
+    // instead of a bare 405. Nothing is read or stored.
+    [HttpGet("interakt")]
+    [AllowAnonymous]
+    public IActionResult InteraktAlive() =>
+        Ok(new { success = true, message = "Interakt webhook is ready. Interakt sends events here with POST." });
+
     [HttpPost("interakt")]
     [AllowAnonymous]
     public async Task<IActionResult> Interakt()
