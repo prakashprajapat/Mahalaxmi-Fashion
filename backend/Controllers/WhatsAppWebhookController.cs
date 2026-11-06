@@ -125,6 +125,19 @@ public class WhatsAppWebhookController : ControllerBase
     // signed "Interakt-Signature: sha256=<hex HMAC of the body>" with the
     // Secret Key typed into both places. The number goes into Popup Leads
     // exactly as a Meta webhook number would.
+    private async Task MarkAsync(string key, string reason)
+    {
+        try
+        {
+            var v = DateTimeOffset.UtcNow.ToString("o") + "|" + reason;
+            var row = await _db.SiteSettings.FirstOrDefaultAsync(x => x.Key == key);
+            if (row is null) _db.SiteSettings.Add(new SiteSetting { Key = key, Value = v });
+            else row.Value = v;
+            await _db.SaveChangesAsync();
+        }
+        catch { /* only a marker */ }
+    }
+
     // GET: opening the link in a browser (or a URL check) says it is alive,
     // instead of a bare 405. Nothing is read or stored.
     [HttpGet("interakt")]
@@ -145,11 +158,18 @@ public class WhatsAppWebhookController : ControllerBase
         if (secret.Length == 0)
         {
             _log.LogWarning("Interakt webhook: no Secret Key in Settings - event ignored.");
+            await MarkAsync("interaktLastReject", "No Secret Key saved in Settings");
             return Ok();
         }
-        if (!Signed(secret, raw, Request.Headers["Interakt-Signature"].ToString()))
+        var sigHeader = Request.Headers["Interakt-Signature"].ToString();
+        if (!Signed(secret, raw, sigHeader))
         {
             _log.LogWarning("Interakt webhook: signature mismatch - rejected.");
+            // Shown on Connect WhatsApp, so a Secret Key that differs between
+            // Interakt and Settings is visible instead of silent.
+            await MarkAsync("interaktLastReject", sigHeader.Length == 0
+                ? "Interakt sent no Interakt-Signature header"
+                : "Secret Key does not match the one in Interakt");
             return Unauthorized();
         }
         // When the last signed event arrived - the Connect page shows it, so

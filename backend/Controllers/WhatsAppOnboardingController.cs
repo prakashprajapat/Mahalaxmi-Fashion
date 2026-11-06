@@ -82,6 +82,7 @@ public class WhatsAppOnboardingController : ControllerBase
             // Interakt route (the number is connected through Interakt).
             interaktSecretSet = (await Setting("interaktWebhookSecret")).Length > 0,
             interaktLastEventAt = await Setting("interaktLastEventAt"),
+            interaktLastReject = await Setting("interaktLastReject"),
             whatsappLeads = await _db.PopupLeads.CountAsync(l => l.Source == "whatsapp"),
         });
     }

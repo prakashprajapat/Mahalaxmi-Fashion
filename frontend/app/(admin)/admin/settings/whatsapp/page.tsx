@@ -11,7 +11,7 @@ interface Cfg {
   appId: string; configId: string; graphVersion: string; secretSet: boolean; verifyTokenSet: boolean;
   wabaId: string; phoneNumberId: string; connectedAt: string; tokenSaved: boolean;
   contactsSyncAt: string; historySyncAt: string;
-  interaktSecretSet?: boolean; interaktLastEventAt?: string; whatsappLeads?: number;
+  interaktSecretSet?: boolean; interaktLastEventAt?: string; interaktLastReject?: string; whatsappLeads?: number;
 }
 type Step = { step: string; ok: boolean; detail?: string };
 
@@ -128,6 +128,10 @@ export default function WhatsAppConnectPage() {
             <div>Last message from Interakt: {cfg.interaktLastEventAt
               ? <Pill tone="green">{when(cfg.interaktLastEventAt)}</Pill>
               : <Pill tone="amber">nothing received yet</Pill>}</div>
+            {cfg.interaktLastReject && (() => {
+              const [at, ...why] = cfg.interaktLastReject.split('|');
+              return <div>Last refused call from Interakt: <Pill tone="red">{when(at)}</Pill> {why.join('|')}</div>;
+            })()}
             <div>WhatsApp leads so far: <b>{cfg.whatsappLeads ?? 0}</b> <a href="/admin/popup-leads" style={{ color: '#2563eb' }}>open Popup Leads</a></div>
             <ol style={{ margin: '.6rem 0 0', paddingLeft: '1.2rem', color: '#444' }}>
               <li>Interakt → Settings → <b>Developer Settings</b> → Webhook URL:{' '}

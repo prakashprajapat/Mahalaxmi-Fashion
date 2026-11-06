@@ -46,7 +46,7 @@ public class SettingsController : ControllerBase
     {
         "admin_email",
         "smsTemplateTexts",
-        "waWebhookVerifyToken", "waAppSecret", "waLeadsEnabled", "interaktWebhookSecret", "interaktLastEventAt", "waNotifyCarts", "waNotifyPayments", "waNotifyAlerts", "waCartReply", "waBusinessToken", "waAppId", "waConfigId",
+        "waWebhookVerifyToken", "waAppSecret", "waLeadsEnabled", "interaktWebhookSecret", "interaktLastEventAt", "interaktLastReject", "waNotifyCarts", "waNotifyPayments", "waNotifyAlerts", "waCartReply", "waBusinessToken", "waAppId", "waConfigId",
         "shiprocketEmail", "shiprocketPassword", "shiprocketToken", "shiprocketTokenAt", "shiprocketPickupLocation",
         "shiprocketPickupPincode", "shiprocketWeightKg",
         "waGraphVersion", "waWabaId", "waPhoneNumberId", "waConnectedAt", "waContactsSyncAt", "waHistorySyncAt",
