@@ -118,6 +118,74 @@ public class WhatsAppWebhookController : ControllerBase
         return Ok();
     }
 
+    // POST /api/whatsapp/interakt
+    // The WhatsApp number is connected through Interakt, so Meta sends its
+    // events to Interakt, not here. Interakt passes each incoming customer
+    // message on (event "message_received", Developer Settings -> Webhook),
+    // signed "Interakt-Signature: sha256=<hex HMAC of the body>" with the
+    // Secret Key typed into both places. The number goes into Popup Leads
+    // exactly as a Meta webhook number would.
+    [HttpPost("interakt")]
+    [AllowAnonymous]
+    public async Task<IActionResult> Interakt()
+    {
+        string raw;
+        using (var reader = new StreamReader(Request.Body, Encoding.UTF8))
+            raw = await reader.ReadToEndAsync();
+        if (raw.Length > 2_000_000) return StatusCode(413);
+
+        var secret = (await Setting("interaktWebhookSecret") ?? "").Trim();
+        if (secret.Length == 0)
+        {
+            _log.LogWarning("Interakt webhook: no Secret Key in Settings - event ignored.");
+            return Ok();
+        }
+        if (!Signed(secret, raw, Request.Headers["Interakt-Signature"].ToString()))
+        {
+            _log.LogWarning("Interakt webhook: signature mismatch - rejected.");
+            return Unauthorized();
+        }
+        if (string.Equals((await Setting("waLeadsEnabled") ?? "").Trim(), "off", StringComparison.OrdinalIgnoreCase))
+            return Ok();
+
+        try
+        {
+            using var doc = JsonDocument.Parse(raw);
+            var root = doc.RootElement;
+            var type = root.TryGetProperty("type", out var t) ? t.GetString() ?? "" : "";
+            // Only a customer writing in is a lead; delivery reports of the
+            // shop's own messages are not someone asking about a product.
+            if (!type.Equals("message_received", StringComparison.OrdinalIgnoreCase)) return Ok();
+            if (!root.TryGetProperty("data", out var data) || !data.TryGetProperty("customer", out var cust)) return Ok();
+
+            var number = cust.TryGetProperty("channel_phone_number", out var cp) ? cp.ToString() : "";
+            if (string.IsNullOrWhiteSpace(number) && cust.TryGetProperty("phone_number", out var pn))
+                number = (cust.TryGetProperty("country_code", out var cc) ? cc.ToString() : "91") + pn.ToString();
+            string? name = null;
+            if (cust.TryGetProperty("traits", out var tr) && tr.ValueKind == JsonValueKind.Object
+                && tr.TryGetProperty("name", out var nm) && nm.ValueKind == JsonValueKind.String)
+                name = nm.GetString()?.Trim();
+            if (string.IsNullOrWhiteSpace(name)) name = null;
+
+            var phone = CustomerKeys.Phone(new string(number.Where(char.IsDigit).ToArray()));
+            if (phone is null) return Ok();
+            // Not the shop's own numbers.
+            var shopPhones = await _db.SiteSettings
+                .Where(x => x.Key.ToLower().Contains("phone") || x.Key.ToLower().Contains("whatsapp"))
+                .Select(x => x.Value).ToListAsync();
+            var ten = phone.Length >= 10 ? phone[^10..] : phone;
+            if (shopPhones.Any(v => new string((v ?? "").Where(char.IsDigit).ToArray()).Contains(ten))) return Ok();
+
+            if (await AddLeadAsync(phone, name))
+                _log.LogInformation("Interakt webhook: new lead {Phone}.", ten);
+        }
+        catch (Exception ex)
+        {
+            _log.LogWarning(ex, "Interakt webhook: could not read the event.");
+        }
+        return Ok();
+    }
+
     /// <summary>
     /// Every customer number in the event, wherever Meta put it: messages[].from,
     /// contacts[].wa_id, statuses[].recipient_id, message echoes' "to" (a reply

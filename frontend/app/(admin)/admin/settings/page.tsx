@@ -100,6 +100,7 @@ const SECTIONS = [
       { key: 'waWebhookVerifyToken', label: 'Webhook Verify Token (choose any secret string — paste the same into Meta)', type: 'text' },
       { key: 'waAppSecret', label: 'Meta App Secret of the WhatsApp app (blank = use the Meta Lead Ads App Secret above)', type: 'password' },
       { key: 'waLeadsEnabled', label: 'Add WhatsApp numbers to Popup Leads — type off to stop; leave blank for on', type: 'text' },
+      { key: 'interaktWebhookSecret', label: 'Interakt webhook Secret Key (Interakt → Settings → Developer Settings → Webhook URL https://www.mahalaxmifashionhub.com/api/whatsapp/interakt, event message_received)', type: 'password' },
       { key: 'waAppId', label: 'WhatsApp Meta App ID (blank = the Facebook App ID above)', type: 'text' },
       { key: 'waConfigId', label: 'Embedded Signup Configuration ID (WhatsApp Business App Onboarding) — then open Settings → Connect WhatsApp', type: 'text' },
     ]
