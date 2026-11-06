@@ -105,6 +105,7 @@ builder.Services.AddScoped<EmailService>();
 builder.Services.AddScoped<SmsService>();
 builder.Services.AddScoped<DelhiveryService>();
 builder.Services.AddScoped<ShiprocketService>();
+builder.Services.AddScoped<InteraktEvents>();
 builder.Services.AddScoped<AdminNotifier>();
 builder.Services.AddScoped<OrderMessenger>();
 builder.Services.AddScoped<WalletService>();
@@ -592,6 +593,56 @@ using (var scope = app.Services.CreateScope())
         );
         CREATE INDEX IF NOT EXISTS idx_followup_ref ON followup_notes (kind, ref_id);
         CREATE INDEX IF NOT EXISTS idx_followup_created ON followup_notes (created_at DESC);
+    ");
+    // WhatsApp through Interakt: every webhook event, template message
+    // statuses, and carts sent from the WhatsApp catalogue.
+    db.Database.ExecuteSqlRaw(@"
+        CREATE TABLE IF NOT EXISTS wa_events (
+            id          BIGSERIAL PRIMARY KEY,
+            type        VARCHAR(60)  NOT NULL DEFAULT '',
+            category    VARCHAR(20)  NOT NULL DEFAULT 'other',
+            phone       VARCHAR(20),
+            ref         VARCHAR(120),
+            status      VARCHAR(60),
+            summary     TEXT,
+            raw         TEXT,
+            created_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS idx_wa_events_cat ON wa_events (category, created_at DESC);
+        CREATE TABLE IF NOT EXISTS wa_messages (
+            id             BIGSERIAL PRIMARY KEY,
+            message_id     VARCHAR(120) NOT NULL,
+            source         VARCHAR(20)  NOT NULL DEFAULT 'api',
+            phone          VARCHAR(20),
+            template       VARCHAR(200),
+            campaign_id    VARCHAR(120),
+            status         VARCHAR(20)  NOT NULL DEFAULT 'Sent',
+            failure_reason VARCHAR(500),
+            sent_at        TIMESTAMPTZ,
+            delivered_at   TIMESTAMPTZ,
+            read_at        TIMESTAMPTZ,
+            clicked_at     TIMESTAMPTZ,
+            failed_at      TIMESTAMPTZ,
+            updated_at     TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS ux_wa_messages_mid ON wa_messages (message_id);
+        CREATE INDEX IF NOT EXISTS idx_wa_messages_updated ON wa_messages (updated_at DESC);
+        CREATE TABLE IF NOT EXISTS wa_carts (
+            id            BIGSERIAL PRIMARY KEY,
+            event_id      BIGINT       NOT NULL DEFAULT 0,
+            phone         VARCHAR(20),
+            name          VARCHAR(200),
+            items_json    TEXT         NOT NULL DEFAULT '[]',
+            total         NUMERIC(12,2) NOT NULL DEFAULT 0,
+            currency      VARCHAR(10),
+            customer_note TEXT,
+            status        VARCHAR(20)  NOT NULL DEFAULT 'new',
+            order_id      VARCHAR(64),
+            note          TEXT,
+            created_at    TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+            updated_at    TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS idx_wa_carts_created ON wa_carts (created_at DESC);
     ");
     db.Database.ExecuteSqlRaw(@"
         ALTER TABLE site_orders ADD COLUMN IF NOT EXISTS shiprocket_order_id VARCHAR(40);

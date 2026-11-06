@@ -48,6 +48,9 @@ public class AppDbContext : DbContext
     public DbSet<LoginEvent> LoginEvents { get; set; }
     public DbSet<SmsLog> SmsLogs { get; set; }
     public DbSet<FollowUpNote> FollowUpNotes { get; set; }
+    public DbSet<WaEvent> WaEvents { get; set; }
+    public DbSet<WaMessage> WaMessages { get; set; }
+    public DbSet<WaCart> WaCarts { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

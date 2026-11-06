@@ -164,14 +164,22 @@ public class WhatsAppWebhookController : ControllerBase
         }
         catch { /* only a marker */ }
 
-        if (string.Equals((await Setting("waLeadsEnabled") ?? "").Trim(), "off", StringComparison.OrdinalIgnoreCase))
-            return Ok();
-
         try
         {
             using var doc = JsonDocument.Parse(raw);
             var root = doc.RootElement;
             var type = root.TryGetProperty("type", out var t) ? t.GetString() ?? "" : "";
+
+            // Every event is kept and read for what it means: message
+            // statuses, WhatsApp carts, payments, account alerts.
+            try
+            {
+                await HttpContext.RequestServices.GetRequiredService<InteraktEvents>().HandleAsync(type, root, raw);
+            }
+            catch (Exception ex) { _log.LogWarning(ex, "Interakt webhook: event {Type} not stored.", type); }
+
+            if (string.Equals((await Setting("waLeadsEnabled") ?? "").Trim(), "off", StringComparison.OrdinalIgnoreCase))
+                return Ok();
             // Only a customer writing in is a lead; delivery reports of the
             // shop's own messages are not someone asking about a product.
             if (!type.Equals("message_received", StringComparison.OrdinalIgnoreCase)) return Ok();

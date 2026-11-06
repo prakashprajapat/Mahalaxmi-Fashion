@@ -45,6 +45,7 @@ const ALL_NAV: { href?: string; label?: string; exact?: boolean; heading?: strin
   { href: '/admin/tracking', label: 'Tracking' },
   { href: '/admin/campaigns',   label: 'Bulk Campaigns' },
   { href: '/admin/campaigns/sms-logs', label: 'SMS Logs (copy to WhatsApp)' },
+  { href: '/admin/campaigns/whatsapp', label: 'WhatsApp Activity (carts, status)' },
   { href: '/admin/notifications', label: 'Push Notifications' },
   { href: '/admin/influencers', label: 'Influencer Marketing' },
   { href: '/admin/coupons',     label: 'Coupons & Discounts' },
