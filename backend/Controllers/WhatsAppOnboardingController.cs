@@ -79,6 +79,10 @@ public class WhatsAppOnboardingController : ControllerBase
             tokenSaved = (await Setting("waBusinessToken")).Length > 0,
             contactsSyncAt = await Setting("waContactsSyncAt"),
             historySyncAt = await Setting("waHistorySyncAt"),
+            // Interakt route (the number is connected through Interakt).
+            interaktSecretSet = (await Setting("interaktWebhookSecret")).Length > 0,
+            interaktLastEventAt = await Setting("interaktLastEventAt"),
+            whatsappLeads = await _db.PopupLeads.CountAsync(l => l.Source == "whatsapp"),
         });
     }
 

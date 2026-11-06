@@ -11,6 +11,7 @@ interface Cfg {
   appId: string; configId: string; graphVersion: string; secretSet: boolean; verifyTokenSet: boolean;
   wabaId: string; phoneNumberId: string; connectedAt: string; tokenSaved: boolean;
   contactsSyncAt: string; historySyncAt: string;
+  interaktSecretSet?: boolean; interaktLastEventAt?: string; whatsappLeads?: number;
 }
 type Step = { step: string; ok: boolean; detail?: string };
 
@@ -117,7 +118,32 @@ export default function WhatsAppConnectPage() {
   return (
     <div className="admin-page">
       <PageHeader title="Connect WhatsApp (keep using the app)"
-                  sub="Link your WhatsApp Business app number to Meta's Cloud API without removing it from your phone. Every chat number then becomes a Popup Lead." />
+                  sub="Every number that messages your WhatsApp becomes a Popup Lead. Your number +91 94294 29880 is connected through Interakt." />
+
+      <Card title="Through Interakt (in use)">
+        {!cfg ? 'Loading…' : (
+          <div style={{ fontSize: 14, lineHeight: 1.9 }}>
+            <div>Number: <Pill tone="green">Connected in Interakt</Pill> +91 94294 29880</div>
+            <div>Secret Key in Settings: {cfg.interaktSecretSet ? <Pill tone="green">saved</Pill> : <Pill tone="red">missing</Pill>}</div>
+            <div>Last message from Interakt: {cfg.interaktLastEventAt
+              ? <Pill tone="green">{when(cfg.interaktLastEventAt)}</Pill>
+              : <Pill tone="amber">nothing received yet</Pill>}</div>
+            <div>WhatsApp leads so far: <b>{cfg.whatsappLeads ?? 0}</b> <a href="/admin/popup-leads" style={{ color: '#2563eb' }}>open Popup Leads</a></div>
+            <ol style={{ margin: '.6rem 0 0', paddingLeft: '1.2rem', color: '#444' }}>
+              <li>Interakt → Settings → <b>Developer Settings</b> → Webhook URL:{' '}
+                <code>https://www.mahalaxmifashionhub.com/api/whatsapp/interakt</code></li>
+              <li>Secret Key: the same one saved in Settings → &ldquo;WhatsApp auto leads&rdquo;.</li>
+              <li>Tick the event <b>message_received</b> (Interakt offers it on its Advanced / Enterprise plans) and save.</li>
+              <li>Send &ldquo;Hi&rdquo; to your number from another phone: the time above changes and the number appears in Popup Leads.</li>
+            </ol>
+          </div>
+        )}
+      </Card>
+
+      <details style={{ margin: '0 0 1rem' }}>
+        <summary style={{ cursor: 'pointer', fontSize: 14, color: '#555', padding: '.4rem 0' }}>
+          Direct Meta connection (not needed while Interakt is used)
+        </summary>
 
       <Card title="Before you press Connect (on Meta)">
         <ol style={{ fontSize: 14, lineHeight: 1.8, margin: 0, paddingLeft: '1.2rem' }}>
@@ -170,6 +196,7 @@ export default function WhatsAppConnectPage() {
           </ul>
         )}
       </Card>
+      </details>
     </div>
   );
 }

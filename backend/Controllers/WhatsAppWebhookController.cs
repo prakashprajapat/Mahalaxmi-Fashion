@@ -152,6 +152,18 @@ public class WhatsAppWebhookController : ControllerBase
             _log.LogWarning("Interakt webhook: signature mismatch - rejected.");
             return Unauthorized();
         }
+        // When the last signed event arrived - the Connect page shows it, so
+        // the owner can see Interakt is really calling.
+        try
+        {
+            var mark = await _db.SiteSettings.FirstOrDefaultAsync(x => x.Key == "interaktLastEventAt");
+            var now = DateTimeOffset.UtcNow.ToString("o");
+            if (mark is null) _db.SiteSettings.Add(new SiteSetting { Key = "interaktLastEventAt", Value = now });
+            else mark.Value = now;
+            await _db.SaveChangesAsync();
+        }
+        catch { /* only a marker */ }
+
         if (string.Equals((await Setting("waLeadsEnabled") ?? "").Trim(), "off", StringComparison.OrdinalIgnoreCase))
             return Ok();
 
