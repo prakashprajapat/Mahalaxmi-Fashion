@@ -50,8 +50,10 @@ export default function AdminFeedbackPage() {
   const [bought, setBought] = useState<Bought[] | null>(null);
   const [pubMsg, setPubMsg] = useState('');
   const [pubBusy, setPubBusy] = useState(false);
+  const [pubText, setPubText] = useState('');
   const openPublish = async (id: number) => {
     setPubFor(id); setBought(null); setPubMsg('');
+    setPubText(rows.find(x => x.id === id)?.message ?? '');
     try {
       const r = await fetch(`/api/feedback/${id}/products`, { headers: { Authorization: `Bearer ${getAdminToken() ?? ''}` } });
       const b = await r.json();
@@ -66,7 +68,7 @@ export default function AdminFeedbackPage() {
       const r = await fetch(`/api/feedback/${id}/to-review`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${getAdminToken() ?? ''}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ productId: it.productId, orderId: it.orderId }),
+        body: JSON.stringify({ productId: it.productId, orderId: it.orderId, body: pubText }),
       });
       const b = await r.json().catch(() => ({}));
       if (!r.ok || !b.success) { setPubMsg(b.message || 'Could not publish.'); return; }
@@ -285,6 +287,14 @@ export default function AdminFeedbackPage() {
 
                 {pubFor === r.id && (
                   <div style={{ margin: '0 0 .6rem', padding: '.6rem .75rem', border: '1px solid #ecdfd8', borderRadius: 8, background: '#fbf7f4' }}>
+                    <div style={{ fontSize: '.8rem', fontWeight: 700, color: '#722f37', marginBottom: '.3rem' }}>
+                      Review text (edit before publishing)
+                    </div>
+                    <textarea className="adm-input" rows={3} value={pubText} onChange={e => setPubText(e.target.value)}
+                      style={{ width: '100%', height: 'auto', padding: '.5rem .7rem', lineHeight: 1.5, fontFamily: 'inherit', resize: 'vertical', marginBottom: '.25rem' }} />
+                    <div style={{ fontSize: '.74rem', color: '#8a7f76', marginBottom: '.6rem' }}>
+                      Fix spelling or tidy the lines, but keep what the customer said. The {rows.find(x => x.id === r.id)?.rating ?? ''}-star rating is the customer&apos;s and stays as given.
+                    </div>
                     <div style={{ fontSize: '.8rem', fontWeight: 700, color: '#722f37', marginBottom: '.4rem' }}>
                       Which product is this review for?
                     </div>

@@ -241,7 +241,7 @@ public class FeedbackController : ControllerBase
         });
     }
 
-    public record ToReviewRequest(int ProductId, string? OrderId);
+    public record ToReviewRequest(int ProductId, string? OrderId, string? Body = null);
 
     // POST /api/feedback/5/to-review  { productId, orderId }
     [HttpPost("{id:int}/to-review")]
@@ -252,7 +252,11 @@ public class FeedbackController : ControllerBase
         var f = await _db.Feedbacks.FirstOrDefaultAsync(x => x.Id == id);
         if (f is null) return NotFound(new { success = false, message = "Not found." });
         if (f.Rating is < 1 or > 5) return BadRequest(new { success = false, message = "This feedback has no star rating, so it cannot be a review." });
-        if (string.IsNullOrWhiteSpace(f.Message)) return BadRequest(new { success = false, message = "The feedback has no words to publish." });
+        // The words may be tidied before publishing (a typo, a line break);
+        // the stars are the customer's and are never changed here.
+        var body = string.IsNullOrWhiteSpace(req.Body) ? (f.Message ?? "").Trim() : req.Body.Trim();
+        if (body.Length > 4000) body = body[..4000];
+        if (body.Length == 0) return BadRequest(new { success = false, message = "The review has no words to publish." });
         var product = await _db.Products.AsNoTracking().FirstOrDefaultAsync(p => p.Id == req.ProductId);
         if (product is null) return BadRequest(new { success = false, message = "Choose the product." });
 
@@ -269,7 +273,7 @@ public class FeedbackController : ControllerBase
             ProductId = product.Id,
             CustomerId = cust?.Id,
             Rating = (short)f.Rating,
-            Body = f.Message.Trim(),
+            Body = body,
             OrderId = orderId.Length > 0 ? orderId : null,
             Status = "approved",
         };
