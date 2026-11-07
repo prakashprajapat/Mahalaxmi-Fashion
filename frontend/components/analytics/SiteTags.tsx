@@ -107,6 +107,14 @@ export default async function SiteTags() {
         </>
       )}
 
+      {/* The Google Ads click a visitor arrived with (gclid / gbraid / wbraid),
+          kept 90 days in a first-party cookie, so the order placed later can
+          be sent to Google Ads from the server (GoogleAdsConversions). Fixed
+          code, nothing from settings is written into it. */}
+      <Script id="gads-click" strategy="afterInteractive">
+        {`try{var q=new URLSearchParams(location.search);var k=['gclid','gbraid','wbraid'].find(function(n){return q.get(n)});if(k){var v=q.get(k);if(/^[A-Za-z0-9_-]{10,280}$/.test(v)){document.cookie='mfh_gclid='+k+':'+v+';path=/;max-age=7776000;SameSite=Lax'+(location.protocol==='https:'?';Secure':'');}}}catch(e){}`}
+      </Script>
+
       {/* Google Tag Manager — admin-configurable (Settings → SEO). Lazy-loaded. */}
       {gtmId && (
         <Script id="gtm-init" strategy="lazyOnload">

@@ -1026,6 +1026,17 @@ public class OrdersController : ControllerBase
             }
         }
 
+        // The Google Ads click behind this order (gclid / gbraid / wbraid), so
+        // the purchase can be told to Google Ads from the server - see
+        // GoogleAdsConversions. Read from the shopper's own cookies.
+        try
+        {
+            var placed = existing ?? _db.SiteOrders.Local.FirstOrDefault(o => o.OrderId == orderId);
+            if (placed is not null && string.IsNullOrEmpty(placed.GadsClick))
+                placed.GadsClick = Services.GoogleAdsConversions.ClickFromCookies(Request.Cookies);
+        }
+        catch { /* never in the way of an order */ }
+
         await _db.SaveChangesAsync();
         await tx.CommitAsync();
 

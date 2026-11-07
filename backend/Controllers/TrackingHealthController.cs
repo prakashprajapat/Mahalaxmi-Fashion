@@ -42,7 +42,9 @@ public class TrackingHealthController : ControllerBase
             "facebookPixelId", "facebookPixelId2",
             "metaCapiAccessToken", "metaCapiAccessToken2",
             "metaCapiLastResult", "metaCapiLastSentAt", "metaCapiLastOkAt",
-            "ga4ApiSecret", "ga4MeasurementId");
+            "ga4ApiSecret", "ga4MeasurementId",
+            "googleAdsConversionActionId", "googleAdsRefreshToken", "googleAdsCustomerId",
+            "googleAdsServerConversions", "gadsLastUpload", "gadsLastOkAt");
 
         var pixel     = Get(s, "facebookPixelId");
         var capiToken = Get(s, "metaCapiAccessToken");
@@ -124,18 +126,94 @@ public class TrackingHealthController : ControllerBase
                     : "Orders reach Google Analytics only from the browser. One paid through a UPI redirect, "
                     + "or by anyone with an ad blocker, is not counted. Set the GA4 API secret in Settings to close that gap.",
             },
-            googleAds = new
+            googleAds = await GoogleAdsHealthAsync(s),
+        });
+    }
+
+    // Google Ads from the server (Services/GoogleAdsConversions).
+    private async Task<object> GoogleAdsHealthAsync(Dictionary<string, string> s)
+    {
+        var action = Get(s, "googleAdsConversionActionId");
+        var connected = Get(s, "googleAdsRefreshToken").Length > 0 && Get(s, "googleAdsCustomerId").Length > 0;
+        var off = Get(s, "googleAdsServerConversions").Equals("off", StringComparison.OrdinalIgnoreCase);
+        var last = Get(s, "gadsLastUpload");
+        var lastOk = Get(s, "gadsLastOkAt");
+        var since = DateTimeOffset.UtcNow.AddDays(-30);
+        var clicked = await _db.SiteOrders.CountAsync(o => o.CreatedAt >= since && o.GadsClick != null);
+        var sentOk = await _db.SiteOrders.CountAsync(o => o.CreatedAt >= since && o.GadsResult == "ok");
+        bool server = connected && action.Length > 0 && !off;
+        string verdict = !connected
+            ? "Browser only. Connect Google Ads first (Admin -> Google Ads -> Connect), then create the server conversion action here."
+            : action.Length == 0
+                ? "Browser only. Google Ads is connected; press \"Create the server conversion action\" below and every order that came from a Google Ads click is also sent from the server."
+                : off ? "Server uploads are switched off (Settings: googleAdsServerConversions = off)."
+                : $"Server connected. Orders from a Google Ads click are uploaded every 30 minutes. Last 30 days: {clicked} order(s) came from an ad click, {sentOk} accepted by Google Ads.";
+        return new
+        {
+            ok = server ? (bool?)true : null,
+            server, connected, actionId = action, lastUpload = last, lastOkAt = lastOk,
+            clicked, sentOk, verdict,
+        };
+    }
+
+    // POST /api/tracking-health/google-ads-action
+    // Makes the "Website purchase (server)" conversion action in Google Ads
+    // (type: import from clicks, category Purchase) and saves its id.
+    [HttpPost("google-ads-action")]
+    public async Task<IActionResult> CreateGoogleAdsAction()
+    {
+        var (token, err) = await Services.GoogleAdsConversions.AccessTokenAsync(_db);
+        if (token is null) return BadRequest(new { success = false, message = err });
+        var cid = new string(((await _db.SiteSettings.Where(x => x.Key == "googleAdsCustomerId").Select(x => x.Value).FirstOrDefaultAsync()) ?? "").Where(char.IsDigit).ToArray());
+        if (cid.Length < 10) return BadRequest(new { success = false, message = "Set the Google Ads Customer ID in Settings first." });
+        var (ok, body) = await Services.GoogleAdsConversions.PostAsync(_db, token, cid, "/conversionActions:mutate", new
+        {
+            operations = new[]
             {
-                // The Ads conversion is fired by the browser at checkout and
-                // nowhere else, so it has exactly the weaknesses the browser has.
-                ok = (bool?)null,
-                verdict = "The Google Ads conversion is sent by the shopper's browser at the end of checkout, "
-                        + "on every path including the return from a Cashfree redirect. "
-                        + "If the shopper blocks ad scripts, or never comes back from the gateway at all, "
-                        + "Google still never hears about that sale, and neither does an order typed in by hand here. "
-                        + "This is the likeliest reason Google Ads shows no conversions while orders exist.",
+                new
+                {
+                    create = new
+                    {
+                        name = $"Website purchase (server) {DateTime.UtcNow:yyyy-MM-dd}",
+                        type = "UPLOAD_CLICKS",
+                        category = "PURCHASE",
+                        status = "ENABLED",
+                        primaryForGoal = true,
+                        countingType = "ONE_PER_CLICK",
+                        valueSettings = new { defaultValue = 0, defaultCurrencyCode = "INR", alwaysUseDefaultValue = false },
+                    },
+                },
             },
         });
+        if (!ok)
+        {
+            var msg = body.Length > 400 ? body[..400] : body;
+            return BadRequest(new { success = false, message = "Google Ads refused: " + msg });
+        }
+        string? id = null;
+        try
+        {
+            using var d = System.Text.Json.JsonDocument.Parse(body);
+            var rn = d.RootElement.GetProperty("results")[0].GetProperty("resourceName").GetString() ?? "";
+            id = rn[(rn.LastIndexOf('/') + 1)..];
+        }
+        catch { }
+        if (string.IsNullOrEmpty(id)) return BadRequest(new { success = false, message = "Google Ads did not return the new action id." });
+        var row = await _db.SiteSettings.FirstOrDefaultAsync(x => x.Key == "googleAdsConversionActionId");
+        if (row is null) _db.SiteSettings.Add(new Models.SiteSetting { Key = "googleAdsConversionActionId", Value = id });
+        else row.Value = id;
+        await _db.SaveChangesAsync();
+        return Ok(new { success = true, actionId = id });
+    }
+
+    // POST /api/tracking-health/google-ads-upload - send waiting orders now.
+    [HttpPost("google-ads-upload")]
+    public async Task<IActionResult> UploadGoogleAdsNow()
+    {
+        var svc = ActivatorUtilities.CreateInstance<Services.GoogleAdsConversions>(HttpContext.RequestServices);
+        await svc.RunOnceAsync(_db, HttpContext.RequestAborted);
+        var last = await _db.SiteSettings.Where(x => x.Key == "gadsLastUpload").Select(x => x.Value).FirstOrDefaultAsync() ?? "";
+        return Ok(new { success = true, lastUpload = last });
     }
 
     /// <summary>

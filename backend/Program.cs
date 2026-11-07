@@ -164,6 +164,7 @@ builder.Services.AddHostedService<AbandonedCartService>();
 // payment nobody finished. The other five go from the code that handles
 // the event itself.
 builder.Services.AddHostedService<CustomerMessageService>();
+builder.Services.AddHostedService<GoogleAdsConversions>();
 
 // Pulls the shop's own reels off Instagram every six hours and keeps the
 // homepage strip filled. Singleton as well as a hosted service so the admin
@@ -648,6 +649,9 @@ using (var scope = app.Services.CreateScope())
         ALTER TABLE site_orders ADD COLUMN IF NOT EXISTS shiprocket_order_id VARCHAR(40);
         ALTER TABLE site_orders ADD COLUMN IF NOT EXISTS shiprocket_shipment_id VARCHAR(40);
         ALTER TABLE site_orders ADD COLUMN IF NOT EXISTS label_url TEXT;
+        ALTER TABLE site_orders ADD COLUMN IF NOT EXISTS gads_click VARCHAR(300);
+        ALTER TABLE site_orders ADD COLUMN IF NOT EXISTS gads_sent_at TIMESTAMPTZ;
+        ALTER TABLE site_orders ADD COLUMN IF NOT EXISTS gads_result VARCHAR(500);
     ");
     // State names typed as "TN", "BR", "tamilnadu" -> the proper name, once,
     // for orders, customers and saved addresses. New ones are tidied on save.

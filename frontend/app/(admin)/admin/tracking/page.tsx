@@ -10,7 +10,10 @@ interface Health {
     lastResult: string; lastSentAt: string; lastOkAt: string; verdict: string;
   };
   ga4: { ok: boolean; measurementId: string; verdict: string };
-  googleAds: { ok: boolean | null; verdict: string };
+  googleAds: {
+    ok: boolean | null; verdict: string; server?: boolean; connected?: boolean; actionId?: string;
+    lastUpload?: string; lastOkAt?: string; clicked?: number; sentOk?: number;
+  };
 }
 
 function when(raw: string) {
@@ -25,6 +28,19 @@ export default function TrackingHealthPage() {
   const [loading, setLoading] = useState(true);
   const [testing, setTesting] = useState(false);
   const [testMsg, setTestMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [gadsBusy, setGadsBusy] = useState(false);
+  const [gadsMsg, setGadsMsg] = useState('');
+  const gadsCall = async (path: string) => {
+    setGadsBusy(true); setGadsMsg('');
+    try {
+      const r = await fetch(`/api/tracking-health/${path}`, { method: 'POST', headers: { Authorization: `Bearer ${getAdminToken() ?? ''}` } });
+      const b = await r.json().catch(() => ({}));
+      setGadsMsg(b.success ? (path === 'google-ads-action' ? `Created. Action id ${b.actionId}.` : 'Sent. Result below.') : (b.message || 'Did not work.'));
+      await load();
+    } finally { setGadsBusy(false); }
+  };
+  const createGadsAction = () => gadsCall('google-ads-action');
+  const uploadGadsNow = () => gadsCall('google-ads-upload');
 
   const load = async () => {
     setLoading(true);
@@ -78,7 +94,8 @@ export default function TrackingHealthPage() {
                   tone={h.meta.ok ? 'green' : 'red'} />
             <Stat label="Google Analytics" value={h.ga4.ok ? 'Connected' : 'Browser only'}
                   tone={h.ga4.ok ? 'green' : 'red'} />
-            <Stat label="Google Ads" value="Browser only" />
+            <Stat label="Google Ads" value={h.googleAds.server ? 'Server connected' : 'Browser only'}
+                  tone={h.googleAds.server ? 'green' : undefined} />
           </StatGrid>
 
           <Card title="Meta — Facebook and Instagram ads"
@@ -146,8 +163,38 @@ export default function TrackingHealthPage() {
             <Verdict ok={h.ga4.ok} text={h.ga4.verdict} />
           </Card>
 
-          <Card title="Google Ads">
+          <Card title="Google Ads"
+                style={h.googleAds.server ? { borderColor: '#cfe8d3', background: '#f3faf4' } : undefined}>
             <Verdict ok={h.googleAds.ok} text={h.googleAds.verdict} />
+            {h.googleAds.lastUpload && (() => {
+              const [at, ...rest] = h.googleAds.lastUpload.split('|');
+              return (
+                <pre style={{ background: '#fff', border: '1px solid #eee', borderRadius: 8, padding: '.6rem .8rem', fontSize: '.8rem', whiteSpace: 'pre-wrap', margin: '.6rem 0' }}>
+                  {rest.join('|')}{'\n'}at {when(at)}
+                </pre>
+              );
+            })()}
+            <div style={{ display: 'flex', gap: '.5rem', flexWrap: 'wrap', marginTop: '.5rem' }}>
+              {h.googleAds.connected && !h.googleAds.actionId && (
+                <button className="adm-btn adm-btn-primary" disabled={gadsBusy} onClick={createGadsAction}>
+                  {gadsBusy ? 'Working…' : 'Create the server conversion action'}
+                </button>
+              )}
+              {h.googleAds.server && (
+                <button className="adm-btn" disabled={gadsBusy} onClick={uploadGadsNow}>
+                  {gadsBusy ? 'Sending…' : 'Send waiting orders now'}
+                </button>
+              )}
+              {!h.googleAds.connected && <a className="adm-btn" href="/admin/google-ads">Connect Google Ads</a>}
+            </div>
+            {gadsMsg && <p style={{ fontSize: '.85rem', fontWeight: 600, marginTop: '.5rem' }}>{gadsMsg}</p>}
+            {h.googleAds.actionId && (
+              <p style={{ fontSize: '.78rem', color: '#777', marginTop: '.5rem' }}>
+                Conversion action id {h.googleAds.actionId}. In Google Ads → Goals → Conversions, keep this
+                &ldquo;Website purchase (server)&rdquo; action as <b>Primary</b> and set the old browser purchase action to
+                <b> Secondary</b>, so one sale is not counted twice.
+              </p>
+            )}
           </Card>
         </>
       )}

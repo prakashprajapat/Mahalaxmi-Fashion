@@ -155,6 +155,16 @@ public class SiteOrder
     [Column("label_url")]
     public string? LabelUrl { get; set; }
 
+    /// <summary>The Google Ads click this order came from: "gclid:...", "gbraid:..." or "wbraid:...".</summary>
+    [Column("gads_click")]
+    public string? GadsClick { get; set; }
+    /// <summary>When the purchase was sent to Google Ads from the server (null = not yet / nothing to send).</summary>
+    [Column("gads_sent_at")]
+    public DateTimeOffset? GadsSentAt { get; set; }
+    /// <summary>"ok" or Google's reason it was refused.</summary>
+    [Column("gads_result")]
+    public string? GadsResult { get; set; }
+
     [Column("created_at")]
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 

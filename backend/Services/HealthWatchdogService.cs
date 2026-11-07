@@ -140,6 +140,13 @@ Checked: {IndiaTime.Now:dd MMM yyyy, h:mm tt} IST</p>"));
         _lastSignature = signature;
         _lastSentAt = now;
         _log.LogWarning("Health watchdog alert sent: {Signature}", signature);
+
+        // A failed deploy is news once, not a standing fault: the site is
+        // running on the previous version. Before this, the marker was only
+        // removed when NOTHING was wrong - but the marker itself was the thing
+        // wrong, so "Problem still there" came back every few hours for ever.
+        if (deployNote is not null)
+            try { if (File.Exists(marker)) File.Delete(marker); } catch { /* next round */ }
     }
 
     /// <summary>

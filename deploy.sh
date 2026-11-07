@@ -631,6 +631,8 @@ echo "   Warming the image cache..."
 # The two `timeout 600 xargs` above cap the thing that actually takes the
 # time, which is what the watchdog was reaching for. No pid to get wrong.
 pm2 status
+# A deploy that got this far went live, so any old failure note is stale.
+rm -f /var/www/mahalaxmi-backend/DEPLOY-FAILED /var/www/mahalaxmi-backend-*/DEPLOY-FAILED 2>/dev/null || true
 echo "=== Deploy complete ==="
 if [ -n "${TARGET:-}" ]; then
   echo
