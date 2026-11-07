@@ -2987,7 +2987,7 @@ public class OrdersController : ControllerBase
     [HttpPost("{orderId}/generate-awb")]
     [Authorize]
     [RequirePerm("orders")]
-    public async Task<IActionResult> GenerateAwb(string orderId)
+    public async Task<IActionResult> GenerateAwb(string orderId, [FromQuery] string? courier = null)
     {
         var order = await _db.SiteOrders.FirstOrDefaultAsync(o => o.OrderId == orderId);
         if (order is null)
@@ -3025,8 +3025,12 @@ public class OrdersController : ControllerBase
         // Delhivery first. Shiprocket where Delhivery does not go: the pincode is
         // not in its list, is under an embargo, or has no COD for a COD order -
         // or Delhivery refuses the shipment for one of those reasons.
-        var dlPin = await _delhivery.CheckPincodeAsync(to.Pincode);
-        var useShiprocket = dlPin.Known && (!dlPin.Serviceable || (isCod && !dlPin.Cod));
+        // The admin picked Shiprocket in the AWB box: straight to Shiprocket.
+        var wantShiprocket = string.Equals((courier ?? "").Trim(), "shiprocket", StringComparison.OrdinalIgnoreCase);
+        var dlPin = wantShiprocket
+            ? new Services.DelhiveryService.PinCheck(false, false, false, null, null)
+            : await _delhivery.CheckPincodeAsync(to.Pincode);
+        var useShiprocket = wantShiprocket || (dlPin.Known && (!dlPin.Serviceable || (isCod && !dlPin.Cod)));
         string? delhiveryError = null;
         if (!useShiprocket)
         {
@@ -3035,7 +3039,10 @@ public class OrdersController : ControllerBase
             {
                 delhiveryError = result.Error ?? "Delhivery AWB generation failed.";
                 var e = delhiveryError.ToLowerInvariant();
-                if (!(e.Contains("embargo") || e.Contains("serviceab") || e.Contains("non serviceable") || e.Contains("pincode")))
+                // Also when the Delhivery wallet is empty ("insufficient balance"):
+                // the parcel still has to go, and Shiprocket is set up for it.
+                if (!(e.Contains("embargo") || e.Contains("serviceab") || e.Contains("non serviceable") || e.Contains("pincode")
+                      || e.Contains("insufficient balance") || e.Contains("wallet")))
                     return BadRequest(new { success = false, message = delhiveryError });
                 useShiprocket = true;
             }

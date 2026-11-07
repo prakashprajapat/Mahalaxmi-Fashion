@@ -277,7 +277,10 @@ export default function AdminOrdersPage() {
       for (const o of pending) {
         setGenAwbId(o.id);
         try {
-          const r = await ordersApi.generateAwb(o.id, getAdminToken() ?? '');
+          // Shiprocket chosen in the Delivery Partner box = straight to Shiprocket;
+          // otherwise Delhivery first, Shiprocket where Delhivery cannot.
+          const r = await ordersApi.generateAwb(o.id, getAdminToken() ?? '',
+            newStatus.toLowerCase().startsWith('shiprocket') ? 'shiprocket' : undefined);
           if (r.awb) {
             made++;
             const courier = r.order?.courier || 'Delhivery';

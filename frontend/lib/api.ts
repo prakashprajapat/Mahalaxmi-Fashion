@@ -285,9 +285,9 @@ export const ordersApi = {
     ),
 
   // Auto-generate a forward Delhivery AWB for an order.
-  generateAwb: (orderId: string, token: string) =>
+  generateAwb: (orderId: string, token: string, courier?: string) =>
     request<{ success: boolean; awb?: string; order?: import('@/types').Order; message?: string }>(
-      `/orders/${orderId}/generate-awb`, { method: 'POST' }, token
+      `/orders/${orderId}/generate-awb${courier ? `?courier=${encodeURIComponent(courier)}` : ''}`, { method: 'POST' }, token
     ),
   // Save (or clear, with '') the OTP Delhivery asks for when a return is handed back.
   setReturnOtp: (orderId: string, otp: string, token: string) =>
